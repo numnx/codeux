@@ -18,7 +18,6 @@ import { fetchSystemSettings } from "../../lib/settings-api.js";
 import {
   getDefaultModelOptionLabel,
   getDefaultRouteOptionLabel,
-  getProviderDisplayMetadata,
   getVirtualProviderDisplayMetadata,
 } from "../../lib/settings-view-models.js";
 import { useProjectData } from "../../context/project-data.js";
@@ -49,6 +48,7 @@ import {
   buildActualActiveRunsMap,
   buildActiveRunsMap,
   buildDisplaySprints,
+  getDefaultPlanningProviderMetadata,
   buildPauseResumeRunsMap,
   buildPlanningConnection,
   buildPlanningRoute,
@@ -385,14 +385,8 @@ export function useSprintsPageData() {
     [systemSettings],
   );
   const defaultVirtualProvider = useMemo(
-    () => workerMode?.virtualWorkerProvider
-      ? getProviderDisplayMetadata(
-        systemSettings,
-        workerMode.virtualWorkerProvider,
-        effectiveSettings?.settings.workers.model,
-      )
-      : null,
-    [effectiveSettings?.settings.workers.model, systemSettings, workerMode?.virtualWorkerProvider],
+    () => getDefaultPlanningProviderMetadata(effectiveSettings?.settings, systemSettings),
+    [effectiveSettings?.settings, systemSettings],
   );
   const defaultRouteOptionLabel = useMemo(
     () => getDefaultRouteOptionLabel(defaultVirtualProvider),

@@ -1,11 +1,18 @@
 import type { SprintStatus } from "../../types.js";
 import type { Sprint } from "../../types.js";
 import { filterShowcaseSprints, sortSprintsByRecency } from "../../lib/sprint-gallery.js";
-import type { SystemSettings } from "../../../types.js";
+import type { DashboardSettings, ProviderConfigId, ProviderId, SystemSettings } from "../../../types.js";
 import {
   getProviderDisplayMetadata,
   getVirtualProviderDisplayMetadata,
+  type ProviderDisplayMetadata,
 } from "../../lib/settings-view-models.js";
+import {
+  AI_MODEL_CATALOG,
+  DEFAULT_INVOCATION_ROUTING,
+  DEFAULT_PROVIDER_CONFIG_NAMES,
+  DEFAULT_PROVIDER_SETTINGS,
+} from "../../../../../src/repositories/settings-defaults.js";
 
 const ACTIVE_CONNECTION_STATUSES = new Set(["connected", "listening", "idle"]);
 const IN_WORK_STATUSES = new Set<SprintStatus>(["running", "paused"]);
@@ -144,6 +151,70 @@ export function buildPlanningRoute(
   return {
     available: false,
     label: null,
+  };
+}
+
+const resolvePlanningRouteWorkerModel = (
+  provider: ProviderId,
+  workerModel: string | null | undefined,
+  fallbackModel: string,
+): string => {
+  if (provider === "jules") {
+    return fallbackModel;
+  }
+
+  const normalizedModel = typeof workerModel === "string" ? workerModel.trim() : "";
+  if (!normalizedModel || normalizedModel === "default") {
+    return fallbackModel;
+  }
+
+  return (AI_MODEL_CATALOG[provider] || []).includes(normalizedModel)
+    ? normalizedModel
+    : fallbackModel;
+};
+
+export function getDefaultPlanningProviderMetadata(
+  effectiveSettings: DashboardSettings | null | undefined,
+  systemSettings: SystemSettings | null = null,
+): ProviderDisplayMetadata | null {
+  if (!effectiveSettings) {
+    return null;
+  }
+
+  const route = effectiveSettings.aiProvider.invocationRouting?.planning || DEFAULT_INVOCATION_ROUTING.planning;
+  const inheritedProviderConfigId = route.profile === "WORKER"
+    ? effectiveSettings.workers.virtualWorkerProvider
+    : effectiveSettings.aiProvider.provider;
+  const providerConfigId = route.provider || inheritedProviderConfigId;
+  if (!providerConfigId) {
+    return null;
+  }
+
+  const baseMetadata = getProviderDisplayMetadata(systemSettings, providerConfigId);
+  const providerSettings = effectiveSettings.aiProvider.providers[providerConfigId];
+  const provider = providerSettings?.provider || baseMetadata?.provider;
+  if (!provider) {
+    return baseMetadata;
+  }
+
+  const routeModelOverride = route.providers[providerConfigId]?.model?.trim();
+  const baseModel = providerSettings?.model?.trim()
+    || baseMetadata?.effectiveModel?.trim()
+    || DEFAULT_PROVIDER_SETTINGS[provider].model;
+  const effectiveModel = routeModelOverride
+    || (route.profile === "WORKER" && providerConfigId === inheritedProviderConfigId
+      ? resolvePlanningRouteWorkerModel(provider, effectiveSettings.workers.model, baseModel)
+      : baseModel);
+  const displayLabel = providerSettings?.name?.trim()
+    || baseMetadata?.displayLabel
+    || DEFAULT_PROVIDER_CONFIG_NAMES[provider];
+
+  return {
+    providerConfigId: providerConfigId as ProviderConfigId,
+    provider,
+    displayLabel,
+    iconProviderId: provider,
+    effectiveModel,
   };
 }
 
