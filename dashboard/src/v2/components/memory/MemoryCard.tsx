@@ -90,11 +90,6 @@ export const MemoryCard: FunctionComponent<MemoryCardProps> = memo(({
                     <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: cat.hex }}>
                         {cat.label}
                     </span>
-                    {isSelected.value && (
-                        <span aria-hidden="true" className="text-[10px] font-bold uppercase tracking-[0.14em] text-signal-500 bg-signal-500/10 px-1.5 py-0.5 rounded ml-2">
-                            Selected
-                        </span>
-                    )}
                 </div>
                 <span className="text-[10px] font-mono text-slate-400">{Math.round(strength * 100)}%</span>
             </div>

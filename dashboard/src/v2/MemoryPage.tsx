@@ -709,7 +709,7 @@ export const MemoryPage: FunctionComponent = () => {
 
     /* ─── Render ──────────────────────────────────────────────────────── */
     return (
-        <PageContainer padding="section" className="gap-8">
+        <PageContainer aria-label="Memory" padding="section" className="gap-8">
 
             <div aria-hidden className="fixed inset-0 pointer-events-none -z-10">
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_40%,rgba(0,224,160,0.04)_0%,transparent_70%)]
@@ -894,7 +894,7 @@ export const MemoryPage: FunctionComponent = () => {
 
                 {/* Empty state */}
                 {!loading && memoryCount === 0 && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none z-20" aria-live="polite" aria-atomic="true">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none z-20">
                         <Brain className="w-12 h-12 text-signal-500/20" strokeWidth={1.5} />
                         <p className="text-lg font-black font-display tracking-tight text-slate-400/60">
                             No memories yet
@@ -906,8 +906,7 @@ export const MemoryPage: FunctionComponent = () => {
                 )}
 
                 {loading && (
-                    <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none" aria-live="polite" aria-atomic="true">
-                        <span className="sr-only">Loading memories</span>
+                    <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
                         <Loader2 className="w-8 h-8 text-signal-500/40 animate-spin" strokeWidth={1.5} />
                     </div>
                 )}
