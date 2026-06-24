@@ -99,6 +99,10 @@ export interface SprintComposerState {
   setWorkerAgentPresetId: (id: string | null) => void;
   sprintKeyOverride: string;
   setSprintKeyOverride: (val: string) => void;
+  hasAttemptedSubmit: boolean;
+  setHasAttemptedSubmit: (val: boolean) => void;
+  hasAttemptedImprove: boolean;
+  setHasAttemptedImprove: (val: boolean) => void;
   isEditing: boolean;
   hasTasks: boolean;
   availableModes: CreateMode[];
@@ -171,6 +175,8 @@ export const useSprintComposerState = (
   const [agentRoutingMode, setAgentRoutingMode] = useState<AgentRoutingMode>(defaults.agentRoutingMode || "MANUAL");
   const [workerAgentPresetId, setWorkerAgentPresetId] = useState<string | null>(defaults.workerAgentPresetId || null);
   const [sprintKeyOverride, setSprintKeyOverride] = useState<string>(defaultSprintKey);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [hasAttemptedImprove, setHasAttemptedImprove] = useState(false);
 
   const isEditing = Boolean(initialSprint);
   const hasTasks = Boolean(initialSprint && initialSprint.tasksCount > 0);
@@ -186,6 +192,8 @@ export const useSprintComposerState = (
     setAgentRoutingMode(defaults.agentRoutingMode || "MANUAL");
     setWorkerAgentPresetId(defaults.workerAgentPresetId || null);
     setSprintKeyOverride(defaultSprintKey);
+    setHasAttemptedSubmit(false);
+    setHasAttemptedImprove(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSprint?.id]);
 
@@ -202,6 +210,8 @@ export const useSprintComposerState = (
     agentRoutingMode, setAgentRoutingMode,
     workerAgentPresetId, setWorkerAgentPresetId,
     sprintKeyOverride, setSprintKeyOverride,
+    hasAttemptedSubmit, setHasAttemptedSubmit,
+    hasAttemptedImprove, setHasAttemptedImprove,
     isEditing,
     hasTasks,
     availableModes,

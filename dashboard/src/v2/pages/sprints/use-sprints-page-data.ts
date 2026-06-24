@@ -151,7 +151,7 @@ export function useSprintsPageData() {
       try {
         const eta = await fetchSprintComposerEta(projectId);
         const estimatedMs =
-          Number.isFinite(eta.estimatedMs) && eta.estimatedMs > 0
+          eta && Number.isFinite(eta.estimatedMs) && eta.estimatedMs > 0
             ? eta.estimatedMs
             : DEFAULT_PLANNING_ETA_MS;
         setPlanningEta(estimatedMs);

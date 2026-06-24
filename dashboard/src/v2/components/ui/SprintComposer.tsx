@@ -124,8 +124,6 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   const { feedback: actionFeedback, setPending, setSuccess, setError, clearFeedback } = useActionFeedback();
   const [touchedName, setTouchedName] = useState(false);
   const [touchedGoal, setTouchedGoal] = useState(false);
-  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
-  const [hasAttemptedImprove, setHasAttemptedImprove] = useState(false);
   const reducedMotion = useReducedMotion();
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isOverlayDismissed, setIsOverlayDismissed] = useState(false);
@@ -288,7 +286,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     activeRequestRef.current = null;
     setIsImproving(false);
     setIsSubmitting(false);
-    clearFeedback();
+    setError("Planning request cancelled.", { autoDismiss: true });
     if (previousFocusRef.current) {
       const el = previousFocusRef.current;
       setTimeout(() => el.focus(), 0);
@@ -313,8 +311,8 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   const handleImprovePrompt = async (): Promise<void> => {
     if (!onImprovePrompt) return;
     if (!state.name.trim() || !state.goal.trim()) {
-      setHasAttemptedSubmit(true);
-      setHasAttemptedImprove(true);
+      state.setHasAttemptedSubmit(true);
+      state.setHasAttemptedImprove(true);
       return;
     }
     previousFocusRef.current = document.activeElement as HTMLElement | null;
@@ -381,7 +379,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   const handleSubmit = async (event: Event) => {
     event.preventDefault();
     if (!state.name.trim()) {
-      setHasAttemptedSubmit(true);
+      state.setHasAttemptedSubmit(true);
       return;
     }
 
@@ -630,30 +628,36 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             }`}>
               <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Model Override</div>
               <div className="mt-2">
-                <AvantgardeSelect
-                  variant="compact"
-                  aria-label="Model Override"
-                  disabled={!showModelOverride || isBusy}
-                  value={state.modelOverride || ""}
-                  onChange={(val) => state.setModelOverride(val || null)}
-                  options={[
-                    {
-                      value: "",
-                      label: defaultModelLabel,
-                      icon: modelProviderId
-                        ? () => renderProviderIcon(modelProviderId)
-                        : undefined,
-                    },
-                    ...modelOptions.map(opt => ({
-                      value: opt.value,
-                      label: opt.label,
-                      icon: modelProviderId
-                        ? () => renderProviderIcon(modelProviderId)
-                        : undefined,
-                    })),
-                  ]}
-                  placeholder={defaultModelLabel}
-                />
+                {(() => {
+                  const showModelError = (state.hasAttemptedSubmit || state.hasAttemptedImprove) && showModelOverride && !state.modelOverride;
+                  return (
+                    <AvantgardeSelect
+                      variant="compact"
+                      aria-label="Model Override"
+                      disabled={!showModelOverride || isBusy}
+                      invalid={showModelError}
+                      value={state.modelOverride || ""}
+                      onChange={(val) => state.setModelOverride(val || null)}
+                      options={[
+                        {
+                          value: "",
+                          label: defaultModelLabel,
+                          icon: modelProviderId
+                            ? () => renderProviderIcon(modelProviderId)
+                            : undefined,
+                        },
+                        ...modelOptions.map(opt => ({
+                          value: opt.value,
+                          label: opt.label,
+                          icon: modelProviderId
+                            ? () => renderProviderIcon(modelProviderId)
+                            : undefined,
+                        })),
+                      ]}
+                      placeholder={defaultModelLabel}
+                    />
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -661,7 +665,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
           <label data-composer-stagger className="mt-8 block space-y-2">
             <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Sprint Name</span>
             {(() => {
-              const showNameError = (touchedName || hasAttemptedSubmit) && !state.name.trim();
+              const showNameError = (touchedName || state.hasAttemptedSubmit) && !state.name.trim();
               return (
                 <div className="relative">
                   <input
@@ -694,7 +698,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
               <button
                 type="button"
                 onClick={() => { void handleImprovePrompt(); }}
-                disabled={isBusy || !state.name.trim() || !state.goal.trim()}
+                disabled={isBusy}
                 aria-busy={isImproving}
                 className="inline-flex items-center gap-2 rounded-full border border-signal-500/20 bg-signal-500/[0.08] px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-600 transition-colors hover:bg-signal-500/[0.14] disabled:cursor-not-allowed disabled:opacity-50 dark:text-signal-300"
               >
@@ -791,7 +795,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                     : "border-black/[0.07] bg-black/[0.025] dark:border-white/[0.08] dark:bg-white/[0.03]"
               }`}>
                 {(() => {
-                  const showGoalError = (touchedGoal || hasAttemptedImprove) && !state.goal.trim();
+                  const showGoalError = (touchedGoal || state.hasAttemptedImprove) && !state.goal.trim();
                   return (
                     <div className="relative h-full">
                       <textarea
@@ -945,7 +949,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             )}
             <button
               type="submit"
-              disabled={isBusy || !state.name.trim()}
+              disabled={isBusy}
               aria-busy={isSubmitting}
               className="inline-flex items-center justify-center gap-2.5 rounded-[1.2rem] bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-px hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-void-900"
             >
