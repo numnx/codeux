@@ -99,6 +99,7 @@ describe('StatsPage visual tests', () => {
   });
 
   it('renders empty states with new amber visual language', () => {
+    vi.spyOn(useProjectDataModule, 'useProjectData').mockReturnValue({ selectedProject: null } as any);
     vi.spyOn(useStatsPageDataModule, 'useStatsPageData').mockReturnValueOnce({
       stats: null,
       loading: false,
