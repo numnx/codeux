@@ -127,11 +127,12 @@ export const SprintLedgerHeader: FunctionComponent<SprintLedgerHeaderProps> = ({
               <button
                 type="button"
                 onClick={clearFilters}
+                title="Clear all filters"
+                aria-label="Clear all applied filters to show all sprints"
                 className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/20 bg-signal-500/10 px-3 py-1.5 text-xs font-bold text-signal-700 transition-colors hover:bg-signal-500/15 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:text-signal-300"
-                aria-label="Clear all filters"
               >
                 <X className="h-3.5 w-3.5" strokeWidth={2.2} />
-                Clear
+                Clear Filters
               </button>
             ) : null}
           </div>

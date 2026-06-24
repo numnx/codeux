@@ -9,6 +9,8 @@ import {
   Square,
 } from "lucide-preact";
 import { SkeletonRow } from "../layout/SkeletonLoader.js";
+import { INTERACTION_TOKENS } from "../../lib/motion/tokens.js";
+import { useResolvedMotionDuration } from "../../hooks/use-reduced-motion.js";
 import { resolveListWindow, type ListWindowOption } from "../../lib/list-window.js";
 import { useConfirmDialog } from "../../hooks/use-confirm-dialog.js";
 import { ConfirmDialog } from "../ui/ConfirmDialog.js";
@@ -186,6 +188,9 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
 
   const allFilteredSelected = ledgerSprints.length > 0 && ledgerSprints.every((s) => selectedIds.has(s.id));
 
+  const sortDuration = useResolvedMotionDuration(INTERACTION_TOKENS.controlFeedback.duration);
+  const sortEase = INTERACTION_TOKENS.controlFeedback.ease;
+
   const handleSort = (key: SprintTableSortKey) => {
     setSort((current) => nextSort(current, key));
   };
@@ -217,7 +222,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
   const handleBulkDelete = useCallback(async () => {
     const confirmed = await requestConfirm({
       title: "Delete Sprints?",
-      body: `Are you sure you want to permanently delete ${selectedFiltered.length} selected sprint${selectedFiltered.length === 1 ? "" : "s"}? This action cannot be undone. All associated tasks and execution history will be permanently removed.`,
+      body: `Are you sure you want to delete ${selectedFiltered.length} selected sprint${selectedFiltered.length === 1 ? "" : "s"}? This action is permanent and will cascade to all downstream tasks, logs, and associated git artifacts. Please ensure you have cleaned up your repository branches if needed before proceeding.`,
       confirmLabel: "Delete Sprints",
       cancelLabel: "Cancel",
       destructive: true,
@@ -225,7 +230,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
 
     if (confirmed) {
       onBulkDelete(selectedFiltered.map((s) => s.id));
-      setSelectedIds(deselectAll());
+      // Selection clears naturally as items are removed, keeping the pending state visible
     }
   }, [onBulkDelete, selectedFiltered, requestConfirm]);
 
@@ -254,11 +259,11 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
 
   const renderSortIndicator = (key: SprintTableSortKey) => {
     if (sort.key !== key) {
-      return <ArrowUpDown className="h-3 w-3 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-slate-600" strokeWidth={2.2} />;
+      return <ArrowUpDown aria-hidden="true" className="h-3 w-3 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-slate-600" strokeWidth={2.2} style={{ transitionDuration: sortDuration, transitionTimingFunction: sortEase }} />;
     }
     return sort.direction === "asc"
-      ? <ArrowUp className="h-3 w-3 text-signal-500" strokeWidth={2.2} />
-      : <ArrowDown className="h-3 w-3 text-signal-500" strokeWidth={2.2} />;
+      ? <ArrowUp aria-hidden="true" className="h-3 w-3 text-signal-500 opacity-100 transition-transform" strokeWidth={2.2} style={{ transitionDuration: sortDuration, transitionTimingFunction: sortEase }} />
+      : <ArrowDown aria-hidden="true" className="h-3 w-3 text-signal-500 opacity-100 transition-transform" strokeWidth={2.2} style={{ transitionDuration: sortDuration, transitionTimingFunction: sortEase }} />;
   };
 
   return (
@@ -408,7 +413,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-black/[0.06] bg-white/80 text-slate-400 dark:border-white/[0.08] dark:bg-white/[0.05]">
                       <Inbox className="h-5 w-5" strokeWidth={2.1} />
                     </div>
-                    <div className="mt-4 font-display text-xl font-bold text-slate-800 dark:text-white">
+                    <div aria-live="polite" className="mt-4 font-display text-xl font-bold text-slate-800 dark:text-white">
                       {filters.query || filters.qa !== "all" || filters.showcase !== "all" || filters.status !== "all"
                         ? "No matching sprints"
                         : "No sprints yet"}

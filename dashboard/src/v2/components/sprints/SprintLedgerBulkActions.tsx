@@ -32,6 +32,8 @@ export const SprintLedgerBulkActions: FunctionComponent<SprintLedgerBulkActionsP
   onClearSelection,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const { expansionCollapse } = GSAP_INTERACTION_TOKENS;
+  const { base: duration } = useGsapDurations();
 
   const durations = useGsapDurations();
 

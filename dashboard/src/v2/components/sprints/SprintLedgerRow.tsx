@@ -24,6 +24,8 @@ import type { ExecutionHumanInterventionSummary } from "../../../../../src/contr
 import { formatSprintKey, STATUS_LABELS } from "../../lib/sprint-ledger-state.js";
 import { useProjectEffectiveSettings } from "../../hooks/use-project-effective-settings.js";
 import { SprintControls } from "./SprintControls.js";
+import { INTERACTION_TOKENS } from "../../lib/motion/tokens.js";
+import { useResolvedMotionDuration } from "../../hooks/use-reduced-motion.js";
 import { TableRow, TableCell } from "../ui/Table.js";
 import { getSprintStatusPresentation } from "../../lib/sprint-status-presentation.js";
 import { computeSprintActionMenuPosition } from "../../lib/sprint-menu-positioning.js";
@@ -147,7 +149,11 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
   const isPauseResumePending = pendingPauseResumeActionId.length > 0 && pendingActionIds.has(pendingPauseResumeActionId);
   const isPinPending = pendingActionIds.has(pinActionId);
   const isDeletePending = pendingActionIds.has(deleteActionId);
-  const isRowPending = isTogglePending || isPauseResumePending || isPinPending || isDeletePending;
+  // The menu icon only needs to show a loader if deleting/pinning. toggle and pause are shown in their own controls.
+  const isRowPending = isPinPending || isDeletePending;
+
+  const duration = useResolvedMotionDuration(INTERACTION_TOKENS.selectionMovement.duration);
+  const ease = INTERACTION_TOKENS.selectionMovement.ease;
 
   const rowTone = isSelected
     ? "border-signal-500/35 bg-signal-500/[0.08] shadow-[0_18px_44px_rgba(0,224,160,0.12)]"
@@ -181,7 +187,8 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
 
   return (
     <TableRow
-      className={`group transition-all duration-300 hover:-translate-y-0.5 focus-within:ring-2 focus-within:ring-signal-500/20 ${rowTone} ${isCompleted ? "text-slate-500 dark:text-slate-400" : ""} ${isDeletePending ? "grayscale opacity-50" : ""} hover:bg-[var(--bg-hover-subtle)]`}
+      className={`group transition-all hover:-translate-y-0.5 focus-within:ring-2 focus-within:ring-signal-500/20 ${rowTone} ${isCompleted ? "text-slate-500 dark:text-slate-400" : ""} ${isDeletePending ? "grayscale opacity-50" : ""} hover:bg-[var(--bg-hover-subtle)]`}
+      style={{ transitionDuration: duration, transitionTimingFunction: ease }}
     >
       <TableCell isFirst className={`lg:w-[80px] lg:min-w-[80px] ${desktopCellTone}`}>
         <button
