@@ -197,6 +197,7 @@ Legacy runtime:
 - Top-nav project selector persists the active project in sqlite
 - Top-nav sprint selector persists the active sprint for the selected project
 - Top-nav search sits in the left header cluster beside the brand, while the active task counter uses the same compact height as the project, sprint, and worker selectors
+- Global Search preserves previous results during debounce to avoid layout shift, only polls for container previews when opened, and uses `aria-activedescendant` for keyboard navigation.
 - The Live Sprint Clock card in the Sprint Stats deck now shows a six-tile grid with Finished, Avg Finish, Accumulated, Input, Output, and Cached values, and the token tiles reuse the shared compact formatter from the Stats page.
 - Live runtime pages now use the persisted top-nav sprint selection as the page scope, so the Live view follows the selected sprint from the header menu
 - That selection is view-only for the dashboard surface; it does not change which sprint run is actually executing in the backend
