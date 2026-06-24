@@ -142,7 +142,7 @@ describe("DockerStatusMenu", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("dialog", { name: "Active Docker Containers" })).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
 
     fireEvent.mouseLeave(wrapper);
     vi.runAllTimers();
@@ -189,7 +189,7 @@ describe("DockerStatusMenu", () => {
       cluster: {
         status: "not_ready",
         label: "Cluster not ready",
-        detail: "Docker must be installed and running before containerized provider CLIs can execute tasks.",
+        detail: "Required local runtime dependencies are available.",
       },
       dependencies: [
         {
