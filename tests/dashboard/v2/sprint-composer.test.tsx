@@ -287,18 +287,27 @@ describe("SprintComposer", () => {
   });
 
   it("shows New Sprint secondary action and opens a fresh composer without cancelling", async () => {
-    let resolveSubmit: (val: any) => void;
-    const submitPromise = new Promise((resolve) => {
-      resolveSubmit = resolve;
+    let resolveFirstSubmit: (val: any) => void;
+    let resolveSecondSubmit: (val: any) => void;
+    const firstSubmitPromise = new Promise((resolve) => {
+      resolveFirstSubmit = resolve;
+    });
+    const secondSubmitPromise = new Promise((resolve) => {
+      resolveSecondSubmit = resolve;
     });
 
-    const mockOnSubmit = vi.fn(async () => submitPromise);
+    const mockOnSubmit = vi
+      .fn()
+      .mockReturnValueOnce(firstSubmitPromise)
+      .mockReturnValueOnce(secondSubmitPromise);
     const mockOnCancelPlanningRequest = vi.fn();
     const mockOnStartNewSprint = vi.fn();
+    const mockOnClose = vi.fn();
 
     const { getByText, getByPlaceholderText, getAllByText } = render(
       <SprintComposer
         {...defaultProps}
+        onClose={mockOnClose}
         onSubmit={mockOnSubmit}
         onCancelPlanningRequest={mockOnCancelPlanningRequest}
         onStartNewSprint={mockOnStartNewSprint}
@@ -321,7 +330,8 @@ describe("SprintComposer", () => {
     });
 
     expect(mockOnSubmit).toHaveBeenCalled();
-    expect(mockOnSubmit.mock.calls[0]?.[0]?.signal).toBeInstanceOf(AbortSignal);
+    const firstSignal = mockOnSubmit.mock.calls[0]?.[0]?.signal as AbortSignal;
+    expect(firstSignal).toBeInstanceOf(AbortSignal);
 
     // Click New Sprint
     const newSprintBtn = getByText("New Sprint");
@@ -329,6 +339,7 @@ describe("SprintComposer", () => {
 
     expect(mockOnStartNewSprint).toHaveBeenCalled();
     expect(mockOnCancelPlanningRequest).not.toHaveBeenCalled();
+    expect(firstSignal.aborted).toBe(false);
     expect((nameInput as HTMLInputElement).value).toBe("");
     fireEvent.input(nameInput, { target: { value: "Follow-up Sprint" } });
     const secondSubmitBtn = getAllByText("Plan & Start").pop()!;
@@ -336,8 +347,15 @@ describe("SprintComposer", () => {
     fireEvent.click(secondSubmitBtn);
     expect(mockOnSubmit).toHaveBeenCalledTimes(2);
 
-    // Resolve the promise to cleanup
-    resolveSubmit!(undefined);
+    resolveFirstSubmit!(undefined);
+    await Promise.resolve();
+    expect(mockOnClose).not.toHaveBeenCalled();
+    expect(secondSubmitBtn).toBeDisabled();
+
+    resolveSecondSubmit!(undefined);
+    await waitFor(() => {
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
   });
 });
 

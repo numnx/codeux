@@ -92,10 +92,14 @@ type BuiltinPurposeOption = {
   description?: string;
 };
 
+interface QuicksprintExecutionOptions {
+  shouldHandleResult?: () => boolean;
+}
+
 interface QuicksprintPanelProps {
   projectId: string;
   onClose: () => void;
-  onExecute: (templateId: string, taskCount: number, submitMode: "plan_only" | "plan_and_start", additionalPrompt?: string, routeOverride?: PlanningRouteOption | null, modelOverride?: string | null, signal?: AbortSignal) => Promise<void>;
+  onExecute: (templateId: string, taskCount: number, submitMode: "plan_only" | "plan_and_start", additionalPrompt?: string, routeOverride?: PlanningRouteOption | null, modelOverride?: string | null, signal?: AbortSignal, options?: QuicksprintExecutionOptions) => Promise<void>;
   templates: QuicksprintTemplateRecord[];
   loading?: boolean;
   agentPresets?: AgentPreset[];
@@ -176,6 +180,8 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isOverlayDismissed, setIsOverlayDismissed] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const activeRequestRef = useRef<{ id: number; detached: boolean; cancelled: boolean } | null>(null);
+  const requestCounterRef = useRef(0);
   const isBusy = executingMode !== null;
 
   const selectedTemplate = useMemo(
@@ -379,28 +385,59 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
 
   /* ── Execute ────────────────────────────────────────────────────── */
   const handleExecute = useCallback(async (mode: "plan_only" | "plan_and_start") => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate || activeRequestRef.current) return;
     setExecutingMode(mode);
     setIsOverlayDismissed(false);
     setElapsedMs(0);
 
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
     const ac = new AbortController();
+    const requestId = requestCounterRef.current + 1;
+    requestCounterRef.current = requestId;
+    activeRequestRef.current = { id: requestId, detached: false, cancelled: false };
     abortControllerRef.current = ac;
+    const shouldHandleResult = (): boolean => {
+      const activeRequest = activeRequestRef.current;
+      return !!activeRequest
+        && activeRequest.id === requestId
+        && !activeRequest.detached
+        && !activeRequest.cancelled;
+    };
 
     try {
-      await onExecute(selectedTemplate.id, taskCount, mode, additionalPrompt.trim() || undefined, routeOverride, modelOverride, ac.signal);
+      await onExecute(
+        selectedTemplate.id,
+        taskCount,
+        mode,
+        additionalPrompt.trim() || undefined,
+        routeOverride,
+        modelOverride,
+        ac.signal,
+        { shouldHandleResult },
+      );
+      if (shouldHandleResult()) {
+        onClose();
+      }
+    } catch {
+      // Error feedback is owned by the page action; detached requests must not affect the reset panel.
     } finally {
+      const activeRequest = activeRequestRef.current;
+      if (activeRequest?.id === requestId) {
+        activeRequestRef.current = null;
+      }
       if (abortControllerRef.current === ac) {
-        setExecutingMode(null);
         abortControllerRef.current = null;
       }
+      if (!activeRequest || activeRequest.id === requestId) {
+        setExecutingMode(null);
+      }
     }
-  }, [selectedTemplate, taskCount, additionalPrompt, onExecute, routeOverride, modelOverride]);
+  }, [selectedTemplate, taskCount, additionalPrompt, onExecute, onClose, routeOverride, modelOverride]);
 
   const handleCancelExecute = useCallback(() => {
+    if (activeRequestRef.current) {
+      activeRequestRef.current.cancelled = true;
+      activeRequestRef.current = null;
+    }
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -409,7 +446,19 @@ export const QuicksprintPanel: FunctionComponent<QuicksprintPanelProps> = ({
   }, []);
 
   const handleNewQuicksprint = useCallback(() => {
+    if (activeRequestRef.current) {
+      activeRequestRef.current.detached = true;
+    }
+    activeRequestRef.current = null;
+    abortControllerRef.current = null;
+    setExecutingMode(null);
     setIsOverlayDismissed(true);
+    setSelectedTemplateId(null);
+    setTaskCount(5);
+    setRouteOverride(null);
+    setModelOverride(null);
+    setShowPrompt(false);
+    setAdditionalPrompt("");
     setPhase("browse");
   }, []);
 
