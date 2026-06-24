@@ -6,6 +6,8 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 
 import { SprintLedger } from "../SprintLedger.js";
 import { SprintLedgerRow } from "../SprintLedgerRow.js";
+import { SprintLedgerHeader } from "../SprintLedgerHeader.js";
+import { SprintLedgerBulkActions } from "../SprintLedgerBulkActions.js";
 import type { Sprint } from "../../../types.js";
 
 expect.extend(matchers);
@@ -129,7 +131,7 @@ describe("SprintLedger Accessibility", () => {
       />
     );
 
-    const createdBtns = screen.getAllByRole("button", { name: /Sort by Created, currently sorted/i });
+    const createdBtns = screen.getAllByRole("button", { name: /Sort by Created\. Currently sorted/i });
     const createdBtn = createdBtns[0];
     expect(createdBtn).toBeInTheDocument();
 
@@ -194,6 +196,124 @@ describe("SprintLedger Accessibility", () => {
 
     const liveRegion = screen.getAllByText(/0 of 1 selected/i)[0].closest("div[aria-live]");
     expect(liveRegion).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("clears filters when the clear button is clicked", async () => {
+    const user = userEvent.setup();
+    const onFiltersChange = vi.fn();
+    render(
+      <SprintLedgerHeader
+        sprintsCount={10}
+        ledgerSprintsCount={5}
+        pinnedCount={0}
+        activeCount={0}
+        completedCount={0}
+        listWindow={10}
+        onListWindowChange={vi.fn()}
+        filters={{ query: "test", status: "all", showcase: "all", qa: "all" }}
+        onFiltersChange={onFiltersChange}
+      />
+    );
+    const clearBtn = screen.getByRole("button", { name: /Clear all applied filters/i });
+    await user.click(clearBtn);
+    expect(onFiltersChange).toHaveBeenCalledWith(expect.objectContaining({ query: "", status: "all", showcase: "all", qa: "all" }));
+  });
+
+  it("disables unrelated controls properly based on pending states", () => {
+    const { getAllByRole } = render(
+      <table>
+        <tbody>
+          <SprintLedgerRow
+            sprint={mockSprint}
+            isSelected={false}
+            isEven={false} activeRun={undefined} pauseResumeRun={undefined} humanIntervention={null} isAnyBulkPending={false}
+            pendingActionIds={new Set(["delete-mock"])}
+            onToggleRow={vi.fn()}
+            onToggleShowcase={vi.fn()}
+            onSprintToggle={vi.fn()}
+            onSprintPauseResume={vi.fn()}
+            onEdit={vi.fn()}
+            onExport={vi.fn()}
+            onOverrides={vi.fn()}
+            onMarkCompleted={vi.fn()}
+            onDelete={vi.fn()}
+          />
+        </tbody>
+      </table>
+    );
+    const startBtn = getAllByRole("button", { name: /Start Frontend Onboarding/i })[0];
+    expect(startBtn).not.toBeDisabled();
+  });
+
+  it("requests confirmation before bulk delete", async () => {
+    const user = userEvent.setup();
+    const onBulkDelete = vi.fn();
+    render(
+      <SprintLedger
+        sprints={[mockSprint]}
+        listWindow={10}
+        onListWindowChange={vi.fn()}
+        activeRunsBySprintId={new Map()}
+        pauseResumeRunsBySprintId={new Map()}
+        interventionBySprintId={new Map()}
+        pendingActionIds={new Set()}
+        onToggleShowcase={vi.fn()}
+        onSprintToggle={vi.fn()}
+        onSprintPauseResume={vi.fn()}
+        onBulkStart={vi.fn()}
+        onBulkDelete={onBulkDelete}
+        onEditSprint={vi.fn()}
+        onExportSprint={vi.fn()}
+        onOverridesSprint={vi.fn()}
+        onMarkCompletedSprint={vi.fn()}
+        onDeleteSprint={vi.fn()}
+        onBulkShowcaseEnable={vi.fn()}
+        onBulkShowcaseDisable={vi.fn()}
+      />
+    );
+
+    // Select the row
+    const checkbox = screen.getAllByRole("button", { name: /Select sprint Frontend Onboarding/i })[0];
+    await user.click(checkbox);
+
+    await vi.waitFor(() => expect(screen.getByText(/1 of 1 selected/i)).toBeInTheDocument());
+
+    // Click bulk delete
+    const bulkDeleteBtns = screen.getAllByRole("button", { name: /^Delete$/i });
+    const bulkDeleteBtn = bulkDeleteBtns[0];
+    await user.click(bulkDeleteBtn);
+
+    // Check for confirmation dialog
+    expect(await screen.findByText(/Delete Sprints\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/This action is permanent and will cascade/i)).toBeInTheDocument();
+  });
+
+  it("reveals and collapses bulk actions based on selection count", () => {
+    const { rerender } = render(
+      <SprintLedgerBulkActions
+        selectedCount={0}
+        totalCount={10}
+        onBulkStart={vi.fn()}
+        onBulkDelete={vi.fn()}
+        onBulkShowcaseEnable={vi.fn()}
+        onBulkShowcaseDisable={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/0 of 10 selected/i)).toBeInTheDocument();
+
+    rerender(
+      <SprintLedgerBulkActions
+        selectedCount={2}
+        totalCount={10}
+        onBulkStart={vi.fn()}
+        onBulkDelete={vi.fn()}
+        onBulkShowcaseEnable={vi.fn()}
+        onBulkShowcaseDisable={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/2 of 10 selected/i)).toBeInTheDocument();
   });
 
   it("has mobile labels mapped correctly via TableCell mobileLabel", () => {
