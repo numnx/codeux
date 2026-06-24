@@ -133,8 +133,12 @@ describe("SprintLedger Accessibility", () => {
     const createdBtn = createdBtns[0];
     expect(createdBtn).toBeInTheDocument();
 
-    const cell = createdBtn.closest("th");
-    expect(cell).toHaveAttribute("aria-sort", "descending");
+    const activeCell = createdBtn.closest("th");
+    expect(activeCell).toHaveAttribute("aria-sort", "descending");
+
+    const nameBtns = screen.getAllByRole("button", { name: /Sort by Sprint, currently sorted/i });
+    const inactiveCell = nameBtns[0].closest("th");
+    expect(inactiveCell).not.toHaveAttribute("aria-sort");
   });
 
   it("provides explicit names for row controls including the sprint name", () => {
@@ -227,3 +231,34 @@ describe("SprintLedger Accessibility", () => {
     expect(idLabel).toHaveClass("lg:hidden");
   });
 });
+
+
+  it("announces filter results politely", () => {
+    const { getByText } = render(
+      <SprintLedger
+        sprints={[mockSprint]}
+        listWindow={10}
+        onListWindowChange={vi.fn()}
+        activeRunsBySprintId={new Map()}
+        pauseResumeRunsBySprintId={new Map()}
+        interventionBySprintId={new Map()}
+        pendingActionIds={new Set()}
+        onToggleShowcase={vi.fn()}
+        onSprintToggle={vi.fn()}
+        onSprintPauseResume={vi.fn()}
+        onBulkStart={vi.fn()}
+        onBulkDelete={vi.fn()}
+        onEditSprint={vi.fn()}
+        onExportSprint={vi.fn()}
+        onOverridesSprint={vi.fn()}
+        onMarkCompletedSprint={vi.fn()}
+        onDeleteSprint={vi.fn()}
+        onBulkShowcaseEnable={vi.fn()}
+        onBulkShowcaseDisable={vi.fn()}
+      />
+    );
+    // 0 of 1 selected is already checked, but we added a "Showing 1 of 1 sprints" span
+    // Let's test the span with aria-live exists
+    const liveRegion = document.querySelector('span[aria-live="polite"][aria-atomic="true"]');
+    expect(liveRegion).toBeInTheDocument();
+  });
