@@ -9,11 +9,11 @@ const mockUseReducedMotion = vi.fn();
 // We need to ensure useResolvedMotionDuration inside useReducedMotionSafe re-runs properly when state changes in tests.
 // Let's ensure mockUseReducedMotion is properly affecting the return of useResolvedMotionDuration.
 vi.mock("../../../hooks/use-reduced-motion.js", async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal<typeof import("../../../hooks/use-reduced-motion.js")>();
   return {
     ...actual,
   useReducedMotion: () => mockUseReducedMotion(),
-    useResolvedMotionDuration: (duration) => {
+    useResolvedMotionDuration: (duration: string | number) => {
       const isReduced = mockUseReducedMotion();
       if (isReduced) {
         return typeof duration === "number" ? 0 : "0ms";
