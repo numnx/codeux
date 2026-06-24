@@ -18,4 +18,13 @@ describe('useDockHoverMotion Architectural Constraints', () => {
 
         expect(hookFileExists).toBe(false);
     });
+
+    it('should assert KineticDock respects useReducedMotion', () => {
+        const kineticDockPath = path.resolve(__dirname, '../../components/KineticDock.tsx');
+        if (fs.existsSync(kineticDockPath)) {
+            const content = fs.readFileSync(kineticDockPath, 'utf8');
+            expect(content).toContain('useReducedMotion');
+            expect(content).toContain('if (prefersReducedMotion)');
+        }
+    });
 });

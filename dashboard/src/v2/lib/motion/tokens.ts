@@ -1,3 +1,5 @@
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
+
 export const MOTION_TOKENS = {
   timing: {
     fast: "150ms",
@@ -34,3 +36,17 @@ export const INTERACTION_TOKENS = {
     ease: MOTION_TOKENS.easing.linear
   }
 } as const;
+
+export function useInteractionTokens() {
+  const reducedMotion = useReducedMotion();
+  if (reducedMotion) {
+    return {
+      controlFeedback: { ...INTERACTION_TOKENS.controlFeedback, duration: "0ms" },
+      enterExit: { ...INTERACTION_TOKENS.enterExit, duration: "0ms" },
+      expansionCollapse: { ...INTERACTION_TOKENS.expansionCollapse, duration: "0ms" },
+      selectionMovement: { ...INTERACTION_TOKENS.selectionMovement, duration: "0ms" },
+      asyncFeedback: { ...INTERACTION_TOKENS.asyncFeedback, duration: "0ms" }
+    };
+  }
+  return INTERACTION_TOKENS;
+}

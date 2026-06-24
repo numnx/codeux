@@ -47,3 +47,17 @@ export function useGsapDurations() {
   }
   return GSAP_DURATIONS;
 }
+
+export function useGsapInteractionTokens() {
+  const reducedMotion = useReducedMotion();
+  if (reducedMotion) {
+    return {
+      controlFeedback: { ...GSAP_INTERACTION_TOKENS.controlFeedback, duration: 0 },
+      enterExit: { ...GSAP_INTERACTION_TOKENS.enterExit, duration: 0 },
+      expansionCollapse: { ...GSAP_INTERACTION_TOKENS.expansionCollapse, duration: 0 },
+      selectionMovement: { ...GSAP_INTERACTION_TOKENS.selectionMovement, duration: 0 },
+      asyncFeedback: { ...GSAP_INTERACTION_TOKENS.asyncFeedback, duration: 0 }
+    };
+  }
+  return GSAP_INTERACTION_TOKENS;
+}

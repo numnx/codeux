@@ -11,6 +11,7 @@ import { BoatRaceShipsLayer } from "./boat-race/BoatRaceShip.js";
 import { SVG_W, SVG_H, TOW_LINE_LENGTH, BADGE_OFFSET } from "./boat-race/constants.js";
 import { useIsDark } from "./boat-race/utils.js";
 import { useBoatRaceAnimation } from "../hooks/useBoatRaceAnimation.js";
+import { useReducedMotion } from "../hooks/use-reduced-motion.js";
 
 /* ─── Props ──────────────────────────────────────────────────────────────── */
 
@@ -33,6 +34,7 @@ export const SprintBoatRace: FunctionComponent<BoatRaceProps> = ({ tasks, dispat
 
     const { activeShips, harbourCount, animatedPositionsSignal } = useBoatRaceAnimation(tasks, dispatches, hasSprintContext);
     const animatedPositions = animatedPositionsSignal.value;
+    const isReducedMotion = useReducedMotion();
 
     const raceHeightPx = useMemo(() => getBoatRaceHeightPx(activeShips.length), [activeShips.length]);
 
@@ -73,11 +75,12 @@ export const SprintBoatRace: FunctionComponent<BoatRaceProps> = ({ tasks, dispat
                     </div>
                     <div className="relative z-10 flex items-center justify-center py-10">
                         <div className="text-center">
-                            <div className="relative inline-flex items-center justify-center w-20 h-20 mb-6">
+                            <div className="relative inline-flex items-center justify-center w-20 h-20 mb-6" aria-busy="true" role="status">
                                 <div className="absolute inset-0 rounded-full border border-black/[0.04] dark:border-white/[0.04]" />
-                                <div className="absolute inset-2 rounded-full border border-black/[0.03] dark:border-white/[0.03] animate-[spin_30s_linear_infinite]" />
-                                <div className="absolute inset-4 rounded-full bg-signal-500/[0.06] animate-pulse" />
+                                <div className="absolute inset-2 rounded-full border border-black/[0.03] dark:border-white/[0.03] motion-safe:animate-[spin_30s_linear_infinite]" />
+                                <div className="absolute inset-4 rounded-full bg-signal-500/[0.06] motion-safe:animate-pulse" />
                                 <Anchor className="w-7 h-7 text-slate-400 dark:text-white/20" strokeWidth={1.2} />
+                                {isReducedMotion && <span className="sr-only">Loading</span>}
                             </div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-white/25">Fleet Awaiting Departure</p>
                             <p className="text-[11px] text-slate-400/60 dark:text-white/12 mt-3 font-mono max-w-xs mx-auto">

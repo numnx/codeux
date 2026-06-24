@@ -3,6 +3,7 @@ import { useSignal, type Signal } from "@preact/signals";
 import gsap from "gsap";
 import type { Subtask, ExecutionTaskDispatchSummary } from "../../types.js";
 import { getTaskProgressPhase } from "../../lib/task-progress.js";
+import { useReducedMotion } from "./use-reduced-motion.js";
 import {
     getBoatRaceTaskKey,
     buildBoatRaceDispatchIndex,
@@ -100,6 +101,7 @@ export const useBoatRaceAnimation = (
     dispatches: ExecutionTaskDispatchSummary[],
     hasSprintContext: boolean
 ) => {
+    const isReducedMotion = useReducedMotion();
     const activeShips = useMemo(() => {
         if (!hasSprintContext || tasks.length === 0) return [];
         const active = tasks.filter(isBoatRaceActiveTask);
@@ -161,9 +163,9 @@ export const useBoatRaceAnimation = (
                 gsap.to(state, {
                     opacity: 1,
                     scale: 1,
-                    duration: 1.6,
+                    duration: isReducedMotion ? 0 : 1.6,
                     ease: "power2.out",
-                    delay: i * 0.12,
+                    delay: isReducedMotion ? 0 : i * 0.12,
                 });
             }
 
@@ -188,23 +190,28 @@ export const useBoatRaceAnimation = (
                 }
             }
 
-            // X: Zeno's paradox drift toward target
-            if (!ship.progress.stopped && Math.abs(target - state.currentProgress) > 0.0005) {
-                const decay = 1 - Math.pow(0.5, dt / HALF_LIFE_MS);
-                state.currentProgress += (target - state.currentProgress) * decay;
-            }
-
-            // Y: Smoothly drift from current Y toward target lane
-            const targetY = ship.laneY;
-            const yDiff = targetY - state.currentY;
-            if (Math.abs(yDiff) > 0.5) {
-                const yDecay = 1 - Math.pow(0.5, dt / 3000); // ~3s half-life for lane spreading
-                state.currentY += yDiff * yDecay;
-                state.yWobblePhase += dt * 0.0008;
-                const wobble = Math.sin(state.yWobblePhase) * state.yWobbleOffset * Math.min(1, Math.abs(yDiff) / 30);
-                state.currentY += wobble * yDecay * 0.3;
+            if (isReducedMotion) {
+                state.currentProgress = target;
+                state.currentY = ship.laneY;
             } else {
-                state.currentY = targetY;
+                // X: Zeno's paradox drift toward target
+                if (!ship.progress.stopped && Math.abs(target - state.currentProgress) > 0.0005) {
+                    const decay = 1 - Math.pow(0.5, dt / HALF_LIFE_MS);
+                    state.currentProgress += (target - state.currentProgress) * decay;
+                }
+
+                // Y: Smoothly drift from current Y toward target lane
+                const targetY = ship.laneY;
+                const yDiff = targetY - state.currentY;
+                if (Math.abs(yDiff) > 0.5) {
+                    const yDecay = 1 - Math.pow(0.5, dt / 3000); // ~3s half-life for lane spreading
+                    state.currentY += yDiff * yDecay;
+                    state.yWobblePhase += dt * 0.0008;
+                    const wobble = Math.sin(state.yWobblePhase) * state.yWobbleOffset * Math.min(1, Math.abs(yDiff) / 30);
+                    state.currentY += wobble * yDecay * 0.3;
+                } else {
+                    state.currentY = targetY;
+                }
             }
 
             const checkPing = (cp: number) => {
