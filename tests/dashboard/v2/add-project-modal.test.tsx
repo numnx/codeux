@@ -120,6 +120,7 @@ describe("AddProjectModal", () => {
     const onAdd = vi.fn().mockResolvedValue(undefined);
     render(<AddProjectModal onClose={vi.fn()} onAdd={onAdd} initialSourceType="new_project" />);
 
+    fireEvent.click(screen.getByRole("button", { name: /local repo/i }));
     expect(screen.queryByLabelText(/git url slug/i)).not.toBeInTheDocument();
 
     const nameInput = screen.getByLabelText(/Project Name/i);
