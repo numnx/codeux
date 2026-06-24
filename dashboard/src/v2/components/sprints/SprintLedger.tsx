@@ -323,7 +323,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 type="button"
                 onClick={() => handleSort("showcasePinned")}
                 className="inline-flex items-center gap-2 rounded-lg transition-colors hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:hover:text-slate-200"
-                aria-label={`Sort by Showcase. Currently sorted ${sort.key === "showcasePinned" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort ${sort.key === "showcasePinned" && sort.direction === "asc" ? "descending" : "ascending"}.`}
+                aria-label={`Sort by Showcase, currently sorted ${sort.key === "showcasePinned" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort by Showcase in ${sort.key === "showcasePinned" && sort.direction === "asc" ? "descending" : "ascending"} order.`}
               >
                 Showcase
                 {renderSortIndicator("showcasePinned")}
@@ -334,7 +334,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 type="button"
                 onClick={() => handleSort("sprintKey")}
                 className="inline-flex items-center gap-2 rounded-lg transition-colors hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:hover:text-slate-200"
-                aria-label={`Sort by Sprint ID. Currently sorted ${sort.key === "sprintKey" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort ${sort.key === "sprintKey" && sort.direction === "asc" ? "descending" : "ascending"}.`}
+                aria-label={`Sort by Sprint ID, currently sorted ${sort.key === "sprintKey" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort by Sprint ID in ${sort.key === "sprintKey" && sort.direction === "asc" ? "descending" : "ascending"} order.`}
               >
                 Sprint ID
                 {renderSortIndicator("sprintKey")}
@@ -345,7 +345,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 type="button"
                 onClick={() => handleSort("name")}
                 className="inline-flex items-center gap-2 rounded-lg transition-colors hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:hover:text-slate-200"
-                aria-label={`Sort by Sprint. Currently sorted ${sort.key === "name" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort ${sort.key === "name" && sort.direction === "asc" ? "descending" : "ascending"}.`}
+                aria-label={`Sort by Sprint, currently sorted ${sort.key === "name" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort by Sprint in ${sort.key === "name" && sort.direction === "asc" ? "descending" : "ascending"} order.`}
               >
                 Sprint
                 {renderSortIndicator("name")}
@@ -356,7 +356,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 type="button"
                 onClick={() => handleSort("status")}
                 className="inline-flex items-center gap-2 rounded-lg transition-colors hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:hover:text-slate-200"
-                aria-label={`Sort by Status. Currently sorted ${sort.key === "status" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort ${sort.key === "status" && sort.direction === "asc" ? "descending" : "ascending"}.`}
+                aria-label={`Sort by Status, currently sorted ${sort.key === "status" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort by Status in ${sort.key === "status" && sort.direction === "asc" ? "descending" : "ascending"} order.`}
               >
                 Status
                 {renderSortIndicator("status")}
@@ -367,7 +367,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 type="button"
                 onClick={() => handleSort("tasksCount")}
                 className="inline-flex w-full items-center justify-end gap-2 rounded-lg transition-colors hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:hover:text-slate-200"
-                aria-label={`Sort by Tasks. Currently sorted ${sort.key === "tasksCount" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort ${sort.key === "tasksCount" && sort.direction === "asc" ? "descending" : "ascending"}.`}
+                aria-label={`Sort by Tasks, currently sorted ${sort.key === "tasksCount" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort by Tasks in ${sort.key === "tasksCount" && sort.direction === "asc" ? "descending" : "ascending"} order.`}
               >
                 {renderSortIndicator("tasksCount")}
                 Tasks
@@ -378,7 +378,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 type="button"
                 onClick={() => handleSort("completion")}
                 className="inline-flex w-full items-center justify-end gap-2 rounded-lg transition-colors hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:hover:text-slate-200"
-                aria-label={`Sort by Completion. Currently sorted ${sort.key === "completion" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort ${sort.key === "completion" && sort.direction === "asc" ? "descending" : "ascending"}.`}
+                aria-label={`Sort by Completion, currently sorted ${sort.key === "completion" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort by Completion in ${sort.key === "completion" && sort.direction === "asc" ? "descending" : "ascending"} order.`}
               >
                 {renderSortIndicator("completion")}
                 Completion
@@ -389,7 +389,7 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
                 type="button"
                 onClick={() => handleSort("createdAt")}
                 className="inline-flex items-center gap-2 rounded-lg transition-colors hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:hover:text-slate-200"
-                aria-label={`Sort by Created. Currently sorted ${sort.key === "createdAt" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort ${sort.key === "createdAt" && sort.direction === "asc" ? "descending" : "ascending"}.`}
+                aria-label={`Sort by Created, currently sorted ${sort.key === "createdAt" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}. Click to sort by Created in ${sort.key === "createdAt" && sort.direction === "asc" ? "descending" : "ascending"} order.`}
               >
                 Created
                 {renderSortIndicator("createdAt")}
