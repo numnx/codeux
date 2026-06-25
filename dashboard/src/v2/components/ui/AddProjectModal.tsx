@@ -436,6 +436,9 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                         }
                                         setTouched(prev => ({ ...prev, name: true }));
                                     }}
+                                    placeholder="My Awesome Project"
+                                    className={projectNameInputClass}
+                                    autoComplete="off"
                                     aria-invalid={!!validationErrors.name && touched.name}
                                     aria-errormessage="project-name-error"
                                     aria-describedby={validationErrors.name && touched.name ? "project-name-error" : undefined}

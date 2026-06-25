@@ -25,7 +25,7 @@ export async function initializeProject(
     const allowedRoot = input.cloneDir ?? process.cwd();
     validateSafeClonePath(input.sourceRef, allowedRoot);
     validateNonEmptyDir(input.sourceRef);
-    await initLocalRepo(input.sourceRef, input.defaultBranch ?? "main");
+    await initLocalRepo(input.sourceRef, input.defaultBranch ?? "main", input.name);
     return deps.createProject({ ...input, sourceType: "local", initMode: undefined });
   }
 
@@ -53,6 +53,7 @@ export async function initializeProject(
         isPrivate: input.isPrivate ?? true,
         cloneParentDir,
         hostToken: deps.getGitlabToken?.() ?? "",
+        defaultBranch: input.defaultBranch,
       });
     }
     return deps.createProject({
