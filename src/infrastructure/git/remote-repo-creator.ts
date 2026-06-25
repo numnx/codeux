@@ -67,7 +67,11 @@ export async function createGitHubRepo(opts: {
         "Content-Type": "application/json",
         "X-GitHub-Api-Version": "2022-11-28",
       },
-      body: JSON.stringify({ name: opts.repoName, private: opts.isPrivate }),
+      // auto_init creates an initial commit with a README and a default branch,
+      // so the cloned repo starts with real content. Without it the remote is
+      // empty (no commits, unborn default branch) and sprints fail to prepare a
+      // base branch.
+      body: JSON.stringify({ name: opts.repoName, private: opts.isPrivate, auto_init: true }),
       signal: AbortSignal.timeout(API_TIMEOUT_MS),
     });
     const text = await response.text();
@@ -99,6 +103,7 @@ export async function createGitLabRepo(opts: {
   isPrivate: boolean;
   cloneParentDir: string;
   hostToken?: string;
+  defaultBranch?: string;
 }): Promise<RemoteRepoResult> {
   try {
     validateSafeRepoName(opts.repoName);
@@ -121,6 +126,11 @@ export async function createGitLabRepo(opts: {
         name: opts.repoName,
         path: opts.repoName,
         visibility: opts.isPrivate ? "private" : "public",
+        // initialize_with_readme seeds an initial commit + default branch so the
+        // cloned repo has real content. Without it the clone is empty (no
+        // commits, unborn default branch) and sprints fail to prepare a base.
+        initialize_with_readme: true,
+        ...(opts.defaultBranch?.trim() ? { default_branch: opts.defaultBranch.trim() } : {}),
       }),
       signal: AbortSignal.timeout(API_TIMEOUT_MS),
     });
