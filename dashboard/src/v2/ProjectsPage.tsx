@@ -58,6 +58,28 @@ const statusSpine: Record<SourceStatus, string> = {
     idle:         'bg-slate-300 dark:bg-white/15',
 };
 
+// Per-project monogram themes — a refined, multi-hue set drawn from the brand
+// palette (amber / jade / violet) plus harmonious accents, assigned
+// deterministically so each card keeps a stable identity color instead of an
+// aggressive wall of yellow.
+type MonogramTheme = { bg: string; text: string; glow: string; wash: string };
+const MONOGRAM_THEMES: MonogramTheme[] = [
+    { bg: "from-ember-400 to-ember-600",     text: "text-void-900", glow: "rgba(255,184,0,0.26)",  wash: "bg-ember-500/15" },
+    { bg: "from-signal-400 to-signal-600",   text: "text-void-900", glow: "rgba(0,224,160,0.26)",  wash: "bg-signal-500/15" },
+    { bg: "from-[#B14DD8] to-[#8A00B5]",     text: "text-white",    glow: "rgba(138,0,181,0.30)",  wash: "bg-[#8A00B5]/15" },
+    { bg: "from-[#FF9D7A] to-[#F2643C]",     text: "text-void-900", glow: "rgba(242,100,60,0.26)", wash: "bg-[#F2643C]/15" },
+    { bg: "from-signal-400 to-status-green", text: "text-void-900", glow: "rgba(0,122,94,0.26)",   wash: "bg-status-green/15" },
+    { bg: "from-[#7FA6FF] to-[#3E6DE0]",     text: "text-white",    glow: "rgba(62,109,224,0.30)", wash: "bg-[#3E6DE0]/15" },
+];
+
+function monogramThemeFor(key: string): MonogramTheme {
+    let hash = 0;
+    for (let index = 0; index < key.length; index += 1) {
+        hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
+    }
+    return MONOGRAM_THEMES[hash % MONOGRAM_THEMES.length];
+}
+
 type ProjectMetaIcon = any;
 
 /* ─── Project Card ──────────────────────────────────────────────────────── */
@@ -153,6 +175,7 @@ const ProjectCard: FunctionComponent<{
     const totalTasks = source.completedTasks + source.openTasks;
     const completion = totalTasks > 0 ? Math.round((source.completedTasks / totalTasks) * 100) : 0;
     const isCardSelected = isSelected;
+    const monogram = useMemo(() => monogramThemeFor(source.id || source.name), [source.id, source.name]);
 
     // Repository identity — git URL for remote projects, workspace path for local ones.
     const repoIcon = isLocal && viewModel.gitUrl.isEmpty ? MapPin : Globe;
@@ -240,9 +263,9 @@ const ProjectCard: FunctionComponent<{
                     className={`pointer-events-none absolute left-0 top-0 z-20 h-full w-[3px] ${statusSpine[source.status]} ${isRunning ? "animate-pulse" : ""}`}
                 />
                 <div className="absolute inset-0 bg-signal-500/[0.025] opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100" />
-                {/* Status-tinted corner wash */}
+                {/* Corner wash — status-green while running, else the project's monogram hue */}
                 <div className={`pointer-events-none absolute -top-16 -left-10 h-40 w-40 rounded-full blur-3xl opacity-40 ${
-                    isRunning ? "bg-status-green/20" : "bg-ember-500/15"
+                    isRunning ? "bg-status-green/20" : monogram.wash
                 }`} />
                 {/* Oversized editorial monogram watermark */}
                 <div
@@ -284,9 +307,10 @@ const ProjectCard: FunctionComponent<{
                     <div className="flex items-center gap-3.5">
                         <div
                             aria-hidden="true"
-                            className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-ember-400 to-ember-600 font-display text-xl font-black text-void-900 shadow-[0_6px_18px_rgba(255,184,0,0.32)]"
+                            style={{ boxShadow: `0 6px 18px ${monogram.glow}` }}
+                            className={`relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br ${monogram.bg} font-display text-xl font-black ${monogram.text}`}
                         >
-                            <span className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.45)_0%,transparent_45%)]" />
+                            <span className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.35)_0%,transparent_45%)]" />
                             <span className="relative">{source.name.slice(0, 1).toUpperCase()}</span>
                         </div>
                         <div className="min-w-0 flex-1">
