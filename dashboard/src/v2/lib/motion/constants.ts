@@ -61,7 +61,6 @@ export function useGsapDurations() {
   return GSAP_DURATIONS;
 }
 
-
 /**
  * Hook to get GSAP interaction tokens safely resolved for reduced motion.
  * Returns durations as 0 when reduced motion is preferred.

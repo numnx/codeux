@@ -75,6 +75,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
         aria-labelledby={ariaLabelledBy || ariaLabelledby}
         aria-describedby={ariaDescribedBy || ariaDescribedby}
         tabIndex={-1}
+        inert={!isOpen ? true : undefined}
         className={`relative z-50 bg-white dark:bg-void-800 rounded-[1.75rem] shadow-2xl border border-black/[0.06] dark:border-white/[0.06] outline-none max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto ${className}`}
         style={{
           opacity: visible ? 1 : 0,

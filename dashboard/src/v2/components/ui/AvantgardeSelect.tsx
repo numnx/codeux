@@ -14,6 +14,7 @@ export interface SelectOption {
 }
 
 interface AvantgardeSelectProps {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   options: SelectOption[];
@@ -26,6 +27,11 @@ interface AvantgardeSelectProps {
   invalid?: boolean;
   "aria-label"?: string;
   "aria-labelledby"?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean | "false" | "true" | "grammar" | "spelling";
+  "aria-errormessage"?: string;
+  "aria-required"?: boolean | "false" | "true";
+  onBlur?: (e: FocusEvent) => void;
 }
 
 interface DropdownPosition {
@@ -67,6 +73,7 @@ function findBoundaryAncestor(el: HTMLElement): HTMLElement | null {
 }
 
 export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
+  id,
   value,
   onChange,
   options,
@@ -78,6 +85,11 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
   invalid = false,
   "aria-label": ariaLabel,
   "aria-labelledby": ariaLabelledby,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+  "aria-errormessage": ariaErrorMessage,
+  "aria-required": ariaRequired,
+  onBlur,
 }) => {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
@@ -416,6 +428,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
   return (
     <div className={`relative ${className}`}>
       <button
+        id={id}
         ref={triggerRef}
         style={{ transitionProperty: "all", transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}
         type="button"
@@ -426,13 +439,17 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
             setOpen(true);
           }
         }}
+        onBlur={onBlur}
         className={finalTriggerClass}
         disabled={disabled}
-        aria-invalid={invalid ? "true" : "false"}
+        aria-invalid={ariaInvalid ?? (invalid ? "true" : "false")}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledby}
+        aria-describedby={ariaDescribedBy}
+        aria-errormessage={ariaErrorMessage}
+        aria-required={ariaRequired}
       >
         {selected?.icon ? <span className="flex-shrink-0">{renderOptionIcon(selected.icon)}</span> : null}
         <span className="truncate">{selected?.label || placeholder}</span>

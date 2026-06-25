@@ -3,6 +3,9 @@ import { useInteractionTokens } from "../../lib/motion/tokens.js";
 
 export interface InputProps extends ComponentProps<"input"> {
   valid?: boolean;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean | "false" | "true" | "grammar" | "spelling";
+  "aria-errormessage"?: string;
   errorText?: string;
   helperText?: string;
 }
