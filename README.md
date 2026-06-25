@@ -2,6 +2,7 @@
 
 **A containerized agentic runtime for professional software teams.**
 
+[![npm](https://img.shields.io/npm/v/@codeuxai/codeux.svg)](https://www.npmjs.com/package/@codeuxai/codeux)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-22+-green.svg)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-10.33+-orange.svg)](https://pnpm.io/)
@@ -26,6 +27,22 @@ After launch, Code UX opens its local dashboard, normally at:
 ```text
 http://localhost:4444
 ```
+
+### npm (CLI)
+
+Prefer the command line? Install the runtime globally from npm:
+
+```bash
+npm i -g @codeuxai/codeux
+```
+
+This installs the `codeux` command — the orchestration server, MCP server, and live dashboard (the same runtime that powers the desktop app, without the Electron shell). Start it with:
+
+```bash
+codeux
+```
+
+Then open the dashboard at `http://localhost:4444`. Requires Node.js 22 or newer; Docker is recommended for virtual worker execution and required for preview containers. Run `codeux --help` for the full list of flags and environment variables.
 
 Need to build or run from source? Jump to [Run From Source](#run-from-source).
 
