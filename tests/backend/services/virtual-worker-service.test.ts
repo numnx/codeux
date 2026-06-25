@@ -1355,7 +1355,7 @@ describe("VirtualWorkerService", () => {
 
     const hasConflicts = await (virtualWorkerService as any).runMergeIntoSource(
       "docker-volume://merge-workspace",
-      "main",
+      "origin/main",
       "session-1",
     );
 
@@ -1371,6 +1371,27 @@ describe("VirtualWorkerService", () => {
     }));
   });
 
+  it("merges the local target ref (no origin/) in LOCAL git mode", async () => {
+    const { virtualWorkerService } = await setupServiceWithProject();
+
+    const runWorkspaceCommand = vi.spyOn((virtualWorkerService as any).workspaceManager, "runWorkspaceCommand")
+      .mockResolvedValue({ ok: true, stdout: "", stderr: "", code: 0 } as any);
+
+    // LOCAL mode passes the bare local branch as the merge ref — the seeded merge
+    // workspace has no `origin` remote, so `origin/<branch>` would not be mergeable.
+    await (virtualWorkerService as any).runMergeIntoSource(
+      "docker-volume://merge-workspace",
+      "feature/CODUX-15-qs-dag-merge-conflict-4",
+      "session-1",
+    );
+
+    expect(runWorkspaceCommand).toHaveBeenCalledWith(
+      "docker-volume://merge-workspace",
+      "git",
+      ["merge", "--no-ff", "--no-commit", "feature/CODUX-15-qs-dag-merge-conflict-4"],
+    );
+  });
+
   it("rejects merge conflict resolution when the target branch is not in HEAD", async () => {
     const { virtualWorkerService } = await setupServiceWithProject();
 
@@ -1379,13 +1400,31 @@ describe("VirtualWorkerService", () => {
 
     await expect((virtualWorkerService as any).ensureTargetMergedIntoSource(
       "docker-volume://merge-workspace",
-      "main",
+      "origin/main",
     )).rejects.toThrow("origin/main is not contained");
 
     expect(runWorkspaceCommand).toHaveBeenCalledWith(
       "docker-volume://merge-workspace",
       "git",
       ["merge-base", "--is-ancestor", "origin/main", "HEAD"],
+    );
+  });
+
+  it("verifies against the local target ref in LOCAL git mode", async () => {
+    const { virtualWorkerService } = await setupServiceWithProject();
+
+    const runWorkspaceCommand = vi.spyOn((virtualWorkerService as any).workspaceManager, "runWorkspaceCommand")
+      .mockResolvedValue({ ok: true, stdout: "", stderr: "", code: 0 } as any);
+
+    await (virtualWorkerService as any).ensureTargetMergedIntoSource(
+      "docker-volume://merge-workspace",
+      "feature/CODUX-15-qs-dag-merge-conflict-4",
+    );
+
+    expect(runWorkspaceCommand).toHaveBeenCalledWith(
+      "docker-volume://merge-workspace",
+      "git",
+      ["merge-base", "--is-ancestor", "feature/CODUX-15-qs-dag-merge-conflict-4", "HEAD"],
     );
   });
 

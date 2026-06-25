@@ -643,6 +643,12 @@ export class VirtualWorkerService {
     }
     const sourceBranch = sourceBranchRaw.trim();
     const targetBranch = this.readRequiredString(conflictingBranches?.target ?? payload.featureBranch, "targetBranch");
+    // LOCAL git mode has no `origin` remote: the seeded merge workspace only carries the
+    // target branch as a local ref (`refs/heads/…`), never `refs/remotes/origin/…`. Merging
+    // (or verifying) against `origin/<target>` therefore fails with "not something we can
+    // merge". Reference the local branch directly in that mode. (Matches the parentRefs
+    // selection below.)
+    const targetRef = settings.git.githubMode === "LOCAL" ? targetBranch : `origin/${targetBranch}`;
     const gitAuth: GitHttpAuthOptions = {
       githubToken: settings.git.githubToken,
       gitlabToken: settings.git.gitlabToken,
@@ -729,7 +735,7 @@ export class VirtualWorkerService {
       const finalWorktreePath = prepared.worktreePath;
       worktreePath = finalWorktreePath;
       initialHead = (await this.runWorkspaceCommand(finalWorktreePath, "git", ["rev-parse", "HEAD"])).stdout.trim();
-      const hasConflicts = await this.runMergeIntoSource(finalWorktreePath, targetBranch, sessionId);
+      const hasConflicts = await this.runMergeIntoSource(finalWorktreePath, targetRef, sessionId);
       if (hasConflicts) {
         const workspaceGuidance = await this.workspaceManager.buildWorkspaceGuidance(item.summaryMarkdown, finalWorktreePath);
         const providerPrompt = buildProviderPrompt(
@@ -778,7 +784,7 @@ export class VirtualWorkerService {
       }
       await this.ensureMergeConflictResolved(finalWorktreePath);
       await this.finalizeMergeCommit(finalWorktreePath, sourceBranch, targetBranch);
-      await this.ensureTargetMergedIntoSource(finalWorktreePath, targetBranch);
+      await this.ensureTargetMergedIntoSource(finalWorktreePath, targetRef);
       if (settings.memory?.enabled && settings.memory.autoCaptureSprint) {
         await this.captureMemoriesFromWorkspace(
           item.projectId,
@@ -1303,12 +1309,12 @@ export class VirtualWorkerService {
     ].filter(Boolean).join("\n");
   }
 
-  private async runMergeIntoSource(worktreePath: string, targetBranch: string, sessionId: string): Promise<boolean> {
+  private async runMergeIntoSource(worktreePath: string, targetRef: string, sessionId: string): Promise<boolean> {
     try {
-      await this.runWorkspaceCommand(worktreePath, "git", ["merge", "--no-ff", "--no-commit", `origin/${targetBranch}`]);
+      await this.runWorkspaceCommand(worktreePath, "git", ["merge", "--no-ff", "--no-commit", targetRef]);
       this.deps.sessionTracking.appendActivity(sessionId, {
         originator: "system",
-        description: `Prepared merge of origin/${targetBranch} into the source branch without conflicts.`,
+        description: `Prepared merge of ${targetRef} into the source branch without conflicts.`,
       });
       return false;
     } catch (error) {
@@ -1500,11 +1506,11 @@ export class VirtualWorkerService {
     }
   }
 
-  private async ensureTargetMergedIntoSource(worktreePath: string, targetBranch: string): Promise<void> {
+  private async ensureTargetMergedIntoSource(worktreePath: string, targetRef: string): Promise<void> {
     try {
-      await this.runWorkspaceCommand(worktreePath, "git", ["merge-base", "--is-ancestor", `origin/${targetBranch}`, "HEAD"]);
+      await this.runWorkspaceCommand(worktreePath, "git", ["merge-base", "--is-ancestor", targetRef, "HEAD"]);
     } catch {
-      throw new Error(`Merge verification failed: origin/${targetBranch} is not contained in the resolved source branch.`);
+      throw new Error(`Merge verification failed: ${targetRef} is not contained in the resolved source branch.`);
     }
   }
 
