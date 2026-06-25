@@ -10,6 +10,7 @@ import {
     FolderOpen,
     GitBranch,
     Globe,
+    Link,
     Loader2,
     MapPin,
     Plus,
@@ -58,27 +59,6 @@ const statusSpine: Record<SourceStatus, string> = {
     idle:         'bg-slate-300 dark:bg-white/15',
 };
 
-// Per-project monogram themes — a refined, multi-hue set drawn from the brand
-// palette (amber / jade / violet) plus harmonious accents, assigned
-// deterministically so each card keeps a stable identity color instead of an
-// aggressive wall of yellow.
-type MonogramTheme = { bg: string; text: string; glow: string; wash: string };
-const MONOGRAM_THEMES: MonogramTheme[] = [
-    { bg: "from-ember-400 to-ember-600",     text: "text-void-900", glow: "rgba(255,184,0,0.26)",  wash: "bg-ember-500/15" },
-    { bg: "from-signal-400 to-signal-600",   text: "text-void-900", glow: "rgba(0,224,160,0.26)",  wash: "bg-signal-500/15" },
-    { bg: "from-[#B14DD8] to-[#8A00B5]",     text: "text-white",    glow: "rgba(138,0,181,0.30)",  wash: "bg-[#8A00B5]/15" },
-    { bg: "from-[#FF9D7A] to-[#F2643C]",     text: "text-void-900", glow: "rgba(242,100,60,0.26)", wash: "bg-[#F2643C]/15" },
-    { bg: "from-signal-400 to-status-green", text: "text-void-900", glow: "rgba(0,122,94,0.26)",   wash: "bg-status-green/15" },
-    { bg: "from-[#7FA6FF] to-[#3E6DE0]",     text: "text-white",    glow: "rgba(62,109,224,0.30)", wash: "bg-[#3E6DE0]/15" },
-];
-
-function monogramThemeFor(key: string): MonogramTheme {
-    let hash = 0;
-    for (let index = 0; index < key.length; index += 1) {
-        hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
-    }
-    return MONOGRAM_THEMES[hash % MONOGRAM_THEMES.length];
-}
 
 type ProjectMetaIcon = any;
 
@@ -171,18 +151,13 @@ const ProjectCard: FunctionComponent<{
     const statusText = statusLabel[source.status];
     const statusClass = statusColor[source.status];
     const isRunning = source.status === "running";
-    const isLocal = source.sourceType === "local";
     const totalTasks = source.completedTasks + source.openTasks;
     const completion = totalTasks > 0 ? Math.round((source.completedTasks / totalTasks) * 100) : 0;
     const isCardSelected = isSelected;
-    const monogram = useMemo(() => monogramThemeFor(source.id || source.name), [source.id, source.name]);
 
-    // Repository identity — git URL for remote projects, workspace path for local ones.
-    const repoIcon = isLocal && viewModel.gitUrl.isEmpty ? MapPin : Globe;
-    const repoLabel = isLocal && viewModel.gitUrl.isEmpty ? "Path" : "Repo";
-    const repoSource = isLocal && viewModel.gitUrl.isEmpty ? viewModel.localDirectory : viewModel.gitUrl;
-    const repoValue = repoSource.isEmpty ? "Not configured" : repoSource.value;
-
+    // Repository URL (git projects) and on-disk workspace path (shown for every project).
+    const hasRepoUrl = !viewModel.gitUrl.isEmpty;
+    const pathValue = viewModel.localDirectory.isEmpty ? "Not set" : viewModel.localDirectory.value;
     const branchValue = viewModel.branch.isEmpty ? "Not set" : viewModel.branch.value;
     const hostValue = viewModel.hostLabel.isEmpty ? viewModel.providerLabel.value : viewModel.hostLabel.value;
     const hostIsEmpty = viewModel.hostLabel.isEmpty && viewModel.providerLabel.isEmpty;
@@ -263,9 +238,9 @@ const ProjectCard: FunctionComponent<{
                     className={`pointer-events-none absolute left-0 top-0 z-20 h-full w-[3px] ${statusSpine[source.status]} ${isRunning ? "animate-pulse" : ""}`}
                 />
                 <div className="absolute inset-0 bg-signal-500/[0.025] opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100" />
-                {/* Corner wash — status-green while running, else the project's monogram hue */}
+                {/* Corner wash — status-green while running, else a soft warm amber */}
                 <div className={`pointer-events-none absolute -top-16 -left-10 h-40 w-40 rounded-full blur-3xl opacity-40 ${
-                    isRunning ? "bg-status-green/20" : monogram.wash
+                    isRunning ? "bg-status-green/20" : "bg-ember-500/10"
                 }`} />
                 {/* Oversized editorial monogram watermark */}
                 <div
@@ -307,10 +282,9 @@ const ProjectCard: FunctionComponent<{
                     <div className="flex items-center gap-3.5">
                         <div
                             aria-hidden="true"
-                            style={{ boxShadow: `0 6px 18px ${monogram.glow}` }}
-                            className={`relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br ${monogram.bg} font-display text-xl font-black ${monogram.text}`}
+                            className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl border border-ember-500/20 bg-gradient-to-br from-ember-500/[0.16] to-ember-600/[0.08] font-display text-xl font-black text-ember-700 dark:border-ember-400/15 dark:text-ember-200"
                         >
-                            <span className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.35)_0%,transparent_45%)]" />
+                            <span className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,184,0,0.12)_0%,transparent_55%)]" />
                             <span className="relative">{source.name.slice(0, 1).toUpperCase()}</span>
                         </div>
                         <div className="min-w-0 flex-1">
@@ -348,9 +322,12 @@ const ProjectCard: FunctionComponent<{
                         </button>
                     ) : null}
 
-                    {/* Manifest — repository identity, target branch, host, last run */}
+                    {/* Manifest — repo URL, workspace path, target branch, host, last run */}
                     <div className="flex flex-col gap-2 border-t border-black/[0.06] pt-3.5 dark:border-white/[0.07]">
-                        <MetaRow icon={repoIcon} label={repoLabel} value={repoValue} isEmpty={repoSource.isEmpty} mono />
+                        {hasRepoUrl ? (
+                            <MetaRow icon={Link} label="Repo" value={viewModel.gitUrl.value} isEmpty={false} mono />
+                        ) : null}
+                        <MetaRow icon={MapPin} label="Path" value={pathValue} isEmpty={viewModel.localDirectory.isEmpty} mono />
                         <MetaRow icon={GitBranch} label="Branch" value={branchValue} isEmpty={viewModel.branch.isEmpty} mono />
                         <MetaRow icon={Globe} label="Host" value={hostValue} isEmpty={hostIsEmpty} />
                         <MetaRow icon={Clock3} label="Last run" value={lastRunValue} isEmpty={viewModel.lastRunAt.isEmpty} />
