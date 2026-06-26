@@ -29,6 +29,7 @@ import {
   cleanupProviderRuntimeArtifacts
 } from "./provider-runtime-artifacts.js";
 import { readQwenLogData, readCodexLatestSessionJson, readClaudeSessionJsonl, parseAntigravityConversationId, readAntigravityTranscript } from "./provider-transcripts.js";
+import { parseOpenCodeJsonLines } from "./provider-logs/opencode-log-parser.js";
 import {
   collectProviderUsageTelemetry,
   readQwenOpenAiLogRecords,
@@ -431,6 +432,27 @@ export class ProviderRunner implements IProviderRunner {
         resolvedNativeSessionId = await parseAntigravityConversationId(cwd, antigravityLogPath, workflowSettings.executionMode, this.dockerRunner);
       }
 
+      // OpenCode reports no token usage on the `run --format json` stream; its
+      // session id is the only usage handle it gives us. Resolve it from the
+      // stream, then read authoritative usage via `opencode export`.
+      let opencodeExportJson: string | null = null;
+      if (provider === "opencode") {
+        if (!resolvedNativeSessionId) {
+          resolvedNativeSessionId = parseOpenCodeJsonLines(result.stdout)?.nativeSessionId ?? null;
+        }
+        if (resolvedNativeSessionId) {
+          opencodeExportJson = await this.readOpenCodeExport(
+            cwd,
+            resolvedNativeSessionId,
+            providerEnv,
+            sessionId,
+            workflowSettings,
+            repoPath,
+            { providerMountAuth, providerAuthPath, mcpConnection: input.mcpConnection, customMcpServers: input.customMcpServers, signal },
+          );
+        }
+      }
+
       let antigravityTranscriptJsonl: string | null = null;
       if (provider === "antigravity" && resolvedNativeSessionId) {
         antigravityTranscriptJsonl = await readAntigravityTranscript(cwd, resolvedNativeSessionId, workflowSettings.executionMode, this.dockerRunner);
@@ -460,6 +482,7 @@ export class ProviderRunner implements IProviderRunner {
         executionMode: workflowSettings.executionMode,
         antigravitySessionDbPath: tempDbPath,
         antigravityTranscriptJsonl,
+        opencodeExportJson,
       });
       return {
         ...result,
@@ -484,6 +507,57 @@ export class ProviderRunner implements IProviderRunner {
         await fs.rm(cleanupPath, { force: true }).catch(() => undefined);
       }
       await cleanupProviderRuntimeArtifacts(provider, workflowSettings.executionMode, sessionId, cwd, antigravityLogPath, this.dockerRunner.removeWorkspaceDir ? this.dockerRunner.removeWorkspaceDir.bind(this.dockerRunner) : undefined);
+    }
+  }
+
+  /**
+   * Reads authoritative token usage for an OpenCode run by invoking
+   * `opencode export <sessionID>` against the same workspace (its `run
+   * --format json` stream carries no usage). In DOCKER mode this reuses the run
+   * volume via {@link IDockerRunner.runProviderInDocker}; in HOST mode it runs
+   * opencode directly. Returns the raw export stdout, or null on failure — the
+   * caller falls back to estimated usage.
+   */
+  private async readOpenCodeExport(
+    cwd: string,
+    nativeSessionId: string,
+    providerEnv: NodeJS.ProcessEnv,
+    sessionId: string,
+    workflowSettings: CliWorkflowSettings,
+    repoPath: string,
+    opts: {
+      providerMountAuth?: boolean;
+      providerAuthPath?: string;
+      mcpConnection?: McpConnectionInfo | null;
+      customMcpServers?: CustomMcpServer[];
+      signal?: AbortSignal;
+    },
+  ): Promise<string | null> {
+    try {
+      if (workflowSettings.executionMode === "DOCKER") {
+        const result = await this.dockerRunner.runProviderInDocker({
+          command: "opencode",
+          args: ["export", nativeSessionId],
+          cwd,
+          providerEnv,
+          // Distinct container name from the run so the two never collide.
+          sessionId: `${sessionId}-export`,
+          providerLabel: "opencode",
+          workflowSettings,
+          repoPath,
+          signal: opts.signal,
+          onActivity: () => undefined,
+          providerMountAuth: opts.providerMountAuth,
+          providerAuthPath: opts.providerAuthPath,
+          mcpConnection: opts.mcpConnection,
+          customMcpServers: opts.customMcpServers,
+        });
+        return result.stdout || null;
+      }
+      const result = await runStreamingCommand("opencode", ["export", nativeSessionId], cwd, providerEnv, { signal: opts.signal });
+      return result.stdout || null;
+    } catch {
+      return null;
     }
   }
 
