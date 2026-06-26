@@ -55,6 +55,84 @@ function readOpenCodeTokens(tokens: Record<string, unknown>): OpenCodeTokens {
 
 const SESSION_ID_RE = /^ses_[A-Za-z0-9]+$/;
 
+export interface OpenCodeExportUsage {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  reasoningOutputTokens: number;
+  cost: number;
+  rawUsageJson: Record<string, unknown> | null;
+}
+
+/** Extracts the first balanced, string-aware JSON object from a blob of text,
+ *  so the export JSON survives any incidental wrapper output on the stream. */
+function extractFirstJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start < 0) {
+    return null;
+  }
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === "\"") inString = false;
+      continue;
+    }
+    if (ch === "\"") inString = true;
+    else if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Parses the JSON emitted by `opencode export <sessionID>`. OpenCode does not
+ * report token usage on the `run --format json` stdout stream — usage lives in
+ * its session store, surfaced here as `info.tokens` (the session-cumulative
+ * `{ input, output, reasoning, cache: { read, write } }`) plus `info.cost`.
+ */
+export function parseOpenCodeExport(exportStdout: string): OpenCodeExportUsage | null {
+  // Anchor on the export's `info` object so any wrapper/bootstrap stdout that
+  // happens to contain braces can't be mistaken for the payload.
+  const infoIndex = exportStdout.search(/\{\s*"info"\s*:/);
+  const searchText = infoIndex >= 0 ? exportStdout.slice(infoIndex) : exportStdout;
+  const objectText = extractFirstJsonObject(searchText);
+  if (!objectText) {
+    return null;
+  }
+  const root = parseJsonObject(objectText);
+  const info = asRecord(root?.info);
+  const tokens = asRecord(info?.tokens);
+  if (!tokens) {
+    return null;
+  }
+  const t = readOpenCodeTokens(tokens);
+  if (t.input <= 0 && t.output <= 0) {
+    return null;
+  }
+  const cost = toNumber(info?.cost ?? 0);
+  return {
+    inputTokens: t.input,
+    cachedInputTokens: t.cacheRead,
+    outputTokens: t.output,
+    reasoningOutputTokens: t.reasoning,
+    cost,
+    rawUsageJson: {
+      tokens: { input: t.input, output: t.output, reasoning: t.reasoning, cache: { read: t.cacheRead, write: t.cacheWrite } },
+      cost,
+    },
+  };
+}
+
 /**
  * Parses the `opencode run --format json` event stream (NDJSON). Extracts the
  * assistant transcript, provider-reported usage, native session id, and a

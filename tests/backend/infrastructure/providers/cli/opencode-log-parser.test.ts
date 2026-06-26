@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseOpenCodeJsonLines } from "../../../../../src/infrastructure/providers/cli/provider-logs/opencode-log-parser.js";
+import { parseOpenCodeJsonLines, parseOpenCodeExport } from "../../../../../src/infrastructure/providers/cli/provider-logs/opencode-log-parser.js";
 
 /** Builds an `opencode run --format json` NDJSON stream from flattened events. */
 function ndjson(events: Array<Record<string, unknown>>): string {
@@ -108,5 +108,53 @@ describe("parseOpenCodeJsonLines", () => {
     expect(result.inputTokens).toBe(7);
     expect(result.outputTokens).toBe(3);
     expect(result.nativeSessionId).toBe("ses_nested");
+  });
+});
+
+describe("parseOpenCodeExport", () => {
+  // Mirrors the real `opencode export <sessionID>` output: top-level
+  // `info.tokens` holds the session-cumulative usage.
+  const realExport = JSON.stringify({
+    info: {
+      id: "ses_18e9b7f04ffenTE6uMGfRIz12H",
+      title: "Greeting",
+      model: { id: "gemma-4-26b-a4b-qat", providerID: "google" },
+      cost: 0.42,
+      tokens: { input: 88608, output: 10284, reasoning: 490, cache: { read: 1200, write: 0 } },
+    },
+    messages: [
+      { info: { role: "user" }, parts: [] },
+      { info: { role: "assistant", tokens: { input: 88608, output: 10284, reasoning: 490, cache: { read: 1200, write: 0 } } }, parts: [] },
+    ],
+  });
+
+  it("returns null for empty or non-JSON input", () => {
+    expect(parseOpenCodeExport("")).toBeNull();
+    expect(parseOpenCodeExport("no json here")).toBeNull();
+  });
+
+  it("reads session-cumulative usage from info.tokens", () => {
+    const usage = parseOpenCodeExport(realExport)!;
+    expect(usage.inputTokens).toBe(88608);
+    expect(usage.outputTokens).toBe(10284);
+    expect(usage.reasoningOutputTokens).toBe(490);
+    expect(usage.cachedInputTokens).toBe(1200);
+    expect(usage.cost).toBeCloseTo(0.42);
+    expect(usage.rawUsageJson).toEqual({
+      tokens: { input: 88608, output: 10284, reasoning: 490, cache: { read: 1200, write: 0 } },
+      cost: 0.42,
+    });
+  });
+
+  it("tolerates incidental wrapper output around the JSON object", () => {
+    const noisy = `provider-runner: warning: something\n${realExport}\n`;
+    const usage = parseOpenCodeExport(noisy)!;
+    expect(usage.inputTokens).toBe(88608);
+    expect(usage.outputTokens).toBe(10284);
+  });
+
+  it("returns null when the export carries no usable token counts", () => {
+    const empty = JSON.stringify({ info: { tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } } }, messages: [] });
+    expect(parseOpenCodeExport(empty)).toBeNull();
   });
 });

@@ -6,7 +6,7 @@ import { encodingForModel } from "js-tiktoken";
 import type { TokenUsageSource } from "../../../contracts/execution-types.js";
 import type { ParsedConversationTurn } from "./provider-logs/provider-conversation-types.js";
 import { parseCodexRolloutJsonl, parseCodexExecStdout } from "./provider-logs/codex-log-parser.js";
-import { parseOpenCodeJsonLines } from "./provider-logs/opencode-log-parser.js";
+import { parseOpenCodeJsonLines, parseOpenCodeExport } from "./provider-logs/opencode-log-parser.js";
 import {
   buildQwenConversation,
   parseQwenOpenAiLogs,
@@ -345,6 +345,9 @@ export async function collectProviderUsageTelemetry(args: {
   executionMode?: "HOST" | "DOCKER";
   antigravitySessionDbPath?: string | null;
   antigravityTranscriptJsonl?: string | null;
+  /** stdout of `opencode export <sessionID>`, the authoritative usage source for
+   *  opencode (the `run --format json` stream carries no token usage). */
+  opencodeExportJson?: string | null;
 }): Promise<ProviderUsageTelemetry> {
   const fallbackOutput = [args.capturedText || "", args.stdout || "", args.stderr || ""].filter(Boolean).join("\n").trim();
 
@@ -406,19 +409,35 @@ export async function collectProviderUsageTelemetry(args: {
 
   if (args.provider === "opencode") {
     const parsed = parseOpenCodeJsonLines(args.stdout);
+    // The `run --format json` stream carries the transcript, conversation, and
+    // session id but no token usage. Authoritative usage comes from
+    // `opencode export <sessionID>` (info.tokens), captured post-run.
+    const exportUsage = args.opencodeExportJson ? parseOpenCodeExport(args.opencodeExportJson) : null;
     if (parsed) {
       const transcriptText = parsed.transcriptText || fallbackOutput;
       const conversation = withLeadingUserTurn(parsed.conversation, args.prompt);
-      if (parsed.inputTokens > 0 || parsed.outputTokens > 0) {
+      // Prefer exported session usage, then any usage the stream happened to
+      // carry (older opencode builds), then estimation.
+      const reported = exportUsage
+        ?? ((parsed.inputTokens > 0 || parsed.outputTokens > 0)
+          ? {
+            inputTokens: parsed.inputTokens,
+            cachedInputTokens: parsed.cachedInputTokens,
+            outputTokens: parsed.outputTokens,
+            reasoningOutputTokens: parsed.reasoningOutputTokens,
+            rawUsageJson: parsed.rawUsageJson,
+          }
+          : null);
+      if (reported) {
         return {
           ...emptyTelemetry(),
-          inputTokens: parsed.inputTokens,
-          cachedInputTokens: parsed.cachedInputTokens,
-          outputTokens: parsed.outputTokens,
-          reasoningOutputTokens: parsed.reasoningOutputTokens,
-          totalTokens: parsed.inputTokens + parsed.outputTokens,
+          inputTokens: reported.inputTokens,
+          cachedInputTokens: reported.cachedInputTokens,
+          outputTokens: reported.outputTokens,
+          reasoningOutputTokens: reported.reasoningOutputTokens,
+          totalTokens: reported.inputTokens + reported.outputTokens,
           usageSource: "reported",
-          rawUsageJson: parsed.rawUsageJson,
+          rawUsageJson: reported.rawUsageJson,
           transcriptText,
           nativeSessionId: parsed.nativeSessionId,
           conversation,
@@ -428,6 +447,21 @@ export async function collectProviderUsageTelemetry(args: {
       estimated.nativeSessionId = parsed.nativeSessionId;
       estimated.conversation = conversation;
       return estimated;
+    }
+    if (exportUsage) {
+      return {
+        ...emptyTelemetry(),
+        inputTokens: exportUsage.inputTokens,
+        cachedInputTokens: exportUsage.cachedInputTokens,
+        outputTokens: exportUsage.outputTokens,
+        reasoningOutputTokens: exportUsage.reasoningOutputTokens,
+        totalTokens: exportUsage.inputTokens + exportUsage.outputTokens,
+        usageSource: "reported",
+        rawUsageJson: exportUsage.rawUsageJson,
+        transcriptText: fallbackOutput,
+        nativeSessionId: args.nativeSessionId || null,
+        conversation: [],
+      };
     }
     return estimateTelemetry("opencode", args.model, args.prompt, fallbackOutput);
   }
