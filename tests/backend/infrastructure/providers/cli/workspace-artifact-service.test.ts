@@ -176,6 +176,96 @@ describe("WorkspaceArtifactService", () => {
       .rejects.toThrow();
   });
 
+  it("scopes the untracked-file scan away from the provider sprint HOME so a churning snapshot store cannot break the export", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "workspace-artifact-service-"));
+    cleanupPaths.push(tempRoot);
+
+    const originPath = path.join(tempRoot, "origin.git");
+    const hostRepoPath = path.join(tempRoot, "host-repo");
+    const workspaceRepoPath = path.join(tempRoot, "workspace-repo");
+
+    await runCommandStrict("git", ["init", "--bare", originPath], tempRoot);
+    await runCommandStrict("git", ["clone", originPath, hostRepoPath], tempRoot);
+
+    await runGit(hostRepoPath, ["config", "user.name", "Code UX Test"]);
+    await runGit(hostRepoPath, ["config", "user.email", "code-ux@example.com"]);
+    await runGit(hostRepoPath, ["checkout", "-b", "main"]);
+    await fs.writeFile(path.join(hostRepoPath, "existing.txt"), "hello\n", "utf8");
+    await runGit(hostRepoPath, ["add", "existing.txt"]);
+    await runGit(hostRepoPath, ["commit", "-m", "base"]);
+    await runGit(hostRepoPath, ["push", "-u", "origin", "main"]);
+
+    const baseRef = (await runGit(hostRepoPath, ["rev-parse", "HEAD"])).trim();
+
+    await runCommandStrict("git", ["clone", originPath, workspaceRepoPath], tempRoot);
+    await runGit(workspaceRepoPath, ["config", "user.name", "Code UX Test"]);
+    await runGit(workspaceRepoPath, ["config", "user.email", "code-ux@example.com"]);
+    await runGit(workspaceRepoPath, ["checkout", "-b", "worker/test", "origin/main"]);
+
+    // Simulate opencode's snapshot store: a bare git repo (HEAD/objects/refs laid
+    // out directly, no nested `.git`) full of loose objects living under the
+    // provider sprint HOME. Without scoping the scan, `git ls-files --others`
+    // walks every one of these and the volume of output corrupts the export.
+    const snapshotRepo = path.join(
+      workspaceRepoPath,
+      ".code-ux-home", ".local", "share", "opencode", "snapshot", "a".repeat(40), "b".repeat(40),
+    );
+    await fs.mkdir(path.join(snapshotRepo, "objects", "2d"), { recursive: true });
+    await fs.writeFile(path.join(snapshotRepo, "HEAD"), "ref: refs/heads/main\n", "utf8");
+    for (let i = 0; i < 50; i += 1) {
+      await fs.writeFile(
+        path.join(snapshotRepo, "objects", "2d", `${i}`.padStart(38, "0")),
+        "snapshot-object",
+        "utf8",
+      );
+    }
+
+    await fs.writeFile(path.join(workspaceRepoPath, "new-component.tsx"), "export const value = 1;\n", "utf8");
+
+    const lsFilesArgs: string[][] = [];
+    const workspaceManager = {
+      runWorkspaceCommand: async (
+        _worktreePath: string,
+        command: string,
+        args: string[],
+        options: WorkspaceCommandOptions = {},
+      ) => {
+        if (command === "git" && args[0] === "ls-files") {
+          lsFilesArgs.push(args);
+        }
+        return await runCommandStrict(command, args, workspaceRepoPath, options.env ?? process.env, {
+          trimOutput: options.trimOutput,
+          signal: options.signal,
+        });
+      },
+    } as IWorkspaceManager;
+
+    const service = new WorkspaceArtifactService(workspaceManager);
+    const patchText = await service.exportBinaryPatch("workspace", baseRef);
+
+    // The scan must constrain itself with the same excludes the diff uses, so the
+    // snapshot store is never enumerated in the first place.
+    expect(lsFilesArgs).toHaveLength(1);
+    expect(lsFilesArgs[0]).toContain(":(exclude).code-ux-home");
+    expect(lsFilesArgs[0]).toContain(":(exclude).code-ux-home/**");
+
+    expect(patchText).toContain("diff --git a/new-component.tsx b/new-component.tsx");
+    expect(patchText).not.toContain(".code-ux-home");
+    expect(patchText).not.toContain("snapshot");
+
+    const result = await service.applyPatchToBranch({
+      repoPath: hostRepoPath,
+      baseRef,
+      workerBranch: "worker/test",
+      patchText,
+      commitMessage: "test snapshot-safe export",
+    });
+
+    expect(result.hasChanges).toBe(true);
+    expect(await runGit(hostRepoPath, ["show", "refs/heads/worker/test:new-component.tsx"], { trimOutput: false }))
+      .toBe("export const value = 1;\n");
+  });
+
   it("can preserve an additional merge parent when applying a resolved merge patch", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "workspace-artifact-service-"));
     cleanupPaths.push(tempRoot);

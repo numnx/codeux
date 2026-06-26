@@ -4,12 +4,23 @@ This guide gets the MCP server and dashboard running locally with minimal setup.
 
 ## Prerequisites
 
-- Node.js 20+
-- pnpm
+- Node.js 22+
+- pnpm (only for building from source)
 - A valid Jules API key
 - Optional for remote git intelligence: GitHub CLI (`gh`) authenticated
 
-## Install and Build
+## Install from npm (recommended)
+
+Install the runtime globally and run the `codeux` command:
+
+```bash
+npm i -g @codeuxai/codeux
+codeux
+```
+
+This starts the MCP server and dashboard. Skip ahead to [Configure API Key](#configure-api-key); the build steps below are only needed when running from source.
+
+## Install and Build (from source)
 
 ```bash
 pnpm install
