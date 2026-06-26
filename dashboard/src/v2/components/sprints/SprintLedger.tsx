@@ -302,8 +302,10 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
       />
 
       <div className="min-h-[20rem] px-3 py-4 sm:px-4 lg:px-5">
-        <Table caption="Sprint ledger with selection, sorting, and bulk actions.">
-          <TableHeader>
+        <div className="overflow-x-auto w-full overscroll-x-contain -mx-3 px-3 sm:-mx-4 sm:px-4 lg:-mx-5 lg:px-5">
+          <div className="min-w-max">
+            <Table caption="Sprint ledger with selection, sorting, and bulk actions.">
+              <TableHeader>
             <TableCell isHeader isFirst className="w-[80px] min-w-[80px]">
               <span className="sr-only">Select</span>
               <button
@@ -453,7 +455,9 @@ export const SprintLedger: FunctionComponent<SprintLedgerProps> = ({
               ))
             )}
           </TableBody>
-        </Table>
+            </Table>
+          </div>
+        </div>
       </div>
     </div>
   );
