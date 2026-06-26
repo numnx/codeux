@@ -413,10 +413,12 @@ export async function collectProviderUsageTelemetry(args: {
         return {
           ...emptyTelemetry(),
           inputTokens: parsed.inputTokens,
+          cachedInputTokens: parsed.cachedInputTokens,
           outputTokens: parsed.outputTokens,
+          reasoningOutputTokens: parsed.reasoningOutputTokens,
           totalTokens: parsed.inputTokens + parsed.outputTokens,
           usageSource: "reported",
-          rawUsageJson: null,
+          rawUsageJson: parsed.rawUsageJson,
           transcriptText,
           nativeSessionId: parsed.nativeSessionId,
           conversation,
