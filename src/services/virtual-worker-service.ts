@@ -1,3 +1,4 @@
+import { MergeConflictResolutionService } from "./merge-conflict-resolution-service.js";
 import { randomUUID } from "crypto";
 import type { CliWorkflowSettings, DashboardSettings, GitCiRunStatus, JulesSession, ProviderId, QwenModelProviderSettings, WorkerExecutionMode, Subtask } from "../contracts/app-types.js";
 import type { WorkerTaskDispatchClaim } from "../contracts/execution-types.js";
@@ -152,6 +153,7 @@ export interface VirtualWorkerServiceDependencies {
 export class VirtualWorkerService {
   private readonly workspaceManager = new WorkspaceManager();
   private readonly workspaceArtifactService = new WorkspaceArtifactService(this.workspaceManager);
+  private readonly mergeConflictResolutionService: MergeConflictResolutionService;
   private readonly dockerService = new DockerService();
   private readonly prService = new PrService();
 
@@ -166,6 +168,23 @@ export class VirtualWorkerService {
   private readonly providerExecutionService: ProviderExecutionService;
 
   constructor(private readonly deps: VirtualWorkerServiceDependencies) {
+    this.mergeConflictResolutionService = new MergeConflictResolutionService({
+      deps: this.deps,
+      workspaceManager: this.workspaceManager,
+      workspaceArtifactService: this.workspaceArtifactService,
+      prService: this.prService,
+      resolveDashboardSettings: this.resolveDashboardSettings.bind(this),
+      getProviderLabel: this.getProviderLabel.bind(this),
+      escalateAttentionToHuman: this.escalateAttentionToHuman.bind(this),
+      readRequiredString: this.readRequiredString.bind(this),
+      readNonNegativeInteger: this.readNonNegativeInteger.bind(this),
+      asRecord: this.asRecord.bind(this),
+      buildMemoryContext: this.buildMemoryContext.bind(this),
+      captureMemoriesFromWorkspace: this.captureMemoriesFromWorkspace.bind(this),
+      resolveVirtualWorkerWorkflowSettings: this.resolveVirtualWorkerWorkflowSettings.bind(this),
+      runWorkspaceCommand: this.runWorkspaceCommand.bind(this),
+      runProviderWithRetry: this.runProviderWithRetry.bind(this)
+    });
     this.providerExecutionService = new ProviderExecutionService({
       executionRepository: deps.executionRepository,
       providerRunner: this.providerRunner,
@@ -583,359 +602,7 @@ export class VirtualWorkerService {
   }
 
   private async resolveMergeConflictAttention(workerEndpointId: string, item: ProjectAttentionItemRecord): Promise<void> {
-    const settings = this.resolveDashboardSettings(item.projectId, item.sprintId);
-    const guardrailScope = { projectId: item.projectId, sprintId: item.sprintId };
-    const mergeConflictEval = this.evaluateMergeConflictGuardrail(settings, guardrailScope, item);
-    if (mergeConflictEval && !mergeConflictEval.allowed && mergeConflictEval.action !== "WARN_ONLY") {
-      this.escalateAttentionToHuman(
-        workerEndpointId,
-        item,
-        `Virtual worker reached the merge-conflict resolution guardrail (${mergeConflictEval.count}/${mergeConflictEval.cap > 0 ? mergeConflictEval.cap : "∞"}). Escalating to human.`,
-      );
-      return;
-    }
-    const workerAgent = await this.deps.agentPresetSyncService?.resolveTargetedCodingAgent(
-      item.projectId,
-      settings.agents?.routing?.mergeConflict?.agentPresetId ?? null,
-    ).catch(() => null);
-    const route = resolveProviderForInvocation(settings, {
-      invocation: "merge_conflict",
-      task: {
-        id: item.taskId || item.id,
-        title: item.title,
-        prompt: item.summaryMarkdown,
-        depends_on: [],
-        is_independent: true,
-        status: "PENDING",
-      },
-      providerPool: ["gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"],
-      agentProvider: workerAgent
-        ? {
-          providerConfigId: workerAgent.providerConfigId,
-          model: workerAgent.model,
-        }
-        : null,
-    });
-    const provider = route.provider as Exclude<ProviderId, "jules">;
-    const providerConfigId = route.providerConfigId || route.provider;
-    const providerSettings = route.providers[providerConfigId];
-    const workflowSettings = {
-      ...DEFAULT_CLI_WORKFLOW_SETTINGS,
-      ...settings.cliWorkflow,
-    };
-    const payload = item.payload || {};
-    const repoPath = this.readRequiredString(payload.repoPath, "repoPath");
-    const conflictingBranches = this.asRecord(payload.conflictingBranches);
-    const sourceBranchRaw = conflictingBranches?.source ?? payload.workerBranch;
-    if (typeof sourceBranchRaw !== "string" || !sourceBranchRaw.trim()) {
-      this.escalateAttentionToHuman(
-        workerEndpointId,
-        item,
-        [
-          "Virtual worker cannot resolve merge conflict: source branch is not recorded in the attention payload.",
-          "This can happen when the Jules session did not return a workerBranch and gitStatus was unavailable when the conflict was detected.",
-          "Please resolve the conflict manually or re-trigger the sprint cycle once the GitHub API is reachable.",
-          "",
-          item.summaryMarkdown.trim(),
-        ].join("\n"),
-      );
-      return;
-    }
-    const sourceBranch = sourceBranchRaw.trim();
-    const targetBranch = this.readRequiredString(conflictingBranches?.target ?? payload.featureBranch, "targetBranch");
-    // LOCAL git mode has no `origin` remote: the seeded merge workspace only carries the
-    // target branch as a local ref (`refs/heads/…`), never `refs/remotes/origin/…`. Merging
-    // (or verifying) against `origin/<target>` therefore fails with "not something we can
-    // merge". Reference the local branch directly in that mode. (Matches the parentRefs
-    // selection below.)
-    const targetRef = settings.git.githubMode === "LOCAL" ? targetBranch : `origin/${targetBranch}`;
-    const gitAuth: GitHttpAuthOptions = {
-      githubToken: settings.git.githubToken,
-      gitlabToken: settings.git.gitlabToken,
-    };
-
-    // A previous cycle may already have pushed the resolution; GitHub lags in recomputing PR
-    // mergeability, so the conflict keeps being re-detected. If the target is already merged
-    // into the source branch on the remote, skip the (expensive) container run and just clear
-    // the attention item — re-dispatching here would only spin up a no-op worker.
-    if (settings.git.githubMode !== "LOCAL"
-      && await this.isMergeConflictResolvedOnRemote(repoPath, sourceBranch, targetBranch, gitAuth)) {
-      // No provider runs here (the remote is already merged), so this must not consume
-      // the retry budget — otherwise GitHub mergeability lag could falsely trip the cap.
-      this.deps.projectAttentionService.resolveItem(item.id, {
-        status: "resolved",
-        reason: "virtual_worker_merge_conflict_already_resolved",
-        resolutionSummaryMarkdown: [
-          item.summaryMarkdown.trim(),
-          "",
-          `The merge conflict was already resolved on the remote: \`origin/${targetBranch}\` is contained in \`origin/${sourceBranch}\`. Waiting for the upstream PR to refresh its mergeability.`,
-        ].join("\n"),
-        workerEndpointId,
-        payloadPatch: {
-          handledBy: "virtual_worker",
-          provider,
-          sourceBranch,
-          targetBranch,
-          alreadyResolved: true,
-        },
-      });
-      return;
-    }
-
-    // Count every real resolution attempt up-front — before spinning up the provider — so
-    // failures, crashes, and quota-exhausted runs all consume the retry budget. Recording
-    // only on success (the previous behavior) meant a conflict that never resolved retried
-    // indefinitely until the provider API limit was hit instead of escalating after `cap`.
-    this.recordMergeConflictAttempt(guardrailScope, item);
-
-    const sessionId = `virtual-merge-${provider}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
-    let worktreePath = this.workspaceManager.buildWorktreePath(repoPath, sessionId, workflowSettings.executionMode);
-    const title = item.title;
-    let succeeded = false;
-    let initialHead = "";
-    const memoryContext = workerAgent?.id
-      ? this.buildMemoryContext(item.projectId, item.sprintId || null, workerAgent.id)
-      : undefined;
-    const memoryInstructions = settings.memory?.enabled && settings.memory.autoCaptureSprint
-      ? resolveAgentMemoryInstructions(workerAgent || {}, settings.memory?.workerLearningsInstruction)
-      : "";
-
-    this.deps.sessionTracking.createSession({
-      id: sessionId,
-      provider,
-      taskId: buildTaskRunKey(repoPath, 0, `attention-${item.id}`),
-      title,
-      prompt: item.summaryMarkdown,
-      state: "RUNNING",
-      featureBranch: sourceBranch,
-      workerBranch: sourceBranch,
-      repoPath,
-    });
-    this.deps.sessionTracking.appendActivity(sessionId, {
-      originator: "system",
-      description: `Virtual worker claimed merge conflict between ${sourceBranch} and ${targetBranch}.`,
-    });
-
-    let cleanedUp = false;
-    try {
-      const effectiveWorkflowSettings = await this.resolveVirtualWorkerWorkflowSettings({
-        workflowSettings,
-        sessionId,
-        repoPath,
-        purpose: "merge_conflict",
-      });
-      const prepared = await this.workspaceManager.prepareWorktree(
-        repoPath,
-        this.workspaceManager.buildWorktreePath(repoPath, sessionId, effectiveWorkflowSettings.executionMode),
-        sourceBranch,
-        sourceBranch,
-        undefined,
-        gitAuth,
-      );
-      const finalWorktreePath = prepared.worktreePath;
-      worktreePath = finalWorktreePath;
-      initialHead = (await this.runWorkspaceCommand(finalWorktreePath, "git", ["rev-parse", "HEAD"])).stdout.trim();
-      const hasConflicts = await this.runMergeIntoSource(finalWorktreePath, targetRef, sessionId);
-      if (hasConflicts) {
-        const workspaceGuidance = await this.workspaceManager.buildWorkspaceGuidance(item.summaryMarkdown, finalWorktreePath);
-        const providerPrompt = buildProviderPrompt(
-          this.buildMergeConflictPrompt(
-            item,
-            sourceBranch,
-            targetBranch,
-            workspaceGuidance,
-            workerAgent?.instructionMarkdown,
-            memoryContext,
-            memoryInstructions,
-          ),
-          providerSettings.thinkingMode,
-        );
-        await this.runProviderWithRetry({
-          provider,
-          providerPrompt,
-          workflowSettings: effectiveWorkflowSettings,
-          repoPath,
-          worktreePath: finalWorktreePath,
-          sessionId,
-          attentionItem: item,
-          purpose: "merge_conflict",
-          model: providerSettings.model,
-          apiKey: providerSettings.apiKey,
-          maxConcurrentTasks: providerSettings.maxConcurrentTasks,
-          qwenAuthMode: providerSettings.qwenAuthMode,
-          qwenRegion: providerSettings.qwenRegion,
-          qwenBaseUrl: providerSettings.qwenBaseUrl,
-          qwenEnvKey: providerSettings.qwenEnvKey,
-          qwenModelId: providerSettings.qwenModelId,
-          qwenProtocol: providerSettings.qwenProtocol,
-          qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
-        openCodeAuthMode: providerSettings.openCodeAuthMode,
-        openCodeProviderId: providerSettings.openCodeProviderId,
-        openCodeModelId: providerSettings.openCodeModelId,
-        openCodeBaseUrl: providerSettings.openCodeBaseUrl,
-        openCodeEnvKey: providerSettings.openCodeEnvKey,
-        openCodePackage: providerSettings.openCodePackage,
-          providerMountAuth: providerSettings.mountAuth,
-          providerAuthPath: providerSettings.authPath,
-          customBaseUrl: providerSettings.customBaseUrl,
-          customModel: providerSettings.customModel,
-          githubToken: settings.git.githubToken,
-        });
-      }
-      await this.ensureMergeConflictResolved(finalWorktreePath);
-      await this.finalizeMergeCommit(finalWorktreePath, sourceBranch, targetBranch);
-      await this.ensureTargetMergedIntoSource(finalWorktreePath, targetRef);
-      if (settings.memory?.enabled && settings.memory.autoCaptureSprint) {
-        await this.captureMemoriesFromWorkspace(
-          item.projectId,
-          item.sprintId || undefined,
-          workerAgent?.id || null,
-          finalWorktreePath,
-          item.id,
-        );
-      }
-      const patchText = await this.workspaceArtifactService.exportBinaryPatch(finalWorktreePath, initialHead);
-      const applyResult = await this.workspaceArtifactService.applyPatchToBranch({
-        repoPath,
-        baseRef: initialHead,
-        workerBranch: sourceBranch,
-        patchText,
-        commitMessage: `fix(merge): resolve ${targetBranch} into ${sourceBranch}`,
-        parentRefs: settings.git.githubMode === "LOCAL" ? [targetBranch] : [`origin/${targetBranch}`],
-        // A conflict resolved by keeping the source side leaves the tree unchanged but
-        // still needs a merge commit recording the target as a parent, otherwise the PR
-        // keeps reporting the conflict and the resolution loops forever.
-        forceMergeCommit: true,
-        gitAuth,
-        gitIdentity: effectiveWorkflowSettings.containerMountGitConfig
-          ? undefined
-          : {
-            name: effectiveWorkflowSettings.containerGitUserName,
-            email: effectiveWorkflowSettings.containerGitUserEmail,
-          },
-        githubMode: settings.git.githubMode,
-      });
-      let hasUnpushed = applyResult.hasChanges;
-      let hasAhead = applyResult.hasChanges;
-      if (!applyResult.hasChanges) {
-        hasUnpushed = await this.prService.hasUnpushedCommits(repoPath, sourceBranch, targetBranch);
-        hasAhead = await this.prService.hasWorkerBranchCommitsAgainstFeature(repoPath, sourceBranch, targetBranch);
-        if (hasUnpushed && settings.git.githubMode !== "LOCAL") {
-          const pushEnv = await buildGitHttpAuthEnvForRepoWithFallbacks(repoPath, gitAuth);
-          await runCommandStrict(
-            "git",
-            ["push", "-u", "origin", `refs/heads/${sourceBranch}:refs/heads/${sourceBranch}`],
-            repoPath,
-            pushEnv ?? process.env,
-          );
-        }
-      }
-      const headSha = applyResult.commitSha
-        || ((hasUnpushed || hasAhead)
-          ? (await runCommandStrict("git", ["rev-parse", `refs/heads/${sourceBranch}`], repoPath)).stdout.trim()
-          : initialHead);
-      this.deps.sessionTracking.updateSession(sessionId, { state: "COMPLETED" });
-      this.deps.sessionTracking.appendActivity(sessionId, {
-        originator: "system",
-        description: hasUnpushed || applyResult.hasChanges
-          ? `Pushed resolved merge conflict to ${sourceBranch} at ${headSha}.`
-          : `Resolved merge-conflict run completed on ${sourceBranch} at ${headSha}.`,
-      });
-      this.deps.projectAttentionService.resolveItem(item.id, {
-        status: "resolved",
-        reason: "virtual_worker_merge_conflict_resolved",
-        resolutionSummaryMarkdown: [
-          item.summaryMarkdown.trim(),
-          "",
-          `Virtual ${this.getProviderLabel(provider)} worker resolved the merge conflict and pushed the updated source branch.`,
-          `Source branch: ${sourceBranch}`,
-          `Target branch: ${targetBranch}`,
-          `Head SHA: ${headSha}`,
-        ].join("\n"),
-        workerEndpointId,
-        payloadPatch: {
-          handledBy: "virtual_worker",
-          provider,
-          sourceBranch,
-          targetBranch,
-          headSha,
-        },
-      });
-      succeeded = true;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.deps.sessionTracking.updateSession(sessionId, { state: "FAILED" });
-      this.deps.sessionTracking.appendActivity(sessionId, {
-        originator: "system",
-        description: `Virtual worker failed to resolve merge conflict: ${message}`,
-      });
-      this.escalateAttentionToHuman(workerEndpointId, item, [
-        `Virtual ${this.getProviderLabel(provider)} worker failed to resolve the merge conflict automatically.`,
-        "",
-        `Error: ${message}`,
-        "",
-        item.summaryMarkdown.trim(),
-      ].join("\n"));
-    } finally {
-      // Virtual merge worktrees are ephemeral — always clean up to prevent
-      // stale worktree references from poisoning subsequent git fetch operations.
-      const shouldCleanup = succeeded
-        ? workflowSettings.cleanupWorktreeOnSuccess
-        : true;
-      if (shouldCleanup) {
-        await this.workspaceManager.removeWorktree(repoPath, worktreePath).catch(() => undefined);
-        cleanedUp = true;
-      }
-      if (!cleanedUp) {
-        this.deps.sessionTracking.appendActivity(sessionId, {
-          originator: "system",
-          description: `Preserved merge-resolution worktree at ${worktreePath}.`,
-        });
-      }
-    }
-  }
-
-  private evaluateMergeConflictGuardrail(
-    settings: DashboardSettings,
-    scope: GuardrailScope,
-    item: ProjectAttentionItemRecord,
-  ): GuardrailEvaluation | null {
-    if (item.taskId) {
-      return this.deps.guardrailService?.evaluate(scope, item.taskId, "merge_conflict") ?? null;
-    }
-
-    const jobConfig = settings.guardrails?.jobs?.merge_conflict;
-    if (!settings.guardrails?.enabled || !jobConfig) {
-      return { allowed: true, count: 0, cap: 0, action: jobConfig?.onLimit ?? "WARN_ONLY" };
-    }
-
-    const count = this.readNonNegativeInteger(item.payload?.mergeConflictResolutionAttempts);
-    const cap = jobConfig.cap;
-    if (cap <= 0) {
-      return { allowed: true, count, cap, action: jobConfig.onLimit };
-    }
-
-    return {
-      allowed: count < cap,
-      count,
-      cap,
-      action: jobConfig.onLimit,
-      reason: count < cap ? undefined : `Reached max merge_conflict invocations for this sprint-level attention item (${count}/${cap}).`,
-    };
-  }
-
-  private recordMergeConflictAttempt(scope: GuardrailScope, item: ProjectAttentionItemRecord): void {
-    if (item.taskId) {
-      this.deps.guardrailService?.record(scope, item.taskId, "merge_conflict");
-      return;
-    }
-
-    const nextCount = this.readNonNegativeInteger(item.payload?.mergeConflictResolutionAttempts) + 1;
-    const updated = this.deps.projectAttentionService.patchItemPayload(item.id, {
-      mergeConflictResolutionAttempts: nextCount,
-      mergeConflictGuardrailSubject: `attention:${item.id}`,
-    });
-    item.payload = updated.payload;
+    return this.mergeConflictResolutionService.resolve(workerEndpointId, item);
   }
 
   private async resolveCiFixAttention(workerEndpointId: string, item: ProjectAttentionItemRecord): Promise<void> {

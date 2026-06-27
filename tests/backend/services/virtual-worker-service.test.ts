@@ -1335,7 +1335,7 @@ describe("VirtualWorkerService", () => {
       payload: { repoPath: "/test", conflictingBranches: { source: "src", target: "tgt" } },
     });
 
-    vi.spyOn((virtualWorkerService as any), "isMergeConflictResolvedOnRemote").mockResolvedValue(true);
+    vi.spyOn((virtualWorkerService as any).mergeConflictResolutionService, "isMergeConflictResolvedOnRemote").mockResolvedValue(true);
     const prepareWorktree = vi.spyOn((virtualWorkerService as any).workspaceManager, "prepareWorktree");
 
     await (virtualWorkerService as any).handleAttentionItem(endpoint.id, item, "test");
