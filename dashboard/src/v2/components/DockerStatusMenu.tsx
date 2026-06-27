@@ -204,7 +204,7 @@ export const DockerStatusMenu: FunctionComponent = () => {
                             Docker Containers
                         </span>
                         <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black/[0.03] dark:bg-white/[0.03]">
-                            <span className={`w-1.5 h-1.5 rounded-full ${clusterNotReady ? "bg-status-amber" : "bg-signal-500 animate-pulse"}`} />
+                            <span className={`w-1.5 h-1.5 rounded-full ${clusterNotReady ? "bg-status-amber" : "bg-signal-500 motion-safe:animate-pulse"}`} />
                             <span className="text-[10px] font-mono font-medium text-slate-500 dark:text-slate-400">
                                 {clusterNotReady ? "Not Ready" : `${activeContainers.length} Active`}
                             </span>
