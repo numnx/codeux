@@ -150,6 +150,32 @@ export const SchedulerPage: FunctionComponent = () => {
   const [schedule, setSchedule] = useState<SchedulerCollectionResponse | null>(null);
   const [sprints, setSprints] = useState<SprintRecord[]>([]);
   const [templates, setTemplates] = useState<QuicksprintTemplateRecord[]>([]);
+
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(() => {
+    const today = new Date().getDay();
+    return (today + 6) % 7; // 0=Monday, 6=Sunday
+  });
+  const [isMobileView, setIsMobileView] = useState<boolean>(false);
+  const [isTabletView, setIsTabletView] = useState<boolean>(false);
+
+  useEffect(() => {
+    const mobileQuery = window.matchMedia('(max-width: 767px)');
+    const tabletQuery = window.matchMedia('(max-width: 1023px)');
+
+    const updateViews = () => {
+      setIsMobileView(mobileQuery.matches);
+      setIsTabletView(tabletQuery.matches);
+    };
+
+    updateViews();
+    mobileQuery.addEventListener('change', updateViews);
+    tabletQuery.addEventListener('change', updateViews);
+
+    return () => {
+      mobileQuery.removeEventListener('change', updateViews);
+      tabletQuery.removeEventListener('change', updateViews);
+    };
+  }, []);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackState>({ tone: "idle", message: null });
 
@@ -781,8 +807,44 @@ export const SchedulerPage: FunctionComponent = () => {
             </div>
 
             {view === "calendar" ? (
-              <div className="grid grid-flow-col auto-cols-[minmax(8.75rem,1fr)] gap-3 overflow-x-auto pb-2 dashboard-scrollbar">
-                {weekDays.map((day) => {
+              <>
+                {(isMobileView || (isTabletView && !isMobileView)) && (
+                  <div className="mb-4 flex items-center justify-between rounded-xl border border-black/[0.06] bg-black/[0.02] p-2 dark:border-white/[0.06] dark:bg-white/[0.02]">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDayIndex((prev) => Math.max(0, prev - 1))}
+                      disabled={selectedDayIndex === 0}
+                      className="px-3 py-1.5 text-xs font-bold text-slate-600 rounded-[var(--radius-ui)] border border-[color:var(--border-hairline)] bg-[var(--surface-glass)] hover:text-slate-900 hover:bg-[var(--surface-glass-hover)] disabled:opacity-50 disabled:cursor-not-allowed dark:text-slate-300 dark:hover:text-white"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                      {formatDayLabel(weekDays[selectedDayIndex])}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDayIndex((prev) => Math.min(6, prev + 1))}
+                      disabled={selectedDayIndex === 6}
+                      className="px-3 py-1.5 text-xs font-bold text-slate-600 rounded-[var(--radius-ui)] border border-[color:var(--border-hairline)] bg-[var(--surface-glass)] hover:text-slate-900 hover:bg-[var(--surface-glass-hover)] disabled:opacity-50 disabled:cursor-not-allowed dark:text-slate-300 dark:hover:text-white"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+                <div className={
+                  isMobileView
+                    ? "grid grid-cols-1 gap-3 pb-2"
+                    : isTabletView
+                      ? "grid grid-cols-3 gap-3 pb-2"
+                      : "grid grid-flow-col auto-cols-[minmax(8.75rem,1fr)] gap-3 overflow-x-auto pb-2 dashboard-scrollbar"
+                }>
+                {weekDays.map((day, index) => {
+                  if (isMobileView && index !== selectedDayIndex) return null;
+                  if (isTabletView && !isMobileView) {
+                    const startIdx = Math.max(0, Math.min(4, selectedDayIndex - 1));
+                    if (index < startIdx || index > startIdx + 2) return null;
+                  }
+
                   const key = startOfDay(day).toISOString();
                   const dayItems = occurrencesByDay.get(key) || [];
                   const selected = key === startOfDay(selectedDate).toISOString();
@@ -836,6 +898,7 @@ export const SchedulerPage: FunctionComponent = () => {
                   );
                 })}
               </div>
+              </>
             ) : (
               <div className="max-h-[46rem] space-y-2 overflow-y-auto pr-1 dashboard-scrollbar">
                 {Array.from({ length: 24 }, (_item, hour) => {

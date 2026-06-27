@@ -80,7 +80,7 @@ export const Modal: FunctionComponent<ModalProps> = ({
   if (!shouldRender) return null;
 
   return (
-    <Overlay isOpen={isOpen} onClose={disableBackdropClick ? undefined : onClose} blur exitDuration={150}>
+    <Overlay isOpen={isOpen} onClose={disableBackdropClick ? undefined : onClose} blur exitDuration={150} className="!items-end sm:!items-center pb-4 sm:pb-0">
       <div className="absolute inset-0 bg-slate-900/50 pointer-events-none" />
       <div
         ref={(el) => {
@@ -94,7 +94,7 @@ export const Modal: FunctionComponent<ModalProps> = ({
         aria-describedby={ariaDescribedBy || ariaDescribedby}
         tabIndex={-1}
         inert={!isOpen ? true : undefined}
-        className={`relative z-50 bg-white dark:bg-void-800 rounded-[12px] shadow-lg border border-black/[0.06] dark:border-white/[0.06] outline-none max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto ${className}`}
+        className={`relative z-50 bg-white dark:bg-void-800 rounded-[12px] shadow-lg border border-black/[0.06] dark:border-white/[0.06] outline-none max-w-[calc(100vw-2rem)] max-h-[min(calc(100dvh-2rem),85vh)] overflow-y-auto overscroll-contain ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
