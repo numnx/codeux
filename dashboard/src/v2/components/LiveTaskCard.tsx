@@ -1,6 +1,6 @@
 import type { FunctionComponent } from "preact";
 import { memo, createPortal } from "preact/compat";
-import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useReducer, useMemo, useCallback } from "preact/hooks";
 import gsap from "gsap";
 import {
     Clock, ChevronDown, ChevronRight, Eye, EyeOff,
@@ -30,6 +30,44 @@ import { AgentSelectAvatarIcon } from "./agents/AgentSelectAvatarIcon.js";
 import { SprintReviewBadge } from "./sprints/SprintReviewBadge.js";
 import { getSafeUrl } from "../lib/safe-url.js";
 
+export interface LiveTaskCardState {
+    remaining: number | null;
+    now: number;
+    expanded: boolean;
+    showFeed: boolean;
+    showRerunModal: boolean;
+}
+
+export type LiveTaskCardAction =
+    | { type: 'TICK'; now: number }
+    | { type: 'SET_REMAINING'; remaining: number | null }
+    | { type: 'TOGGLE_EXPANDED' }
+    | { type: 'SET_EXPANDED'; expanded: boolean }
+    | { type: 'TOGGLE_FEED' }
+    | { type: 'SET_SHOW_FEED'; show: boolean }
+    | { type: 'SET_SHOW_RERUN_MODAL'; show: boolean };
+
+export function liveTaskCardReducer(state: LiveTaskCardState, action: LiveTaskCardAction): LiveTaskCardState {
+    switch (action.type) {
+        case 'TICK':
+            return { ...state, now: action.now };
+        case 'SET_REMAINING':
+            return { ...state, remaining: action.remaining };
+        case 'TOGGLE_EXPANDED':
+            return { ...state, expanded: !state.expanded, showFeed: false };
+        case 'SET_EXPANDED':
+            return { ...state, expanded: action.expanded, showFeed: action.expanded ? false : state.showFeed };
+        case 'TOGGLE_FEED':
+            return { ...state, showFeed: !state.showFeed, expanded: false };
+        case 'SET_SHOW_FEED':
+            return { ...state, showFeed: action.show };
+        case 'SET_SHOW_RERUN_MODAL':
+            return { ...state, showRerunModal: action.show };
+        default:
+            return state;
+    }
+}
+
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 
 export function formatDuration(totalSeconds: number): string {
@@ -49,17 +87,18 @@ function extractRetryAfterIso(errorMessage: string): string | null {
 
 export const QuotaCountdown: FunctionComponent<{ errorMessage: string }> = memo(({ errorMessage }) => {
     const retryIso = extractRetryAfterIso(errorMessage);
-    const [remaining, setRemaining] = useState(() =>
-        retryIso ? Math.max(0, Math.floor((new Date(retryIso).getTime() - Date.now()) / 1000)) : null
-    );
+    const [{ remaining }, dispatch] = useReducer(liveTaskCardReducer, {
+        remaining: retryIso ? Math.max(0, Math.floor((new Date(retryIso).getTime() - Date.now()) / 1000)) : null,
+        now: Date.now(), expanded: false, showFeed: false, showRerunModal: false
+    });
 
     useEffect(() => {
-        if (!retryIso) { setRemaining(null); return; }
+        if (!retryIso) { dispatch({ type: 'SET_REMAINING', remaining: null }); return; }
         const update = () => Math.max(0, Math.floor((new Date(retryIso).getTime() - Date.now()) / 1000));
-        setRemaining(update());
+        dispatch({ type: 'SET_REMAINING', remaining: update() });
         const timer = window.setInterval(() => {
             const left = update();
-            setRemaining(left);
+            dispatch({ type: 'SET_REMAINING', remaining: left });
             if (left <= 0) window.clearInterval(timer);
         }, 1000);
         return () => window.clearInterval(timer);
@@ -85,7 +124,9 @@ export const TaskDuration: FunctionComponent<{
     taskTiming?: LiveTaskTimingSummary | null;
     dispatchTiming?: LiveDurationDispatchTiming | null;
 }> = memo(({ taskTiming, dispatchTiming }) => {
-    const [now, setNow] = useState(() => Date.now());
+    const [{ now }, dispatch] = useReducer(liveTaskCardReducer, {
+        remaining: null, now: Date.now(), expanded: false, showFeed: false, showRerunModal: false
+    });
     const display = useMemo(() => deriveLiveDurationDisplay({
         taskTiming,
         dispatchTiming,
@@ -93,7 +134,7 @@ export const TaskDuration: FunctionComponent<{
     }), [taskTiming, dispatchTiming, now]);
 
     useEffect(() => {
-        setNow(Date.now());
+        dispatch({ type: 'TICK', now: Date.now() });
     }, [
         dispatchTiming?.finishedAt,
         dispatchTiming?.startedAt,
@@ -107,7 +148,7 @@ export const TaskDuration: FunctionComponent<{
         if (display.mode !== "live") {
             return;
         }
-        const timer = window.setInterval(() => setNow(Date.now()), 1000);
+        const timer = window.setInterval(() => dispatch({ type: 'TICK', now: Date.now() }), 1000);
         return () => window.clearInterval(timer);
     }, [display.mode]);
 
@@ -170,9 +211,9 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
     dispatchInfo,
     agentPreset,
 }) => {
-    const [expanded, setExpanded] = useState(false);
-    const [showFeed, setShowFeed] = useState(false);
-    const [showRerunModal, setShowRerunModal] = useState(false);
+    const [{ expanded, showFeed, showRerunModal }, dispatch] = useReducer(liveTaskCardReducer, {
+        remaining: null, now: Date.now(), expanded: false, showFeed: false, showRerunModal: false
+    });
     const cardRef = useRef<HTMLDivElement>(null);
 
     const previewRef = useRef<HTMLDivElement>(null);
@@ -193,13 +234,13 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
     const sessionLabel = (task.session_id || task.session_name || "").replace(/^sessions\//, "");
 
     const handleRerunClick = useCallback(() => {
-        setShowRerunModal(true);
+        dispatch({ type: 'SET_SHOW_RERUN_MODAL', show: true });
     }, []);
     const handleEditClick = useCallback(() => onEdit(task), [onEdit, task]);
     const handleForceCompleteClick = useCallback(() => onForceComplete(task), [onForceComplete, task]);
 
     const handleRerunConfirm = useCallback((options: { provider?: string; providerConfigId?: string; model?: string; clearWorktree: boolean; resetDependents: boolean; undoMerge?: boolean }) => {
-        setShowRerunModal(false);
+        dispatch({ type: 'SET_SHOW_RERUN_MODAL', show: false });
         onRerun(task.record_id || task.id, {
             provider: options.provider,
             providerConfigId: options.providerConfigId,
@@ -217,16 +258,14 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
         status: dispatchInfo?.status ?? taskPhase,
     }), [dispatchInfo?.startedAt, dispatchInfo?.finishedAt, dispatchInfo?.status, taskPhase]);
 
-    const handleExpandCollapsed = useCallback(() => setExpanded(true), []);
+    const handleExpandCollapsed = useCallback(() => dispatch({ type: 'SET_EXPANDED', expanded: true }), []);
 
     const handleToggleFeed = useCallback(() => {
-        setShowFeed(prev => !prev);
-        setExpanded(false);
+        dispatch({ type: 'TOGGLE_FEED' });
     }, []);
 
     const handleToggleExpand = useCallback(() => {
-        setExpanded(prev => !prev);
-        setShowFeed(false);
+        dispatch({ type: 'TOGGLE_EXPANDED' });
     }, []);
 
     const previousTaskPhase = useRef(taskPhase);
@@ -542,7 +581,7 @@ const LiveTaskCard: FunctionComponent<LiveTaskCardProps> = memo(({
                     task={task}
                     allTasks={allTasks}
                     currentProvider={task.provider}
-                    onClose={() => setShowRerunModal(false)}
+                    onClose={() => dispatch({ type: 'SET_SHOW_RERUN_MODAL', show: false })}
                     onConfirm={handleRerunConfirm}
                 />,
                 document.body,
