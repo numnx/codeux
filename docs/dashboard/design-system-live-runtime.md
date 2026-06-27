@@ -22,3 +22,10 @@ The dashboard's Live page and runtime components follow a distinct visual system
 - **Stopped**: A stable final state reflecting the completed execution.
 
 By adhering to these rules, the Live page remains a focused, professional workspace.
+
+## Accessibility Rules
+
+- Event feeds and timelines should use `role="log"` or `role="region"` with clear `aria-label`s.
+- Transient elements must handle focus properly.
+- Action buttons (claim, resolve, dismiss, cancel, etc.) must include accessible labels specifying their target item.
+- Animations for spinners must be `motion-safe`.

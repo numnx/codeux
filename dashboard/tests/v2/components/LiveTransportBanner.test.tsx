@@ -59,5 +59,7 @@ describe("LiveTransportBanner", () => {
 
     expect(screen.getByText("Reconnecting")).toBeInTheDocument();
     expect(screen.getByText("Attempting to restore connection...")).toBeInTheDocument();
+    const spinner = document.querySelector('.motion-safe\\:animate-spin');
+    expect(spinner).toBeInTheDocument();
   });
 });
