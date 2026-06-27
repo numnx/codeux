@@ -40,9 +40,9 @@ export const PageContainer: FunctionComponent<PageContainerProps> = ({
   ].filter(Boolean).join(" ");
 
   return (
-    <main id="main-content" tabIndex={-1} {...props} ref={containerRef} className={classes}>
+    <div {...props} ref={containerRef as any} className={classes}>
       {children}
-    </main>
+    </div>
   );
 };
 
