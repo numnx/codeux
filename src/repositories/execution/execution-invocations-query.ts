@@ -5,7 +5,15 @@ import {
 } from "../../contracts/invocation-types.js";
 import {
   ExecutionInvocationRow,
-  ExecutionInvocationMessageRow
+  ExecutionInvocationMessageRow,
+  InvocationCountRow,
+  InvocationSummaryRow,
+  InvocationP95Row,
+  InvocationSprintRow,
+  InvocationApiRow,
+  InvocationErrorRow,
+  InvocationPurposeRow,
+  InvocationProviderRow
 } from "./execution-repository-types.js";
 import {
   mapExecutionInvocationRow,
@@ -189,7 +197,7 @@ export function queryProjectInvocations(
     FROM execution_invocations${INVOCATION_JOINS}
     WHERE ${conditions.join(" AND ")}
   `;
-  const totalCount = (db.prepare(countSql).get(...values) as any).count;
+  const totalCount = (db.prepare(countSql).get(...values) as InvocationCountRow).count;
 
   // We need to fetch all matching rows WITHOUT limit to compute the dashboard metrics
   // Wait, if we fetch all matching rows into memory, isn't that a scalability flaw?
@@ -213,7 +221,7 @@ export function queryProjectInvocations(
     FROM execution_invocations${INVOCATION_JOINS}
     WHERE ${conditions.join(" AND ")}
   `;
-  const summaryRow = db.prepare(summarySql).get(...values) as any;
+  const summaryRow = db.prepare(summarySql).get(...values) as InvocationSummaryRow;
 
   // P95 Duration using OFFSET
   let p95DurationMs = 0;
@@ -222,7 +230,7 @@ export function queryProjectInvocations(
     FROM execution_invocations${INVOCATION_JOINS}
     WHERE ${conditions.join(" AND ")} AND provider_invocations.duration_ms IS NOT NULL
   `;
-  const p95Count = (db.prepare(p95CountSql).get(...values) as any).count;
+  const p95Count = (db.prepare(p95CountSql).get(...values) as InvocationCountRow).count;
 
   if (p95Count > 0) {
     const p95Offset = Math.max(0, Math.ceil(0.95 * p95Count) - 1);
@@ -233,7 +241,7 @@ export function queryProjectInvocations(
       ORDER BY provider_invocations.duration_ms ASC
       LIMIT 1 OFFSET ?
     `;
-    const p95Row = db.prepare(p95Sql).get(...values, p95Offset) as any;
+    const p95Row = db.prepare(p95Sql).get(...values, p95Offset) as InvocationP95Row | undefined;
     if (p95Row) {
       p95DurationMs = p95Row.duration_ms;
     }
@@ -249,7 +257,7 @@ export function queryProjectInvocations(
     WHERE ${conditions.join(" AND ")}
     GROUP BY sprintId, execution_invocations.status
   `;
-  const sprintRows = db.prepare(sprintsSql).all(...values) as any[];
+  const sprintRows = db.prepare(sprintsSql).all(...values) as InvocationSprintRow[];
 
   let totalTasks = 0;
   let runningTasks = 0;
@@ -300,7 +308,7 @@ export function queryProjectInvocations(
     WHERE ${conditions.join(" AND ")}
     GROUP BY type, purpose, execution_invocations.provider, finishedAt IS NOT NULL, duration_ms
   `;
-  const apiRows = db.prepare(apiSql).all(...values) as any[];
+  const apiRows = db.prepare(apiSql).all(...values) as InvocationApiRow[];
 
   const externalApiMetrics = {
     git: { calls: 0, avgDurationMs: 0 },
@@ -340,7 +348,7 @@ export function queryProjectInvocations(
     WHERE ${conditions.join(" AND ")} AND (execution_invocations.status = 'failed' OR execution_invocations.status = 'cancelled')
     GROUP BY msg, execution_invocations.status
   `;
-  const errRows = db.prepare(errorsSql).all(...values) as any[];
+  const errRows = db.prepare(errorsSql).all(...values) as InvocationErrorRow[];
 
   const errorsByCategory = { timeout: 0, rateLimit: 0, apiError: 0, modelError: 0, cancelled: 0, other: 0 };
   for (const row of errRows) {
@@ -352,10 +360,10 @@ export function queryProjectInvocations(
     else errorsByCategory.other += row.count;
   }
 
-  const purposesRows = db.prepare(`SELECT DISTINCT TRIM(execution_invocations.type) as purpose FROM execution_invocations${INVOCATION_JOINS} WHERE ${conditions.join(" AND ")} AND TRIM(execution_invocations.type) != '' ORDER BY purpose ASC`).all(...values) as any[];
+  const purposesRows = db.prepare(`SELECT DISTINCT TRIM(execution_invocations.type) as purpose FROM execution_invocations${INVOCATION_JOINS} WHERE ${conditions.join(" AND ")} AND TRIM(execution_invocations.type) != '' ORDER BY purpose ASC`).all(...values) as InvocationPurposeRow[];
   const availablePurposes = purposesRows.map(r => r.purpose);
 
-  const providersRows = db.prepare(`SELECT DISTINCT TRIM(execution_invocations.provider) as provider FROM execution_invocations${INVOCATION_JOINS} WHERE ${conditions.join(" AND ")} AND TRIM(execution_invocations.provider) != '' ORDER BY provider ASC`).all(...values) as any[];
+  const providersRows = db.prepare(`SELECT DISTINCT TRIM(execution_invocations.provider) as provider FROM execution_invocations${INVOCATION_JOINS} WHERE ${conditions.join(" AND ")} AND TRIM(execution_invocations.provider) != '' ORDER BY provider ASC`).all(...values) as InvocationProviderRow[];
   const availableProviders = providersRows.map(r => r.provider);
 
   const summary = {
