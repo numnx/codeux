@@ -3,6 +3,17 @@ import type { AxiosInstance } from "axios";
 import type { JulesActivity, JulesSession, JulesSource } from "../contracts/app-types.js";
 import type { JulesClient } from "../domain/jules/jules-client.js";
 
+export class JulesApiError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    public readonly body: unknown,
+    message: string
+  ) {
+    super(message);
+    this.name = "JulesApiError";
+  }
+}
+
 export class JulesNotFoundError extends Error {
   readonly status = 404;
   readonly cause?: unknown;
@@ -20,6 +31,9 @@ export function isNotFoundError(error: unknown): boolean {
   }
   if (error instanceof Error && error.name === "JulesNotFoundError") {
     return true;
+  }
+  if (error instanceof JulesApiError) {
+    return error.statusCode === 404;
   }
   if (axios.isAxiosError && axios.isAxiosError(error)) {
     return error.response?.status === 404;
@@ -216,47 +230,6 @@ export class JulesApiClient implements JulesClient {
       return config;
     });
 
-    const retryCounts = new WeakMap<object, number>();
-
-    this.axiosInstance.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        const config = error.config;
-        if (!config) {
-          return Promise.reject(error);
-        }
-
-        const is429 = Boolean(error.response && error.response.status === 429);
-        const isTransient = !error.response && isTransientNetworkError(error);
-
-        if (is429 || isTransient) {
-          const retryCount = retryCounts.get(config) || 0;
-
-          if (retryCount < this.maxTransientRetries) {
-            const nextCount = retryCount + 1;
-            retryCounts.set(config, nextCount);
-
-            // Honor a server-provided Retry-After when present; otherwise fall
-            // back to exponential backoff (1s, 2s, 4s, 8s, …) with jitter.
-            const retryAfterMs = is429 ? this.parseRetryAfterMs(error.response.headers?.["retry-after"]) : null;
-            const backoffMs = Math.pow(2, nextCount - 1) * 1000 + Math.random() * 500;
-            const delay = Math.min(Math.max(retryAfterMs ?? backoffMs, backoffMs), 30000);
-
-            const reason = is429 ? "returned 429" : `hit a transient network error (${error.code || error.name || "unknown"})`;
-            console.warn(`Jules API ${reason}. Retrying request to ${config.url} (Attempt ${nextCount}/${this.maxTransientRetries}) after ${Math.round(delay)}ms...`);
-
-            // Push the global request schedule out so concurrent in-flight
-            // requests also back off, instead of all hammering at once.
-            this.deferRequestSlot(delay);
-            await new Promise((resolve) => setTimeout(resolve, delay));
-
-            return this.axiosInstance(config);
-          }
-        }
-
-        return Promise.reject(error);
-      }
-    );
 
   }
 
@@ -281,6 +254,51 @@ export class JulesApiClient implements JulesClient {
   /** Pushes the global request schedule out by at least `delayMs` after a 429. */
   private deferRequestSlot(delayMs: number): void {
     this.nextRequestSlot = Math.max(this.nextRequestSlot, Date.now() + delayMs);
+  }
+
+  private async request<T = any, R = import("axios").AxiosResponse<T>, D = any>(config: import("axios").AxiosRequestConfig<D>): Promise<R> {
+    let retryCount = 0;
+    while (true) {
+      try {
+        return await this.axiosInstance.request<T, R, D>(config);
+      } catch (error: any) {
+        const is429 = Boolean(error.response && error.response.status === 429);
+        const isGatewayError = Boolean(error.response && [502, 503, 504].includes(error.response.status));
+        const isTransient = !error.response && (isTransientNetworkError(error) || ["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT"].includes(error.code));
+
+        if ((is429 || isGatewayError || isTransient) && retryCount < this.maxTransientRetries) {
+          retryCount++;
+          const retryAfterMs = is429 ? (this.parseRetryAfterMs(error.response.headers?.["retry-after"]) ?? 5000) : null;
+          const backoffMs = Math.pow(2, retryCount - 1) * 1000 + Math.random() * 500;
+          const delay = retryAfterMs !== null ? Math.min(retryAfterMs, 30000) : Math.min(backoffMs, 30000);
+
+          const reason = is429 ? "returned 429" : (isGatewayError ? `returned ${error.response.status}` : `hit a transient network error (${error.code || error.name || "unknown"})`);
+          console.warn(`Jules API ${reason}. Retrying request to ${config.url} (Attempt ${retryCount}/${this.maxTransientRetries}) after ${Math.round(delay)}ms...`);
+
+          this.deferRequestSlot(delay);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        if (error.response) {
+          throw new JulesApiError(
+            error.response.status,
+            error.response.data,
+            `Jules API returned ${error.response.status}: ${error.message}`
+          );
+        }
+
+        throw error;
+      }
+    }
+  }
+
+  private async get<T>(url: string, config?: import("axios").AxiosRequestConfig): Promise<import("axios").AxiosResponse<T>> {
+    return this.request<T>({ ...config, method: "GET", url });
+  }
+
+  private async post<T>(url: string, data?: any, config?: import("axios").AxiosRequestConfig): Promise<import("axios").AxiosResponse<T>> {
+    return this.request<T>({ ...config, method: "POST", url, data });
   }
 
   private parseRetryAfterMs(headerValue: unknown): number | null {
@@ -363,14 +381,14 @@ export class JulesApiClient implements JulesClient {
 
   async getSource(sourceId: string): Promise<JulesSource> {
     this.ensureApiKey();
-    const response = await this.axiosInstance.get<JulesSource>(`/${this.normalizeName("sources", sourceId)}`);
+    const response = await this.get<JulesSource>(`/${this.normalizeName("sources", sourceId)}`);
     return response.data;
   }
 
   async listSources(args: JulesListSourcesRequest): Promise<JulesListSourcesResponse> {
     this.ensureApiKey();
     const params: JulesListSourcesQuery = { filter: args.filter, ...this.toPageQuery(args) };
-    const response = await this.axiosInstance.get<JulesListSourcesResponse>("/sources", { params });
+    const response = await this.get<JulesListSourcesResponse>("/sources", { params });
     return response.data;
   }
 
@@ -381,7 +399,7 @@ export class JulesApiClient implements JulesClient {
 
     do {
       const params: JulesListSourcesQuery = { filter, pageToken };
-      const response = await this.axiosInstance.get<JulesListSourcesResponse>("/sources", { params });
+      const response = await this.get<JulesListSourcesResponse>("/sources", { params });
       allSources = allSources.concat(response.data.sources || []);
       pageToken = response.data.nextPageToken;
     } while (pageToken);
@@ -391,7 +409,7 @@ export class JulesApiClient implements JulesClient {
 
   async createSession(data: JulesCreateSessionRequest): Promise<JulesSession> {
     this.ensureApiKey();
-    const response = await this.axiosInstance.post<JulesSession>("/sessions", data);
+    const response = await this.post<JulesSession>("/sessions", data);
     this.invalidateSessionsCache();
     return response.data;
   }
@@ -400,7 +418,7 @@ export class JulesApiClient implements JulesClient {
     this.ensureApiKey();
     const name = this.toSessionName(sessionId);
     try {
-      const response = await this.axiosInstance.get<JulesSession>(`/${name}`);
+      const response = await this.get<JulesSession>(`/${name}`);
       return response.data;
     } catch (error) {
       if (isNotFoundError(error)) {
@@ -413,7 +431,7 @@ export class JulesApiClient implements JulesClient {
   async listSessions(args: JulesListSessionsRequest = {}): Promise<JulesListSessionsResponse> {
     this.ensureApiKey();
     const params: JulesPageQuery = this.toPageQuery(args);
-    const response = await this.axiosInstance.get<JulesListSessionsResponse>("/sessions", { params });
+    const response = await this.get<JulesListSessionsResponse>("/sessions", { params });
     return response.data;
   }
 
@@ -473,7 +491,7 @@ export class JulesApiClient implements JulesClient {
   async approveSessionPlan(sessionId: string): Promise<JulesSessionActionResponse> {
     this.ensureApiKey();
     const name = this.toSessionName(sessionId);
-    const response = await this.axiosInstance.post<JulesSessionActionResponse>(`/${name}:approvePlan`);
+    const response = await this.post<JulesSessionActionResponse>(`/${name}:approvePlan`);
     this.invalidateSessionsCache();
     return response.data;
   }
@@ -481,7 +499,7 @@ export class JulesApiClient implements JulesClient {
   async sendSessionMessage(sessionId: string, prompt: string): Promise<JulesSessionActionResponse> {
     this.ensureApiKey();
     const name = this.toSessionName(sessionId);
-    const response = await this.axiosInstance.post<JulesSessionActionResponse>(`/${name}:sendMessage`, { prompt });
+    const response = await this.post<JulesSessionActionResponse>(`/${name}:sendMessage`, { prompt });
     this.invalidateSessionsCache();
     return response.data;
   }
@@ -491,7 +509,7 @@ export class JulesApiClient implements JulesClient {
     const sessionName = this.toSessionName(sessionId);
     const activityName = this.normalizeName("activities", activityId);
     try {
-      const response = await this.axiosInstance.get<JulesActivity>(`/${sessionName}/${activityName}`);
+      const response = await this.get<JulesActivity>(`/${sessionName}/${activityName}`);
       return response.data;
     } catch (error) {
       if (isNotFoundError(error)) {
@@ -505,7 +523,7 @@ export class JulesApiClient implements JulesClient {
     this.ensureApiKey();
     const sessionName = this.toSessionName(args.session_id);
     const params: JulesPageQuery = this.toPageQuery(args);
-    const response = await this.axiosInstance.get<JulesListActivitiesResponse>(`/${sessionName}/activities`, { params });
+    const response = await this.get<JulesListActivitiesResponse>(`/${sessionName}/activities`, { params });
     return response.data;
   }
 
@@ -522,7 +540,7 @@ export class JulesApiClient implements JulesClient {
     try {
       do {
         const params: JulesPageQuery = { pageToken };
-        const response = await this.axiosInstance.get<JulesListActivitiesResponse>(`/${sessionName}/activities`, { params });
+        const response = await this.get<JulesListActivitiesResponse>(`/${sessionName}/activities`, { params });
         allActivities = allActivities.concat(response.data.activities || []);
         pageToken = response.data.nextPageToken;
       } while (pageToken);
@@ -546,7 +564,7 @@ export class JulesApiClient implements JulesClient {
     let recentActivities: JulesActivity[] = [];
 
     do {
-      const response: { data: JulesListActivitiesResponse } = await this.axiosInstance.get<JulesListActivitiesResponse>(`/${normalizedSessionName}/activities`, {
+      const response: { data: JulesListActivitiesResponse } = await this.get<JulesListActivitiesResponse>(`/${normalizedSessionName}/activities`, {
         params: { pageSize, pageToken },
       });
       const activities = response.data.activities || [];
@@ -594,7 +612,7 @@ export class JulesApiClient implements JulesClient {
     let recentActivities: JulesActivity[] = [];
 
     do {
-      const response: { data: JulesListActivitiesResponse } = await this.axiosInstance.get<JulesListActivitiesResponse>(`/${normalizedSessionName}/activities`, {
+      const response: { data: JulesListActivitiesResponse } = await this.get<JulesListActivitiesResponse>(`/${normalizedSessionName}/activities`, {
         params: { pageSize, pageToken },
       });
       const activities = response.data.activities || [];

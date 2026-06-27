@@ -1,0 +1,18 @@
+<<<<<<< SEARCH
+export class JulesNotFoundError extends Error {
+  readonly status = 404;
+=======
+export class JulesApiError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    public readonly body: unknown,
+    message: string
+  ) {
+    super(message);
+    this.name = "JulesApiError";
+  }
+}
+
+export class JulesNotFoundError extends Error {
+  readonly status = 404;
+>>>>>>> REPLACE

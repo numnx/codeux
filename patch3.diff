@@ -1,0 +1,13 @@
+<<<<<<< SEARCH
+  private parseRetryAfterMs(headerValue: unknown): number | null {
+=======
+  private async get<T>(url: string, config?: import("axios").AxiosRequestConfig): Promise<import("axios").AxiosResponse<T>> {
+    return this.request<T>({ ...config, method: "GET", url });
+  }
+
+  private async post<T>(url: string, data?: any, config?: import("axios").AxiosRequestConfig): Promise<import("axios").AxiosResponse<T>> {
+    return this.request<T>({ ...config, method: "POST", url, data });
+  }
+
+  private parseRetryAfterMs(headerValue: unknown): number | null {
+>>>>>>> REPLACE

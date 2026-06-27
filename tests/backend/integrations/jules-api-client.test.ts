@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { JulesApiClient, JulesNotFoundError } from "../../../src/integrations/jules-api-client.js";
+import { JulesApiClient, JulesNotFoundError, JulesApiError } from "../../../src/integrations/jules-api-client.js";
 import axios from "axios";
 
 const mockInstance = Object.assign(
   vi.fn(),
   {
+    request: vi.fn(),
     get: vi.fn(),
     post: vi.fn(),
     interceptors: {
@@ -34,7 +35,7 @@ vi.mock("axios", () => {
 
 describe("JulesApiClient coverage", () => {
     it("handles listAllSources pagination", async () => {
-        vi.mocked(mockInstance.get)
+        vi.mocked(mockInstance.request)
             .mockResolvedValueOnce({ data: { sources: [{ id: "1" }], nextPageToken: "token" } })
             .mockResolvedValueOnce({ data: { sources: [{ id: "2" }] } });
 
@@ -44,7 +45,7 @@ describe("JulesApiClient coverage", () => {
     });
 
     it("handles listAllActivities pagination", async () => {
-        vi.mocked(mockInstance.get)
+        vi.mocked(mockInstance.request)
             .mockResolvedValueOnce({ data: { activities: [{ id: "1" }], nextPageToken: "token" } })
             .mockResolvedValueOnce({ data: { activities: [{ id: "2" }] } });
 
@@ -94,50 +95,6 @@ describe("JulesApiClient coverage", () => {
         expect(config.headers["X-Goog-Api-Key"]).toBeUndefined();
     });
 
-    it("interceptor retries on 429", async () => {
-        vi.useFakeTimers();
-        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key" });
-        const errorCb = (mockInstance.interceptors.response as any)._errorCb;
-        
-        mockInstance.mockResolvedValue({ data: "success" });
-
-        const mockError = {
-          config: { url: "http://url/test" },
-          response: { status: 429 }
-        };
-
-        const promise = errorCb(mockError);
-        
-        await vi.runAllTimersAsync();
-        
-        const result = await promise;
-        expect(result.data).toBe("success");
-        expect(mockInstance).toHaveBeenCalledWith(mockError.config);
-
-        vi.useRealTimers();
-    });
-
-    it("interceptor honors Retry-After on 429", async () => {
-        vi.useFakeTimers();
-        const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
-        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key" });
-        const errorCb = (mockInstance.interceptors.response as any)._errorCb;
-
-        mockInstance.mockResolvedValue({ data: "ok" });
-        const mockError = {
-          config: { url: "http://url/test" },
-          response: { status: 429, headers: { "retry-after": "3" } },
-        };
-
-        const promise = errorCb(mockError);
-        await vi.runAllTimersAsync();
-        await promise;
-
-        // 3s Retry-After should dominate the 1s first-attempt backoff.
-        expect(setTimeoutSpy.mock.calls.some(([, ms]) => ms === 3000)).toBe(true);
-        setTimeoutSpy.mockRestore();
-        vi.useRealTimers();
-    });
 
     it("throttles request starts by the minimum interval", async () => {
         vi.useFakeTimers();
@@ -159,8 +116,8 @@ describe("JulesApiClient coverage", () => {
     });
 
     it("fetchRecentActivitiesLite returns recent activities without per-activity hydration", async () => {
-        vi.mocked(mockInstance.get).mockReset();
-        vi.mocked(mockInstance.get)
+        vi.mocked(mockInstance.request).mockReset();
+        vi.mocked(mockInstance.request)
             .mockResolvedValueOnce({ data: { activities: [{ id: "a1", createTime: "2026-01-02T00:00:00Z", agentMessaged: { agentMessage: "second" } }], nextPageToken: "t" } })
             .mockResolvedValueOnce({ data: { activities: [{ id: "a0", createTime: "2026-01-01T00:00:00Z", agentMessaged: { agentMessage: "first" } }] } });
 
@@ -169,13 +126,13 @@ describe("JulesApiClient coverage", () => {
 
         // Sorted ascending by createTime, and only the two list calls (no getActivity hydration).
         expect(res.map((a) => a.id)).toEqual(["a0", "a1"]);
-        expect(mockInstance.get).toHaveBeenCalledTimes(2);
+        expect(mockInstance.request).toHaveBeenCalledTimes(2);
     });
 
     it("getCachedSessions coalesces concurrent callers into a single fetch", async () => {
-        vi.mocked(mockInstance.get).mockReset();
+        vi.mocked(mockInstance.request).mockReset();
         let resolveGet: (v: unknown) => void = () => {};
-        vi.mocked(mockInstance.get).mockReturnValueOnce(new Promise((r) => { resolveGet = r; }));
+        vi.mocked(mockInstance.request).mockReturnValueOnce(new Promise((r) => { resolveGet = r; }));
 
         const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0, now: () => 0 });
         const p1 = client.getCachedSessions();
@@ -183,14 +140,14 @@ describe("JulesApiClient coverage", () => {
         resolveGet({ data: { sessions: [{ id: "1" }] } });
         const [r1, r2] = await Promise.all([p1, p2]);
 
-        expect(mockInstance.get).toHaveBeenCalledTimes(1);
+        expect(mockInstance.request).toHaveBeenCalledTimes(1);
         expect(r1).toBe(r2);
         expect(r1.map((s) => s.id)).toEqual(["1"]);
     });
 
     it("getCachedSessions serves the cached snapshot within the TTL and re-fetches after expiry", async () => {
-        vi.mocked(mockInstance.get).mockReset();
-        vi.mocked(mockInstance.get)
+        vi.mocked(mockInstance.request).mockReset();
+        vi.mocked(mockInstance.request)
             .mockResolvedValueOnce({ data: { sessions: [{ id: "1" }] } })
             .mockResolvedValueOnce({ data: { sessions: [{ id: "2" }] } });
 
@@ -200,15 +157,15 @@ describe("JulesApiClient coverage", () => {
         expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["1"]);
         t = 500; // within TTL -> cached
         expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["1"]);
-        expect(mockInstance.get).toHaveBeenCalledTimes(1);
+        expect(mockInstance.request).toHaveBeenCalledTimes(1);
         t = 1500; // expired -> refetch
         expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["2"]);
-        expect(mockInstance.get).toHaveBeenCalledTimes(2);
+        expect(mockInstance.request).toHaveBeenCalledTimes(2);
     });
 
     it("getCachedSessions paginates and stops at maxSnapshotSessions", async () => {
-        vi.mocked(mockInstance.get).mockReset();
-        vi.mocked(mockInstance.get)
+        vi.mocked(mockInstance.request).mockReset();
+        vi.mocked(mockInstance.request)
             .mockResolvedValueOnce({ data: { sessions: [{ id: "1" }, { id: "2" }], nextPageToken: "t" } })
             .mockResolvedValueOnce({ data: { sessions: [{ id: "3" }] } });
 
@@ -217,24 +174,23 @@ describe("JulesApiClient coverage", () => {
     });
 
     it("sendSessionMessage invalidates the session snapshot so the next read refetches", async () => {
-        vi.mocked(mockInstance.get).mockReset();
-        vi.mocked(mockInstance.post).mockReset();
-        vi.mocked(mockInstance.get)
+        vi.mocked(mockInstance.request).mockReset();
+        vi.mocked(mockInstance.request)
             .mockResolvedValueOnce({ data: { sessions: [{ id: "1" }] } })
+            .mockResolvedValueOnce({ data: {} })
             .mockResolvedValueOnce({ data: { sessions: [{ id: "2" }] } });
-        vi.mocked(mockInstance.post).mockResolvedValueOnce({ data: {} });
 
         // Long TTL so a re-fetch can only happen via invalidation.
         const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0, sessionsCacheTtlMs: 1_000_000, now: () => 0 });
         expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["1"]);
         await client.sendSessionMessage("s", "hello");
         expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["2"]);
-        expect(mockInstance.get).toHaveBeenCalledTimes(2);
+        expect(mockInstance.request).toHaveBeenCalledTimes(3);
     });
 
     it("getCachedSessions serves the last good snapshot when a refresh fails", async () => {
-        vi.mocked(mockInstance.get).mockReset();
-        vi.mocked(mockInstance.get)
+        vi.mocked(mockInstance.request).mockReset();
+        vi.mocked(mockInstance.request)
             .mockResolvedValueOnce({ data: { sessions: [{ id: "1" }] } })
             .mockRejectedValueOnce(Object.assign(new Error("connect ETIMEDOUT"), { code: "ETIMEDOUT" }));
 
@@ -245,37 +201,107 @@ describe("JulesApiClient coverage", () => {
         expect((await client.getCachedSessions()).map((s) => s.id)).toEqual(["1"]);
     });
 
-    it("retries transient network errors (ETIMEDOUT) then resolves", async () => {
+    it("retries on HTTP 429 and honors Retry-After header", async () => {
         vi.useFakeTimers();
-        new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0, maxTransientRetries: 2 });
-        const errorCb = (mockInstance.interceptors.response as any)._errorCb;
+        const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
 
-        (mockInstance as any).mockReset();
-        (mockInstance as any).mockResolvedValueOnce({ data: "recovered" });
-        const config = { url: "/sessions" };
-        const err = Object.assign(new Error("connect ETIMEDOUT 1.2.3.4:443"), { code: "ETIMEDOUT", config });
+        vi.mocked(mockInstance.request).mockReset();
+        vi.mocked(mockInstance.request)
+            .mockRejectedValueOnce({
+                response: { status: 429, headers: { "retry-after": "3" } },
+                config: { url: "/x" }
+            })
+            .mockResolvedValueOnce({ data: "ok" });
 
-        const p = errorCb(err);
-        await vi.advanceTimersByTimeAsync(35000);
-        await expect(p).resolves.toEqual({ data: "recovered" });
-        expect(mockInstance).toHaveBeenCalledWith(config);
+        const promise = client.listSessions();
+        await vi.runAllTimersAsync();
+        const result = await promise;
+
+        // Note: listSessions expects data.sessions, so result may be undefined if mock returns { data: "ok" }.
+        // However, we just want to ensure it completes and returns what data resolves to.
+        expect(result).toBe("ok");
+        expect(setTimeoutSpy.mock.calls.some(([, ms]) => ms === 3000)).toBe(true);
+        expect(mockInstance.request).toHaveBeenCalledTimes(2);
+
+        setTimeoutSpy.mockRestore();
         vi.useRealTimers();
     });
 
+    it("retries on ECONNRESET network error", async () => {
+        vi.useFakeTimers();
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
+
+        vi.mocked(mockInstance.request).mockReset();
+        vi.mocked(mockInstance.request)
+            .mockRejectedValueOnce(Object.assign(new Error("socket hang up"), { code: "ECONNRESET", config: { url: "/x" } }))
+            .mockResolvedValueOnce({ data: "ok" });
+
+        const promise = client.listSessions();
+        await vi.runAllTimersAsync();
+        const result = await promise;
+
+        expect(result).toBe("ok");
+        expect(mockInstance.request).toHaveBeenCalledTimes(2);
+        vi.useRealTimers();
+    });
+
+    it("retries on HTTP 502 gateway error", async () => {
+        vi.useFakeTimers();
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
+
+        vi.mocked(mockInstance.request).mockReset();
+        vi.mocked(mockInstance.request)
+            .mockRejectedValueOnce({
+                response: { status: 502 },
+                config: { url: "/x" }
+            })
+            .mockResolvedValueOnce({ data: "ok" });
+
+        const promise = client.listSessions();
+        await vi.runAllTimersAsync();
+        const result = await promise;
+
+        expect(result).toBe("ok");
+        expect(mockInstance.request).toHaveBeenCalledTimes(2);
+        vi.useRealTimers();
+    });
+
+    it("does not retry HTTP 401 and throws JulesApiError", async () => {
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
+
+        vi.mocked(mockInstance.request).mockReset();
+        vi.mocked(mockInstance.request).mockRejectedValueOnce({
+            response: { status: 401, data: "Unauthorized" },
+            message: "Request failed with status code 401",
+            config: { url: "/x" }
+        });
+
+        const promise = client.listSessions();
+        await expect(promise).rejects.toThrow(JulesApiError);
+        await expect(promise).rejects.toMatchObject({ statusCode: 401, body: "Unauthorized" });
+        expect(mockInstance.request).toHaveBeenCalledTimes(1);
+    });
+
     it("does not retry non-transient HTTP errors", async () => {
-        new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
-        const errorCb = (mockInstance.interceptors.response as any)._errorCb;
-        const err = { response: { status: 404 }, config: { url: "/x" }, message: "Request failed with status code 404" };
-        await expect(errorCb(err)).rejects.toBe(err);
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
+        vi.mocked(mockInstance.request).mockRejectedValueOnce({
+            response: { status: 400, data: "Bad Request" },
+            message: "Request failed with status code 400"
+        });
+
+        const promise = client.listSessions();
+        await expect(promise).rejects.toThrow(JulesApiError);
+        await expect(promise).rejects.toMatchObject({ statusCode: 400, body: "Bad Request" });
     });
 
     it("handles 404 in listAllActivities by throwing JulesNotFoundError", async () => {
-        vi.mocked(mockInstance.get).mockReset();
+        vi.mocked(mockInstance.request).mockReset();
         const err = Object.assign(new Error("Request failed with status code 404"), {
           response: { status: 404 },
           config: { url: "/sessions/sess/activities" }
         });
-        vi.mocked(mockInstance.get).mockRejectedValueOnce(err);
+        vi.mocked(mockInstance.request).mockRejectedValueOnce(err);
 
         const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
         
