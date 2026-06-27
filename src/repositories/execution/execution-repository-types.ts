@@ -190,3 +190,54 @@ export interface ExecutionInvocationMessageRow {
   metadata_json: string | null;
   created_at: string;
 }
+
+export interface InvocationCountRow {
+  count: number;
+}
+
+export interface InvocationSummaryRow {
+  totalInvocations: number;
+  runningCount: number;
+  failedCount: number;
+  completedCount: number;
+  cancelledCount: number;
+  pausedCount: number;
+  totalTokens: number | null;
+  totalInputTokens: number | null;
+  totalOutputTokens: number | null;
+  totalCachedTokens: number | null;
+  avgDurationMs: number | null;
+}
+
+export interface InvocationP95Row {
+  duration_ms: number;
+}
+
+export interface InvocationSprintRow {
+  sprintId: string;
+  status: string;
+  count: number;
+}
+
+export interface InvocationApiRow {
+  type: string;
+  purpose: string;
+  provider: string;
+  finishedAt: string | null;
+  duration_ms: number | null;
+  count: number;
+}
+
+export interface InvocationErrorRow {
+  msg: string;
+  status: string;
+  count: number;
+}
+
+export interface InvocationPurposeRow {
+  purpose: string;
+}
+
+export interface InvocationProviderRow {
+  provider: string;
+}
