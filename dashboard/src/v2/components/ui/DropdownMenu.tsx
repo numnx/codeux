@@ -51,6 +51,7 @@ export const DropdownMenu = ({
   const isReducedMotion = useReducedMotion();
   const gsapTokens = useGsapInteractionTokens();
   const [isRendered, setIsRendered] = useState(false);
+  const lastInteractionType = useRef<string | null>(null);
   const localTriggerRef = useRef<HTMLDivElement>(null);
   const triggerRef = externalTriggerRef || localTriggerRef;
   const menuRef = useRef<HTMLDivElement>(null);
@@ -156,8 +157,15 @@ export const DropdownMenu = ({
         }
       );
       requestAnimationFrame(() => {
-        const firstItem = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled]):not([aria-disabled="true"])');
-        firstItem?.focus({ preventScroll: true });
+        const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled]):not([aria-disabled="true"])') || []);
+        if (items.length > 0) {
+          if (lastInteractionType.current === 'ArrowUp') {
+            items[items.length - 1]?.focus({ preventScroll: true });
+          } else {
+            items[0]?.focus({ preventScroll: true });
+          }
+        }
+        lastInteractionType.current = null;
       });
     } else if (isRendered) {
       gsap.to(menuRef.current, {
@@ -239,19 +247,46 @@ export const DropdownMenu = ({
     <>
       {isValidElement(children) ? cloneElement(children as preact.VNode<any>, {
         id: (children.props as any).id || triggerId,
-        ref: externalTriggerRef ? undefined : localTriggerRef,
+        ref: (node: any) => {
+          if (externalTriggerRef) {
+            if (typeof externalTriggerRef === 'function') (externalTriggerRef as any)(node);
+            else (externalTriggerRef as any).current = node;
+          } else {
+            (localTriggerRef as any).current = node;
+          }
+          const childRef = (children as any).ref;
+          if (childRef) {
+            if (typeof childRef === 'function') childRef(node);
+            else childRef.current = node;
+          }
+        },
         onClick: (e: MouseEvent) => {
+          lastInteractionType.current = 'click';
           e.stopPropagation();
-          onOpenChange(!isOpen);
+          if (!(children.props as any).disabled) {
+            onOpenChange(!isOpen);
+          }
           if ((children.props as any).onClick) (children.props as any).onClick(e);
         },
         onKeyDown: (e: KeyboardEvent) => {
-          if (!externalTriggerRef && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault();
-            onOpenChange(!isOpen);
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+            lastInteractionType.current = e.key;
+            if (e.key !== 'Enter' && e.key !== ' ') {
+                e.preventDefault();
+                if (!(children.props as any).disabled) {
+                  onOpenChange(true);
+                }
+            } else if (!externalTriggerRef) {
+                e.preventDefault();
+                if (!(children.props as any).disabled) {
+                  onOpenChange(!isOpen);
+                }
+            }
           }
           if ((children.props as any).onKeyDown) (children.props as any).onKeyDown(e);
         },
+        disabled: (children.props as any).disabled,
+        "aria-label": (children.props as any)["aria-label"],
         "aria-haspopup": "menu",
         "aria-expanded": isOpen,
         "aria-controls": isOpen ? menuId : undefined,
@@ -261,11 +296,21 @@ export const DropdownMenu = ({
           id={triggerId}
           ref={externalTriggerRef ? undefined : (localTriggerRef as unknown as RefObject<HTMLButtonElement>)}
           className="inline-flex cursor-pointer text-left"
-          onClick={(e) => { e.stopPropagation(); onOpenChange(!isOpen); }}
+          onClick={(e) => {
+            lastInteractionType.current = 'click';
+            e.stopPropagation();
+            onOpenChange(!isOpen);
+          }}
           onKeyDown={(e) => {
-            if (!externalTriggerRef && (e.key === 'Enter' || e.key === ' ')) {
-              e.preventDefault();
-              onOpenChange(!isOpen);
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+              lastInteractionType.current = e.key;
+              if (e.key !== 'Enter' && e.key !== ' ') {
+                e.preventDefault();
+                onOpenChange(true);
+              } else if (!externalTriggerRef) {
+                e.preventDefault();
+                onOpenChange(!isOpen);
+              }
             }
           }}
           aria-haspopup="menu"
