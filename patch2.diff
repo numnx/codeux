@@ -1,0 +1,42 @@
+<<<<<<< SEARCH
+  private parseRetryAfterMs(headerValue: unknown): number | null {
+=======
+  private async request<T = any, R = import("axios").AxiosResponse<T>, D = any>(config: import("axios").AxiosRequestConfig<D>): Promise<R> {
+    let retryCount = 0;
+    while (true) {
+      try {
+        return await this.axiosInstance.request<T, R, D>(config);
+      } catch (error: any) {
+        const is429 = Boolean(error.response && error.response.status === 429);
+        const isGatewayError = Boolean(error.response && [502, 503, 504].includes(error.response.status));
+        const isTransient = !error.response && isTransientNetworkError(error);
+
+        if ((is429 || isGatewayError || isTransient) && retryCount < this.maxTransientRetries) {
+          retryCount++;
+          const retryAfterMs = is429 ? (this.parseRetryAfterMs(error.response.headers?.["retry-after"]) ?? 5000) : null;
+          const backoffMs = Math.pow(2, retryCount - 1) * 1000 + Math.random() * 500;
+          const delay = Math.min(Math.max(retryAfterMs ?? backoffMs, backoffMs), 30000);
+
+          const reason = is429 ? "returned 429" : (isGatewayError ? `returned ${error.response.status}` : `hit a transient network error (${error.code || error.name || "unknown"})`);
+          console.warn(`Jules API ${reason}. Retrying request to ${config.url} (Attempt ${retryCount}/${this.maxTransientRetries}) after ${Math.round(delay)}ms...`);
+
+          this.deferRequestSlot(delay);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        if (error.response) {
+          throw new JulesApiError(
+            error.response.status,
+            error.response.data,
+            `Jules API returned ${error.response.status}: ${error.message}`
+          );
+        }
+
+        throw error;
+      }
+    }
+  }
+
+  private parseRetryAfterMs(headerValue: unknown): number | null {
+>>>>>>> REPLACE

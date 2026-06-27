@@ -9,6 +9,7 @@ const mockAxiosInstance = {
   },
   get: vi.fn(),
   post: vi.fn(),
+  request: vi.fn(),
 };
 
 vi.mock("axios", () => {
@@ -47,20 +48,20 @@ describe("JulesApiClient", () => {
     const mockAxios = () => (client as any).axiosInstance;
 
     it("gets source", async () => {
-      vi.mocked(mockAxios().get).mockResolvedValue({ data: { id: "s1" } });
+      vi.mocked(mockAxios().request).mockResolvedValue({ data: { id: "s1" } });
       const res = await client.getSource("s1");
       expect(res.id).toBe("s1");
-      expect(mockAxios().get).toHaveBeenCalledWith("/sources/s1");
+      expect(mockAxios().request).toHaveBeenCalledWith(expect.objectContaining({ url: "/sources/s1", method: "GET" }));
     });
 
     it("lists sources", async () => {
-      vi.mocked(mockAxios().get).mockResolvedValue({ data: { sources: [] } });
+      vi.mocked(mockAxios().request).mockResolvedValue({ data: { sources: [] } });
       await client.listSources({ filter: "f" });
-      expect(mockAxios().get).toHaveBeenCalledWith("/sources", expect.anything());
+      expect(mockAxios().request).toHaveBeenCalledWith(expect.objectContaining({ url: "/sources", method: "GET" }));
     });
 
     it("lists all sources", async () => {
-      vi.mocked(mockAxios().get)
+      vi.mocked(mockAxios().request)
         .mockResolvedValueOnce({ data: { sources: [{ id: "1" }], nextPageToken: "next" } })
         .mockResolvedValueOnce({ data: { sources: [{ id: "2" }] } });
       const sources = await client.listAllSources();
@@ -68,37 +69,37 @@ describe("JulesApiClient", () => {
     });
 
     it("creates session", async () => {
-      vi.mocked(mockAxios().post).mockResolvedValue({ data: { id: "s1" } });
+      vi.mocked(mockAxios().request).mockResolvedValue({ data: { id: "s1" } });
       const res = await client.createSession({ prompt: "p", sourceContext: { source: "src" } });
       expect(res.id).toBe("s1");
     });
 
     it("gets session", async () => {
-      vi.mocked(mockAxios().get).mockResolvedValue({ data: { id: "s1" } });
+      vi.mocked(mockAxios().request).mockResolvedValue({ data: { id: "s1" } });
       await client.getSession("s1");
-      expect(mockAxios().get).toHaveBeenCalledWith("/sessions/s1");
+      expect(mockAxios().request).toHaveBeenCalledWith(expect.objectContaining({ url: "/sessions/s1", method: "GET" }));
     });
 
     it("approves plan", async () => {
-      vi.mocked(mockAxios().post).mockResolvedValue({ data: { ok: true } });
+      vi.mocked(mockAxios().request).mockResolvedValue({ data: { ok: true } });
       await client.approveSessionPlan("s1");
-      expect(mockAxios().post).toHaveBeenCalledWith("/sessions/s1:approvePlan");
+      expect(mockAxios().request).toHaveBeenCalledWith(expect.objectContaining({ url: "/sessions/s1:approvePlan", method: "POST" }));
     });
 
     it("sends message", async () => {
-      vi.mocked(mockAxios().post).mockResolvedValue({ data: { ok: true } });
+      vi.mocked(mockAxios().request).mockResolvedValue({ data: { ok: true } });
       await client.sendSessionMessage("s1", "hi");
-      expect(mockAxios().post).toHaveBeenCalledWith("/sessions/s1:sendMessage", { prompt: "hi" });
+      expect(mockAxios().request).toHaveBeenCalledWith(expect.objectContaining({ url: "/sessions/s1:sendMessage", data: { prompt: "hi" }, method: "POST" }));
     });
 
     it("gets activity", async () => {
-      vi.mocked(mockAxios().get).mockResolvedValue({ data: { id: "a1" } });
+      vi.mocked(mockAxios().request).mockResolvedValue({ data: { id: "a1" } });
       await client.getActivity("s1", "a1");
-      expect(mockAxios().get).toHaveBeenCalledWith("/sessions/s1/activities/a1");
+      expect(mockAxios().request).toHaveBeenCalledWith(expect.objectContaining({ url: "/sessions/s1/activities/a1", method: "GET" }));
     });
 
     it("lists all activities", async () => {
-      vi.mocked(mockAxios().get)
+      vi.mocked(mockAxios().request)
         .mockResolvedValueOnce({ data: { activities: [{ id: "1" }], nextPageToken: "next" } })
         .mockResolvedValueOnce({ data: { activities: [{ id: "2" }] } });
       const activities = await client.listAllActivities("s1");
@@ -106,7 +107,7 @@ describe("JulesApiClient", () => {
     });
 
     it("fetches the latest activities across pages and hydrates them via get", async () => {
-      vi.mocked(mockAxios().get)
+      vi.mocked(mockAxios().request)
         .mockResolvedValueOnce({
           data: {
             activities: [
@@ -139,13 +140,9 @@ describe("JulesApiClient", () => {
           agentMessaged: { agentMessage: "Latest message" },
         },
       ]);
-      expect(mockAxios().get).toHaveBeenNthCalledWith(1, "/sessions/s1/activities", {
-        params: { pageSize: 1, pageToken: undefined },
-      });
-      expect(mockAxios().get).toHaveBeenNthCalledWith(2, "/sessions/s1/activities", {
-        params: { pageSize: 1, pageToken: "next" },
-      });
-      expect(mockAxios().get).toHaveBeenNthCalledWith(3, "/sessions/s1/activities/a2");
+      expect(mockAxios().request).toHaveBeenNthCalledWith(1, expect.objectContaining({ url: "/sessions/s1/activities", method: "GET", params: { pageSize: 1, pageToken: undefined } }));
+      expect(mockAxios().request).toHaveBeenNthCalledWith(2, expect.objectContaining({ url: "/sessions/s1/activities", method: "GET", params: { pageSize: 1, pageToken: "next" } }));
+      expect(mockAxios().request).toHaveBeenNthCalledWith(3, expect.objectContaining({ url: "/sessions/s1/activities/a2", method: "GET" }));
     });
   });
 });

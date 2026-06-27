@@ -1,0 +1,81 @@
+<<<<<<< SEARCH
+    it("does not retry non-transient HTTP errors", async () => {
+=======
+    it("retries on HTTP 429 and honors Retry-After header", async () => {
+        vi.useFakeTimers();
+        const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
+
+        vi.mocked(mockInstance.request)
+            .mockRejectedValueOnce({
+                response: { status: 429, headers: { "retry-after": "3" } },
+                config: { url: "/x" }
+            })
+            .mockResolvedValueOnce({ data: "ok" });
+
+        const promise = client.listSessions();
+        await vi.runAllTimersAsync();
+        const result = await promise;
+
+        expect(result).toEqual({ data: "ok" });
+        expect(setTimeoutSpy.mock.calls.some(([, ms]) => ms === 3000)).toBe(true);
+        expect(mockInstance.request).toHaveBeenCalledTimes(2);
+
+        setTimeoutSpy.mockRestore();
+        vi.useRealTimers();
+    });
+
+    it("retries on ECONNRESET network error", async () => {
+        vi.useFakeTimers();
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
+
+        vi.mocked(mockInstance.request)
+            .mockRejectedValueOnce(Object.assign(new Error("socket hang up"), { code: "ECONNRESET", config: { url: "/x" } }))
+            .mockResolvedValueOnce({ data: "ok" });
+
+        const promise = client.listSessions();
+        await vi.runAllTimersAsync();
+        const result = await promise;
+
+        expect(result).toEqual({ data: "ok" });
+        expect(mockInstance.request).toHaveBeenCalledTimes(2);
+        vi.useRealTimers();
+    });
+
+    it("retries on HTTP 502 gateway error", async () => {
+        vi.useFakeTimers();
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
+
+        vi.mocked(mockInstance.request)
+            .mockRejectedValueOnce({
+                response: { status: 502 },
+                config: { url: "/x" }
+            })
+            .mockResolvedValueOnce({ data: "ok" });
+
+        const promise = client.listSessions();
+        await vi.runAllTimersAsync();
+        const result = await promise;
+
+        expect(result).toEqual({ data: "ok" });
+        expect(mockInstance.request).toHaveBeenCalledTimes(2);
+        vi.useRealTimers();
+    });
+
+    it("does not retry HTTP 401 and throws JulesApiError", async () => {
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
+
+        vi.mocked(mockInstance.request).mockRejectedValueOnce({
+            response: { status: 401, data: "Unauthorized" },
+            message: "Request failed with status code 401",
+            config: { url: "/x" }
+        });
+
+        const promise = client.listSessions();
+        await expect(promise).rejects.toThrow(JulesApiError);
+        await expect(promise).rejects.toMatchObject({ statusCode: 401, body: "Unauthorized" });
+        expect(mockInstance.request).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry non-transient HTTP errors", async () => {
+>>>>>>> REPLACE

@@ -1,0 +1,84 @@
+<<<<<<< SEARCH
+    it("interceptor retries on 429", async () => {
+        vi.useFakeTimers();
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key" });
+        const errorCb = (mockInstance.interceptors.response as any)._errorCb;
+
+        mockInstance.mockResolvedValue({ data: "success" });
+
+        const mockError = {
+          config: { url: "http://url/test" },
+          response: { status: 429 }
+        };
+
+        const promise = errorCb(mockError);
+
+        await vi.runAllTimersAsync();
+
+        const result = await promise;
+        expect(result.data).toBe("success");
+        expect(mockInstance).toHaveBeenCalledWith(mockError.config);
+
+        vi.useRealTimers();
+    });
+
+    it("interceptor honors Retry-After on 429", async () => {
+        vi.useFakeTimers();
+        const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key" });
+        const errorCb = (mockInstance.interceptors.response as any)._errorCb;
+
+        mockInstance.mockResolvedValue({ data: "ok" });
+        const mockError = {
+          config: { url: "http://url/test" },
+          response: { status: 429, headers: { "retry-after": "3" } },
+        };
+
+        const promise = errorCb(mockError);
+        await vi.runAllTimersAsync();
+        await promise;
+
+        // 3s Retry-After should dominate the 1s first-attempt backoff.
+        expect(setTimeoutSpy.mock.calls.some(([, ms]) => ms === 3000)).toBe(true);
+        setTimeoutSpy.mockRestore();
+        vi.useRealTimers();
+    });
+=======
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+    it("retries transient network errors (ETIMEDOUT) then resolves", async () => {
+        vi.useFakeTimers();
+        new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0, maxTransientRetries: 2 });
+        const errorCb = (mockInstance.interceptors.response as any)._errorCb;
+
+        (mockInstance as any).mockReset();
+        (mockInstance as any).mockResolvedValueOnce({ data: "recovered" });
+        const config = { url: "/sessions" };
+        const err = Object.assign(new Error("connect ETIMEDOUT 1.2.3.4:443"), { code: "ETIMEDOUT", config });
+
+        const p = errorCb(err);
+        await vi.advanceTimersByTimeAsync(35000);
+        await expect(p).resolves.toEqual({ data: "recovered" });
+        expect(mockInstance).toHaveBeenCalledWith(config);
+        vi.useRealTimers();
+    });
+
+    it("does not retry non-transient HTTP errors", async () => {
+        new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
+        const errorCb = (mockInstance.interceptors.response as any)._errorCb;
+        const err = { response: { status: 404 }, config: { url: "/x" }, message: "Request failed with status code 404" };
+        await expect(errorCb(err)).rejects.toBe(err);
+    });
+=======
+    it("does not retry non-transient HTTP errors", async () => {
+        const client = new JulesApiClient({ baseUrl: "http://url", apiKey: "key", minRequestIntervalMs: 0 });
+        vi.mocked(mockInstance.request).mockRejectedValueOnce({
+            response: { status: 400, data: "Bad Request" },
+            message: "Request failed with status code 400"
+        });
+
+        const promise = client.listSessions();
+        await expect(promise).rejects.toThrow(JulesApiError);
+        await expect(promise).rejects.toMatchObject({ statusCode: 400, body: "Bad Request" });
+    });
+>>>>>>> REPLACE
