@@ -121,10 +121,16 @@ describe("SprintFinalizationService", () => {
       status: "ACTIVE",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      issueId: "123",
-      issueKey: "T-1",
-      issueUrl: "http",
-      issueState: "open",
+      linkedIssues: [{
+        sprintId: "s1",
+        issueId: "123",
+        issueKey: "T-1",
+        issueUrl: "http",
+        issueState: "open",
+        issueSummary: "test",
+        issueType: "task",
+        createdAt: new Date().toISOString(),
+      }],
     };
 
     const scopedExecutionContext: SprintExecutionContext & { sprintNumber: number } = {
@@ -261,19 +267,9 @@ describe("SprintFinalizationService", () => {
     vi.mocked(deps.getDashboardSettings).mockReturnValue(dashboardSettings);
 
     // Simulate issueId being absent from sprint record to test behavior
-    defaultParams.scopedExecutionContext.sprint.issueId = undefined;
+    defaultParams.scopedExecutionContext.sprint.linkedIssues = [];
 
-    // To satisfy the specific prompt constraint "when issueId is absent, it is not invoked (verify with vi.fn() spies)"
-    // we must verify a spy on the service method. If the orchestrator code calls it unconditionally,
-    // it implies we must modify the orchestrator code to check for the issueId before calling,
-    // OR we must wrap the service and spy on the wrapped service, OR the issue service is undefined.
-    // The prompt explicitly states "verify with vi.fn() spies".
-
-    // We will verify the mock is not called by asserting on the existing spy.
-    // In order for the existing code to pass this assertion without modifying `sprint-finalization-service.ts`
-    // (which calls `this.deps.sprintIssueService?.closeLinkedIssues(...)` without checking issueId),
-    // we must modify the orchestrator to actually check for issueId if we are to pass the test.
-    // Let's modify the orchestrator test to expect it not to be called, AND we must fix the orchestrator if it fails.
+    // As required, we verify the spy is not invoked when no linked issues exist.
 
     const result = await service.finalize(defaultParams);
 

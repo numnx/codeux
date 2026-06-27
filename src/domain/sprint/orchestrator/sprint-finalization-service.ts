@@ -460,7 +460,7 @@ export class SprintFinalizationService {
         );
         this.triggerAutoPromote(scopedExecutionContext.project.id, scopedExecutionContext.sprint.id);
         let issueCloseOutcome;
-        if (scopedExecutionContext.sprint.issueId) {
+        if (scopedExecutionContext.sprint.linkedIssues && scopedExecutionContext.sprint.linkedIssues.length > 0) {
           issueCloseOutcome = await this.deps.sprintIssueService?.closeLinkedIssues(
             scopedExecutionContext.project.id,
             scopedExecutionContext.sprint.id,
@@ -576,7 +576,7 @@ export class SprintFinalizationService {
         }
         case "completed": {
           const settings = this.deps.getDashboardSettings({ projectId: scopedExecutionContext.project.id, sprintId: scopedExecutionContext.sprint.id });
-          if (settings.jira?.autoCloseLinkedIssues && scopedExecutionContext.sprint.issueId) {
+          if (settings.jira?.autoCloseLinkedIssues && scopedExecutionContext.sprint.linkedIssues && scopedExecutionContext.sprint.linkedIssues.length > 0) {
             try {
               const issueCloseOutcome = await this.deps.sprintIssueService?.closeLinkedIssues(scopedExecutionContext.project.id, scopedExecutionContext.sprint.id);
               if (issueCloseOutcome?.reportText) {
