@@ -117,6 +117,7 @@ export const Toast: FunctionComponent<ToastProps> = ({
       <Icon aria-hidden="true" className="w-5 h-5 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium leading-relaxed dark:text-slate-200">
+          <span className="sr-only">{type}: </span>
           {message}
         </p>
         {retryAction && (
@@ -152,6 +153,9 @@ export const Toast: FunctionComponent<ToastProps> = ({
         type="button"
         onClick={(e) => {
           e.preventDefault();
+          if (document.activeElement === dismissButtonRef.current) {
+            dismissButtonRef.current?.blur();
+          }
           handleDismiss();
         }}
         className="shrink-0 p-1 rounded-md opacity-70 hover:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"

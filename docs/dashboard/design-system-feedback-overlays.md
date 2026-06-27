@@ -57,3 +57,5 @@ Feedback surfaces indicate system status or asynchronous progress.
 - Ensure overlays (`Dialog`, `Modal`, `ConfirmDialog`) manage focus properly using `useFocusTrap`.
 - Maintain appropriate ARIA attributes for semantic landmarks: `role="dialog"`, `aria-modal="true"`.
 - Action feedback and toasts must use `role="status"` for polite announcements and `role="alert"` or `aria-live="assertive"` exclusively for destructive errors.
+- Do not use color or motion alone to convey status. Include `.sr-only` text (e.g., "success:", "error:") where visual status is implied.
+- Use `role="img"` with descriptive `aria-label`s for static status indicators instead of live regions to avoid redundant announcements.

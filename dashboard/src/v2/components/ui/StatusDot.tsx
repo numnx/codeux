@@ -21,7 +21,7 @@ export const StatusDot: FunctionComponent<StatusDotProps> = ({ status, className
             return (
                 <div role="img" aria-label={`Status: ${status}`} className={`shrink-0 relative ${className}`}>
                     <div className="w-full h-full rounded-full bg-status-red shadow-[0_0_10px_rgba(227,0,15,0.7)]" />
-                    <div className="absolute inset-0 bg-status-red rounded-full animate-ping opacity-60" />
+                    <div className="absolute inset-0 bg-status-red rounded-full animate-ping motion-reduce:animate-none opacity-60" />
                 </div>
             );
         case "intervention":
@@ -29,7 +29,7 @@ export const StatusDot: FunctionComponent<StatusDotProps> = ({ status, className
                 <span
                     role="img"
                     aria-label={`Status: ${status}`}
-                    className={`shrink-0 ${className} rounded-full bg-status-amber shadow-[0_0_8px_rgba(245,158,11,0.5)] animate-pulse-slow`}
+                    className={`shrink-0 ${className} rounded-full bg-status-amber shadow-[0_0_8px_rgba(245,158,11,0.5)] animate-pulse-slow motion-reduce:animate-none`}
                 />
             );
         case "idle":

@@ -42,6 +42,11 @@ describe("ActionFeedbackRegion", () => {
     const err = screen.getByRole("alert");
     expect(err).toBeInTheDocument();
     expect(err).toHaveAttribute("aria-live", "assertive");
+
+    const { unmount: unmountPending } = render(<ActionFeedbackRegion status="pending" message="Pending message" />);
+    const pendingEl = screen.getAllByRole("status").find(e => e.getAttribute("aria-busy") === "true");
+    expect(pendingEl).toBeInTheDocument();
+    unmountPending();
   });
 
   it("applies contextual accessible names to buttons and aria-hidden to progress and does not auto-dismiss error or pending", () => {

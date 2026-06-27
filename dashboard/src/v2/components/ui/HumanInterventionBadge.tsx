@@ -41,7 +41,10 @@ export const HumanInterventionBadge: FunctionComponent<HumanInterventionBadgePro
         ) : (
           <AlertTriangle className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} strokeWidth={2.2} />
         )}
-        <span>{displayLabel}</span>
+        <span>
+          {displayLabel}
+          <span className="sr-only"> (Severity: {summary.severity})</span>
+        </span>
       </div>
 
       <div

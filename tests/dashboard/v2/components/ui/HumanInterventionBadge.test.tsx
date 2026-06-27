@@ -34,6 +34,7 @@ describe("HumanInterventionBadge", () => {
     render(<HumanInterventionBadge summary={humanSummary} />);
     
     expect(screen.getByText("Needs you")).toBeInTheDocument();
+    expect(screen.getByText("(Severity: medium)")).toBeInTheDocument();
     const badge = screen.getByText("Needs you").parentElement;
     expect(badge?.className).toContain("border-status-amber");
   });
