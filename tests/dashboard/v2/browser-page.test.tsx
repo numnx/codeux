@@ -275,7 +275,10 @@ describe("BrowserPage", () => {
     expect(pageRoot.className).toContain("py-12");
     expect(pageRoot.className).toContain("md:px-8");
     expect(screen.getByTestId("browser-page-header")).toBeInTheDocument();
-    expect(screen.getByTestId("browser-main-tool-panel")).toBeInTheDocument();
+    const mainPanel = screen.getByTestId("browser-main-tool-panel");
+    expect(mainPanel).toBeInTheDocument();
+    expect(mainPanel.className).toContain("grid-cols-1");
+    expect(mainPanel.className).toContain("xl:grid-cols-[minmax(0,1fr)_340px]");
     expect(screen.getAllByText("Sprint 2").length).toBeGreaterThan(0);
     expect(screen.getByText("Selected Sprint")).toBeInTheDocument();
     expect(screen.getAllByText("Launch Container").length).toBeGreaterThan(0);
