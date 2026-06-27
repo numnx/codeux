@@ -273,7 +273,7 @@ describe("BrowserPage", () => {
     const pageRoot = screen.getByTestId("browser-page-root");
     expect(pageRoot.className).toContain("px-4");
     expect(pageRoot.className).toContain("py-12");
-    expect(pageRoot.className).toContain("md:px-20");
+    expect(pageRoot.className).toContain("md:px-8");
     expect(screen.getByTestId("browser-page-header")).toBeInTheDocument();
     expect(screen.getByTestId("browser-main-tool-panel")).toBeInTheDocument();
     expect(screen.getAllByText("Sprint 2").length).toBeGreaterThan(0);
