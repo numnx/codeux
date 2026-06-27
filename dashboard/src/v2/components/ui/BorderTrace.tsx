@@ -1,10 +1,11 @@
 import type { FunctionComponent } from "preact";
+import { memo } from "preact/compat";
 
 /**
  * Elegant border trace on card hover.
  * Bottom expands from center (700ms), sides grow upward from corner (500ms, 200ms delay).
  */
-export const BorderTrace: FunctionComponent<{ accentHex: string }> = ({ accentHex }) => (
+export const BorderTrace: FunctionComponent<{ accentHex: string }> = memo(({ accentHex }) => (
     <>
         {/* Bottom — expands from center */}
         <div className="absolute bottom-0 left-0 right-0 h-[1px] overflow-hidden">
@@ -28,4 +29,4 @@ export const BorderTrace: FunctionComponent<{ accentHex: string }> = ({ accentHe
             />
         </div>
     </>
-);
+));

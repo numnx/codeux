@@ -1,6 +1,7 @@
 import type { FunctionComponent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
+import { memo } from "preact/compat";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 /**
@@ -9,7 +10,7 @@ import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
  * translateX(-50%) = one exact cycle → zero-jump seamless loop.
  * Layer 2 counter-drifts via reverse + negative delay (no second keyframe needed).
  */
-export const WaveFluid: FunctionComponent<{ accentHex: string; isActive?: boolean }> = ({ accentHex, isActive }) => {
+export const WaveFluid: FunctionComponent<{ accentHex: string; isActive?: boolean }> = memo(({ accentHex, isActive }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const prefersReducedMotion = useReducedMotion();
 
@@ -81,4 +82,4 @@ export const WaveFluid: FunctionComponent<{ accentHex: string; isActive?: boolea
         </svg>
     </div>
     );
-};
+});
