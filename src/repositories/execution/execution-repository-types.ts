@@ -1,3 +1,61 @@
+import type {
+  ProviderInvocationPurpose,
+  ProviderInvocationStatus,
+  ProviderInvocationSource,
+  TokenUsageSource
+} from "../../contracts/execution-types.js";
+import type { ExecutionInvocationStatus } from "../../contracts/invocation-types.js";
+import type { ProviderErrorCategory } from "../../shared/providers/provider-error-classifier.js";
+
+const PROVIDER_INVOCATION_PURPOSES = ["task_coding", "ci_fix", "merge_conflict", "planning", "worker_reply", "qa_review", "clarification_reply", "dashboard_reply"] as const;
+export function assertProviderInvocationPurpose(v: string | null | undefined): ProviderInvocationPurpose {
+  if (!v) throw new Error(`Missing provider invocation purpose`);
+  if (!(PROVIDER_INVOCATION_PURPOSES as readonly string[]).includes(v)) throw new Error(`Unknown provider invocation purpose: ${v}`);
+  return v as ProviderInvocationPurpose;
+}
+
+const PROVIDER_INVOCATION_STATUSES = ["running", "completed", "failed", "cancelled"] as const;
+export function assertProviderInvocationStatus(v: string | null | undefined): ProviderInvocationStatus {
+  if (!v) throw new Error(`Missing provider invocation status`);
+  if (!(PROVIDER_INVOCATION_STATUSES as readonly string[]).includes(v)) throw new Error(`Unknown provider invocation status: ${v}`);
+  return v as ProviderInvocationStatus;
+}
+
+const TOKEN_USAGE_SOURCES = ["reported", "estimated", "unsupported", "unavailable"] as const;
+export function assertTokenUsageSource(v: string | null | undefined): TokenUsageSource {
+  if (!v) throw new Error(`Missing token usage source`);
+  if (!(TOKEN_USAGE_SOURCES as readonly string[]).includes(v)) throw new Error(`Unknown token usage source: ${v}`);
+  return v as TokenUsageSource;
+}
+
+const PROVIDER_INVOCATION_SOURCES = ["internal", "EXTERNAL_API"] as const;
+export function assertProviderInvocationSource(v: string | null | undefined): ProviderInvocationSource {
+  if (!v) throw new Error(`Missing provider invocation source`);
+  if (!(PROVIDER_INVOCATION_SOURCES as readonly string[]).includes(v)) throw new Error(`Unknown provider invocation source: ${v}`);
+  return v as ProviderInvocationSource;
+}
+
+const EXECUTION_INVOCATION_STATUSES = ["running", "completed", "failed", "cancelled", "paused"] as const;
+export function assertExecutionInvocationStatus(v: string | null | undefined): ExecutionInvocationStatus {
+  if (!v) throw new Error(`Missing execution invocation status`);
+  if (!(EXECUTION_INVOCATION_STATUSES as readonly string[]).includes(v)) throw new Error(`Unknown execution invocation status: ${v}`);
+  return v as ExecutionInvocationStatus;
+}
+
+const PROVIDER_ERROR_CATEGORIES = ["QUOTA_EXHAUSTED", "AUTH_FAILURE", "RATE_LIMITED", "PROVIDER_NOT_FOUND", "UNKNOWN"] as const;
+export function assertProviderErrorCategory(v: string | null | undefined): ProviderErrorCategory | null {
+  if (!v) return null;
+  if (!(PROVIDER_ERROR_CATEGORIES as readonly string[]).includes(v)) throw new Error(`Unknown provider error category: ${v}`);
+  return v as ProviderErrorCategory;
+}
+
+const INVOCATION_MESSAGE_ROLES = ["system", "user", "assistant", "tool"] as const;
+export function assertInvocationMessageRole(v: string | null | undefined): "system" | "user" | "assistant" | "tool" {
+  if (!v) throw new Error(`Missing invocation message role`);
+  if (!(INVOCATION_MESSAGE_ROLES as readonly string[]).includes(v)) throw new Error(`Unknown invocation message role: ${v}`);
+  return v as "system" | "user" | "assistant" | "tool";
+}
+
 export interface ExecutionSprintRunSummaryRow {
   id: string;
   project_id: string;
