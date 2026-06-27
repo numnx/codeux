@@ -1218,6 +1218,31 @@ export class ExecutionRepository {
     return row ? this.mapTaskRunRow(row) : null;
   }
 
+  getTaskRunsByDispatchIds(dispatchIds: string[]): Map<string, TaskRunRecord> {
+    if (dispatchIds.length === 0) {
+      return new Map();
+    }
+    const placeholders = dispatchIds.map(() => "?").join(",");
+    const rows = this.db.prepare(`
+      SELECT tr.*
+      FROM task_runs tr
+      INNER JOIN (
+        SELECT dispatch_id, MAX(rowid) as latest_rowid
+        FROM task_runs
+        WHERE dispatch_id IN (${placeholders})
+        GROUP BY dispatch_id
+      ) latest ON latest.latest_rowid = tr.rowid
+    `).all(...dispatchIds) as TaskRunRow[];
+
+    const map = new Map<string, TaskRunRecord>();
+    for (const row of rows) {
+      if (row.dispatch_id) {
+        map.set(row.dispatch_id, this.mapTaskRunRow(row));
+      }
+    }
+    return map;
+  }
+
   getLatestTaskRun(taskId: string, sprintRunId?: string): TaskRunRecord | null {
     requireTask(this.db, taskId);
     const row = sprintRunId
@@ -1237,6 +1262,29 @@ export class ExecutionRepository {
         LIMIT 1
       `).get(taskId) as TaskRunRow | undefined;
     return row ? this.mapTaskRunRow(row) : null;
+  }
+
+  getLatestTaskRunsByIds(taskIds: string[]): Map<string, TaskRunRecord> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+    const placeholders = taskIds.map(() => "?").join(",");
+    const rows = this.db.prepare(`
+      SELECT tr.*
+      FROM task_runs tr
+      INNER JOIN (
+        SELECT task_id, MAX(rowid) as latest_rowid
+        FROM task_runs
+        WHERE task_id IN (${placeholders})
+        GROUP BY task_id
+      ) latest ON latest.latest_rowid = tr.rowid
+    `).all(...taskIds) as TaskRunRow[];
+
+    const map = new Map<string, TaskRunRecord>();
+    for (const row of rows) {
+      map.set(row.task_id, this.mapTaskRunRow(row));
+    }
+    return map;
   }
 
   getProjectExecutionSnapshot(projectId: string): ExecutionDashboardSnapshot {

@@ -2614,3 +2614,119 @@ describe("ExecutionRepository", () => {
       expect(nonExistent).toBeNull();
     });
   });
+
+  describe("batch retrieval methods", () => {
+    it("getTaskRunsByDispatchIds works correctly", async () => {
+      const { projectRepository, executionRepository } = await createRepositories();
+      const project = projectRepository.createProject({
+        name: "Test Batch",
+        sourceType: "local",
+        sourceRef: "/tmp/batch",
+      });
+      const sprint = projectRepository.createSprint(project.id, { name: "Sprint" });
+      const task1 = projectRepository.createTask(project.id, { title: "Task 1", sprintId: sprint.id });
+      const task2 = projectRepository.createTask(project.id, { title: "Task 2", sprintId: sprint.id });
+      const sprintRun = executionRepository.createSprintRun({ projectId: project.id, sprintId: sprint.id });
+
+      const dispatch1 = executionRepository.createTaskDispatch({
+        projectId: project.id,
+        sprintId: sprint.id,
+        taskId: task1.id,
+        executorType: "worker",
+        sprintRunId: sprintRun.id,
+      });
+
+      const dispatch2 = executionRepository.createTaskDispatch({
+        projectId: project.id,
+        sprintId: sprint.id,
+        taskId: task2.id,
+        executorType: "worker",
+        sprintRunId: sprintRun.id,
+      });
+
+      // empty input
+      expect(executionRepository.getTaskRunsByDispatchIds([]).size).toBe(0);
+
+      // unknown ID
+      expect(executionRepository.getTaskRunsByDispatchIds(["unknown-id"]).size).toBe(0);
+
+      const run1 = executionRepository.createTaskRun({
+        projectId: project.id,
+        sprintId: sprint.id,
+        taskId: task1.id,
+        dispatchId: dispatch1.id,
+        state: "COMPLETED",
+      });
+
+      const run2 = executionRepository.createTaskRun({
+        projectId: project.id,
+        sprintId: sprint.id,
+        taskId: task2.id,
+        dispatchId: dispatch2.id,
+        state: "COMPLETED",
+      });
+
+      // single ID
+      const mapSingle = executionRepository.getTaskRunsByDispatchIds([dispatch1.id]);
+      expect(mapSingle.size).toBe(1);
+      expect(mapSingle.get(dispatch1.id)?.id).toBe(run1.id);
+
+      // multiple IDs
+      const mapMultiple = executionRepository.getTaskRunsByDispatchIds([dispatch1.id, dispatch2.id, "unknown-id"]);
+      expect(mapMultiple.size).toBe(2);
+      expect(mapMultiple.get(dispatch1.id)?.id).toBe(run1.id);
+      expect(mapMultiple.get(dispatch2.id)?.id).toBe(run2.id);
+      expect(mapMultiple.has("unknown-id")).toBe(false);
+    });
+
+    it("getLatestTaskRunsByIds works correctly", async () => {
+      const { projectRepository, executionRepository } = await createRepositories();
+      const project = projectRepository.createProject({
+        name: "Test Batch",
+        sourceType: "local",
+        sourceRef: "/tmp/batch",
+      });
+      const sprint = projectRepository.createSprint(project.id, { name: "Sprint" });
+      const task1 = projectRepository.createTask(project.id, { title: "Task 1", sprintId: sprint.id });
+      const task2 = projectRepository.createTask(project.id, { title: "Task 2", sprintId: sprint.id });
+
+      // empty input
+      expect(executionRepository.getLatestTaskRunsByIds([]).size).toBe(0);
+
+      // unknown ID
+      expect(executionRepository.getLatestTaskRunsByIds(["unknown-id"]).size).toBe(0);
+
+      const run1_old = executionRepository.createTaskRun({
+        projectId: project.id,
+        sprintId: sprint.id,
+        taskId: task1.id,
+        state: "RUNNING",
+      });
+
+      const run1_new = executionRepository.createTaskRun({
+        projectId: project.id,
+        sprintId: sprint.id,
+        taskId: task1.id,
+        state: "COMPLETED",
+      });
+
+      const run2 = executionRepository.createTaskRun({
+        projectId: project.id,
+        sprintId: sprint.id,
+        taskId: task2.id,
+        state: "COMPLETED",
+      });
+
+      // single ID
+      const mapSingle = executionRepository.getLatestTaskRunsByIds([task1.id]);
+      expect(mapSingle.size).toBe(1);
+      expect(mapSingle.get(task1.id)?.id).toBe(run1_new.id);
+
+      // multiple IDs
+      const mapMultiple = executionRepository.getLatestTaskRunsByIds([task1.id, task2.id, "unknown-id"]);
+      expect(mapMultiple.size).toBe(2);
+      expect(mapMultiple.get(task1.id)?.id).toBe(run1_new.id);
+      expect(mapMultiple.get(task2.id)?.id).toBe(run2.id);
+      expect(mapMultiple.has("unknown-id")).toBe(false);
+    });
+});
