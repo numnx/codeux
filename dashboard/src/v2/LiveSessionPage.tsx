@@ -120,7 +120,7 @@ export const LiveSessionPage: FunctionComponent = () => {
     }, [selectedProjectId]);
 
     const { isOpen: isConfirmOpen, options: confirmOptions, requestConfirm, handleConfirm, handleCancel } = useConfirmDialog();
-    const { feedback, setPending, setSuccess, setError, clearFeedback } = useActionFeedback();
+    const { feedback, setPending, setSuccess, setError, clearFeedback, clearError } = useActionFeedback();
 
     const {
         rerunningIds,
@@ -439,7 +439,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                 error={error}
             />
 
-            <ActionFeedbackRegion status={feedback.status} message={feedback.message} onDismiss={clearFeedback} />
+            <ActionFeedbackRegion status={feedback.status} message={feedback.message} onDismiss={clearFeedback} clearError={clearError} />
 
             <StatsHeader
                 headerView={headerView}

@@ -148,6 +148,7 @@ export const MemoryList: FunctionComponent<{
                     status={memoryMutationsSignal.value.feedback?.status || "idle"}
                     message={memoryMutationsSignal.value.feedback?.message}
                     onDismiss={memoryMutationsSignal.value.clearFeedback}
+                    clearError={memoryMutationsSignal.value.clearError}
                     retryAction={memoryMutationsSignal.value.feedback?.retryAction}
                     retryLabel={memoryMutationsSignal.value.feedback?.retryLabel}
                 />
