@@ -13,6 +13,7 @@ describe("MergeConflictResolutionService scenarios", () => {
   let mockDeps: any;
   let loggerSpy: any;
   let service: MergeConflictResolutionService;
+  let removeWorktreeSpy: any;
 
   beforeEach(() => {
     mockLogger = {
@@ -41,6 +42,10 @@ describe("MergeConflictResolutionService scenarios", () => {
           createExecutionInvocation: vi.fn().mockReturnValue({ id: "inv-1" }),
           appendExecutionInvocationMessage: vi.fn(),
           updateExecutionInvocation: vi.fn(),
+          getLatestTaskRunsByIds: vi.fn().mockResolvedValue([{
+            id: 'task-run-1',
+            taskPrompt: 'prompt1'
+          }]),
         },
         sessionTracking: {
           findLatestCliSessionForBranch: vi.fn().mockReturnValue(null),
@@ -51,12 +56,12 @@ describe("MergeConflictResolutionService scenarios", () => {
         projectManagementRepository: {
           getProject: vi.fn().mockReturnValue({}),
         },
-        projectAttentionService: { patchItemPayload: vi.fn().mockReturnValue({ payload: {} }) },
+        projectAttentionService: { patchItemPayload: vi.fn().mockReturnValue({ payload: {} }), resolveItem: vi.fn() },
         workerEndpointRepository: {
           getWorkerEndpoint: vi.fn().mockReturnValue({}),
         },
       },
-      readRequiredString: vi.fn().mockImplementation((val) => val || "/tmp/fallback"),
+      readRequiredString: vi.fn().mockImplementation((val) => val || "/tmp/repo"),
       readNonNegativeInteger: vi.fn().mockReturnValue(0),
       asRecord: vi.fn().mockImplementation((val) => val || {}),
       buildMemoryContext: vi.fn().mockReturnValue(""),
@@ -87,6 +92,8 @@ describe("MergeConflictResolutionService scenarios", () => {
       escalateAttentionToHuman: vi.fn(),
     };
 
+    removeWorktreeSpy = vi.spyOn(mockDeps.workspaceManager, 'removeWorktree');
+
     service = new MergeConflictResolutionService(mockDeps as unknown as MergeConflictResolutionServiceDependencies);
 
     vi.spyOn(providerRouting, "resolveProviderForInvocation").mockReturnValue({
@@ -105,29 +112,75 @@ describe("MergeConflictResolutionService scenarios", () => {
     vi.restoreAllMocks();
   });
 
-  it("should log a warning and return null when resolveTargetedCodingAgent fails", async () => {
-    const error = new Error("Network Error");
-    mockSyncService.resolveTargetedCodingAgent.mockRejectedValue(error);
+  it("Happy path: workspace prepared, merge executed, workspace cleaned up — service resolves without error.", async () => {
+    const item = {
+      projectId: "proj-1",
+      sprintId: "sprint-1",
+      id: "item-1",
+      payload: { repoPath: "/tmp/repo", conflictingBranches: { source: "src", target: "tgt" } },
+      title: "title",
+      summaryMarkdown: "summary",
+    } as any;
 
-    const item = { projectId: "proj-1", sprintId: "sprint-1", id: "item-1", title: "title", summaryMarkdown: "summary" } as any;
+    vi.spyOn(service as any, "runMergeIntoSource").mockResolvedValue(true);
+    vi.spyOn(service as any, "ensureMergeConflictResolved").mockResolvedValue(undefined);
+    vi.spyOn(service as any, "finalizeMergeCommit").mockResolvedValue(undefined);
+    vi.spyOn(service as any, "ensureTargetMergedIntoSource").mockResolvedValue(undefined);
+    vi.spyOn(service as any, "isMergeConflictResolvedOnRemote").mockResolvedValue(false);
 
-    loggerSpy = vi.spyOn(mockDeps.deps.logger, 'warn');
-
-
-    loggerSpy = vi.spyOn(mockDeps.deps.logger, "warn");
-    try {
-      await service.resolve("worker-1", item);
-    } catch (e) {
-      console.log("Error caught in merge conflict:", (e as Error).message);
-    }
-
-    expect(loggerSpy).toHaveBeenCalledWith(
-      "Failed to resolve targeted coding agent for attention item",
-      { err: error }
-    );
+    await service.resolve("worker-1", item);
+    expect(removeWorktreeSpy).toHaveBeenCalled();
   });
 
-  it("should log a warning and return undefined when removeWorktree fails", async () => {
+  it("Workspace prep failure: prep throws — service rejects and cleanup is still called.", async () => {
+    const error = new Error("Prep failure");
+    mockDeps.workspaceManager.prepareWorktree.mockRejectedValue(error);
+
+    const item = {
+      projectId: "proj-1",
+      sprintId: "sprint-1",
+      id: "item-1",
+      payload: { repoPath: "/tmp/repo", conflictingBranches: { source: "src", target: "tgt" } },
+      title: "title",
+      summaryMarkdown: "summary",
+    } as any;
+
+    vi.spyOn(service as any, "isMergeConflictResolvedOnRemote").mockResolvedValue(false);
+
+    await service.resolve("worker-1", item);
+    expect(mockDeps.escalateAttentionToHuman).toHaveBeenCalledWith(
+        "worker-1",
+        item,
+        expect.stringContaining("Prep failure")
+    );
+    expect(removeWorktreeSpy).toHaveBeenCalled();
+  });
+
+  it("Merge execution failure: merge step throws — error propagates and cleanup is still called.", async () => {
+    const error = new Error("Merge failed");
+    vi.spyOn(service as any, "runMergeIntoSource").mockRejectedValue(error);
+
+    const item = {
+      projectId: "proj-1",
+      sprintId: "sprint-1",
+      id: "item-1",
+      payload: { repoPath: "/tmp/repo", conflictingBranches: { source: "src", target: "tgt" } },
+      title: "title",
+      summaryMarkdown: "summary",
+    } as any;
+
+    vi.spyOn(service as any, "isMergeConflictResolvedOnRemote").mockResolvedValue(false);
+
+    await service.resolve("worker-1", item);
+    expect(mockDeps.escalateAttentionToHuman).toHaveBeenCalledWith(
+        "worker-1",
+        item,
+        expect.stringContaining("Merge failed")
+    );
+    expect(removeWorktreeSpy).toHaveBeenCalled();
+  });
+
+  it("Cleanup failure: removeWorktree rejects — logger.warn is called with a message containing 'worktree' and the service does not throw due to cleanup failure.", async () => {
     const error = new Error("Remove error");
     mockDeps.workspaceManager.removeWorktree.mockRejectedValue(error);
 
@@ -144,16 +197,34 @@ describe("MergeConflictResolutionService scenarios", () => {
     vi.spyOn(service as any, "ensureMergeConflictResolved").mockResolvedValue(undefined);
     vi.spyOn(service as any, "finalizeMergeCommit").mockResolvedValue(undefined);
     vi.spyOn(service as any, "ensureTargetMergedIntoSource").mockResolvedValue(undefined);
+    vi.spyOn(service as any, "isMergeConflictResolvedOnRemote").mockResolvedValue(false);
 
     loggerSpy = vi.spyOn(mockDeps.deps.logger, "warn");
-    try {
-      await service.resolve("worker-1", item);
-    } catch (e) {
-      // Ignored for test isolation
-    }
+    await service.resolve("worker-1", item);
     expect(loggerSpy).toHaveBeenCalledWith(
-      "Failed to remove worktree during attention item resolution",
+      expect.stringContaining("worktree"),
       { repoPath: "/tmp/repo", worktreePath: "/tmp/worktree", err: error }
+    );
+  });
+
+  it("Agent preset sync failure: agent resolution rejects — logger.warn is called (T08 behavior) and execution continues with null agent.", async () => {
+    const error = new Error("Network Error");
+    mockSyncService.resolveTargetedCodingAgent.mockRejectedValue(error);
+
+    const item = { projectId: "proj-1", sprintId: "sprint-1", id: "item-1", payload: { repoPath: "/tmp/repo", conflictingBranches: { source: "src", target: "tgt" } }, title: "title", summaryMarkdown: "summary" } as any;
+
+    vi.spyOn(service as any, "runMergeIntoSource").mockResolvedValue(true);
+    vi.spyOn(service as any, "ensureMergeConflictResolved").mockResolvedValue(undefined);
+    vi.spyOn(service as any, "finalizeMergeCommit").mockResolvedValue(undefined);
+    vi.spyOn(service as any, "ensureTargetMergedIntoSource").mockResolvedValue(undefined);
+    vi.spyOn(service as any, "isMergeConflictResolvedOnRemote").mockResolvedValue(false);
+
+    loggerSpy = vi.spyOn(mockDeps.deps.logger, 'warn');
+    await service.resolve("worker-1", item);
+
+    expect(loggerSpy).toHaveBeenCalledWith(
+      "Failed to resolve targeted coding agent for attention item",
+      { err: error }
     );
   });
 });
