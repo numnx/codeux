@@ -61,7 +61,11 @@ export const LiveTransportBanner: FunctionComponent<LiveTransportBannerProps> = 
         });
       }
     }
-  }, [isVisible, isReducedMotion, enterDuration]);
+  }, [isVisible, shouldRender, isReducedMotion, enterDuration]);
+
+  // When fully hidden, render nothing so the banner reserves no space in the
+  // parent's flex gap flow (otherwise it injects an empty gap above the page).
+  if (!shouldRender) return null;
 
   let icon = <WifiOff className="w-5 h-5 shrink-0" />;
   let title = "Disconnected";
