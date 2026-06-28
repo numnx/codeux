@@ -86,7 +86,10 @@ export class CiFixResolutionService {
     const workerAgent = await this.deps.deps.agentPresetSyncService?.resolveTargetedCodingAgent(
       item.projectId,
       settings.agents?.routing?.ciFix?.agentPresetId ?? null,
-    ).catch(() => null);
+    ).catch((err: unknown) => {
+      this.deps.deps.logger?.warn('Failed to resolve targeted coding agent for attention item', { err });
+      return null;
+    });
     const route = resolveProviderForInvocation(settings, {
       invocation: "ci_fix",
       task: {
@@ -345,7 +348,9 @@ export class CiFixResolutionService {
         ? workflowSettings.cleanupWorktreeOnSuccess
         : true;
       if (shouldCleanup) {
-        await this.deps.workspaceManager.removeWorktree(repoPath, worktreePath).catch(() => undefined);
+        await this.deps.workspaceManager.removeWorktree(repoPath, worktreePath).catch((err: unknown) => {
+          this.deps.deps.logger?.warn('Failed to remove worktree during attention item resolution', { repoPath, worktreePath, err });
+        });
         cleanedUp = true;
       }
       if (!cleanedUp) {
