@@ -16,6 +16,8 @@ interface ActionFeedbackRegionProps {
   autoDismiss?: boolean;
   retryAction?: () => void;
   retryLabel?: string;
+  progress?: number;
+  clearError?: () => void;
 }
 
 const statusConfig: Record<Exclude<ActionFeedbackStatus, "idle">, { icon: FunctionComponent<any>, colors: string, progressColors: string }> = {
@@ -25,10 +27,12 @@ const statusConfig: Record<Exclude<ActionFeedbackStatus, "idle">, { icon: Functi
   error: { icon: XCircle, colors: "text-status-red border-black/[0.08] dark:border-white/[0.08]", progressColors: "bg-status-red" },
 };
 
-export function ActionFeedbackRegion({ status, message, onDismiss, className = "", autoDismissMs = 5000, autoDismiss, retryAction, retryLabel }: ActionFeedbackRegionProps) {
+export function ActionFeedbackRegion({ status, message, onDismiss, className = "", autoDismissMs = 5000, autoDismiss, retryAction, retryLabel, progress, clearError }: ActionFeedbackRegionProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
   const dismissBtnRef = useRef<HTMLButtonElement>(null);
+  const retryRef = useRef<HTMLButtonElement>(null);
   const reducedMotion = useReducedMotion();
   const durations = useGsapDurations();
 
@@ -97,6 +101,29 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
     return () => ctx.revert();
   }, [isOpen, isRendered, reducedMotion, durations]);
 
+  useLayoutEffect(() => {
+    if (displayedStatus === "pending" && barRef.current && progress !== undefined) {
+      if (reducedMotion) {
+        barRef.current.style.width = `${progress}%`;
+      } else {
+        gsap.to(barRef.current, {
+          width: `${progress}%`,
+          duration: 0.35,
+          ease: "power3.out",
+          overwrite: true
+        });
+      }
+    }
+  }, [progress, displayedStatus, reducedMotion]);
+
+  useLayoutEffect(() => {
+    if (displayedStatus === "error" && retryRef.current) {
+      if (!reducedMotion) {
+        gsap.fromTo(retryRef.current, { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: 0.16, delay: 0.1, ease: 'power2.out' });
+      }
+    }
+  }, [displayedStatus, reducedMotion]);
+
   useEffect(() => {
     if (!isOpen || displayedStatus === "idle" || !displayedMessage || displayedStatus === "error" || displayedStatus === "pending" || !progressRef.current) return;
     if (autoDismiss === false || retryAction) return;
@@ -148,6 +175,7 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
       <div className="shrink-0 flex items-center gap-1">
         {retryAction && (
           <button
+            ref={retryRef}
             type="button"
             onClick={retryAction}
             aria-label={retryLabel || "Retry"}
@@ -157,7 +185,12 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
             {retryLabel || "Retry"}
           </button>
         )}
-        {onDismiss && (
+        {displayedStatus === "error" && clearError ? (
+          <div role="alert" className="ml-auto flex items-center gap-2 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-3 py-1 text-xs font-medium">
+            Failed
+            <button aria-label="Dismiss error" onClick={clearError}>×</button>
+          </div>
+        ) : onDismiss && (
           <button
             ref={dismissBtnRef}
             type="button"
@@ -184,6 +217,13 @@ export function ActionFeedbackRegion({ status, message, onDismiss, className = "
           ref={progressRef}
           aria-hidden="true"
           className={`absolute bottom-0 left-0 h-1 opacity-20 ${config.progressColors}`}
+        />
+      )}
+      {displayedStatus === "pending" && progress !== undefined && (
+        <div
+          ref={barRef}
+          aria-hidden="true"
+          className="absolute bottom-0 left-0 h-1 bg-signal-500 opacity-20"
         />
       )}
     </div>
