@@ -23,6 +23,18 @@ interface ModalProps {
   ariaDescribedby?: string;
 }
 
+export const ModalHeader: FunctionComponent<{ children: ComponentChildren; className?: string }> = ({ children, className = "" }) => (
+  <div data-modal-region className={className}>{children}</div>
+);
+
+export const ModalBody: FunctionComponent<{ children: ComponentChildren; className?: string }> = ({ children, className = "" }) => (
+  <div data-modal-region className={className}>{children}</div>
+);
+
+export const ModalFooter: FunctionComponent<{ children: ComponentChildren; className?: string }> = ({ children, className = "" }) => (
+  <div data-modal-region className={className}>{children}</div>
+);
+
 export const Modal: FunctionComponent<ModalProps> = ({
   isOpen,
   onClose,
@@ -57,6 +69,16 @@ export const Modal: FunctionComponent<ModalProps> = ({
             { opacity: 0, scale: 0.95 },
             { opacity: 1, scale: 1, duration, ease: MODAL_MOTION.entry.ease }
           );
+
+          if (!reducedMotion) {
+            const regions = cardRef.current.querySelectorAll('[data-modal-region]');
+            if (regions.length > 0) {
+              gsap.fromTo(regions,
+                { opacity: 0, y: 6 },
+                { opacity: 1, y: 0, stagger: 40 / 1000, duration: 0.12, ease: 'power2.out', delay: MODAL_MOTION.entry.duration }
+              );
+            }
+          }
         }
       });
     } else {

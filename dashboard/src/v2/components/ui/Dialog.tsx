@@ -22,6 +22,42 @@ interface DialogProps {
   ariaDescribedby?: string;
 }
 
+export const DialogHeader: FunctionComponent<{ children: ComponentChildren; className?: string }> = ({ children, className = "" }) => {
+  const reducedMotion = useReducedMotion();
+  return (
+    <div
+      className={reducedMotion ? className : `motion-safe:animate-form-slide-down ${className}`}
+      style={reducedMotion ? undefined : { animationDelay: '0ms', animationFillMode: 'both' }}
+    >
+      {children}
+    </div>
+  );
+};
+
+export const DialogBody: FunctionComponent<{ children: ComponentChildren; className?: string }> = ({ children, className = "" }) => {
+  const reducedMotion = useReducedMotion();
+  return (
+    <div
+      className={reducedMotion ? className : `motion-safe:animate-form-slide-down ${className}`}
+      style={reducedMotion ? undefined : { animationDelay: '40ms', animationFillMode: 'both' }}
+    >
+      {children}
+    </div>
+  );
+};
+
+export const DialogFooter: FunctionComponent<{ children: ComponentChildren; className?: string }> = ({ children, className = "" }) => {
+  const reducedMotion = useReducedMotion();
+  return (
+    <div
+      className={reducedMotion ? className : `motion-safe:animate-form-slide-down ${className}`}
+      style={reducedMotion ? undefined : { animationDelay: '80ms', animationFillMode: 'both' }}
+    >
+      {children}
+    </div>
+  );
+};
+
 export const Dialog: FunctionComponent<DialogProps> = ({
   isOpen,
   onClose,

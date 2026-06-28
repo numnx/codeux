@@ -12,6 +12,7 @@ const SkeletonBlock: FunctionComponent<{ className?: string }> = ({ className = 
   return (
     <div
       className={`bg-slate-200 dark:bg-void-700 bg-[linear-gradient(90deg,_transparent_0%,_rgba(255,255,255,0.4)_50%,_transparent_100%)] dark:bg-[linear-gradient(90deg,_transparent_0%,_rgba(255,255,255,0.06)_50%,_transparent_100%)] bg-[length:200%_100%] animate-skeleton-shimmer ${className}`}
+      style={{ animationDelay: 'var(--shimmer-delay, 0ms)' }}
     />
   );
 };
