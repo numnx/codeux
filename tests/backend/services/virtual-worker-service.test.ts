@@ -821,7 +821,7 @@ describe("VirtualWorkerService", () => {
   it("buildCiFixPrompt formats correctly", async () => {
     const { virtualWorkerService } = await setupService();
 
-    const prompt = (virtualWorkerService as any).buildCiFixPrompt(
+    const prompt = (virtualWorkerService as any).ciFixResolutionService.buildCiFixPrompt(
       {
         summaryMarkdown: "Fix CI",
         payload: {
@@ -944,7 +944,7 @@ describe("VirtualWorkerService", () => {
     vi.spyOn((virtualWorkerService as any).workspaceArtifactService, "exportBinaryPatch").mockResolvedValue("");
     vi.spyOn((virtualWorkerService as any).workspaceArtifactService, "applyPatchToBranch").mockResolvedValue({ hasChanges: false });
     vi.spyOn((virtualWorkerService as any), "runProviderWithRetry").mockResolvedValue(undefined);
-    (virtualWorkerService as any).prService = {
+    (virtualWorkerService as any).ciFixResolutionService.deps.prService = {
       hasUnpushedCommits: vi.fn().mockResolvedValue(true),
       hasWorkerBranchCommitsAgainstFeature: vi.fn().mockResolvedValue(true),
     };
@@ -1006,7 +1006,7 @@ describe("VirtualWorkerService", () => {
       stderr: "",
       code: 0,
     });
-    (virtualWorkerService as any).prService = {
+    (virtualWorkerService as any).ciFixResolutionService.deps.prService = {
       hasUnpushedCommits: vi.fn().mockResolvedValue(false),
       hasWorkerBranchCommitsAgainstFeature: vi.fn().mockResolvedValue(true),
     };
