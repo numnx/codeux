@@ -71,7 +71,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
     return () => ctx.revert();
   }, [initialTask?.recordId, reducedMotion]);
 
-  const { feedback, setPending, setSuccess, setError, clearFeedback } = useActionFeedback();
+  const { feedback, setPending, setSuccess, setError, clearFeedback, clearError } = useActionFeedback();
 
   const handleSubmit = async (event: Event) => {
     event.preventDefault();
@@ -418,7 +418,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
           </div>
 
           <div data-composer-stagger className="mt-auto flex flex-col gap-3 pt-2">
-            <ActionFeedbackRegion status={feedback.status} message={feedback.message} onDismiss={clearFeedback} autoDismiss={feedback.autoDismiss} retryAction={feedback.retryAction} retryLabel={feedback.retryLabel} />
+            <ActionFeedbackRegion status={feedback.status} message={feedback.message} onDismiss={clearFeedback} clearError={clearError} autoDismiss={feedback.autoDismiss} retryAction={feedback.retryAction} retryLabel={feedback.retryLabel} />
             <Tooltip
               content={!state.isValid ? "Please fix the validation errors before submitting." : null}
               position="top"

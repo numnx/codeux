@@ -202,6 +202,7 @@ export const SprintsPage: FunctionComponent = () => {
     handleDeleteQuicksprintTemplate,
     feedback,
     clearFeedback,
+    clearError,
     refreshSprints,
     refreshExecution,
     handleSprintToggle,
@@ -396,6 +397,7 @@ export const SprintsPage: FunctionComponent = () => {
               status={feedback.status}
               message={feedback.message}
               onDismiss={clearFeedback}
+              clearError={clearError}
               className="mt-2"
             />
             {selectedProject && (

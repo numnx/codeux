@@ -59,7 +59,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
   const [priority, setPriority] = useState<TaskPriority>(initialTask?.priority || "medium");
   const [executorType, setExecutorType] = useState<TaskExecutorType>(initialTask?.executorType || "auto");
   const [dependsOnTaskIds, setDependsOnTaskIds] = useState<string[]>(initialTask?.dependsOnTaskIds || []);
-  const { feedback, setPending, setSuccess, setError, clearFeedback } = useActionFeedback();
+  const { feedback, setPending, setSuccess, setError, clearFeedback, clearError } = useActionFeedback();
 
   const reducedMotion = useReducedMotion();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -194,7 +194,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
           </div>
 
           <form ref={fieldsRef} onSubmit={handleSubmit} className="flex flex-col gap-6">
-            <ActionFeedbackRegion status={feedback.status} message={feedback.message} onDismiss={clearFeedback} autoDismiss={feedback.autoDismiss} retryAction={feedback.retryAction} retryLabel={feedback.retryLabel} />
+            <ActionFeedbackRegion status={feedback.status} message={feedback.message} onDismiss={clearFeedback} clearError={clearError} autoDismiss={feedback.autoDismiss} retryAction={feedback.retryAction} retryLabel={feedback.retryLabel} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="group/field">
                 <label htmlFor="add-task-sprint" className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Sprint</label>
@@ -203,7 +203,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                   value={sprintId}
                   onInput={(event) => {
                     setSprintId((event.target as HTMLSelectElement).value);
-                    if (feedback.status === "error") clearFeedback();
+                    if (feedback.status === "error") clearError();
                   }}
                   className="mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500 focus-visible:ring-2 focus-visible:ring-signal-500" aria-invalid={!!validationErrors.sprintId && touched.sprintId ? "true" : "false"}
                   aria-describedby={validationErrors.sprintId && touched.sprintId ? "task-sprint-error" : undefined}
@@ -228,7 +228,7 @@ export const AddTaskModal: FunctionComponent<AddTaskModalProps> = ({
                   aria-describedby={validationErrors.title && touched.title ? "task-title-error" : undefined}
                   onInput={(event) => {
                     setTitle((event.target as HTMLInputElement).value);
-                    if (feedback.status === "error") clearFeedback();
+                    if (feedback.status === "error") clearError();
                   }}
                   className="mt-2.5 w-full rounded-2xl bg-black/[0.03] dark:bg-white/[0.03] border border-black/[0.08] dark:border-white/[0.08] px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-signal-500 focus-visible:ring-2 focus-visible:ring-signal-500"
                   placeholder="Define the task scope"
