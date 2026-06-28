@@ -142,9 +142,9 @@ export class VirtualWorkerService {
       asRecord: this.asRecord.bind(this),
       buildMemoryContext: this.buildMemoryContext.bind(this),
       captureMemoriesFromWorkspace: this.captureMemoriesFromWorkspace.bind(this),
-      resolveVirtualWorkerWorkflowSettings: (...args: any[]) => (this.resolveVirtualWorkerWorkflowSettings as any)(...args),
-      runWorkspaceCommand: (...args: any[]) => (this.runWorkspaceCommand as any)(...args),
-      runProviderWithRetry: (...args: any[]) => (this.runProviderWithRetry as any)(...args)
+      resolveVirtualWorkerWorkflowSettings: (args: any) => this.resolveVirtualWorkerWorkflowSettings(args),
+      runWorkspaceCommand: (worktreePath: string, command: string, args: string[]) => this.runWorkspaceCommand(worktreePath, command, args),
+      runProviderWithRetry: (args: any) => this.runProviderWithRetry(args)
     });
 
     this.mergeConflictResolutionService = new MergeConflictResolutionService({
@@ -160,9 +160,9 @@ export class VirtualWorkerService {
       asRecord: this.asRecord.bind(this),
       buildMemoryContext: this.buildMemoryContext.bind(this),
       captureMemoriesFromWorkspace: this.captureMemoriesFromWorkspace.bind(this),
-      resolveVirtualWorkerWorkflowSettings: (...args: any[]) => (this.resolveVirtualWorkerWorkflowSettings as any)(...args),
-      runWorkspaceCommand: (...args: any[]) => (this.runWorkspaceCommand as any)(...args),
-      runProviderWithRetry: (...args: any[]) => (this.runProviderWithRetry as any)(...args)
+      resolveVirtualWorkerWorkflowSettings: (args: any) => this.resolveVirtualWorkerWorkflowSettings(args),
+      runWorkspaceCommand: (worktreePath: string, command: string, args: string[]) => this.runWorkspaceCommand(worktreePath, command, args),
+      runProviderWithRetry: (args: any) => this.runProviderWithRetry(args)
     });
     this.providerExecutionService = new ProviderExecutionService({
       executionRepository: deps.executionRepository,
@@ -300,7 +300,7 @@ export class VirtualWorkerService {
         // We peeked earlier, so we need to properly claim it now exactly as pickNextWorkerAttention did
         const nextItem = plan.attentionItem;
         if (nextItem.status === "open") {
-          this.deps.projectAttentionService.resolveItem(nextItem.id, { status: "claimed" } as any);
+          this.deps.projectAttentionService.claimItem(nextItem.id, endpoint.id, reason);
           nextItem.status = "claimed";
         }
         await this.handleAttentionItem(endpoint.id, nextItem, reason);
