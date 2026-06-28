@@ -63,10 +63,6 @@ export const LiveTransportBanner: FunctionComponent<LiveTransportBannerProps> = 
     }
   }, [isVisible, shouldRender, isReducedMotion, enterDuration]);
 
-  // When fully hidden, render nothing so the banner reserves no space in the
-  // parent's flex gap flow (otherwise it injects an empty gap above the page).
-  if (!shouldRender) return null;
-
   let icon = <WifiOff className="w-5 h-5 shrink-0" />;
   let title = "Disconnected";
   let message = "Lost connection to the live stream. Retrying...";
@@ -93,7 +89,7 @@ export const LiveTransportBanner: FunctionComponent<LiveTransportBannerProps> = 
   return (
     <div
       ref={containerRef}
-      className={shouldRender ? `flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl border backdrop-blur-md overflow-hidden ${wrapperClass}` : "overflow-hidden"}
+      className={shouldRender ? `flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl border backdrop-blur-md overflow-hidden ${wrapperClass}` : "overflow-hidden hidden"}
       role={isUrgent ? "alert" : "status"}
       aria-live={isUrgent ? "assertive" : "polite"}
       aria-atomic="true"
