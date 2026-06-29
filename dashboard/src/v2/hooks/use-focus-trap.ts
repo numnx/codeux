@@ -55,7 +55,7 @@ export function useFocusTrap(
       if (!containerRef.current) return;
 
       if (initialFocusRef?.current) {
-        initialFocusRef.current.focus();
+        initialFocusRef.current.focus({ preventScroll: true });
         return;
       }
 
@@ -64,10 +64,10 @@ export function useFocusTrap(
       const initialTarget = autoFocusTarget ?? focusableElements[0];
 
       if (initialTarget) {
-        initialTarget.focus();
+        initialTarget.focus({ preventScroll: true });
       } else {
         containerRef.current.tabIndex = -1;
-        containerRef.current.focus();
+        containerRef.current.focus({ preventScroll: true });
       }
     }, 50);
 
@@ -87,7 +87,7 @@ export function useFocusTrap(
         if (focusableElements.length === 0) {
           event.preventDefault();
           containerRef.current.tabIndex = -1;
-          containerRef.current.focus();
+          containerRef.current.focus({ preventScroll: true });
           return;
         }
 
@@ -97,16 +97,16 @@ export function useFocusTrap(
         // If focus escapes the modal, force it back
         if (!containerRef.current.contains(document.activeElement)) {
           event.preventDefault();
-          first.focus();
+          first.focus({ preventScroll: true });
           return;
         }
 
         if (event.shiftKey && document.activeElement === first) {
           event.preventDefault();
-          last.focus();
+          last.focus({ preventScroll: true });
         } else if (!event.shiftKey && document.activeElement === last) {
           event.preventDefault();
-          first.focus();
+          first.focus({ preventScroll: true });
         }
       }
     };
@@ -121,9 +121,7 @@ export function useFocusTrap(
         const trigger = triggerRef.current;
         window.setTimeout(() => {
           if (trigger.isConnected) {
-            trigger.focus();
-          } else {
-            document.body.focus();
+            trigger.focus({ preventScroll: true });
           }
         }, 0);
       }

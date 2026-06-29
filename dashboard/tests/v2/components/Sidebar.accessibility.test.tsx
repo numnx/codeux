@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
-import { render, screen, waitFor, fireEvent } from "@testing-library/preact";
+import { cleanup, render, screen, waitFor, fireEvent } from "@testing-library/preact";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { Sidebar } from "../../../src/v2/components/layout/Sidebar";
 import { BrandSection } from "../../../src/v2/components/top-nav/BrandSection";
 import "@testing-library/jest-dom/vitest";
@@ -71,6 +71,10 @@ describe("Sidebar Mobile Accessibility", () => {
         vi.clearAllMocks();
     });
 
+    afterEach(() => {
+        cleanup();
+    });
+
     it("should expose sidebar as a dialog when mobile and open", () => {
         render(<Sidebar isMobile={true} isOpen={true} onClose={() => {}} />);
         const aside = screen.getByRole("dialog", { name: /primary navigation/i });
@@ -93,7 +97,7 @@ describe("Sidebar Mobile Accessibility", () => {
 
     it("should allow internal scroll and avoid browser chrome overlap", () => {
         render(<Sidebar isMobile={true} isOpen={true} onClose={() => {}} />);
-        const aside = screen.getByRole("dialog", { name: /navigation menu/i });
+        const aside = screen.getByRole("dialog", { name: /primary navigation/i });
         // The nav itself has overflow-y-auto, let's select it directly
         const nav = screen.getByRole("navigation", { name: /main navigation/i });
         expect(nav).toHaveClass("overflow-y-auto");
@@ -154,6 +158,10 @@ describe("Sidebar Mobile Accessibility", () => {
 describe("Sidebar Desktop Accessibility", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+    });
+
+    afterEach(() => {
+        cleanup();
     });
 
     it("should use implicit complementary navigation when desktop", () => {

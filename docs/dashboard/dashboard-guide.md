@@ -199,9 +199,13 @@ Legacy runtime:
 - Top-nav sprint selector persists the active sprint for the selected project
 - Top-nav search sits in the left header cluster beside the brand and lazy-loads project tasks only after the search overlay opens; the active task counter uses the same compact height as the project, sprint, and worker selectors
 - Global Search preserves previous results during debounce to avoid layout shift, only polls for container previews when opened, and uses `aria-activedescendant` for keyboard navigation.
+- Shared dropdown menus enhance nested menu items inside layout wrappers, so keyboard navigation and item entrance animation remain consistent when menu content is grouped.
+- Shared popovers own trigger open/close toggling; feature triggers such as Agent Memory avoid duplicate local toggles that can immediately close the panel after opening.
 - The Live Sprint Clock card in the Sprint Stats deck now shows a six-tile grid with Finished, Avg Finish, Accumulated, Input, Output, and Cached values, and the token tiles reuse the shared compact formatter from the Stats page.
 - Live runtime pages now use the persisted top-nav sprint selection as the page scope, so the Live view follows the selected sprint from the header menu
 - That selection is view-only for the dashboard surface; it does not change which sprint run is actually executing in the backend
+- Live attention resolve/dismiss dialogs are portaled to a viewport-fixed overlay, preserve viewport position after confirmation, use action-specific tones, and return focus without scrolling the page when the originating queue row disappears.
+- The Live attention queue, Invocation Feed, and Execution Runtime panels share a compact sidebar feed language with smaller type, subtle row backgrounds, bounded scroll regions, explicit empty states, and narrow colored left rails for status/severity distinction.
 - The Live page Git / CI / PR panel now uses compact status metric tiles plus state-specific iconography for PR and CI rows, including animated indicators for active CI states (`IN_PROGRESS`, `QUEUED`, `PENDING`, `QUOTA`) with reduced-motion fallback (`motion-reduce:animate-none`)
 - Creating a new sprint automatically updates the active sprint selection to that new sprint
 - The top-nav worker selector now always lists the built-in virtual workers even when no live MCP worker is connected

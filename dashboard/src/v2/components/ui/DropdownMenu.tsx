@@ -1,4 +1,4 @@
-import { h, ComponentChildren, RefObject, isValidElement, cloneElement, toChildArray, VNode, Fragment } from "preact";
+import { h, ComponentChildren, RefObject, isValidElement, cloneElement, toChildArray, VNode } from "preact";
 import { useCallback, useEffect, useRef, useState, useLayoutEffect } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import type { JSX } from "preact";
@@ -84,8 +84,7 @@ export const DropdownMenu = ({
         });
       }
 
-      const isFragment = vnode.type === Fragment;
-      if (isFragment && vnode.props && vnode.props.children) {
+      if (vnode.props && vnode.props.children) {
         return cloneElement(vnode, {
           ...vnode.props,
           children: enhanceContent(vnode.props.children)

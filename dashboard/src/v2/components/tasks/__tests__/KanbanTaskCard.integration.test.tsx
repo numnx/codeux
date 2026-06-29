@@ -40,6 +40,9 @@ vi.mock("gsap", async (importOriginal) => {
     to: vi.fn().mockImplementation((el, config) => {
       if (config?.onComplete) config.onComplete();
     }),
+    timeline: vi.fn().mockImplementation(() => ({
+      to: vi.fn().mockReturnThis(),
+    })),
     fromTo: vi.fn().mockImplementation((el, from, to) => {
       if (to?.onComplete) to.onComplete();
     }),

@@ -62,7 +62,6 @@ describe("LiveTransportBanner", () => {
     const spinner = document.querySelector('.motion-safe\\:animate-spin');
     expect(spinner).toBeInTheDocument();
   });
-});
 
   it("renders LiveTransportBanner with wrapping on small viewports", () => {
     // Tests that banner uses responsive flex classes

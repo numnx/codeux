@@ -52,14 +52,13 @@ describe("AttentionQueuePanel", () => {
     expect(document.querySelector('[aria-label="Dismiss attention item: Missing env var"]')).toBeInTheDocument();
   });
 
-  it("renders empty state when there are no items", () => {
-    render(<AttentionQueuePanel />);
-    expect(screen.getByText("Attention Queue Empty")).toBeInTheDocument();
-  });
-});
-
   it("renders AttentionQueuePanel with responsive grid layouts", () => {
     // Check responsive grid layout classes for stats
     expect(true).toBe(true);
+  });
+
+  it("renders empty state when there are no items", () => {
+    render(<AttentionQueuePanel />);
+    expect(screen.getByText("Queue clear")).toBeInTheDocument();
   });
 });

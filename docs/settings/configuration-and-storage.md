@@ -367,6 +367,9 @@ Preview runtime notes:
 - `virtualWorkerProvider` (default `codex`)
   - allowed values: `gemini`, `codex`, `claude-code`
   - Jules is intentionally excluded from worker mode; virtual workers are CLI-only
+- `maxConcurrency` (default `100`)
+  - caps how many worker-dispatched tasks can run in parallel for the selected scope
+  - settings editors allow values from `1` through `100`
 - Dashboard worker-runtime editors now expose only the virtual-worker provider and worker-model override controls because connected MCP worker mode has been removed.
 - In the dashboard, these controls are exposed in the active v2 settings page under `Sprint Engine -> Worker Runtime`
 

@@ -2,12 +2,16 @@
  * @vitest-environment jsdom
  */
 import { h } from "preact";
-import { describe, it, expect } from "vitest";
-import { render, screen, waitFor } from "@testing-library/preact";
+import { afterEach, describe, it, expect } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/preact";
 import "@testing-library/jest-dom/vitest";
 import { MarkdownEditorField } from "../MarkdownEditorField";
 
 describe("MarkdownEditorField Accessibility", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it("renders correctly with tablist, tabs, and tabpanels", async () => {
     render(
       <MarkdownEditorField
@@ -28,7 +32,7 @@ describe("MarkdownEditorField Accessibility", () => {
     expect(tabs[0]).toHaveAttribute("aria-selected", "false");
     expect(tabs[1]).toHaveAttribute("aria-selected", "true");
 
-    const tabpanel = screen.getByRole("tabpanel", { name: "Markdown Preview" });
+    const tabpanel = screen.getByRole("tabpanel", { name: "Preview" });
     expect(tabpanel).toBeInTheDocument();
     expect(tabpanel).toHaveAttribute("aria-labelledby", "md-tab-preview");
 
