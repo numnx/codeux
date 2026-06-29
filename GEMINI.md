@@ -129,7 +129,21 @@ To maintain a production-grade workspace, these rules are **NON-NEGOTIABLE**:
 
 ---
 
-## 🏗️ 8. Agent Orchestration strategy
+## 🌿 8. Git Workflow & Local Dev Access
+
+### Branching & PRs
+- **`dev` is the integration branch.** Always work from a feature branch off `dev` (never commit directly to `dev` or `main`). Use names like `feat/<scope>`, `fix/<scope>`, `chore/<scope>`.
+- **Open PRs into `dev`, not `main`.** Use `gh pr create --base dev`.
+- **Remotes**: `origin` is the **`numnx/codeux` fork** — push branches there and target it for PRs. `upstream` is `codeux-ai/codeux`; do not push or PR there unless explicitly asked.
+
+### Local dev access (this environment)
+- **Full access to the database and environment.** Runtime DB is `~/.code-ux/app.db` (SQLite, WAL); read/write it via `node:sqlite`. Inspect/modify env state as needed.
+- **Restart the dev server on port 4444 anytime** (e.g. `pnpm run dev`) when a change needs to take effect — no need to ask first.
+- **Run test sprints in the project "Simple Test 2"**, which uses a local model for testing. Dispatching sprints/tasks there is safe and expected; use it for end-to-end orchestration checks, not real projects.
+
+---
+
+## 🏗️ 9. Agent Orchestration strategy
 
 The project uses a **Tri-Agent Skill Architecture** for sprint execution:
 1. **The Orchestrator** (`orchestrator.md`): The high-level manager. Uses MCP tools to plan and track.

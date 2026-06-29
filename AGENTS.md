@@ -70,10 +70,11 @@ This project is a production-grade **Model Context Protocol (MCP)** server for t
 - Follow Conventional Commits used in history: `feat: ...`, `fix: ...`, `docs: ...`, `style: ...`.
 - Keep commits scoped to one change and use imperative, concise summaries.
 - Branching policy:
-  - Always create and work from a feature branch (never commit directly to `main`).
+  - `dev` is the integration branch. Always create and work from a feature branch off `dev` (never commit directly to `dev` or `main`).
   - Use descriptive branch names such as `feat/<scope>`, `fix/<scope>`, or `chore/<scope>`.
-  - Merge changes into `main` only via pull requests after required CI checks pass.
-  - Use GitHub CLI (`gh`) for PR workflow when available (for example `gh pr create`, `gh pr view`, `gh pr merge`).
+  - Merge changes into `dev` only via pull requests after required CI checks pass (not into `main`).
+  - Push branches to `origin` (the `numnx/codeux` fork) and target it for PRs. `upstream` is `codeux-ai/codeux` — do not push or PR there unless explicitly asked.
+  - Use GitHub CLI (`gh`) for PR workflow when available (for example `gh pr create --base dev`, `gh pr view`, `gh pr merge`).
 - PRs should include:
   - What changed and why.
   - Linked issue/task (if available).
@@ -89,12 +90,17 @@ This project is a production-grade **Model Context Protocol (MCP)** server for t
 
 ## Collaboration Workflow
 - Default working flow for our collaboration:
-  - Start every change on a new feature branch.
-  - Implement and validate locally (`npm run build` minimum; `npm run ci` preferred).
-  - Open a PR to `main` using GitHub CLI.
+  - Start every change on a new feature branch off `dev`.
+  - Implement and validate locally (`pnpm run build` minimum; `pnpm run ci` preferred).
+  - Open a PR into `dev` against the `origin` (`numnx/codeux`) fork using GitHub CLI.
   - Monitor CI continuously after opening the PR.
   - Merge only through PR after all required CI checks pass without errors.
   - Delete merged feature branches to keep the branch list clean.
+
+## Local Dev Access (this environment)
+- **Full access to the database and environment.** The runtime DB is `~/.code-ux/app.db` (SQLite, WAL); read/write it as needed via `node:sqlite`. You may inspect and modify environment state.
+- **Restart the dev server on port 4444 anytime.** The dashboard/backend runs there; restart it (e.g. `pnpm run dev`) whenever a change needs to take effect — no need to ask first.
+- **Run test sprints in the project "Simple Test 2".** It is wired to a local model for testing, so dispatching sprints/tasks there is safe and expected. Use it for end-to-end orchestration checks; do not run experimental sprints against real projects.
 
 ## Documentation Workflow (Mandatory)
 - Documentation source of truth lives in `docs/` with the main entrypoint at `docs/index.md`.
