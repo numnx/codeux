@@ -159,10 +159,17 @@ describe("useFocusTrap", () => {
     // We simulate a button click that triggers the component to mount, meaning trigger is document.activeElement
     const trigger = document.createElement('button');
     document.body.appendChild(trigger);
+    const originalFocus = trigger.focus.bind(trigger);
+    const focusSpy = vi.fn((options?: FocusOptions) => originalFocus(options));
+    trigger.focus = focusSpy;
     trigger.focus();
     expect(document.activeElement).toBe(trigger);
 
     const { unmount } = render(<TestComponent active={true} onClose={() => {}} />);
+
+    await waitFor(() => {
+      expect(document.activeElement?.id).toBe("inside1");
+    });
 
     // Unmount closes the trap
     unmount();
@@ -171,5 +178,6 @@ describe("useFocusTrap", () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(trigger);
     });
+    expect(focusSpy).toHaveBeenLastCalledWith({ preventScroll: true });
   });
 });

@@ -46,17 +46,18 @@ describe("DropdownMenu Accessibility & Keyboard Navigation", () => {
       expect(screen.getByRole("menu")).toBeInTheDocument();
     });
 
-    expect(gsapMock.fromTo).toHaveBeenCalledWith(
-      "[data-dropdown-item]",
-      { opacity: 0, y: 4 },
-      expect.objectContaining({
-        opacity: 1,
-        y: 0,
-        stagger: Math.min(0.018, 0.18 / 5),
-        duration: 0.12,
-        ease: "power2.out",
-      })
-    );
+    const itemAnimationCall = gsapMock.fromTo.mock.calls.find(([, from, to]) => {
+      return (
+        from?.opacity === 0 &&
+        from?.y === 4 &&
+        to?.opacity === 1 &&
+        to?.y === 0 &&
+        to?.stagger === Math.min(0.018, 0.18 / 5) &&
+        to?.duration === 0.12 &&
+        to?.ease === "power2.out"
+      );
+    });
+    expect(itemAnimationCall).toBeDefined();
   });
 
   const TestMenu = () => {

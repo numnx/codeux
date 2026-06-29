@@ -6,7 +6,7 @@ import { formatTime } from "../../../lib/time.js";
 import { useExecutionTimeline } from "../../../hooks/ExecutionTimelineContext.js";
 import type { ExecutionInvocationRecord } from "../../../types.js";
 import { formatInvocationDuration, formatInvocationPurpose, InvocationContextChips } from "../chat/invocation-display.js";
-import { statusTone, shortenRuntimeId } from "./ExecutionRuntimePanel.js";
+import { statusRailTone, statusTone, shortenRuntimeId } from "./ExecutionRuntimePanel.js";
 
 const INVOCATION_STATUS_DOT: Record<string, string> = {
   running: "bg-signal-500 shadow-[0_0_8px_rgba(0,224,160,0.55)]",
@@ -38,7 +38,7 @@ const InvocationFeedRow: FunctionComponent<{
   const purposeLabel = formatInvocationPurpose(invocation.type);
 
   return (
-    <div className="group/row rounded-xl border border-black/[0.04] bg-black/[0.015] p-3 transition-colors hover:border-signal-500/25 hover:bg-signal-500/[0.04] dark:border-white/[0.04] dark:bg-white/[0.015]">
+    <div className={`group/row rounded-r-xl rounded-l-sm border border-l-2 border-black/[0.04] bg-black/[0.015] p-3 pl-3 transition-colors hover:border-signal-500/25 hover:bg-signal-500/[0.035] dark:border-white/[0.04] dark:bg-white/[0.015] ${statusRailTone(invocation.status)}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">

@@ -730,12 +730,6 @@ export const AgentPresetEditorPanel: FunctionComponent<{
                         <button
                           ref={memoryButtonRef}
                           type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            if (!saving) {
-                              setShowMemoryPanel((value) => !value);
-                            }
-                          }}
                           disabled={saving}
                           className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white/60 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 transition-colors hover:bg-white hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
                         >

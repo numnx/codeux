@@ -451,7 +451,7 @@ export const SettingsModelsPanel: FunctionComponent<{ state: SettingsPageState }
           />
         </Row>
         <Row label="Max concurrency" description="Maximum number of worker-dispatched tasks running at once." badge={getFieldBadge("workers.maxConcurrency")}>
-          <NumberInput value={editableSettings.workers.maxConcurrency} min={1} max={20} onChange={(value) => updateEditableSettings((current) => ({
+          <NumberInput value={editableSettings.workers.maxConcurrency} min={1} max={100} onChange={(value) => updateEditableSettings((current) => ({
             ...current,
             workers: { ...current.workers, maxConcurrency: value },
           }))} />

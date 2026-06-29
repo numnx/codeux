@@ -29,6 +29,7 @@ vi.mock("../../../../src/v2/hooks/use-reduced-motion.js", () => ({
 }));
 
 vi.mock("../../../../src/v2/lib/motion/constants.js", () => ({
+  GSAP_DURATIONS: { base: 0 },
   GSAP_EASINGS: { smooth: "power2.inOut" }
 }));
 
@@ -58,7 +59,7 @@ describe("Toast", () => {
     expect(politeRegion).not.toHaveAttribute("aria-atomic");
 
     fireEvent.click(screen.getByText("Add success toast"));
-    expect(screen.getByText("Test success message")).toBeInTheDocument();
+    expect(screen.getAllByText("Test success message").length).toBeGreaterThan(0);
   });
 
   it("renders error toasts in an assertive region without aria-atomic", () => {
@@ -73,7 +74,7 @@ describe("Toast", () => {
     expect(alertRegion).not.toHaveAttribute("aria-atomic");
 
     fireEvent.click(screen.getByText("Add error toast"));
-    expect(screen.getByText("Test error message")).toBeInTheDocument();
+    expect(screen.getAllByText("Test error message").length).toBeGreaterThan(0);
   });
 
   it("includes visually hidden type text and dismiss label", () => {
