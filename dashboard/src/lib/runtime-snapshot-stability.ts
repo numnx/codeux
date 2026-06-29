@@ -95,6 +95,7 @@ function isEmptyExecutionSnapshot(snapshot: ExecutionDashboardSnapshot): boolean
     && snapshot.overflowAssignedWorkers.length === 0
     && snapshot.attentionItems.length === 0
     && snapshot.recentEvents.length === 0
+    && (snapshot.recentInvocations?.length ?? 0) === 0
   );
 }
 
@@ -118,6 +119,7 @@ export function areExecutionSnapshotsEquivalent(
     || left.connections.length !== right.connections.length
     || left.attentionItems.length !== right.attentionItems.length
     || left.recentEvents.length !== right.recentEvents.length
+    || (left.recentInvocations?.length ?? 0) !== (right.recentInvocations?.length ?? 0)
   ) {
     return false;
   }
@@ -190,6 +192,22 @@ export function areExecutionSnapshotsEquivalent(
       leftEvent?.id !== rightEvent?.id
       || leftEvent?.createdAt !== rightEvent?.createdAt
       || leftEvent?.eventType !== rightEvent?.eventType
+    ) {
+      return false;
+    }
+  }
+
+  const leftInvocations = left.recentInvocations ?? [];
+  const rightInvocations = right.recentInvocations ?? [];
+  for (let index = 0; index < leftInvocations.length; index += 1) {
+    const leftInvocation = leftInvocations[index];
+    const rightInvocation = rightInvocations[index];
+    if (
+      leftInvocation?.id !== rightInvocation?.id
+      || leftInvocation?.status !== rightInvocation?.status
+      || leftInvocation?.updatedAt !== rightInvocation?.updatedAt
+      || leftInvocation?.messageCount !== rightInvocation?.messageCount
+      || leftInvocation?.lastMessageAt !== rightInvocation?.lastMessageAt
     ) {
       return false;
     }

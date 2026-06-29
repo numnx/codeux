@@ -25,7 +25,8 @@ import { CollapsiblePanel } from "./components/ui/CollapsiblePanel.js";
 import { ExecutionTimelineProvider } from "../hooks/ExecutionTimelineContext.js";
 import { ExecutionTimeline } from "./components/ExecutionTimeline.js";
 import { AttentionLedger } from "./components/AttentionLedger.js";
-import { ConnectionRuntimePanel, ExecutionRuntimePanel } from "./components/live-session/ExecutionRuntimePanel.js";
+import { ExecutionRuntimePanel } from "./components/live-session/ExecutionRuntimePanel.js";
+import { InvocationFeedPanel } from "./components/live-session/InvocationFeedPanel.js";
 import { StatsHeader } from "./components/StatsHeader.js";
 import { IdleRuntimeState } from "./components/ui/IdleRuntimeState.js";
 import { SkeletonPanel } from "./components/layout/SkeletonLoader.js";
@@ -210,6 +211,16 @@ export const LiveSessionPage: FunctionComponent = () => {
             : execution.sprintRuns;
     }, [execution.sprintRuns, sprintScopeId, sprintScopeReady]);
 
+    const sprintInvocations = useMemo(() => {
+        if (!sprintScopeReady) {
+            return [];
+        }
+        const invocations = execution.recentInvocations ?? [];
+        return sprintScopeId
+            ? invocations.filter((invocation) => invocation.sprintId === sprintScopeId)
+            : invocations;
+    }, [execution.recentInvocations, sprintScopeId, sprintScopeReady]);
+
     const visibleTasksWithLiveActivities = useMemo(() => (
         tasksWithLiveActivities.map((task) => projectLiveTask(task, sprintDispatches, sprintEvents))
     ), [sprintDispatches, sprintEvents, tasksWithLiveActivities]);
@@ -328,6 +339,13 @@ export const LiveSessionPage: FunctionComponent = () => {
                 ? { ...task, status: "COMPLETED" as const }
                 : task;
             const latestDispatch = pickLatestTaskDispatch(task, sprintDispatches);
+            const taskIdentity = new Set([taskRuntimeId, task.id, task.record_id].filter(Boolean));
+            const taskInvocations = (execution.recentInvocations ?? []).filter((invocation) => (
+                (invocation.taskId && taskIdentity.has(invocation.taskId))
+                || (invocation.taskKey && taskIdentity.has(invocation.taskKey))
+                || (latestDispatch?.id && invocation.dispatchId === latestDispatch.id)
+                || (latestDispatch?.taskRunId && invocation.taskRunId === latestDispatch.taskRunId)
+            ));
             const taskEvents = (task.record_id && taskEventsByRecordId.byRecordId.get(task.record_id))
                 || taskEventsByRecordId.byTaskKey.get(task.id)
                 || EMPTY_RUNTIME_EVENTS;
@@ -366,6 +384,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                 phase: taskPhase,
                 taskTiming: taskTimingMap.get(taskRuntimeId) || taskTimingMap.get(task.id) || null,
                 events: taskEvents,
+                invocations: taskInvocations,
                 isRerunning: rerunningIds.has(taskRuntimeId),
                 isForceCompleting: forceCompletePendingIds.has(taskRuntimeId),
                 forceCompleteError: forceCompleteErrorByTaskId.get(taskRuntimeId) || null,
@@ -377,7 +396,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                 } : null,
             };
         })
-    ), [filteredTasks, forceCompleteErrorByTaskId, forceCompletePendingIds, optimisticallyCompletedTaskIds, rerunningIds, sprintDispatches, taskEventsByRecordId, taskTimingMap]);
+    ), [execution.recentInvocations, filteredTasks, forceCompleteErrorByTaskId, forceCompletePendingIds, optimisticallyCompletedTaskIds, rerunningIds, sprintDispatches, taskEventsByRecordId, taskTimingMap]);
 
     const handleEditTask = (task: Subtask): void => {
         const search = new URLSearchParams();
@@ -559,7 +578,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                             </div>
                         </div>
                     ) : (
-                        taskCardItems.map(({ key, task, phase, taskTiming, events, isRerunning, isForceCompleting, forceCompleteError, dispatchInfo }) => (
+                        taskCardItems.map(({ key, task, phase, taskTiming, events, invocations, isRerunning, isForceCompleting, forceCompleteError, dispatchInfo }) => (
                             <LiveTaskCard
                                 key={key}
                                 task={task}
@@ -567,6 +586,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                                 phase={phase}
                                 taskTiming={taskTiming}
                                 events={events}
+                                invocations={invocations}
                                 onRerun={handleRerun}
                                 onEdit={handleEditTask}
                                 onForceComplete={handleForceCompleteTask}
@@ -596,10 +616,14 @@ export const LiveSessionPage: FunctionComponent = () => {
                         onDismissAttentionItem={handleDismissAttentionItem}
                         pendingActionIds={pendingActionIds}
                     >
-                        <ConnectionRuntimePanel />
+                        <InvocationFeedPanel
+                            collapsible
+                            defaultOpen={hasSprintContext}
+                            invocations={sprintInvocations}
+                        />
+                        <ExecutionTimeline collapsible defaultOpen={hasSprintContext} />
                         <GitCIStatusPanel status={gitStatus} error={gitStatusError} />
                         <AttentionLedger collapsible defaultOpen={hasSprintContext} />
-                        <ExecutionTimeline collapsible defaultOpen={hasSprintContext} />
                         <ExecutionRuntimePanel
                             collapsible
                             defaultOpen={hasSprintContext}

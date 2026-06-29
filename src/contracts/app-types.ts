@@ -1,5 +1,6 @@
 import type { InstructionTemplateId } from "../instructions/instruction-template-catalog.js";
 import type { ProviderInvocationPurpose, TokenUsageSource } from "./execution-types.js";
+import type { ExecutionInvocationRecord } from "./invocation-types.js";
 import type { MemorySettings } from "./memory-types.js";
 
 export interface JulesSource {
@@ -360,6 +361,8 @@ export interface ExecutionDashboardSnapshot {
   overflowAssignedWorkers: ExecutionAssignedWorkerSummary[];
   attentionItems: ExecutionAttentionItemSummary[];
   recentEvents: ExecutionRuntimeEventSummary[];
+  /** Recent project invocation records used by the Live page invocation feed. */
+  recentInvocations?: ExecutionInvocationRecord[];
   updatedAt: string | null;
 }
 
