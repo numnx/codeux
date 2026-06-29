@@ -25,7 +25,8 @@ import { CollapsiblePanel } from "./components/ui/CollapsiblePanel.js";
 import { ExecutionTimelineProvider } from "../hooks/ExecutionTimelineContext.js";
 import { ExecutionTimeline } from "./components/ExecutionTimeline.js";
 import { AttentionLedger } from "./components/AttentionLedger.js";
-import { ConnectionRuntimePanel, ExecutionRuntimePanel } from "./components/live-session/ExecutionRuntimePanel.js";
+import { ExecutionRuntimePanel } from "./components/live-session/ExecutionRuntimePanel.js";
+import { InvocationFeedPanel } from "./components/live-session/InvocationFeedPanel.js";
 import { StatsHeader } from "./components/StatsHeader.js";
 import { IdleRuntimeState } from "./components/ui/IdleRuntimeState.js";
 import { SkeletonPanel } from "./components/layout/SkeletonLoader.js";
@@ -596,10 +597,10 @@ export const LiveSessionPage: FunctionComponent = () => {
                         onDismissAttentionItem={handleDismissAttentionItem}
                         pendingActionIds={pendingActionIds}
                     >
-                        <ConnectionRuntimePanel />
+                        <InvocationFeedPanel collapsible defaultOpen={hasSprintContext} />
+                        <ExecutionTimeline collapsible defaultOpen={hasSprintContext} />
                         <GitCIStatusPanel status={gitStatus} error={gitStatusError} />
                         <AttentionLedger collapsible defaultOpen={hasSprintContext} />
-                        <ExecutionTimeline collapsible defaultOpen={hasSprintContext} />
                         <ExecutionRuntimePanel
                             collapsible
                             defaultOpen={hasSprintContext}

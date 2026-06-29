@@ -1002,41 +1002,33 @@ describe("LiveSessionPage Integration Isolation", () => {
 
     render(<LiveSessionPage />);
 
-    const liveConnections = screen.getByText("Live Connections");
+    const invocationFeed = screen.getByText("Invocation Feed");
+    const runtimeTimeline = screen.getByText("Runtime Timeline");
     const gitCiPr = screen.getByText("Git / CI / PR");
     const attentionQueue = screen.getByText("Attention Queue");
-    const runtimeTimeline = screen.getByText("Runtime Timeline");
     const executionRuntime = screen.getByText("Execution Runtime");
 
-    expect(liveConnections).toBeInTheDocument();
+    expect(invocationFeed).toBeInTheDocument();
+    expect(runtimeTimeline).toBeInTheDocument();
     expect(gitCiPr).toBeInTheDocument();
     expect(attentionQueue).toBeInTheDocument();
-    expect(runtimeTimeline).toBeInTheDocument();
     expect(executionRuntime).toBeInTheDocument();
-    expect(screen.getAllByText("Primary Listener").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Internal Worker").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Dashboard Manager").length).toBeGreaterThan(0);
     expect(screen.getByText("Review failing CI logs")).toBeInTheDocument();
-    expect(screen.getByText("active 3")).toBeInTheDocument();
-    expect(screen.getByText("listening 2")).toBeInTheDocument();
 
     const tablists = document.querySelectorAll('[role="tablist"]');
     expect(tablists.length).toBeGreaterThanOrEqual(2);
     expect(document.querySelector('[role="tablist"][aria-label="Task status filters"]')).toBeInTheDocument();
     expect(document.querySelector('[role="tablist"][aria-label="View toggle"]')).toBeInTheDocument();
     expect(document.querySelectorAll('[role="tab"]').length).toBeGreaterThan(5);
-    expect(screen.getByText("workers 1")).toBeInTheDocument();
-    expect(screen.getByText("manager 1")).toBeInTheDocument();
 
+    expect(screen.queryByText("Live Connections")).not.toBeInTheDocument();
     expect(screen.queryByText("Latest Activity")).not.toBeInTheDocument();
     expect(screen.queryByText("Protocol")).not.toBeInTheDocument();
 
-    expect(Boolean((liveConnections as HTMLElement).compareDocumentPosition(gitCiPr) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    expect(Boolean((invocationFeed as HTMLElement).compareDocumentPosition(runtimeTimeline) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    expect(Boolean(runtimeTimeline.compareDocumentPosition(gitCiPr) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
     expect(Boolean(gitCiPr.compareDocumentPosition(attentionQueue) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
-    expect(Boolean(attentionQueue.compareDocumentPosition(runtimeTimeline) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
-    expect(Boolean(runtimeTimeline.compareDocumentPosition(executionRuntime) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
-
-    expect(screen.getAllByText("Listening")).toHaveLength(2);
+    expect(Boolean(attentionQueue.compareDocumentPosition(executionRuntime) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
 
     const inProgressStatus = screen.getByText("IN_PROGRESS");
     expect(inProgressStatus).toBeInTheDocument();

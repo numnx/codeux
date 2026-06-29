@@ -22,6 +22,7 @@ const EMPTY_EXECUTION: ExecutionDashboardSnapshot = {
   overflowAssignedWorkers: [],
   attentionItems: [],
   recentEvents: [],
+  recentInvocations: [],
   updatedAt: null,
 };
 
