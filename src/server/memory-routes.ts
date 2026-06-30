@@ -186,6 +186,33 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
     }
   }));
 
+  app.post("/api/projects/:projectId/memory-claims/search", asyncRoute(async (req, res) => {
+    try {
+      const projectId = requireTrimmedString(req.params.projectId, "projectId");
+      const { query, limit, minSimilarity } = req.body as {
+        query?: string;
+        limit?: number;
+        minSimilarity?: number;
+      };
+
+      if (!query || typeof query !== "string") {
+        res.status(400).json({ error: "query is required" });
+        return;
+      }
+
+      const results = await memoryService.searchClaims({
+        projectId,
+        query,
+        limit,
+        minSimilarity,
+      });
+
+      res.json(results);
+    } catch (error) {
+      res.status(400).json(toErrorResponse(error, "Failed to search memory claims"));
+    }
+  }));
+
   // --- Promotion ---
 
   app.post("/api/projects/:projectId/memories/promotion/analyze", asyncRoute(async (req, res) => {

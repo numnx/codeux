@@ -35,6 +35,7 @@ export interface ScheduleChatTarget {
 
 export interface ScheduleMemoryRemediationTarget {
   mode: "deterministic" | "ai";
+  source?: "scheduler" | "memory_settings";
 }
 
 export interface SchedulerEntryRecord {
@@ -101,4 +102,19 @@ export interface UpdateSchedulerEntryInput {
   quicksprintTarget?: ScheduleQuicksprintTarget;
   chatTarget?: ScheduleChatTarget;
   memoryRemediationTarget?: ScheduleMemoryRemediationTarget;
+}
+
+export type MemoryRemediationScheduleCadence = "off" | "daily" | "weekly";
+
+export interface MemoryRemediationScheduleSettings {
+  cadence: MemoryRemediationScheduleCadence;
+  mode: "deterministic" | "ai";
+  scheduledFor?: string;
+  timezone?: string;
+}
+
+export interface MemoryRemediationScheduleResponse {
+  entry: SchedulerEntryRecord | null;
+  cadence: MemoryRemediationScheduleCadence;
+  mode: "deterministic" | "ai";
 }

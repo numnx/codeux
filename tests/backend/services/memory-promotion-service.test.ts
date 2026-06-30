@@ -40,6 +40,8 @@ describe("MemoryPromotionService", () => {
     findActiveMemoryClaimByFingerprint: ReturnType<typeof vi.fn>;
     createMemoryClaim: ReturnType<typeof vi.fn>;
     addMemoryClaimEvidence: ReturnType<typeof vi.fn>;
+    listMemoryClaimEvidence: ReturnType<typeof vi.fn>;
+    updateMemoryClaim: ReturnType<typeof vi.fn>;
     createPromotedClaimMemory: ReturnType<typeof vi.fn>;
   };
   let service: MemoryPromotionService;
@@ -54,6 +56,8 @@ describe("MemoryPromotionService", () => {
       findActiveMemoryClaimByFingerprint: vi.fn().mockReturnValue(null),
       createMemoryClaim: vi.fn(),
       addMemoryClaimEvidence: vi.fn(),
+      listMemoryClaimEvidence: vi.fn().mockReturnValue([]),
+      updateMemoryClaim: vi.fn(),
       createPromotedClaimMemory: vi.fn(),
     };
     service = new MemoryPromotionService(
@@ -443,13 +447,24 @@ describe("MemoryPromotionService", () => {
         memory: source,
         clusterId: "memory:src-1",
         claim: source.content,
-        evidenceMemoryIds: ["src-1"],
+        evidenceMemoryIds: ["src-1", "src-2"],
         riskFlags: [],
         score: 0.8,
         reason: "meets promotion threshold",
         crossSprintCount: 0,
       };
-      memoryRepository.findActiveMemoryClaimByFingerprint.mockReturnValue({ id: "claim-existing" });
+      memoryRepository.findActiveMemoryClaimByFingerprint.mockReturnValue({
+        id: "claim-existing",
+        confidence: 0.7,
+        durability: 0.72,
+        tags: ["memory-remediation"],
+        appliesToPaths: [],
+      });
+      memoryRepository.listMemoryClaimEvidence.mockReturnValue([
+        { claimId: "claim-existing", memoryId: "old", supportType: "supports", weight: 1, createdAt: "2026-01-01T00:00:00.000Z" },
+        { claimId: "claim-existing", memoryId: "src-1", supportType: "supports", weight: 1, createdAt: "2026-01-02T00:00:00.000Z" },
+        { claimId: "claim-existing", memoryId: "src-2", supportType: "supports", weight: 0.85, createdAt: "2026-01-02T00:00:00.000Z" },
+      ]);
 
       const result = service.promoteCandidatesAsClaims("proj-1", [candidate]);
 
@@ -460,6 +475,10 @@ describe("MemoryPromotionService", () => {
         claimId: "claim-existing",
         memoryId: "src-1",
       }));
+      const update = memoryRepository.updateMemoryClaim.mock.calls[0]![1];
+      expect(update.confidence).toBeCloseTo(0.84);
+      expect(update.durability).toBeGreaterThan(0.8);
+      expect(update.tags).toEqual(["evidence-cluster", "memory-remediation"]);
     });
   });
 

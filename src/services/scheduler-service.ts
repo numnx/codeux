@@ -1,5 +1,7 @@
 import type {
   CreateSchedulerEntryInput,
+  MemoryRemediationScheduleResponse,
+  MemoryRemediationScheduleSettings,
   SchedulerCollectionResponse,
   SchedulerEntryRecord,
   UpdateSchedulerEntryInput,
@@ -65,6 +67,62 @@ export class SchedulerService {
   createEntry(projectId: string, input: CreateSchedulerEntryInput): SchedulerEntryRecord {
     this.validateInputTarget(projectId, input);
     return this.deps.schedulerRepository.createEntry(projectId, input);
+  }
+
+  getMemoryRemediationSchedule(projectId: string): MemoryRemediationScheduleResponse {
+    const entry = this.findSettingsManagedMemoryRemediationEntry(projectId);
+    return {
+      entry,
+      cadence: entry ? cadenceFromEntry(entry) : "off",
+      mode: entry?.memoryRemediationTarget?.mode ?? "deterministic",
+    };
+  }
+
+  setMemoryRemediationSchedule(
+    projectId: string,
+    input: MemoryRemediationScheduleSettings,
+  ): MemoryRemediationScheduleResponse {
+    const existing = this.findSettingsManagedMemoryRemediationEntry(projectId);
+    const mode = input.mode === "ai" ? "ai" : "deterministic";
+
+    if (input.cadence === "off") {
+      const entry = existing && existing.status === "scheduled"
+        ? this.deps.schedulerRepository.updateEntry(existing.id, { status: "paused" })
+        : existing;
+      return { entry, cadence: "off", mode: entry?.memoryRemediationTarget?.mode ?? mode };
+    }
+
+    const recurrence = {
+      frequency: input.cadence,
+      interval: 1,
+      endMode: "never",
+    } as const;
+    const scheduledFor = normalizeScheduleStart(input.scheduledFor);
+    const payload: CreateSchedulerEntryInput = {
+      title: "Long-term memory remediation",
+      targetType: "memory_remediation",
+      scheduledFor,
+      timezone: input.timezone?.trim() || "UTC",
+      recurrence,
+      memoryRemediationTarget: {
+        mode,
+        source: "memory_settings",
+      },
+    };
+
+    const entry = existing
+      ? this.deps.schedulerRepository.updateEntry(existing.id, {
+        title: payload.title,
+        status: "scheduled",
+        targetType: payload.targetType,
+        scheduledFor: payload.scheduledFor,
+        timezone: payload.timezone,
+        recurrence: payload.recurrence,
+        memoryRemediationTarget: payload.memoryRemediationTarget,
+      })
+      : this.deps.schedulerRepository.createEntry(projectId, payload);
+
+    return { entry, cadence: input.cadence, mode };
   }
 
   updateEntry(entryId: string, input: UpdateSchedulerEntryInput): SchedulerEntryRecord {
@@ -193,4 +251,41 @@ export class SchedulerService {
       throw new Error("Completed sprints cannot be scheduled.");
     }
   }
+
+  private findSettingsManagedMemoryRemediationEntry(projectId: string): SchedulerEntryRecord | null {
+    const entries = this.deps.schedulerRepository.listEntries(projectId);
+    return entries.find((entry) => (
+      entry.targetType === "memory_remediation"
+      && entry.memoryRemediationTarget?.source === "memory_settings"
+      && entry.status !== "cancelled"
+    )) ?? null;
+  }
+}
+
+function normalizeScheduleStart(value?: string): string {
+  if (value) {
+    const parsed = new Date(value);
+    if (Number.isFinite(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+  const next = new Date();
+  next.setUTCHours(3, 0, 0, 0);
+  if (next.getTime() <= Date.now()) {
+    next.setUTCDate(next.getUTCDate() + 1);
+  }
+  return next.toISOString();
+}
+
+function cadenceFromEntry(entry: SchedulerEntryRecord): MemoryRemediationScheduleResponse["cadence"] {
+  if (entry.status !== "scheduled") {
+    return "off";
+  }
+  if (entry.recurrence.frequency === "weekly") {
+    return "weekly";
+  }
+  if (entry.recurrence.frequency === "daily") {
+    return "daily";
+  }
+  return "off";
 }

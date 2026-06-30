@@ -111,6 +111,13 @@ export interface MemorySearchResult {
   similarity: number;
 }
 
+export interface MemoryClaimSearchResult {
+  claim: MemoryClaimRecord;
+  similarity: number;
+  evidenceCount: number;
+  supportingMemory: MemoryRecord;
+}
+
 export type MemoryPromotionRiskFlag =
   | "ci_failure"
   | "test_fixture"

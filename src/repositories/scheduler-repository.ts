@@ -255,6 +255,7 @@ export class SchedulerRepository {
       return {
         memoryRemediationTarget: {
           mode: input.memoryRemediationTarget?.mode === "ai" ? "ai" : "deterministic",
+          source: input.memoryRemediationTarget?.source === "memory_settings" ? "memory_settings" : "scheduler",
         },
       };
     }

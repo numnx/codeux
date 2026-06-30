@@ -40,6 +40,7 @@ function createMockDeps(): MemoryRouteDependencies {
       listBySprint: vi.fn().mockReturnValue([]),
       listByAgent: vi.fn().mockReturnValue([]),
       search: vi.fn().mockResolvedValue([]),
+      searchClaims: vi.fn().mockResolvedValue([]),
       reembedProject: vi.fn().mockResolvedValue(5),
       startReembedProject: vi.fn(),
       getReembedProgress: vi.fn().mockReturnValue(null),
@@ -91,7 +92,7 @@ describe("memory-routes", () => {
 
   it("registers all expected routes", () => {
     expect(app.get).toHaveBeenCalledTimes(8); // list, claims, evidence, embedding-models, model status, reembed progress, embedding-map, stats
-    expect(app.post).toHaveBeenCalledTimes(8); // create, search, promotion analyze/execute, download, cancel, select, reembed
+    expect(app.post).toHaveBeenCalledTimes(9); // create, memory search, claim search, promotion analyze/execute, download, cancel, select, reembed
     expect(app.patch).toHaveBeenCalledTimes(1); // update
     expect(app.delete).toHaveBeenCalledTimes(2); // delete memory, delete model
   });
@@ -231,6 +232,27 @@ describe("memory-routes", () => {
 
     it("rejects missing query", async () => {
       const handler = routes["POST:/api/projects/:projectId/memories/search"].handler;
+      const res = createMockRes();
+      await handler({ params: { projectId: "p1" }, body: {} }, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+  });
+
+  describe("POST /api/projects/:projectId/memory-claims/search", () => {
+    it("searches claims with valid query", async () => {
+      const handler = routes["POST:/api/projects/:projectId/memory-claims/search"].handler;
+      const res = createMockRes();
+      await handler({ params: { projectId: "p1" }, body: { query: "service wiring", limit: 5 } }, res);
+      expect(deps.memoryService.searchClaims).toHaveBeenCalledWith({
+        projectId: "p1",
+        query: "service wiring",
+        limit: 5,
+        minSimilarity: undefined,
+      });
+    });
+
+    it("rejects missing claim query", async () => {
+      const handler = routes["POST:/api/projects/:projectId/memory-claims/search"].handler;
       const res = createMockRes();
       await handler({ params: { projectId: "p1" }, body: {} }, res);
       expect(res.status).toHaveBeenCalledWith(400);

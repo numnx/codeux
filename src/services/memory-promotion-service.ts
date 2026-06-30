@@ -215,6 +215,13 @@ export class MemoryPromotionService {
             weight: evidenceMemoryId === source.id ? 1 : 0.85,
           });
         }
+        const evidenceCount = this.memoryRepository.listMemoryClaimEvidence(existingClaim.id).length;
+        this.memoryRepository.updateMemoryClaim(existingClaim.id, {
+          confidence: evolveClaimScore(existingClaim.confidence, candidate.score, evidenceCount),
+          durability: evolveClaimScore(existingClaim.durability, computeDurability(candidate), evidenceCount),
+          tags: mergeUnique(existingClaim.tags, buildClaimTags(candidate)),
+          appliesToPaths: mergeUnique(existingClaim.appliesToPaths, extractAppliesToPaths(candidate.claim)),
+        });
         this.logger.info(`Linked ${candidate.evidenceMemoryIds.length} evidence memories to existing claim ${existingClaim.id}`);
         continue;
       }
@@ -402,4 +409,13 @@ function extractAppliesToPaths(claim: string): string[] {
     }
   }
   return [...paths].sort();
+}
+
+function evolveClaimScore(current: number, observed: number, evidenceCount: number): number {
+  const evidenceBonus = Math.min(0.12, Math.max(0, evidenceCount - 1) * 0.02);
+  return Math.min(1, Math.max(current, observed) + evidenceBonus);
+}
+
+function mergeUnique(left: string[], right: string[]): string[] {
+  return [...new Set([...left, ...right].map((value) => value.trim()).filter(Boolean))].sort();
 }

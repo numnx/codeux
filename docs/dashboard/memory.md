@@ -61,6 +61,7 @@ Claims can be audited through read-only endpoints:
 ```http
 GET /api/projects/:projectId/memory-claims?status=active&category=patterns&limit=50
 GET /api/memory-claims/:claimId/evidence
+POST /api/projects/:projectId/memory-claims/search
 ```
 
 See [Memory Claims and Evidence](../architecture/memory-claims.md) for the architecture contract.
@@ -96,6 +97,8 @@ The Scheduler page can run project-scoped long-term memory remediation. Determin
 
 AI mode routes cleanup candidates through the `remediation` invocation route before deletion.
 If deterministic prefiltering finds no cleanup candidates, Code UX records a completed skipped `remediation` invocation instead of dispatching an empty provider request.
+
+The Memory settings panel also manages one project-scoped scheduler entry for long-term remediation. Users can set it to Off, Every day, or Every week without leaving Settings. Entries created this way are marked as `memoryRemediationTarget.source = "memory_settings"` so manually created Scheduler page entries are not overwritten.
 
 ## UI Updates and Accessibility
 - Added keyboard-accessible clear search functionality to `MemorySearch.tsx` (supports clearing via `Escape` and a dedicated clear button with an explicit `<kbd>Esc</kbd>` visual affordance).

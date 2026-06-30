@@ -201,6 +201,13 @@ export interface MemorySearchResult {
   similarity: number;
 }
 
+export interface MemoryClaimSearchResult {
+  claim: MemoryClaimRecord;
+  similarity: number;
+  evidenceCount: number;
+  supportingMemory: MemoryRecord;
+}
+
 export interface EmbeddingRecord {
   id: string;
   embeddingBlob: Buffer | Uint8Array;

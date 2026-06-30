@@ -6,6 +6,7 @@ import type {
   UpdateMemoryInput,
   MemorySearchQuery,
   MemorySearchResult,
+  MemoryClaimSearchResult,
   EmbeddingModelId,
   MemorySettings,
 } from "../contracts/memory-types.js";
@@ -310,6 +311,41 @@ export class MemoryService {
     }
 
     return results;
+  }
+
+  async searchClaims(query: Omit<MemorySearchQuery, "scope" | "sprintId" | "agentPresetId" | "category">): Promise<MemoryClaimSearchResult[]> {
+    const memoryResults = await this.search({
+      ...query,
+      scope: "project",
+      limit: Math.max(query.limit ?? 20, 50),
+    });
+    const claimResults: MemoryClaimSearchResult[] = [];
+    const seenClaimIds = new Set<string>();
+
+    for (const result of memoryResults) {
+      const claimId = result.memory.source.originType === "memory_claim"
+        ? result.memory.source.originId
+        : null;
+      if (!claimId || seenClaimIds.has(claimId)) {
+        continue;
+      }
+      const claim = this.memoryRepository.getMemoryClaim(claimId);
+      if (!claim || claim.status !== "active") {
+        continue;
+      }
+      seenClaimIds.add(claim.id);
+      claimResults.push({
+        claim,
+        similarity: result.similarity,
+        evidenceCount: this.memoryRepository.listMemoryClaimEvidence(claim.id).length,
+        supportingMemory: result.memory,
+      });
+      if (claimResults.length >= (query.limit ?? 20)) {
+        break;
+      }
+    }
+
+    return claimResults;
   }
 
   async reembedProject(

@@ -23,11 +23,24 @@ Claims store confidence, durability, category, tags, source metadata, and option
 `promoteCandidatesAsClaims` is the production promotion path for auto-promotion and post-sprint remediation:
 
 1. Look up an existing active claim by normalized fingerprint.
-2. If it exists, add the candidate memories as evidence and do not create another long-term memory.
+2. If it exists, add the candidate memories as evidence, raise confidence/durability from the new observation, merge tags and path applicability, and do not create another long-term memory.
 3. If it does not exist, create a `memory_claims` row, link all evidence memories, and create one project-scope memory whose content is the canonical claim.
 4. Trigger embedding for the project-scope claim memory so existing semantic memory search keeps working.
 
 The project-scope memory is a compatibility and retrieval layer. The claim row is the source of durable knowledge and provenance.
+
+## Claim-First Retrieval
+
+Agents and dashboards can search canonical claims directly through:
+
+```http
+POST /api/projects/:projectId/memory-claims/search
+Content-Type: application/json
+
+{ "query": "service wiring", "limit": 10, "minSimilarity": 0.3 }
+```
+
+The service searches embedded project-scope claim mirror memories, then hydrates the active `memory_claims` row and evidence count. This keeps vector retrieval efficient while returning provenance-aware long-term knowledge.
 
 ## Remediation Semantics
 

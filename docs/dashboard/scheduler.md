@@ -17,6 +17,8 @@ Operators can create entries for:
 - Messages sent into `/chat` at the selected date and time.
 - Long-term memory remediation, either deterministic or AI-routed through the Remediation route.
 
+The Memory settings panel can also manage one project-scoped long-term remediation entry. That entry is marked with `memoryRemediationTarget.source = "memory_settings"` so the settings shortcut does not overwrite manually created Scheduler page remediation entries.
+
 Scheduler target selectors, recurrence indicators, and repeating-count summary icons use the dashboard signal jade palette for interactive accents. Sprint and next-run status tones remain differentiated with their existing ember/status colors.
 
 Repeating entries support:
@@ -47,6 +49,10 @@ The dashboard API routes are:
   - Updates status, timing, recurrence, or target payload.
 - `DELETE /api/scheduler/:entryId`
   - Deletes an entry.
+- `GET /api/projects/:projectId/scheduler/memory-remediation`
+  - Returns the settings-managed long-term memory remediation entry, if one exists.
+- `PUT /api/projects/:projectId/scheduler/memory-remediation`
+  - Creates, updates, or pauses the settings-managed long-term memory remediation entry.
 
 ## Runtime Execution
 

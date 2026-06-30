@@ -1,9 +1,12 @@
 import type { FunctionComponent, ComponentChildren } from "preact";
+import { useEffect, useState } from "preact/hooks";
 import type { SettingsPageState } from "../../../hooks/use-settings-page-state.js";
 import { NoticePanel } from "../SettingsSurface.js";
 import { NumberInput, Row, Toggle, TextInput, TextAreaInput } from "../SettingsFormFields.js";
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
-import { BookOpen, Brain, Gauge } from "lucide-preact";
+import { BookOpen, Brain, CalendarClock, Gauge } from "lucide-preact";
+import { fetchMemoryRemediationSchedule, saveMemoryRemediationSchedule } from "../../../lib/scheduler-api.js";
+import type { MemoryRemediationScheduleCadence } from "../../../types.js";
 
   export const SettingsMemoryPanel: FunctionComponent<{ state: SettingsPageState }> = ({ state }) => {
   const {
@@ -16,6 +19,72 @@ import { BookOpen, Brain, Gauge } from "lucide-preact";
 
   const getBadge = (...prefixes: string[]) => getBadgeHelper(activeScope, projectSources, ...prefixes);
   const getFieldBadge = (path: string) => getFieldBadgeHelper(activeScope, projectSources, path);
+  const [scheduleCadence, setScheduleCadence] = useState<MemoryRemediationScheduleCadence>("off");
+  const [scheduleMode, setScheduleMode] = useState<"deterministic" | "ai">("deterministic");
+  const [scheduleTime, setScheduleTime] = useState("03:00");
+  const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+
+  useEffect(() => {
+    if (!selectedProject?.id || activeScope !== "project") {
+      setScheduleCadence("off");
+      setScheduleMode("deterministic");
+      setScheduleMessage(null);
+      setScheduleError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setScheduleLoading(true);
+    fetchMemoryRemediationSchedule(selectedProject.id, controller.signal)
+      .then((response) => {
+        setScheduleCadence(response.cadence);
+        setScheduleMode(response.mode);
+        if (response.entry) {
+          setScheduleTime(toTimeInputValue(response.entry.scheduledFor));
+        }
+        setScheduleError(null);
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setScheduleError(error instanceof Error ? error.message : String(error));
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setScheduleLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [activeScope, selectedProject?.id]);
+
+  const saveSchedule = async (): Promise<void> => {
+    if (!selectedProject?.id) return;
+    setScheduleSaving(true);
+    try {
+      const response = await saveMemoryRemediationSchedule(selectedProject.id, {
+        cadence: scheduleCadence,
+        mode: scheduleMode,
+        scheduledFor: scheduleCadence === "off" ? undefined : nextLocalOccurrenceIso(scheduleTime, scheduleCadence),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      });
+      setScheduleCadence(response.cadence);
+      setScheduleMode(response.mode);
+      if (response.entry) {
+        setScheduleTime(toTimeInputValue(response.entry.scheduledFor));
+      }
+      setScheduleMessage(response.cadence === "off" ? "Long-term remediation schedule paused." : "Long-term remediation schedule saved.");
+      setScheduleError(null);
+    } catch (error) {
+      setScheduleError(error instanceof Error ? error.message : String(error));
+      setScheduleMessage(null);
+    } finally {
+      setScheduleSaving(false);
+    }
+  };
 
     if (!editableSettings) {
       return null;
@@ -77,6 +146,64 @@ import { BookOpen, Brain, Gauge } from "lucide-preact";
               <option value="ai">AI remediation</option>
             </select>
           </Row>
+        </SectionCard>
+
+        <SectionCard title="Long-Term Remediation Schedule" watermark="SCH" badge={getBadge("memory")} icon={<CalendarClock strokeWidth={2.4} />}>
+          {activeScope !== "project" || !selectedProject ? (
+            <NoticePanel title="Project schedule" tone="neutral">
+              Long-term memory remediation schedules are project-specific. Select a project scope to create a recurring cleanup and claim-maintenance job.
+            </NoticePanel>
+          ) : (
+            <>
+              <Row label="Schedule cadence" description="Create or update the scheduler entry that runs project-scoped long-term memory remediation." badge={getFieldBadge("memory.remediationMode")}>
+                <select
+                  value={scheduleCadence}
+                  disabled={scheduleLoading || scheduleSaving || !editableSettings.memory.enabled}
+                  onChange={(event) => setScheduleCadence((event.currentTarget as HTMLSelectElement).value as MemoryRemediationScheduleCadence)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-void-900 dark:text-slate-100"
+                >
+                  <option value="off">Off</option>
+                  <option value="daily">Every day</option>
+                  <option value="weekly">Every week</option>
+                </select>
+              </Row>
+              <Row label="Remediation mode" description="Deterministic mode applies safe cleanup heuristics. AI mode routes candidates through the Remediation provider route." badge={getFieldBadge("memory.remediationMode")}>
+                <select
+                  value={scheduleMode}
+                  disabled={scheduleLoading || scheduleSaving || !editableSettings.memory.enabled || scheduleCadence === "off"}
+                  onChange={(event) => setScheduleMode((event.currentTarget as HTMLSelectElement).value as "deterministic" | "ai")}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-void-900 dark:text-slate-100"
+                >
+                  <option value="deterministic">Deterministic</option>
+                  <option value="ai">AI remediation</option>
+                </select>
+              </Row>
+              <Row label="Run time" description="The next scheduler occurrence is calculated in your local timezone." badge={getFieldBadge("memory.remediationMode")} last>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <input
+                    type="time"
+                    value={scheduleTime}
+                    disabled={scheduleLoading || scheduleSaving || !editableSettings.memory.enabled || scheduleCadence === "off"}
+                    onInput={(event) => setScheduleTime((event.currentTarget as HTMLInputElement).value || "03:00")}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-void-900 dark:text-slate-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void saveSchedule()}
+                    disabled={scheduleLoading || scheduleSaving || !editableSettings.memory.enabled}
+                    className="rounded-lg bg-signal-500 px-3 py-2 text-sm font-black text-white shadow-sm transition hover:bg-signal-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {scheduleSaving ? "Saving..." : "Save schedule"}
+                  </button>
+                </div>
+              </Row>
+              {(scheduleMessage || scheduleError) && (
+                <div className={`rounded-lg px-3 py-2 text-sm font-semibold ${scheduleError ? "bg-status-red/10 text-status-red" : "bg-signal-500/10 text-signal-700 dark:text-signal-300"}`}>
+                  {scheduleError || scheduleMessage}
+                </div>
+              )}
+            </>
+          )}
         </SectionCard>
 
         <SectionCard title="Limits" watermark="CAP" badge={getBadge("memory")} icon={<Gauge strokeWidth={2.4} />}>
@@ -236,3 +363,21 @@ import { BookOpen, Brain, Gauge } from "lucide-preact";
       </div>
     );
   };
+
+function toTimeInputValue(iso: string): string {
+  const date = new Date(iso);
+  if (!Number.isFinite(date.getTime())) return "03:00";
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function nextLocalOccurrenceIso(timeValue: string, cadence: Exclude<MemoryRemediationScheduleCadence, "off">): string {
+  const [hoursRaw, minutesRaw] = timeValue.split(":");
+  const hours = Math.max(0, Math.min(23, Number(hoursRaw) || 3));
+  const minutes = Math.max(0, Math.min(59, Number(minutesRaw) || 0));
+  const next = new Date();
+  next.setHours(hours, minutes, 0, 0);
+  if (next.getTime() <= Date.now()) {
+    next.setDate(next.getDate() + (cadence === "weekly" ? 7 : 1));
+  }
+  return next.toISOString();
+}
