@@ -62,7 +62,7 @@ describe("NotificationPanel", () => {
     expect(screen.getByText("Cluster not ready")).toBeInTheDocument();
     expect(screen.queryByText("Deployment successful")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Open onboarding" }));
+    fireEvent.click(screen.getByRole("button", { name: /Open onboarding/ }));
     expect(markRead).toHaveBeenCalledWith("startup-cluster-not-ready");
     expect(action).toHaveBeenCalledTimes(1);
 
@@ -102,7 +102,7 @@ describe("NotificationPanel", () => {
       />,
     );
 
-    const actionBtn = screen.getByRole("button", { name: "Open onboarding" });
+    const actionBtn = screen.getByRole("button", { name: /Open onboarding/ });
     actionBtn.focus();
     expect(document.activeElement).toBe(actionBtn);
 

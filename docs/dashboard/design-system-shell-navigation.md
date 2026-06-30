@@ -37,3 +37,11 @@ Stable layouts on narrow widths (especially mobile or multi-panel layouts) must 
 
 ### 6. Accessibility & Landmarks
 The shell exposes exactly one `<main id="main-content" role="main">` landmark. A visible-on-focus "Skip to main content" link is provided at the start of the shell to allow keyboard users to bypass repeated navigation controls. The `PageContainer` defaults to standard block elements (`div`, `section`) and must not introduce nested `<main>` landmarks.
+
+### 7. Selector Keyboard Navigation (Combobox/Listbox)
+Project and Sprint dropdowns follow a strict, accessible keyboard contract:
+- **Triggers:** Button triggers manage `aria-expanded` and open the dropdown on Space, Enter, or ArrowDown.
+- **Filter Inputs:** Inputs inside the dropdown have `role="combobox"`, `aria-autocomplete="list"`, and announce result counts dynamically using `aria-describedby` screen reader spans (e.g., "5 projects found. Use arrow keys to navigate.").
+- **Navigation:** Once open, focus is managed such that the user can freely use the `ArrowDown` and `ArrowUp` keys to traverse the `button` options and `input` safely. Arrow keys explicitly skip options that are `disabled` or have `aria-disabled="true"`.
+- **Dismissal & Recovery:** Pressing `Escape` or selecting an option cleanly closes the dropdown and reliably returns focus to the origin trigger button to maintain context.
+

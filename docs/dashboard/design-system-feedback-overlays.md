@@ -62,3 +62,9 @@ Feedback surfaces indicate system status or asynchronous progress.
 - Action feedback and toasts must use `role="status"` for polite announcements and `role="alert"` or `aria-live="assertive"` exclusively for destructive errors.
 - All badges, status dots, and live timing indicators must include visually hidden text (`<span className="sr-only">`) to provide explicit status and severity announcements, ensuring they do not rely purely on color or motion.
 - Spinning or pinging indicators must respect reduced motion by using `motion-reduce:animate-none` or `motion-safe` variants.
+
+### Notification Popovers
+- Must use `role="dialog"` and `aria-controls` connected to the trigger.
+- The trigger must not rely on `onFocus` to open, preventing keyboard trapping.
+- Must support `Escape` to close and deterministically restore focus to the trigger.
+- Severity and read/unread status must be exposed via visually hidden `.sr-only` text, not purely through color or icons.

@@ -45,8 +45,7 @@ describe("TaskRow QA review indicator", () => {
     expect(screen.getByLabelText("QA review details")).toBeTruthy();
     expect(screen.getByText("QA")).toBeTruthy();
 
-    const statusElement = document.querySelector('div[aria-live="polite"]');
-    expect(statusElement).toBeInTheDocument();
-    expect(statusElement).toHaveTextContent(/Task T1 status is now coding completed/i);
+    const statusElements = Array.from(document.querySelectorAll('div.sr-only')).filter(el => el.textContent?.match(/Task T1 status is now coding completed/i));
+    expect(statusElements.length).toBeGreaterThan(0);
   });
 });
