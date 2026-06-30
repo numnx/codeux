@@ -48,7 +48,7 @@ export const DEFAULT_AGENT_MEMORY_CONFIG: AgentMemoryConfig = {
   maxLongTerm: 0,
 };
 
-export type EmbeddingModelId = "bge-small-en-v1.5" | "multilingual-e5-large";
+export type EmbeddingModelId = string;
 
 export interface MemorySource {
   type: "auto_capture" | "manual" | "promotion";

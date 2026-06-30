@@ -12,7 +12,7 @@ import type {
   UpdateMemoryInput,
   InAppEmbeddingModelId,
 } from "../contracts/memory-types.js";
-import { MEMORY_SCOPES, MEMORY_CATEGORIES, EMBEDDING_MODEL_IDS } from "../contracts/memory-types.js";
+import { MEMORY_SCOPES, MEMORY_CATEGORIES, isInAppEmbeddingModelId } from "../contracts/memory-types.js";
 import { EMBEDDING_MODEL_CATALOG } from "../services/embedding-model-catalog.js";
 import { toErrorResponse, syncRoute, asyncRoute } from "./route-utils.js";
 import { requireTrimmedString, parseTrimmedString } from "./request-parsers.js";
@@ -202,11 +202,12 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
 
   app.post("/api/embedding-models/:modelId/download", asyncRoute(async (req, res) => {
     try {
-      const modelId = String(req.params.modelId) as InAppEmbeddingModelId;
-      if (!EMBEDDING_MODEL_IDS.includes(modelId)) {
-        res.status(400).json({ error: `Unknown model: ${modelId}` });
+      const candidateModelId = String(req.params.modelId);
+      if (!isInAppEmbeddingModelId(candidateModelId)) {
+        res.status(400).json({ error: `Unknown model: ${candidateModelId}` });
         return;
       }
+      const modelId = candidateModelId;
 
       // Start download in background, return immediately
       embeddingModelManager.downloadModel(modelId).catch(() => {
@@ -221,7 +222,12 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
 
   app.post("/api/embedding-models/:modelId/cancel", syncRoute((req, res) => {
     try {
-      const modelId = String(req.params.modelId) as InAppEmbeddingModelId;
+      const candidateModelId = String(req.params.modelId);
+      if (!isInAppEmbeddingModelId(candidateModelId)) {
+        res.status(400).json({ error: `Unknown model: ${candidateModelId}` });
+        return;
+      }
+      const modelId = candidateModelId;
       embeddingModelManager.cancelDownload(modelId);
       res.json({ status: "cancelled", modelId });
     } catch (error) {
@@ -231,11 +237,12 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
 
   app.post("/api/embedding-models/:modelId/select", asyncRoute(async (req, res) => {
     try {
-      const modelId = String(req.params.modelId) as InAppEmbeddingModelId;
-      if (!EMBEDDING_MODEL_IDS.includes(modelId)) {
-        res.status(400).json({ error: `Unknown model: ${modelId}` });
+      const candidateModelId = String(req.params.modelId);
+      if (!isInAppEmbeddingModelId(candidateModelId)) {
+        res.status(400).json({ error: `Unknown model: ${candidateModelId}` });
         return;
       }
+      const modelId = candidateModelId;
 
       await embeddingModelManager.selectModel(modelId);
       res.json({ status: "active", modelId });
@@ -246,7 +253,12 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
 
   app.delete("/api/embedding-models/:modelId", asyncRoute(async (req, res) => {
     try {
-      const modelId = String(req.params.modelId) as InAppEmbeddingModelId;
+      const candidateModelId = String(req.params.modelId);
+      if (!isInAppEmbeddingModelId(candidateModelId)) {
+        res.status(400).json({ error: `Unknown model: ${candidateModelId}` });
+        return;
+      }
+      const modelId = candidateModelId;
       await embeddingModelManager.deleteModel(modelId);
       res.status(204).send();
     } catch (error) {
@@ -256,11 +268,12 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
 
   app.get("/api/embedding-models/:modelId/status", syncRoute((req, res) => {
     try {
-      const modelId = String(req.params.modelId) as InAppEmbeddingModelId;
-      if (!EMBEDDING_MODEL_IDS.includes(modelId)) {
-        res.status(400).json({ error: `Unknown model: ${modelId}` });
+      const candidateModelId = String(req.params.modelId);
+      if (!isInAppEmbeddingModelId(candidateModelId)) {
+        res.status(400).json({ error: `Unknown model: ${candidateModelId}` });
         return;
       }
+      const modelId = candidateModelId;
       const status = memoryRepository.getModelStatus(modelId);
       if (!status) {
         res.json({

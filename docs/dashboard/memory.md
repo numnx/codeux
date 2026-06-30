@@ -5,7 +5,13 @@ Code UX uses semantic embeddings to retrieve relevant project context ("memories
 ## Embedding Providers
 
 Memory embeddings can run through either backend:
-- `in_app`: downloaded ONNX models managed from the Memory page (`bge-small-en-v1.5` or `multilingual-e5-large`).
+- `in_app`: downloaded ONNX models managed from the Memory page. The built-in catalog lives in `src/services/embedding-model-catalog.ts` and includes:
+  - `all-minilm-l6-v2`
+  - `all-mpnet-base-v2`
+  - `bge-small-en-v1.5`
+  - `bge-base-en-v1.5`
+  - `bge-large-en-v1.5`
+  - `multilingual-e5-large`
 - `external_api`: an OpenAI-compatible embeddings endpoint configured in Settings → Memory with `baseUrl`, `apiKey`, `model`, and optional `dimensions`.
 
 `MemoryService` resolves the effective project settings before capture, search, map generation, stale-count checks, and re-embedding. External API dimensions can be inferred from the returned vector, so models with custom vector sizes can be stored safely in `embeddingDimension`.

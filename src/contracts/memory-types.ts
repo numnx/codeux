@@ -57,13 +57,21 @@ export interface ParsedMemoryEntry {
   content: string;
 }
 
-export type InAppEmbeddingModelId = "bge-small-en-v1.5" | "multilingual-e5-large";
+export const EMBEDDING_MODEL_IDS = [
+  "bge-small-en-v1.5",
+  "bge-base-en-v1.5",
+  "bge-large-en-v1.5",
+  "all-minilm-l6-v2",
+  "all-mpnet-base-v2",
+  "multilingual-e5-large",
+] as const;
+
+export type InAppEmbeddingModelId = typeof EMBEDDING_MODEL_IDS[number];
 export type EmbeddingModelId = InAppEmbeddingModelId | (string & {});
 
-export const EMBEDDING_MODEL_IDS: InAppEmbeddingModelId[] = [
-  "bge-small-en-v1.5",
-  "multilingual-e5-large",
-];
+export function isInAppEmbeddingModelId(value: string): value is InAppEmbeddingModelId {
+  return (EMBEDDING_MODEL_IDS as readonly string[]).includes(value);
+}
 
 export type EmbeddingProviderMode = "in_app" | "external_api";
 export type MemoryRemediationMode = "off" | "deterministic" | "ai";
