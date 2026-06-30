@@ -153,9 +153,9 @@ export class MemoryRemediationService {
     }
 
     if (memorySettings.remediationMode !== "ai") {
-      const promoted = this.deps.memoryPromotionService.promoteMemories(
+      const promoted = this.deps.memoryPromotionService.promoteCandidatesAsClaims(
         args.projectId,
-        eligible.map((candidate) => candidate.memory.id),
+        eligible,
         "Deterministic memory remediation after sprint",
       );
       return { mode: memorySettings.remediationMode, promoted, candidateCount: candidates.length, aiUsed: false };
@@ -190,8 +190,13 @@ export class MemoryRemediationService {
         candidates: eligible,
       });
       const allowedIds = new Set(eligible.map((candidate) => candidate.memory.id));
+      const candidateById = new Map(eligible.map((candidate) => [candidate.memory.id, candidate]));
       const selected = decision.promote
-        .map((item) => ({ id: item.id, reason: item.reason?.trim() || "AI memory remediation after sprint" }))
+        .map((item) => ({
+          id: item.id,
+          candidate: candidateById.get(item.id),
+          reason: item.reason?.trim() || "AI memory remediation after sprint",
+        }))
         .filter((item) => allowedIds.has(item.id))
         .slice(0, memorySettings.remediationMaxPromotions);
 
@@ -199,10 +204,17 @@ export class MemoryRemediationService {
         return { mode: "ai", promoted: [], candidateCount: candidates.length, aiUsed: true, skippedReason: "ai_selected_none" };
       }
 
-      const promoted: MemoryRecord[] = [];
-      for (const item of selected) {
-        promoted.push(...this.deps.memoryPromotionService.promoteMemories(args.projectId, [item.id], item.reason));
-      }
+      const reasonByCandidateId = new Map<string, string>();
+      const selectedCandidates = selected.flatMap((item) => {
+        if (!item.candidate) return [];
+        reasonByCandidateId.set(item.candidate.memory.id, item.reason);
+        return [item.candidate];
+      });
+      const promoted = this.deps.memoryPromotionService.promoteCandidatesAsClaims(
+        args.projectId,
+        selectedCandidates,
+        (candidate) => reasonByCandidateId.get(candidate.memory.id) || "AI memory remediation after sprint",
+      );
       return { mode: "ai", promoted, candidateCount: candidates.length, aiUsed: true };
     } catch (error) {
       this.deps.logger.warn("AI memory remediation failed; falling back to deterministic promotion", {
@@ -210,9 +222,9 @@ export class MemoryRemediationService {
         sprintId: args.sprintId,
         error: error instanceof Error ? error.message : String(error),
       });
-      const promoted = this.deps.memoryPromotionService.promoteMemories(
+      const promoted = this.deps.memoryPromotionService.promoteCandidatesAsClaims(
         args.projectId,
-        eligible.map((candidate) => candidate.memory.id),
+        eligible,
         "Deterministic fallback after AI remediation failure",
       );
       return { mode: "ai", promoted, candidateCount: candidates.length, aiUsed: false, skippedReason: "ai_failed_fallback" };
@@ -441,17 +453,22 @@ export class MemoryRemediationService {
   }): string {
     const candidatesJson = JSON.stringify(args.candidates.map((candidate) => ({
       id: candidate.memory.id,
+      clusterId: candidate.clusterId,
+      claim: candidate.claim,
       category: candidate.memory.category,
       strength: candidate.memory.strength,
       score: Number(candidate.score.toFixed(3)),
       reason: candidate.reason,
+      riskFlags: candidate.riskFlags,
+      evidenceMemoryIds: candidate.evidenceMemoryIds,
       content: candidate.memory.content,
     })), null, 2);
 
     return [
       "You are performing Code UX memory remediation after a sprint.",
-      "Select only durable project knowledge worth promoting to long-term memory.",
+      "Select only durable project knowledge worth promoting to long-term memory. Treat each candidate as an evidence cluster, not as a raw fact to automatically copy.",
       "Reject transient notes, implementation trivia, duplicated facts, speculative statements, and CI/check/build failure observations.",
+      "Reject candidates with risk flags such as test_fixture, task_local, file_specific, or implementation_trivia unless they clearly describe a durable repository convention beyond one sprint or one fixture.",
       "Prefer architecture, codebase conventions, reusable patterns, and explicit decisions that future workers should know.",
       "",
       `Sprint: ${args.sprintName || "unknown"}`,

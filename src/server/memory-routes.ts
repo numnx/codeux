@@ -11,11 +11,14 @@ import type {
   CreateMemoryInput,
   UpdateMemoryInput,
   InAppEmbeddingModelId,
+  MemoryClaimStatus,
 } from "../contracts/memory-types.js";
 import { MEMORY_SCOPES, MEMORY_CATEGORIES, isInAppEmbeddingModelId } from "../contracts/memory-types.js";
 import { EMBEDDING_MODEL_CATALOG } from "../services/embedding-model-catalog.js";
 import { toErrorResponse, syncRoute, asyncRoute } from "./route-utils.js";
 import { requireTrimmedString, parseTrimmedString } from "./request-parsers.js";
+
+const MEMORY_CLAIM_STATUSES: MemoryClaimStatus[] = ["active", "superseded", "deprecated"];
 
 export interface MemoryRouteDependencies {
   memoryService: MemoryService;
@@ -114,6 +117,41 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
       res.status(204).send();
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to delete memory"));
+    }
+  }));
+
+  app.get("/api/projects/:projectId/memory-claims", syncRoute((req, res) => {
+    try {
+      const projectId = requireTrimmedString(req.params.projectId, "projectId");
+      const status = parseTrimmedString(req.query.status);
+      const category = parseTrimmedString(req.query.category);
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+
+      if (status && !MEMORY_CLAIM_STATUSES.includes(status as MemoryClaimStatus)) {
+        res.status(400).json({ error: `status must be one of: ${MEMORY_CLAIM_STATUSES.join(", ")}` });
+        return;
+      }
+      if (category && !MEMORY_CATEGORIES.includes(category as MemoryCategory)) {
+        res.status(400).json({ error: `category must be one of: ${MEMORY_CATEGORIES.join(", ")}` });
+        return;
+      }
+
+      res.json(memoryRepository.listMemoryClaims(projectId, {
+        status: status as MemoryClaimStatus | undefined,
+        category: category as MemoryCategory | undefined,
+        limit,
+      }));
+    } catch (error) {
+      res.status(400).json(toErrorResponse(error, "Failed to list memory claims"));
+    }
+  }));
+
+  app.get("/api/memory-claims/:claimId/evidence", syncRoute((req, res) => {
+    try {
+      const claimId = requireTrimmedString(req.params.claimId, "claimId");
+      res.json(memoryRepository.listMemoryClaimEvidence(claimId));
+    } catch (error) {
+      res.status(400).json(toErrorResponse(error, "Failed to list memory claim evidence"));
     }
   }));
 

@@ -64,6 +64,8 @@ function createMockDeps(): MemoryRouteDependencies {
     } as any,
     memoryRepository: {
       getModelStatus: vi.fn().mockReturnValue(null),
+      listMemoryClaims: vi.fn().mockReturnValue([]),
+      listMemoryClaimEvidence: vi.fn().mockReturnValue([]),
     } as any,
     settingsRepository: {
       getProjectResolvedSettings: vi.fn().mockReturnValue({
@@ -88,7 +90,7 @@ describe("memory-routes", () => {
   });
 
   it("registers all expected routes", () => {
-    expect(app.get).toHaveBeenCalledTimes(6); // list, embedding-models, model status, reembed progress, embedding-map, stats
+    expect(app.get).toHaveBeenCalledTimes(8); // list, claims, evidence, embedding-models, model status, reembed progress, embedding-map, stats
     expect(app.post).toHaveBeenCalledTimes(8); // create, search, promotion analyze/execute, download, cancel, select, reembed
     expect(app.patch).toHaveBeenCalledTimes(1); // update
     expect(app.delete).toHaveBeenCalledTimes(2); // delete memory, delete model
@@ -184,6 +186,38 @@ describe("memory-routes", () => {
       handler({ params: { memoryId: "m1" } }, res);
       expect(deps.memoryService.deleteMemory).toHaveBeenCalledWith("m1");
       expect(res.status).toHaveBeenCalledWith(204);
+    });
+  });
+
+  describe("GET /api/projects/:projectId/memory-claims", () => {
+    it("lists memory claims with optional filters", () => {
+      const handler = routes["GET:/api/projects/:projectId/memory-claims"].handler;
+      const res = createMockRes();
+      handler({ params: { projectId: "p1" }, query: { status: "active", category: "patterns", limit: "25" } }, res);
+      expect(deps.memoryRepository.listMemoryClaims).toHaveBeenCalledWith("p1", {
+        status: "active",
+        category: "patterns",
+        limit: 25,
+      });
+      expect(res.json).toHaveBeenCalledWith([]);
+    });
+
+    it("rejects invalid claim status", () => {
+      const handler = routes["GET:/api/projects/:projectId/memory-claims"].handler;
+      const res = createMockRes();
+      handler({ params: { projectId: "p1" }, query: { status: "unknown" } }, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(deps.memoryRepository.listMemoryClaims).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("GET /api/memory-claims/:claimId/evidence", () => {
+    it("lists evidence for a claim", () => {
+      const handler = routes["GET:/api/memory-claims/:claimId/evidence"].handler;
+      const res = createMockRes();
+      handler({ params: { claimId: "claim-1" }, query: {} }, res);
+      expect(deps.memoryRepository.listMemoryClaimEvidence).toHaveBeenCalledWith("claim-1");
+      expect(res.json).toHaveBeenCalledWith([]);
     });
   });
 

@@ -76,13 +76,55 @@ export interface MemoryRecord {
   updatedAt: string;
 }
 
+export type MemoryClaimStatus = "active" | "superseded" | "deprecated";
+export type MemoryClaimSourceType = "promotion" | "manual" | "remediation";
+export type MemoryClaimEvidenceSupport = "supports" | "contradicts" | "supersedes";
+
+export interface MemoryClaimRecord {
+  id: string;
+  projectId: string;
+  claim: string;
+  fingerprint: string;
+  category: MemoryCategory;
+  confidence: number;
+  durability: number;
+  status: MemoryClaimStatus;
+  tags: string[];
+  appliesToPaths: string[];
+  sourceType: MemoryClaimSourceType;
+  sourceMemoryId: string | null;
+  supersedesClaimId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MemoryClaimEvidenceLink {
+  claimId: string;
+  memoryId: string;
+  supportType: MemoryClaimEvidenceSupport;
+  weight: number;
+  createdAt: string;
+}
+
 export interface MemorySearchResult {
   memory: MemoryRecord;
   similarity: number;
 }
 
+export type MemoryPromotionRiskFlag =
+  | "ci_failure"
+  | "test_fixture"
+  | "file_specific"
+  | "task_local"
+  | "implementation_trivia"
+  | "speculative";
+
 export interface PromotionCandidate {
   memory: MemoryRecord;
+  clusterId: string;
+  claim: string;
+  evidenceMemoryIds: string[];
+  riskFlags: MemoryPromotionRiskFlag[];
   score: number;
   reason: string;
   crossSprintCount: number;

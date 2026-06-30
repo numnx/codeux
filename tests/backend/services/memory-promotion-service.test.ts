@@ -19,7 +19,7 @@ function makeMemory(overrides: Partial<MemoryRecord> = {}): MemoryRecord {
     content: "Always use factory pattern for DI",
     category: "architecture",
     strength: 0.85,
-    source: "agent",
+    source: { type: "auto_capture" },
     embeddingModel: null,
     embeddingDimension: null,
     embeddingBlob: null,
@@ -37,6 +37,10 @@ describe("MemoryPromotionService", () => {
     listBySprint: ReturnType<typeof vi.fn>;
     getMemory: ReturnType<typeof vi.fn>;
     createPromotedMemory: ReturnType<typeof vi.fn>;
+    findActiveMemoryClaimByFingerprint: ReturnType<typeof vi.fn>;
+    createMemoryClaim: ReturnType<typeof vi.fn>;
+    addMemoryClaimEvidence: ReturnType<typeof vi.fn>;
+    createPromotedClaimMemory: ReturnType<typeof vi.fn>;
   };
   let service: MemoryPromotionService;
 
@@ -47,6 +51,10 @@ describe("MemoryPromotionService", () => {
       listBySprint: vi.fn().mockReturnValue([]),
       getMemory: vi.fn(),
       createPromotedMemory: vi.fn(),
+      findActiveMemoryClaimByFingerprint: vi.fn().mockReturnValue(null),
+      createMemoryClaim: vi.fn(),
+      addMemoryClaimEvidence: vi.fn(),
+      createPromotedClaimMemory: vi.fn(),
     };
     service = new MemoryPromotionService(
       memoryService as any,
@@ -203,6 +211,73 @@ describe("MemoryPromotionService", () => {
       expect(candidates[0].reason).toContain("confirmed by 2 agents");
       expect(candidates[0].score).toBeGreaterThan(0);
     });
+
+    it("penalizes repeated fixture and task-local implementation trivia", async () => {
+      const mem = makeMemory({
+        id: "fixture-note",
+        category: "patterns",
+        strength: 0.6,
+        content: "Conflict resolution for conflict.md also follows the pattern of using the version from the feature branch to maintain the single-line timestamped format.",
+      });
+      memoryRepository.listBySprint.mockReturnValue([mem]);
+      memoryService.search.mockImplementation(async (query: any) => {
+        if (query.scope === "project") return [];
+        if (query.scope === "sprint" && !query.sprintId) {
+          return [
+            { memory: makeMemory({ id: "s2", sprintId: "sprint-2" }), similarity: 0.9 },
+            { memory: makeMemory({ id: "s3", sprintId: "sprint-3" }), similarity: 0.9 },
+            { memory: makeMemory({ id: "s4", sprintId: "sprint-4" }), similarity: 0.9 },
+          ];
+        }
+        if (query.scope === "sprint" && query.sprintId === "sprint-1") {
+          return [
+            { memory: makeMemory({ id: "agent-2", agentPresetId: "agent-2" }), similarity: 0.9 },
+          ];
+        }
+        return [];
+      });
+
+      const candidates = await service.analyzeForPromotion("proj-1", "sprint-1");
+
+      expect(candidates).toHaveLength(1);
+      expect(candidates[0].riskFlags).toEqual(expect.arrayContaining([
+        "test_fixture",
+        "file_specific",
+        "implementation_trivia",
+      ]));
+      expect(candidates[0].score).toBeLessThan(0.7);
+      expect(candidates[0].reason).toContain("risk flags");
+    });
+
+    it("clusters similar same-sprint memories into one evidence-backed candidate", async () => {
+      const memA = makeMemory({
+        id: "mem-a",
+        content: "Use dependency factory composition for service wiring.",
+      });
+      const memB = makeMemory({
+        id: "mem-b",
+        agentPresetId: "agent-2",
+        content: "Prefer dependency factory composition when wiring services.",
+      });
+      memoryRepository.listBySprint.mockReturnValue([memA, memB]);
+      memoryService.search.mockImplementation(async (query: any) => {
+        if (query.scope === "project") return [];
+        if (query.scope === "sprint" && !query.sprintId) return [];
+        if (query.scope === "sprint" && query.sprintId === "sprint-1") {
+          return query.query.includes("Use dependency")
+            ? [{ memory: memB, similarity: 0.88 }]
+            : [{ memory: memA, similarity: 0.88 }];
+        }
+        return [];
+      });
+
+      const candidates = await service.analyzeForPromotion("proj-1", "sprint-1");
+
+      expect(candidates).toHaveLength(1);
+      expect(candidates[0].evidenceMemoryIds).toEqual(["mem-a", "mem-b"]);
+      expect(candidates[0].reason).toContain("clustered from 2 sprint memories");
+      expect(candidates[0].riskFlags).toEqual([]);
+    });
   });
 
   describe("promoteMemories", () => {
@@ -287,16 +362,128 @@ describe("MemoryPromotionService", () => {
     });
   });
 
+  describe("promoteCandidatesAsClaims", () => {
+    it("creates an evidence-backed claim and searchable project memory", () => {
+      const source = makeMemory({
+        id: "src-1",
+        content: "Use dependency factory composition for service wiring.",
+        category: "patterns",
+        strength: 0.8,
+      });
+      const candidate = {
+        memory: source,
+        clusterId: "cluster:src-1,src-2",
+        claim: "Use dependency factory composition for service wiring.",
+        evidenceMemoryIds: ["src-1", "src-2"],
+        riskFlags: [],
+        score: 0.82,
+        reason: "confirmed by 2 agents",
+        crossSprintCount: 1,
+      };
+      const claim = {
+        id: "claim-1",
+        projectId: "proj-1",
+        claim: candidate.claim,
+        fingerprint: "use dependency factory composition for service wiring",
+        category: "patterns",
+        confidence: 0.82,
+        durability: 0.9,
+        status: "active",
+        tags: ["cross-sprint", "evidence-cluster", "memory-remediation"],
+        appliesToPaths: [],
+        sourceType: "promotion",
+        sourceMemoryId: "src-1",
+        supersedesClaimId: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      };
+      const promoted = makeMemory({
+        id: "promoted-claim-1",
+        scope: "project",
+        content: candidate.claim,
+        promotedFromId: "src-1",
+      });
+      memoryRepository.createMemoryClaim.mockReturnValue(claim);
+      memoryRepository.createPromotedClaimMemory.mockReturnValue(promoted);
+
+      const triggerEmbeddingMock = vi.fn().mockResolvedValue(undefined);
+      (memoryService as any).triggerEmbedding = triggerEmbeddingMock;
+
+      const result = service.promoteCandidatesAsClaims("proj-1", [candidate], "AI selected durable claim");
+
+      expect(result).toEqual([promoted]);
+      expect(memoryRepository.createMemoryClaim).toHaveBeenCalledWith("proj-1", expect.objectContaining({
+        claim: candidate.claim,
+        category: "patterns",
+        confidence: 0.82,
+        sourceType: "promotion",
+        sourceMemoryId: "src-1",
+        tags: ["cross-sprint", "evidence-cluster", "memory-remediation"],
+      }));
+      expect(memoryRepository.addMemoryClaimEvidence).toHaveBeenCalledTimes(2);
+      expect(memoryRepository.addMemoryClaimEvidence).toHaveBeenCalledWith(expect.objectContaining({
+        claimId: "claim-1",
+        memoryId: "src-1",
+        weight: 1,
+      }));
+      expect(memoryRepository.createPromotedClaimMemory).toHaveBeenCalledWith(
+        "proj-1",
+        source,
+        candidate.claim,
+        "claim-1",
+        "AI selected durable claim",
+        0.82,
+      );
+      expect(triggerEmbeddingMock).toHaveBeenCalledWith(promoted);
+    });
+
+    it("links evidence to an existing active claim instead of duplicating it", () => {
+      const source = makeMemory({ id: "src-1" });
+      const candidate = {
+        memory: source,
+        clusterId: "memory:src-1",
+        claim: source.content,
+        evidenceMemoryIds: ["src-1"],
+        riskFlags: [],
+        score: 0.8,
+        reason: "meets promotion threshold",
+        crossSprintCount: 0,
+      };
+      memoryRepository.findActiveMemoryClaimByFingerprint.mockReturnValue({ id: "claim-existing" });
+
+      const result = service.promoteCandidatesAsClaims("proj-1", [candidate]);
+
+      expect(result).toEqual([]);
+      expect(memoryRepository.createMemoryClaim).not.toHaveBeenCalled();
+      expect(memoryRepository.createPromotedClaimMemory).not.toHaveBeenCalled();
+      expect(memoryRepository.addMemoryClaimEvidence).toHaveBeenCalledWith(expect.objectContaining({
+        claimId: "claim-existing",
+        memoryId: "src-1",
+      }));
+    });
+  });
+
   describe("autoPromoteFromSprint", () => {
     const baseSettings: MemorySettings = {
       enabled: true,
+      embeddingProvider: "in_app",
       embeddingModel: null,
+      externalEmbedding: {
+        baseUrl: "",
+        apiKey: "",
+        model: "",
+        dimensions: null,
+      },
       autoCaptureSprint: true,
       autoCaptureAgent: true,
       autoPromote: true,
       promotionThreshold: 0.5,
+      remediationMode: "off",
+      remediationMaxPromotions: 3,
       maxSprintMemories: 100,
       maxProjectMemories: 500,
+      mapMaxEdgesPerNode: 6,
+      workerLearningsInstruction: "",
     };
 
     it("respects settings.autoPromote flag and returns empty when disabled", async () => {
@@ -326,10 +513,11 @@ describe("MemoryPromotionService", () => {
       memoryService.search.mockResolvedValue([]);
 
       const promotedRecord = makeMemory({ id: "promoted-high", scope: "project", promotedFromId: "high" });
-      memoryRepository.getMemory.mockImplementation((id: string) =>
-        id === "high" ? highMem : id === "low" ? lowMem : null,
-      );
-      memoryRepository.createPromotedMemory.mockReturnValue(promotedRecord);
+      memoryRepository.createMemoryClaim.mockReturnValue({
+        id: "claim-high",
+        claim: highMem.content,
+      });
+      memoryRepository.createPromotedClaimMemory.mockReturnValue(promotedRecord);
 
       const settings = { ...baseSettings, promotionThreshold: 0.6 };
       const result = await service.autoPromoteFromSprint("proj-1", "sprint-1", settings);
@@ -338,8 +526,8 @@ describe("MemoryPromotionService", () => {
       // the low-strength context memory should score below 0.6 threshold.
       // Verify at least one was promoted and the promoted IDs came from qualifying candidates.
       expect(result.length).toBeGreaterThanOrEqual(1);
-      expect(memoryRepository.createPromotedMemory).toHaveBeenCalled();
-      const promotedIds = memoryRepository.createPromotedMemory.mock.calls.map(
+      expect(memoryRepository.createPromotedClaimMemory).toHaveBeenCalled();
+      const promotedIds = memoryRepository.createPromotedClaimMemory.mock.calls.map(
         (call: any[]) => call[1].id,
       );
       expect(promotedIds).toContain("high");
