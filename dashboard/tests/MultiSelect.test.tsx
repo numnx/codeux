@@ -4,6 +4,9 @@
 import { render, fireEvent, screen } from "@testing-library/preact";
 import { MultiSelect } from "../src/v2/components/ui/MultiSelect";
 import { expect, test, vi, afterEach } from "vitest";
+import * as matchers from "@testing-library/jest-dom/matchers";
+
+expect.extend(matchers);
 
 afterEach(() => {
   document.body.innerHTML = '';

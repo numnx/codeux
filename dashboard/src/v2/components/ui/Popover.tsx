@@ -47,10 +47,6 @@ export const Popover = ({
   // Generate a unique ID for ARIA wiring if none exists
   const [popoverId] = useState(() => `popover-${Math.random().toString(36).substr(2, 9)}`);
 
-  if (process.env.NODE_ENV !== "production" && !isTooltip && !ariaLabel) {
-    console.warn("Popover dialogs should have an accessible name provided via the `ariaLabel` prop.");
-  }
-
   const updatePosition = useCallback(() => {
     if (!triggerRef.current || !popoverRef.current) return;
 
@@ -157,7 +153,7 @@ export const Popover = ({
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen && isTooltip) {
+      if (e.key === "Escape" && isOpen) {
         onOpenChange(false);
       }
     };
@@ -248,7 +244,6 @@ export const Popover = ({
             role={isTooltip ? "tooltip" : "dialog"}
             aria-label={ariaLabel || (!isTooltip ? "Dialog" : undefined)}
             tabIndex={-1}
-            inert={!isOpen ? true : undefined}
             className={`fixed z-[9999] bg-white dark:bg-void-800 border border-black/[0.08] dark:border-white/[0.08] shadow-[0_16px_36px_rgba(15,23,42,0.14)] dark:shadow-[0_16px_36px_rgba(0,0,0,0.4)] rounded-2xl p-4 ${!isOpen ? "pointer-events-none" : ""} ${className}`}
             style={{ top: coords.top, left: coords.left }}
           >

@@ -111,7 +111,7 @@ export function FilterStrip<T extends string>({
         }
 
         if (newIndex !== index) {
-            const tabs = listRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+            const tabs = listRef.current?.querySelectorAll<HTMLButtonElement>('button[aria-pressed]');
             if (tabs && tabs[newIndex]) {
                 tabs[newIndex].focus();
             }
@@ -120,7 +120,7 @@ export function FilterStrip<T extends string>({
 
     return (
         <div className="relative overflow-hidden">
-            <div ref={listRef} className="relative flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl overflow-x-auto scrollbar-hide touch-pan-x max-w-full" role="tablist" aria-label={ariaLabel} aria-labelledby={ariaLabelledBy}>
+            <div ref={listRef} className="relative flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl overflow-x-auto scrollbar-hide touch-pan-x max-w-full" role="toolbar" aria-label={ariaLabel} aria-labelledby={ariaLabelledBy}>
                 {/* Animated active indicator background */}
                 <div
                 ref={pillRef}
@@ -140,9 +140,9 @@ export function FilterStrip<T extends string>({
                         key={value}
                         type="button"
                         style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}
-                        role="tab"
+
                         aria-label={optionAriaLabel}
-                        aria-selected={isActive}
+                        aria-pressed={isActive}
                         tabIndex={isActive ? 0 : -1}
                         onClick={() => onChange(value)}
                         onKeyDown={(e) => handleKeyDown(e as any, idx)}

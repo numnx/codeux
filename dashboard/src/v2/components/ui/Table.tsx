@@ -131,7 +131,7 @@ export function TableCell({ children, className = "", isFirst, isLast, isHeader,
             onClick={onSort}
             className="inline-flex items-center gap-1 w-full text-inherit font-inherit text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:rounded-md bg-transparent border-0 p-0 cursor-pointer"
           >
-            {children}
+            {children}{" "}
             <span className="sr-only">
               {ariaSort && ariaSort !== "none" ? `(sorted ${ariaSort})` : "(click to sort)"}
             </span>

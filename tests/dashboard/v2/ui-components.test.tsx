@@ -148,17 +148,17 @@ describe("UI Components Coverage", () => {
     const onChange = vi.fn();
     const { rerender } = render(<FilterStrip options={options} active="1" onChange={onChange} />);
 
-    const tabs = screen.getAllByRole("tab");
-    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
-    expect(tabs[1]).toHaveAttribute("aria-selected", "false");
+    const tabs = screen.getAllByRole("button").filter((el) => el.hasAttribute("aria-pressed"));
+    expect(tabs[0]).toHaveAttribute("aria-pressed", "true");
+    expect(tabs[1]).toHaveAttribute("aria-pressed", "false");
 
     // Re-render with active="2"
     rerender(<FilterStrip options={options} active="2" onChange={onChange} />);
 
     // Have to query again in case elements changed, though FilterStrip should just update props
-    const tabsUpdated = screen.getAllByRole("tab");
-    expect(tabsUpdated[0]).toHaveAttribute("aria-selected", "false");
-    expect(tabsUpdated[1]).toHaveAttribute("aria-selected", "true");
+    const tabsUpdated = screen.getAllByRole("button").filter((el) => el.hasAttribute("aria-pressed"));
+    expect(tabsUpdated[0]).toHaveAttribute("aria-pressed", "false");
+    expect(tabsUpdated[1]).toHaveAttribute("aria-pressed", "true");
   });
 
   it("verifies ActionButton aria-disabled when busy", () => {
@@ -288,13 +288,13 @@ describe("UI Components Coverage", () => {
     cleanup();
     render(<FilterStrip options={options} active="1" onChange={onChange} />);
 
-    const tabs = screen.getAllByRole("tab");
+    const tabs = screen.getAllByRole("button").filter((el) => el.hasAttribute("aria-pressed"));
     expect(tabs.length).toBe(2);
 
     // Initial selected state and tabindex
-    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+    expect(tabs[0].getAttribute("aria-pressed")).toBe("true");
     expect(tabs[0].getAttribute("tabindex")).toBe("0");
-    expect(tabs[1].getAttribute("aria-selected")).toBe("false");
+    expect(tabs[1].getAttribute("aria-pressed")).toBe("false");
     expect(tabs[1].getAttribute("tabindex")).toBe("-1");
 
     // Right Arrow
