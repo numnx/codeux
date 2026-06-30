@@ -118,7 +118,7 @@ export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
             to={targetTo as any}
             search={targetSearch as any}
             onClick={item.status === 'unavailable' || item.status === 'disabled' ? (e: any) => e.preventDefault() : onClick}
-            id={`search-result-${item.id}`}
+            id={`search-result-${categoryType}-${item.id}`}
             ref={activeItemRef as any}
             onMouseEnter={onFocus}
             aria-disabled={item.status === 'unavailable' || item.status === 'disabled' ? 'true' : undefined}
@@ -142,11 +142,11 @@ export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
                     isFocused ? 'bg-signal-500/15 text-signal-500' : 'bg-black/5 dark:bg-white/5 text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
                 }`}>
                     {item.avatarConfig ? (
-                        <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                        <div className="w-5 h-5 flex items-center justify-center shrink-0" aria-hidden="true">
                             <AgentAvatarSvg config={item.avatarConfig} expression="happy" size={20} static />
                         </div>
                     ) : (
-                        <Icon className="w-5 h-5" strokeWidth={isFocused ? 2 : 1.5} />
+                        <Icon aria-hidden="true" className="w-5 h-5" strokeWidth={isFocused ? 2 : 1.5} />
                     )}
                 </div>
 
@@ -185,7 +185,7 @@ export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
                 <div className={`shrink-0 transition-all duration-300 ${
                     isFocused ? 'opacity-100 translate-x-0 text-signal-500' : 'opacity-0 -translate-x-2 text-slate-400'
                 }`}>
-                    <ArrowRight className="w-5 h-5" strokeWidth={2} />
+                    <ArrowRight aria-hidden="true" className="w-5 h-5" strokeWidth={2} />
                 </div>
             </div>
         </Link>
