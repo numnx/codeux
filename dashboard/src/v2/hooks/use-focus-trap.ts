@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "preact/hooks";
+import { RefObject } from "preact";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -10,8 +11,8 @@ function getVisibleFocusableElements(container: HTMLElement): HTMLElement[] {
 
   return elements.filter((el) => {
     if (el.hasAttribute("disabled")) return false;
-    if (el.getAttribute("aria-hidden") === "true") return false;
-    if (el.hasAttribute("inert")) return false;
+    if (el.closest('[aria-hidden="true"]')) return false;
+    if (el.closest('[inert]')) return false;
 
     // jsdom doesn't fully support computed styles in the same way, but it's good practice
     const style = window.getComputedStyle(el);
@@ -21,6 +22,8 @@ function getVisibleFocusableElements(container: HTMLElement): HTMLElement[] {
   });
 }
 
+// Global active trap stack to ensure only the topmost trap handles Escape
+const activeTraps: RefObject<HTMLElement>[] = [];
 
 export interface FocusTrapOptions {
   onClose?: () => void;
@@ -50,6 +53,7 @@ export function useFocusTrap(
     if (!active) return;
 
     triggerRef.current = document.activeElement as HTMLElement | null;
+    activeTraps.push(containerRef);
 
     const focusTimer = window.setTimeout(() => {
       if (!containerRef.current) return;
@@ -73,9 +77,12 @@ export function useFocusTrap(
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        onCloseRef.current?.();
+        // Only the most recently opened trap should handle Escape
+        if (activeTraps[activeTraps.length - 1] === containerRef) {
+          event.preventDefault();
+          event.stopPropagation();
+          onCloseRef.current?.();
+        }
         return;
       }
 
@@ -116,6 +123,10 @@ export function useFocusTrap(
     return () => {
       window.clearTimeout(focusTimer);
       document.removeEventListener("keydown", handleKeyDown);
+      const index = activeTraps.indexOf(containerRef);
+      if (index !== -1) {
+        activeTraps.splice(index, 1);
+      }
       if (restoreFocus && triggerRef.current) {
         // Defer focus restoration to ensure element is re-enabled or DOM is updated
         const trigger = triggerRef.current;

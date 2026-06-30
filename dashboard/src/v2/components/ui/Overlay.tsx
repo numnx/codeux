@@ -57,6 +57,7 @@ export const Overlay: FunctionComponent<OverlayProps> = ({
       }}
     >
       <div
+        aria-hidden="true"
         className={`absolute inset-0 bg-void-900/50 ${blur ? 'backdrop-blur-sm' : ''}`}
         onClick={(e) => {
           if (e.target === e.currentTarget && onClose) {

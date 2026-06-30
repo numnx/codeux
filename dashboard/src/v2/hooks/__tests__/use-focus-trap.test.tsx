@@ -137,6 +137,68 @@ describe("useFocusTrap", () => {
     expect(document.activeElement?.id).toBe("visible1");
   });
 
+  test("ignores nested hidden and inert elements", async () => {
+    const TestNestedHiddenComponent = ({ active }: any) => {
+      const trapRef = useFocusTrap(active, {});
+      return (
+        <div>
+          {active && (
+            <div ref={trapRef as any} data-testid="trap">
+              <div inert>
+                <button id="nested-inert">Nested Inert</button>
+              </div>
+              <div aria-hidden="true">
+                <button id="nested-hidden">Nested Hidden</button>
+              </div>
+              <button id="visible1">Visible 1</button>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    render(<TestNestedHiddenComponent active={true} />);
+
+    await waitFor(() => {
+      expect(document.activeElement?.id).toBe("visible1");
+    });
+
+    // Tab on the only visible element should keep focus on it
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement?.id).toBe("visible1");
+  });
+
+  test("Escape only closes the most recently opened trap", async () => {
+    const onClose1 = vi.fn();
+    const onClose2 = vi.fn();
+
+    const NestedTraps = () => {
+      const trap1Ref = useFocusTrap(true, { onClose: onClose1 });
+      const trap2Ref = useFocusTrap(true, { onClose: onClose2 });
+      return (
+        <div>
+          <div ref={trap1Ref as any} data-testid="trap1">
+            <button id="btn1">Button 1</button>
+          </div>
+          <div ref={trap2Ref as any} data-testid="trap2">
+            <button id="btn2">Button 2</button>
+          </div>
+        </div>
+      );
+    };
+
+    render(<NestedTraps />);
+
+    await waitFor(() => {
+      expect(document.activeElement?.id).toBe("btn2");
+    });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(onClose2).toHaveBeenCalled();
+    expect(onClose1).not.toHaveBeenCalled();
+  });
+
   test("restores focus to body if trigger unmounts", async () => {
     const trigger = document.createElement('button');
     document.body.appendChild(trigger);
