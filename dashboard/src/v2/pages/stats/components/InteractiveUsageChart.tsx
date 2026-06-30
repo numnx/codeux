@@ -312,9 +312,10 @@ export const InteractiveUsageChart: FunctionComponent<{
         <div className="sr-only" aria-live="polite" aria-atomic="true">
           <h2 id="chart-summary-heading" className="sr-only">Data Visualization for {zoomRange ? "zoomed timeframe" : stats.range.label}</h2>
           <p>
-            Currently showing {visibleBuckets.length} buckets.
+            Currently showing {visibleBuckets.length} buckets, from {visibleBuckets[0] ? formatDateTime(visibleBuckets[0].bucketStart) : "unknown start"} to {visibleBuckets[visibleBuckets.length - 1] ? formatDateTime(visibleBuckets[visibleBuckets.length - 1]!.bucketEnd) : "unknown end"}.
             {activeBucket ? `Focused bucket: ${activeBucket.label}. Tokens: ${activeBucket.usage.totalTokens}` : "No bucket focused."}
             Active series: {visibleSeries.map(s => s.label).join(", ")}.
+            Overall trend: {peakTokens > averageTokens * 1.5 ? "variable" : "stable"}.
             Peak Tokens: {formatTokens(peakTokens)}. Peak Time: {formatDuration(peakTime)}. Average Tokens: {formatTokens(averageTokens)}. Peak Invocations: {peakInvocations.toLocaleString()}.
           </p>
           <table className="sr-only">
@@ -613,6 +614,7 @@ export const InteractiveUsageChart: FunctionComponent<{
             <UsageSeriesSidebar
               series={chartData}
               enabledSeries={enabledSeries}
+              setEnabledSeries={setEnabledSeries}
               activeIndex={activeIndex}
             />
             <div className={`${SUBPANEL_CLASS} border-[var(--stats-card-border)] bg-[var(--stats-card-bg)] p-6`}>
