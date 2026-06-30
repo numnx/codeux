@@ -68,10 +68,10 @@ export const SprintBoatRace: FunctionComponent<BoatRaceProps> = ({ tasks, dispat
                     <div className="absolute inset-0 pointer-events-none overflow-hidden">
                         <svg viewBox="0 0 600 120" className="absolute bottom-0 w-full opacity-[0.04]" preserveAspectRatio="none">
                             <path d="M0 80 Q75 55 150 80 T300 80 T450 80 T600 80 V120 H0 Z" fill="currentColor">
-                                <animateTransform attributeName="transform" type="translate" values="0 0;-50 4;0 0" dur="8s" repeatCount="indefinite" />
+                                {!prefersReducedMotion && <animateTransform attributeName="transform" type="translate" values="0 0;-50 4;0 0" dur="8s" repeatCount="indefinite" />}
                             </path>
                             <path d="M0 90 Q100 70 200 90 T400 90 T600 90 V120 H0 Z" fill="currentColor" opacity="0.5">
-                                <animateTransform attributeName="transform" type="translate" values="0 0;30 -3;0 0" dur="6s" repeatCount="indefinite" />
+                                {!prefersReducedMotion && <animateTransform attributeName="transform" type="translate" values="0 0;30 -3;0 0" dur="6s" repeatCount="indefinite" />}
                             </path>
                         </svg>
                     </div>
@@ -79,8 +79,8 @@ export const SprintBoatRace: FunctionComponent<BoatRaceProps> = ({ tasks, dispat
                         <div className="text-center">
                             <div className="relative inline-flex items-center justify-center w-20 h-20 mb-6">
                                 <div className="absolute inset-0 rounded-full border border-black/[0.04] dark:border-white/[0.04]" />
-                                <div className="absolute inset-2 rounded-full border border-black/[0.03] dark:border-white/[0.03] animate-[spin_30s_linear_infinite]" />
-                                <div className="absolute inset-4 rounded-full bg-signal-500/[0.06] animate-pulse" />
+                                <div className={`absolute inset-2 rounded-full border border-black/[0.03] dark:border-white/[0.03] ${prefersReducedMotion ? "" : "animate-[spin_30s_linear_infinite]"}`} />
+                                <div className={`absolute inset-4 rounded-full bg-signal-500/[0.06] ${prefersReducedMotion ? "" : "animate-pulse"}`} />
                                 <Anchor className="w-7 h-7 text-slate-400 dark:text-white/20" strokeWidth={1.2} />
                             </div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-white/25">Fleet Awaiting Departure</p>
@@ -104,7 +104,7 @@ export const SprintBoatRace: FunctionComponent<BoatRaceProps> = ({ tasks, dispat
                     <div className="flex items-center gap-3">
                         <div className="relative w-2.5 h-2.5">
                             <div className="absolute inset-0 rounded-full bg-signal-500 shadow-[0_0_10px_rgba(0,224,160,0.6)]" />
-                            <div className="absolute inset-0 rounded-full bg-signal-500 animate-ping opacity-30" />
+                            {!prefersReducedMotion && <div className="absolute inset-0 rounded-full bg-signal-500 animate-ping opacity-30" />}
                         </div>
                         <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-white/35">Sprint Race</span>
                         <span className="text-[8px] font-mono text-slate-400 dark:text-white/15 ml-1">
