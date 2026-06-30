@@ -41,7 +41,8 @@ vi.mock("../../../../dashboard/src/v2/components/onboarding/OnboardingExperience
 vi.mock("../../../../dashboard/src/v2/components/onboarding/GuidedDashboardTour.js", () => ({ GuidedDashboardTour: () => <div /> }));
 vi.mock("../../../../dashboard/src/v2/context/project-data.js", () => ({
   useProjectData: () => ({ selectedProject: null }),
-  ProjectDataProvider: ({ children }: any) => <div>{children}</div>
+  ProjectDataProvider: ({ children }: any) => <div>{children}</div>,
+  ProjectDataContext: {}
 }));
 vi.mock("../../../../dashboard/src/v2/hooks/use-project-effective-settings.js", () => ({
   useProjectEffectiveSettings: () => ({ settings: null, error: null, isLoading: false })

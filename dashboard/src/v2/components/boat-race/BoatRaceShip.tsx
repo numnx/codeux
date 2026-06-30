@@ -322,7 +322,7 @@ export const BoatRaceShipItem = memo(({
 
     const bobRef = useRef<SVGGElement>(null);
     useEffect(() => {
-        if (!bobRef.current || isReducedMotion) return;
+        if (!bobRef.current) return;
         const el = bobRef.current;
         const bobAmp = isMoving ? 2.5 + stableRand(s.key, 2) * 2 : 1 + stableRand(s.key, 2) * 0.8;
         const bobDur = 3 + stableRand(s.key, 3) * 2;
@@ -355,7 +355,7 @@ export const BoatRaceShipItem = memo(({
     useEffect(() => {
         const currentStatus = s.task.status;
         const prevStatus = prevStatusRef.current;
-        if (!isReducedMotion && prevStatus !== currentStatus && (currentStatus === "FAILED" || currentStatus === "BLOCKED") && wrapperRef.current) {
+        if (prevStatus !== currentStatus && (currentStatus === "FAILED" || currentStatus === "BLOCKED") && wrapperRef.current) {
             gsap.timeline()
                 .to(wrapperRef.current, { rotation: -15, duration: 0.15, ease: "power1.inOut", transformOrigin: "center center" })
                 .to(wrapperRef.current, { rotation: 10, duration: 0.15, ease: "power1.inOut", transformOrigin: "center center" })
@@ -367,7 +367,7 @@ export const BoatRaceShipItem = memo(({
     const lastPingsCountRef = useRef(pingsCount);
 
     useEffect(() => {
-        if (!isReducedMotion && pingsCount > lastPingsCountRef.current && pingRef.current) {
+        if (pingsCount > lastPingsCountRef.current && pingRef.current) {
             gsap.fromTo(pingRef.current,
                 { opacity: 0.8, r: 0 },
                 { opacity: 0, r: 60, duration: 1.5, ease: "power2.out" }

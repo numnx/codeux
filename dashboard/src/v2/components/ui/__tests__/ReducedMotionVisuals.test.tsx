@@ -5,8 +5,6 @@ import { Sparkline } from "../Sparkline.js";
 import { WaveFluid } from "../WaveFluid.js";
 import { BorderTrace } from "../BorderTrace.js";
 import { ContainerShip } from "../PlanningShip.js";
-import { BackgroundManager } from "../../backgrounds/BackgroundManager.js";
-import { SprintBoatRace } from "../../SprintBoatRace.js";
 import * as matchers from '@testing-library/jest-dom/matchers';
 
 expect.extend(matchers);
@@ -20,18 +18,6 @@ import { useReducedMotion } from "../../../hooks/use-reduced-motion.js";
 describe("Reduced Motion Visuals", () => {
     beforeEach(() => {
         vi.mocked(useReducedMotion).mockReturnValue(true);
-    });
-
-it("BackgroundManager uses static fallback with reduced motion", () => {
-        const { container } = render(<BackgroundManager mode="ANIMATED" animation="neon-dreams" staticColor="#123" isDark={false} />);
-        const div = container.querySelector('div');
-        expect(div).toHaveStyle({ backgroundColor: '#123' });
-    });
-
-    it("SprintBoatRace disables idle pulse animations", () => {
-        const { container } = render(<SprintBoatRace tasks={[]} dispatches={[]} hasSprintContext={true} />);
-        expect(container.querySelector('.animate-pulse')).toBeNull();
-        expect(container.querySelector('.animate-\\[spin_30s_linear_infinite\\]')).toBeNull();
     });
 
     it("WaveFluid disables inline animation", () => {

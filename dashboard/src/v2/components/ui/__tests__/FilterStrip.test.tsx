@@ -25,17 +25,17 @@ test('renders correctly with string options', () => {
 
     render(<FilterStrip options={options} active="all" onChange={onChange} />);
 
-    expect(screen.getByRole('toolbar')).toBeInTheDocument();
+    expect(screen.getByRole('tablist')).toBeInTheDocument();
 
-    const tabs = screen.getAllByRole('button').filter((el) => el.hasAttribute('aria-pressed'));
+    const tabs = screen.getAllByRole('tab');
     expect(tabs).toHaveLength(3);
 
     expect(tabs[0]).toHaveTextContent('all');
-    expect(tabs[0]).toHaveAttribute('aria-pressed', 'true');
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
     expect(tabs[0]).toHaveAttribute('tabindex', '0');
 
     expect(tabs[1]).toHaveTextContent('active');
-    expect(tabs[1]).toHaveAttribute('aria-pressed', 'false');
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'false');
     expect(tabs[1]).toHaveAttribute('tabindex', '-1');
 });
 
@@ -48,14 +48,14 @@ test('renders correctly with object options', () => {
 
     render(<FilterStrip options={options} active="active" onChange={onChange} />);
 
-    const tabs = screen.getAllByRole('button').filter((el) => el.hasAttribute('aria-pressed'));
+    const tabs = screen.getAllByRole('tab');
     expect(tabs).toHaveLength(2);
 
     expect(tabs[0]).toHaveTextContent('All Items');
-    expect(tabs[0]).toHaveAttribute('aria-pressed', 'false');
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'false');
 
     expect(tabs[1]).toHaveTextContent('Active Items');
-    expect(tabs[1]).toHaveAttribute('aria-pressed', 'true');
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
 });
 
 test('calls onChange when clicking a tab', () => {
@@ -64,7 +64,7 @@ test('calls onChange when clicking a tab', () => {
 
     render(<FilterStrip options={options} active="a" onChange={onChange} />);
 
-    const tabs = screen.getAllByRole('button').filter((el) => el.hasAttribute('aria-pressed'));
+    const tabs = screen.getAllByRole('tab');
     fireEvent.click(tabs[1]);
 
     expect(onChange).toHaveBeenCalledWith('b');
@@ -76,7 +76,7 @@ test('navigates with keyboard arrows', () => {
 
     render(<FilterStrip options={options} active="a" onChange={onChange} />);
 
-    const tabs = screen.getAllByRole('button').filter((el) => el.hasAttribute('aria-pressed'));
+    const tabs = screen.getAllByRole('tab');
 
     // Focus first tab
     tabs[0].focus();
@@ -124,10 +124,10 @@ test('passes aria properties to tablist and options correctly', () => {
     ] as const;
     render(<FilterStrip options={options} active="a" onChange={vi.fn()} ariaLabel="My Filters" />);
 
-    const tablist = screen.getByRole('toolbar');
+    const tablist = screen.getByRole('tablist');
     expect(tablist).toHaveAttribute('aria-label', 'My Filters');
 
-    const tabs = screen.getAllByRole('button').filter((el) => el.hasAttribute('aria-pressed'));
+    const tabs = screen.getAllByRole('tab');
     expect(tabs[0]).toHaveAttribute('aria-label', 'Option A');
     expect(tabs[1]).not.toHaveAttribute('aria-label');
 });
@@ -161,7 +161,7 @@ test('respects reduced motion when changing tabs', () => {
     const onChange = vi.fn();
     render(<FilterStrip options={options} active="a" onChange={onChange} />);
 
-    const tabs = screen.getAllByRole('button').filter((el) => el.hasAttribute('aria-pressed'));
+    const tabs = screen.getAllByRole('tab');
     expect(tabs[0]).toBeInTheDocument();
 
     window.matchMedia = originalMatchMedia;

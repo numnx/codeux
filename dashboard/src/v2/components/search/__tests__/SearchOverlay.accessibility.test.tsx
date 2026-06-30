@@ -86,7 +86,8 @@ describe("SearchOverlay Accessibility", () => {
             />
         );
 
-        const statusRegion = screen.getByRole("status", { hidden: true });
+        const statusRegions = screen.getAllByRole("status", { hidden: true });
+        const statusRegion = statusRegions.length > 1 ? statusRegions[1] : statusRegions[0];
         // Hidden element requires relaxed check
         expect(statusRegion).toBeInTheDocument();
         expect(statusRegion).toHaveAttribute("aria-live", "polite");
@@ -153,15 +154,15 @@ describe("SearchOverlay Accessibility", () => {
 
         // Press down
         await user.keyboard("{ArrowDown}");
-        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-sprints-spr-1");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-spr-1");
 
         // Press down again
         await user.keyboard("{ArrowDown}");
-        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-tasks-tsk-1");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-tsk-1");
 
         // Press up
         await user.keyboard("{ArrowUp}");
-        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-sprints-spr-1");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-spr-1");
     });
 
                     it("supports Home and End keyboard navigation", async () => {
@@ -181,15 +182,15 @@ describe("SearchOverlay Accessibility", () => {
 
         // ArrowDown sets focus to first element
         await user.keyboard("{ArrowDown}");
-        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-sprints-spr-1");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-spr-1");
 
         // End sets focus to last element
         await user.keyboard("{End}");
-        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-tasks-tsk-1");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-tsk-1");
 
         // Home sets focus back to first element
         await user.keyboard("{Home}");
-        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-sprints-spr-1");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-spr-1");
     });
 
     it("closes on Escape", async () => {
