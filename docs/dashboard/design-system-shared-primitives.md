@@ -41,9 +41,9 @@ The goal is to ensure all primitives align with the signal-and-ember operational
 
 ### Field Accessibility & Error Contracts
 
-1.  **FieldWrapper**: Always associates labels with the first control. It dynamically passes down `id`, `aria-describedby`, `aria-errormessage`, `aria-invalid`, and `aria-required` to its children.
+1.  **FieldWrapper**: Always associates labels with the first control. It dynamically passes down `id`, `aria-describedby`, `aria-errormessage`, `aria-invalid`, and `aria-required` to its children. For composite controls (e.g., radiogroups), it automatically changes the label to a div and uses `aria-labelledby`.
 2.  **MultiSelect**: Must manage complex state carefully to ensure screen reader compatibility. Uses `aria-activedescendant` for option navigation, a visually hidden `aria-live="polite"` element for selection and removal announcements, strict input focus routing (focus returns to the input after interactions), and hides internal checkboxes from the accessibility tree using `aria-hidden="true"`.
-2.  **Helper Text & Errors**: Helper text uses `aria-describedby`. When an error becomes visible, the error ID is provided in both `aria-errormessage` and `aria-describedby` (replacing the helper text ID in `aria-describedby` to avoid redundant announcements).
-3.  **FormError**: Visible errors render with `role="alert"` for assertive live-region announcements.
-4.  **Inputs & Selects**: Component primitives like `Input`, `Select`, and `AvantgardeSelect` gracefully fall back to these external `aria-*` props from `FieldWrapper` to avoid duplicate ID generation or conflicting descriptions.
-5.  **Required State**: Conveys required state both visually (with a red asterisk) and programmatically via `aria-required="true"` and an `sr-only` "(Required)" span.
+3.  **Helper Text & Errors**: Helper text uses `aria-describedby`. When an error becomes visible, the error ID is provided in both `aria-errormessage` and `aria-describedby` (replacing the helper text ID in `aria-describedby` to avoid redundant announcements).
+4.  **FormError**: Visible errors render with `role="alert"` for assertive live-region announcements.
+5.  **Inputs & Selects**: Component primitives like `Input`, `Select`, and `AvantgardeSelect` gracefully fall back to these external `aria-*` props from `FieldWrapper` to avoid duplicate ID generation or conflicting descriptions.
+6.  **Required State**: Conveys required state both visually (with a red asterisk) and programmatically via `aria-required="true"` and an `sr-only` "(Required)" span.
