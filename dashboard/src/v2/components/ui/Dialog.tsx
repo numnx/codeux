@@ -41,10 +41,14 @@ export const Dialog: FunctionComponent<DialogProps> = ({
   const [shouldRender, setShouldRender] = useState(isOpen);
   const [visible, setVisible] = useState(isOpen);
 
-  const trapRef = useFocusTrap(isOpen, { onClose, restoreFocus: true, initialFocusRef });
+  const trapRef = useFocusTrap(isOpen, { onClose: disableBackdropClick ? undefined : onClose, restoreFocus: true, initialFocusRef });
 
   const hasAccessibleName = ariaLabel || ariaLabelledBy || ariaLabelledby;
   const fallbackAriaLabel = !hasAccessibleName ? "Dialog" : undefined;
+
+  if (process.env.NODE_ENV !== "production" && fallbackAriaLabel === "Dialog") {
+    console.warn("Dialog components should have an accessible name provided via `ariaLabel`, `ariaLabelledBy`, or `ariaLabelledby` props.");
+  }
 
   useEffect(() => {
     if (isOpen) {
@@ -75,7 +79,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
         aria-labelledby={ariaLabelledBy || ariaLabelledby}
         aria-describedby={ariaDescribedBy || ariaDescribedby || undefined}
         tabIndex={-1}
-        inert={!isOpen ? true : undefined}
+        inert={!visible ? true : undefined}
         className={`relative z-50 bg-white dark:bg-void-800 rounded-[1.75rem] shadow-2xl border border-black/[0.06] dark:border-white/[0.06] outline-none max-w-[calc(100vw-2rem)] max-h-[min(calc(100dvh-2rem),85vh)] overflow-y-auto overscroll-contain ${className}`}
         style={{
           opacity: visible ? 1 : 0,
