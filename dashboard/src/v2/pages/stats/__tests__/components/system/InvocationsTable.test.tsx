@@ -124,7 +124,7 @@ describe("InvocationsTable", () => {
     expect(within((modelCell.closest("td") as HTMLElement) ?? root).getByText("claude-sonnet-4")).toBeTruthy();
   });
 
-  it("invokes sort changes with toggled and new directions", () => {
+  it("invokes sort changes with toggled and new directions and reflects them in aria-sort", () => {
     const onSortChange = vi.fn();
 
     const { container } = render(
@@ -138,8 +138,11 @@ describe("InvocationsTable", () => {
     );
     const root = container as HTMLElement;
 
-    fireEvent.click(within(root).getByRole("button", { name: /Time/ }));
-    fireEvent.click(within(root).getByRole("button", { name: /In/ }));
+    const timeHeader = root.querySelector("th:first-child");
+    expect(timeHeader?.getAttribute("aria-sort")).toBe("descending");
+
+    fireEvent.click(within(root).getByRole("button", { name: /Sort by Time/i }));
+    fireEvent.click(within(root).getByRole("button", { name: /Sort by Input Tokens/i }));
 
     expect(onSortChange).toHaveBeenNthCalledWith(1, { key: "startedAt", dir: "asc" });
     expect(onSortChange).toHaveBeenNthCalledWith(2, { key: "inputTokens", dir: "desc" });

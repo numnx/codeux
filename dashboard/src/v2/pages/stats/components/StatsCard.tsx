@@ -14,6 +14,7 @@ interface StatsCardProps {
   className?: string;
   isActive?: boolean;
   children?: ComponentChildren;
+  "aria-hidden"?: boolean | "true" | "false";
 }
 
 const ACCENT_HEX_MAP: Record<StatsCardAccent, string> = {
@@ -48,12 +49,13 @@ export const StatsCard: FunctionComponent<StatsCardProps> = ({
   className = "",
   isActive = false,
   children,
+  "aria-hidden": ariaHidden,
 }) => {
   const accentHex = ACCENT_HEX_MAP[accent];
   const accentClass = ACCENT_CLASS_MAP[accent];
 
   return (
-    <div className={`${styles.card} ${accentClass} ${className} group`}>
+    <div className={`${styles.card} ${accentClass} ${className} group`} aria-hidden={ariaHidden}>
       {/* Background Tint */}
       <div className={styles.tint} />
       

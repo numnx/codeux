@@ -2,7 +2,7 @@ import type { FunctionComponent } from 'preact';
 import { ActionFeedbackRegion } from '../../../components/ui/ActionFeedbackRegion.js';
 
 export const UsageGraphLoading: FunctionComponent = () => (
-  <div className="flex h-[24rem] w-full items-center justify-center px-6">
+  <div className="flex h-[24rem] w-full items-center justify-center px-6" role="status" aria-live="polite" aria-label="Loading chart data">
     <div className="w-full max-w-lg">
       <ActionFeedbackRegion
         status="pending"
@@ -14,7 +14,7 @@ export const UsageGraphLoading: FunctionComponent = () => (
 );
 
 export const UsageGraphEmpty: FunctionComponent<{ onReset?: () => void }> = ({ onReset }) => (
-  <div className="flex h-[24rem] w-full items-center justify-center px-6">
+  <div className="flex h-[24rem] w-full items-center justify-center px-6" role="status" aria-live="polite" aria-label="Empty chart data">
     <div className="w-full max-w-lg">
       <ActionFeedbackRegion
         status="warning"
@@ -28,7 +28,7 @@ export const UsageGraphEmpty: FunctionComponent<{ onReset?: () => void }> = ({ o
 );
 
 export const UsageGraphError: FunctionComponent<{ message?: string; onRetry?: () => void }> = ({ message, onRetry }) => (
-  <div className="flex h-[24rem] w-full items-center justify-center px-6">
+  <div className="flex h-[24rem] w-full items-center justify-center px-6" role="alert" aria-live="assertive" aria-label="Error loading chart data">
     <div className="w-full max-w-lg">
       <ActionFeedbackRegion
         status="error"

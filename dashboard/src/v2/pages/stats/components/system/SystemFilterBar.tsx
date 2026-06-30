@@ -184,7 +184,7 @@ export const SystemFilterBar: FunctionComponent<SystemFilterBarProps> = ({
             Clear all
           </button>
         ) : null}
-        <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+        <div aria-live="polite" className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
           Showing {filteredCount} {page !== undefined ? `of ${totalCount}` : `of ${totalCount}`}
         </div>
         {page !== undefined && onPageChange && (

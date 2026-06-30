@@ -38,7 +38,8 @@ Analytics components draw from `stats-theme.css`, which maps specifically back t
 *   **Status Indicators**: Status chips (Completed, Running, Failed, Cancelled) should be distinct and legible, but avoid visually competing with actual data or error states.
 
 ### Accessibility Rules
-*   **Charts**: Chart regions must provide accessible names, descriptions, and keyboard-reachable summaries. Provide data-table or text alternatives for usage trends.
-*   **Legends**: Legends and series toggles must expose pressed/selected state and series names via visually hidden text.
-*   **Tables**: Ensure invocation tables preserve header relationships (`scope="col"`).
+*   **Charts**: Chart regions must provide accessible names, descriptions, and keyboard-reachable summaries. Provide data-table or text alternatives for usage trends, and explicitly describe overall visual trends (e.g., "increasing", "stable") in visually hidden `.sr-only` text. State changes (like loading, empty, and error) must be wrapped in `aria-live` regions with descriptive text.
+*   **Metric Cards**: High-level metric cards must combine their primary value, label, secondary details, and status indicators into a single, cohesive `aria-label` on the wrapper element to prevent disjointed reading by screen readers. Hide the internal visual implementation details using `aria-hidden="true"`.
+*   **Legends**: Legends and series toggles must expose pressed/selected state using `role="switch"` and `aria-checked`, and must not rely solely on line color to indicate active state (e.g., use an explicit checkmark or visible border).
+*   **Tables**: Ensure dense ledgers like invocation tables preserve header relationships (`scope="col"`). Sorting controls must expose their current state using `aria-sort` on the `<th>` elements and provide explicit `aria-label`s on sort buttons. Filter results counters should be wrapped in `aria-live="polite"`.
 *   **Motion**: Respect reduced motion for chart transitions and animated loading states. Provide non-motion status text.

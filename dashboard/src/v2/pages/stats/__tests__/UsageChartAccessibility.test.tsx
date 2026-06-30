@@ -83,6 +83,7 @@ describe("UsageChartAccessibility", () => {
     render(<Wrapper />);
     expect(screen.getAllByText(/Data Visualization for/i)[0]).toBeInTheDocument();
     expect(screen.getByText(/Currently showing 3 buckets/i)).toBeInTheDocument();
+    expect(screen.getByText(/Overall trend/i)).toBeInTheDocument();
     expect(screen.getByText(/Peak Tokens: 200/i)).toBeInTheDocument();
   });
 
@@ -127,6 +128,11 @@ describe("UsageChartAccessibility", () => {
 
   it("marks legend and filter controls as toggle buttons", () => {
     render(<Wrapper />);
+
+    // Check if sidebar toggles have aria-checked (role="switch")
+    const switchButtons = screen.getAllByRole("switch");
+    const checkedSwitch = switchButtons.find(b => b.getAttribute('aria-checked') === 'true' || b.getAttribute('aria-checked') === 'false');
+    expect(checkedSwitch).toBeInTheDocument();
 
     // Test the filter button
     const filtersButton = screen.getByRole("button", { name: /Filters/i });

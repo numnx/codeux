@@ -97,6 +97,12 @@ export const Sparkline: FunctionComponent<{ points: number[]; color: string }> =
         };
     }, [color]);
 
+    const firstPoint = points[0] || 0;
+    const lastPoint = points[points.length - 1] || 0;
+    let trend = "stable";
+    if (lastPoint > firstPoint) trend = "increasing";
+    else if (lastPoint < firstPoint) trend = "decreasing";
+
     return (
         <svg
             ref={svgRef}
@@ -104,7 +110,8 @@ export const Sparkline: FunctionComponent<{ points: number[]; color: string }> =
             style={{ opacity: 0.2 }}
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
-            aria-hidden="true"
+            role="img"
+            aria-label={`Sparkline showing ${trend} trend`}
         >
             <defs>
                 <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">

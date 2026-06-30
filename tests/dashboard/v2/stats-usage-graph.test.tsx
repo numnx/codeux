@@ -106,7 +106,7 @@ describe("Chart View Models", () => {
 });
 
 describe("UsageSeriesSidebar", () => {
-  it("renders only enabled series without interactive grouping labels", () => {
+  it("renders all series as toggles without grouping labels", () => {
     const series = [
       { id: "tokens", label: "Tokens", grouping: "Usage", defaultEnabled: true, values: [100], formatter: (val: any) => String(val), accentHex: "#000" },
       { id: "active", label: "Active Time", grouping: "Usage", defaultEnabled: true, values: [200], formatter: (val: any) => String(val), accentHex: "#000" },
@@ -115,16 +115,23 @@ describe("UsageSeriesSidebar", () => {
       { id: "purpose_time_task_coding", label: "task coding Time", grouping: "purposes_time", defaultEnabled: false, values: [500], formatter: (val: any) => String(val), accentHex: "#000" }
     ];
 
-    render(<UsageSeriesSidebar series={series as any} enabledSeries={{ tokens: true, active: false, foo: false, provider_codex: false, purpose_time_task_coding: false }} activeIndex={0} />);
+    const setEnabledSeries = vi.fn();
 
-    // Renders the enabled metric label
+    render(<UsageSeriesSidebar series={series as any} enabledSeries={{ tokens: true, active: false, foo: false, provider_codex: false, purpose_time_task_coding: false }} setEnabledSeries={setEnabledSeries} activeIndex={0} />);
+
+    // Renders the metric labels
     expect(screen.getAllByText("Tokens").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Active Time")).toBeInTheDocument();
+    expect(screen.queryByText("Foo")).toBeInTheDocument();
+    expect(screen.queryByText("codex Tokens")).toBeInTheDocument();
+    expect(screen.queryByText("task coding Time")).toBeInTheDocument();
 
-    // Does NOT render disabled metrics
-    expect(screen.queryByText("Active Time")).not.toBeInTheDocument();
-    expect(screen.queryByText("Foo")).not.toBeInTheDocument();
-    expect(screen.queryByText("codex Tokens")).not.toBeInTheDocument();
-    expect(screen.queryByText("task coding Time")).not.toBeInTheDocument();
+    // Test ARIA properties for the active vs inactive toggle
+    const tokensToggle = screen.getAllByRole("switch").find(btn => btn.textContent?.includes("Tokens") && !btn.textContent?.includes("codex"));
+    expect(tokensToggle).toHaveAttribute("aria-checked", "true");
+
+    const activeToggle = screen.getAllByRole("switch").find(btn => btn.textContent?.includes("Active Time"));
+    expect(activeToggle).toHaveAttribute("aria-checked", "false");
 
     // Does NOT render grouping titles anymore
     expect(screen.queryByText("Usage")).not.toBeInTheDocument();

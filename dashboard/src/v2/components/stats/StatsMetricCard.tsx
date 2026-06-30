@@ -29,23 +29,25 @@ export const StatsMetricCard: FunctionComponent<StatsMetricCardProps> = ({
   else if (accentHex === STATS_COLORS.wallRuntime) accent = "default";
 
   return (
-    <StatsCard
-      title={label}
-      value={value}
-      trend={
-        <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 ${CHIP_CLASS}`}>
-          {signalLabel}
+    <article aria-label={`${label}: ${value}. ${signalLabel}. ${detail}`}>
+      <StatsCard
+        title={label}
+        value={value}
+        trend={
+          <div className={`px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 ${CHIP_CLASS}`}>
+            {signalLabel}
+          </div>
+        }
+        accent={accent}
+        aria-hidden="true"
+      >
+        <Sparkline points={sparkline} color={accentHex} />
+        <div className="mt-4 flex flex-col gap-1 border-t border-black/[0.06] pt-4 dark:border-white/[0.06]">
+          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            {detail}
+          </div>
         </div>
-      }
-      accent={accent}
-    >
-      <Sparkline points={sparkline} color={accentHex} />
-      <div className="sr-only">{label} metric sparkline showing activity across the selected window.</div>
-      <div className="mt-4 flex flex-col gap-1 border-t border-black/[0.06] pt-4 dark:border-white/[0.06]">
-        <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
-          {detail}
-        </div>
-      </div>
-    </StatsCard>
+      </StatsCard>
+    </article>
   );
 };

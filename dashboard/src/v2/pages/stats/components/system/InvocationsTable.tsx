@@ -168,9 +168,10 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
       <table className="w-full border-separate border-spacing-y-2 block lg:table">
         <thead className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm dark:bg-void-900/80 hidden lg:table-header-group">
           <tr className="text-left text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-            <th scope="col" className="pb-2 pl-6">
+            <th scope="col" className="pb-2 pl-6" aria-sort={sort.key === "startedAt" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
               <button
                 type="button"
+                aria-label="Sort by Time"
                 onClick={() => handleSort("startedAt")}
                 className="flex items-center hover:text-slate-900 dark:hover:text-white"
               >
@@ -180,18 +181,20 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
             <th scope="col" className="pb-2">Status</th>
             <th scope="col" className="pb-2">Type</th>
             <th scope="col" className="pb-2">Model</th>
-            <th scope="col" className="pb-2">
+            <th scope="col" className="pb-2" aria-sort={sort.key === "inputTokens" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
               <button
                 type="button"
+                aria-label="Sort by Input Tokens"
                 onClick={() => handleSort("inputTokens")}
                 className="flex items-center hover:text-slate-900 dark:hover:text-white"
               >
                 In {renderSortIcon("inputTokens")}
               </button>
             </th>
-            <th scope="col" className="pb-2">
+            <th scope="col" className="pb-2" aria-sort={sort.key === "outputTokens" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
               <button
                 type="button"
+                aria-label="Sort by Output Tokens"
                 onClick={() => handleSort("outputTokens")}
                 className="flex items-center hover:text-slate-900 dark:hover:text-white"
               >
@@ -199,18 +202,20 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
               </button>
             </th>
             <th scope="col" className="pb-2">Cached</th>
-            <th scope="col" className="pb-2">
+            <th scope="col" className="pb-2" aria-sort={sort.key === "totalTokens" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
               <button
                 type="button"
+                aria-label="Sort by Total Tokens"
                 onClick={() => handleSort("totalTokens")}
                 className="flex items-center hover:text-slate-900 dark:hover:text-white"
               >
                 Total {renderSortIcon("totalTokens")}
               </button>
             </th>
-            <th scope="col" className="hidden pb-2 md:table-cell">
+            <th scope="col" className="hidden pb-2 md:table-cell" aria-sort={sort.key === "durationMs" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
               <button
                 type="button"
+                aria-label="Sort by Duration"
                 onClick={() => handleSort("durationMs")}
                 className="flex items-center hover:text-slate-900 dark:hover:text-white"
               >
