@@ -34,3 +34,10 @@ Stable layouts on narrow widths (especially mobile or multi-panel layouts) must 
 ### 5. Hover and Active Indicators
 - **Interactions:** Hover backgrounds for triggers follow `hover:bg-black/[0.05] dark:hover:bg-white/[0.05]`. Active routes in the Sidebar use the primary `signal-500` marker tone.
 - **Tooltips:** Minimized sidebar items expose semantic `aria-label`s on their links and keep visual tooltips explicitly mapped via `aria-hidden="true"` styled to mimic standard dropdown glass panels (`shadow-2xl rounded-2xl`).
+
+### 6. Selector Keyboard Navigation (Combobox/Listbox)
+Project and Sprint dropdowns follow a strict, accessible keyboard contract:
+- **Triggers:** Button triggers manage `aria-expanded` and open the dropdown on Space, Enter, or ArrowDown.
+- **Filter Inputs:** Inputs inside the dropdown have `role="combobox"`, `aria-autocomplete="list"`, and announce result counts dynamically using `aria-describedby` screen reader spans (e.g., "5 projects found. Use arrow keys to navigate.").
+- **Navigation:** Once open, focus is managed such that the user can freely use the `ArrowDown` and `ArrowUp` keys to traverse the `button` options and `input` safely. Arrow keys explicitly skip options that are `disabled` or have `aria-disabled="true"`.
+- **Dismissal & Recovery:** Pressing `Escape` or selecting an option cleanly closes the dropdown and reliably returns focus to the origin trigger button to maintain context.
