@@ -34,3 +34,6 @@ Stable layouts on narrow widths (especially mobile or multi-panel layouts) must 
 ### 5. Hover and Active Indicators
 - **Interactions:** Hover backgrounds for triggers follow `hover:bg-black/[0.05] dark:hover:bg-white/[0.05]`. Active routes in the Sidebar use the primary `signal-500` marker tone.
 - **Tooltips:** Minimized sidebar items expose semantic `aria-label`s on their links and keep visual tooltips explicitly mapped via `aria-hidden="true"` styled to mimic standard dropdown glass panels (`shadow-2xl rounded-2xl`).
+
+### 6. Accessibility & Landmarks
+The shell exposes exactly one `<main id="main-content" role="main">` landmark. A visible-on-focus "Skip to main content" link is provided at the start of the shell to allow keyboard users to bypass repeated navigation controls. The `PageContainer` defaults to standard block elements (`div`, `section`) and must not introduce nested `<main>` landmarks.
