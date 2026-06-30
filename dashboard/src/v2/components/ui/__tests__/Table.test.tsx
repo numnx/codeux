@@ -76,6 +76,7 @@ describe("Table component", () => {
     const mobileLabel = screen.getByText("Mobile Label 1");
     expect(mobileLabel).toBeInTheDocument();
     expect(mobileLabel).toHaveClass("lg:hidden");
+    expect(mobileLabel).not.toHaveAttribute("aria-hidden");
     expect(cells[0]).toHaveTextContent("Data 1");
   });
 
@@ -129,7 +130,7 @@ describe("Table component", () => {
 
   it("renders a sort button when isHeader is true and onSort is provided", () => {
     const handleSort = vi.fn();
-    render(
+    const { rerender } = render(
       <Table>
         <TableHeader>
           <TableCell isHeader onSort={handleSort} ariaSort="ascending">Sortable Header</TableCell>
@@ -137,14 +138,58 @@ describe("Table component", () => {
       </Table>
     );
 
-    const header = screen.getByRole("columnheader", { name: "Sortable Header" });
+    let header = screen.getByRole("columnheader", { name: "Sortable Header (sorted ascending)" });
     expect(header).toHaveAttribute("aria-sort", "ascending");
 
-    const button = screen.getByRole("button", { name: "Sortable Header" });
+    let button = screen.getByRole("button", { name: "Sortable Header (sorted ascending)" });
     expect(button).toBeInTheDocument();
+
+    // Check visually hidden announcement text
+    const srText = button.querySelector('.sr-only');
+    expect(srText).toHaveTextContent("(sorted ascending)");
 
     button.click();
     expect(handleSort).toHaveBeenCalledTimes(1);
+
+    // Rerender with 'none'
+    rerender(
+      <Table>
+        <TableHeader>
+          <TableCell isHeader onSort={handleSort} ariaSort="none">Sortable Header</TableCell>
+        </TableHeader>
+      </Table>
+    );
+    button = screen.getByRole("button", { name: "Sortable Header (click to sort)" });
+    expect(button.querySelector('.sr-only')).toHaveTextContent("(click to sort)");
+  });
+
+  it("allows keyboard interaction on TableRow when onClick is provided", () => {
+    const handleClick = vi.fn();
+    render(
+      <Table>
+        <TableBody>
+          <TableRow onClick={handleClick}>
+            <TableCell>Interactive Data</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    );
+
+    const row = screen.getAllByRole("row")[0];
+
+    // The row itself receives the tab index
+    expect(row).toHaveAttribute("tabindex", "0");
+
+    // Trigger spacebar
+    row.focus();
+    const spaceEvent = new KeyboardEvent("keydown", { key: " " });
+    row.dispatchEvent(spaceEvent);
+    expect(handleClick).toHaveBeenCalledTimes(1);
+
+    // Trigger enter
+    const enterEvent = new KeyboardEvent("keydown", { key: "Enter" });
+    row.dispatchEvent(enterEvent);
+    expect(handleClick).toHaveBeenCalledTimes(2);
   });
 
   it("handles long continuous strings without breaking mobile layout", () => {

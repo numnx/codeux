@@ -36,6 +36,7 @@ The goal is to ensure all primitives align with the signal-and-ember operational
 2.  **Cards**: Built on `--surface-glass`, bordered by `--border-hairline`, and grounded by `--elevation-base`. They should not be nested unless the inner element is explicitly a card.
 3.  **Inputs & Selects**: Inputs use `--fill-muted` and `--border-hairline`. Focus states should strictly use `--accent-focus-ring`. Error and valid states override the border but maintain the structural radius.
 4.  **Tables**: Headers should use `--text-metadata`. Hover states for rows apply `--fill-muted-hover`. Borders between cells use `--border-hairline`.
+    * **Responsive Accessibility Contract**: Tables must preserve native table semantics (`role="table"`, `role="row"`, `role="columnheader"`) even when CSS display modes override default table rendering on mobile. Mobile labels must remain accessible to assistive technology (do not use `aria-hidden`), sortable headers must announce their purpose and direction via `.sr-only` text, and interactive rows must support keyboard navigation (`tabIndex`, `Enter`/`Space`) and explicit visual focus rings (`focus-visible`).
 5.  **EmptyStates & SectionHeaders**: Leverage `--text-metadata` to ensure textual consistency. Icons use `--surface-glass` for subtle emphasis without drawing primary attention away from calls to action.
 
 ### Field Accessibility & Error Contracts
