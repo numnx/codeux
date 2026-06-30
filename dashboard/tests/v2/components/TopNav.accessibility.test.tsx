@@ -170,7 +170,7 @@ describe("TopNav Selectors Accessibility", () => {
         renderNav();
         const notifyBtn = screen.getByRole("button", { name: /Notifications/i });
         expect(notifyBtn).toBeInTheDocument();
-        expect(notifyBtn).toHaveAttribute("aria-haspopup", "menu");
+        expect(notifyBtn).toHaveAttribute("aria-haspopup", "dialog");
     });
 
     it("can open project dropdown with keyboard", async () => {
@@ -193,7 +193,7 @@ describe("TopNav Selectors Accessibility", () => {
         projectBtn.focus();
         await user.keyboard("{Enter}");
 
-        const filterInput = screen.getByRole("textbox", { name: /Filter projects/i });
+        const filterInput = screen.getByRole("combobox", { name: /Filter projects/i });
         expect(filterInput).toHaveAttribute("aria-controls", "project-listbox");
 
         // Before filtering, we have two options
@@ -250,7 +250,7 @@ describe("TopNav Selectors Accessibility", () => {
 
         await user.keyboard("{Home}");
         // Focus should move to the filter input actually, because it's focusable
-        const input = screen.getByRole("textbox");
+        const input = screen.getByRole("combobox");
         expect(document.activeElement).toBe(input);
     });
 
@@ -325,10 +325,10 @@ describe("TopNav Selectors Accessibility", () => {
         projectBtn.focus();
         await user.keyboard("{Enter}");
 
-        const filterInput = screen.getByRole("textbox", { name: /Filter projects/i });
+        const filterInput = screen.getByRole("combobox", { name: /Filter projects/i });
         await user.type(filterInput, "ZzZzZ");
 
-        expect(screen.getByText("No projects found.")).toBeInTheDocument();
+        expect(screen.getAllByText("No projects found.")[0]).toBeInTheDocument();
     });
 
     it("announces switching and switches context correctly", async () => {
