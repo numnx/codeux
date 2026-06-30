@@ -45,3 +45,10 @@ The goal is to ensure all primitives align with the signal-and-ember operational
 3.  **FormError**: Visible errors render with `role="alert"` for assertive live-region announcements.
 4.  **Inputs & Selects**: Component primitives like `Input`, `Select`, and `AvantgardeSelect` gracefully fall back to these external `aria-*` props from `FieldWrapper` to avoid duplicate ID generation or conflicting descriptions.
 5.  **Required State**: Conveys required state both visually (with a red asterisk) and programmatically via `aria-required="true"` and an `sr-only` "(Required)" span.
+
+### Segmented Filter Controls Contract
+
+1. **Role and Navigation**: Segmented filters (like `FilterStrip`) implement a toolbar pattern instead of a tablist, utilizing `role="toolbar"` on the container and standard `<button type="button">` elements for the options.
+2. **State Communication**: The active filter is announced using `aria-pressed="true"`. The remaining options use `aria-pressed="false"`.
+3. **Keyboard Accessibility**: Arrow keys, Home, and End navigate focus between the filter options. The active option receives `tabindex="0"`, while others receive `tabindex="-1"`, implementing a roving tabindex pattern.
+4. **Clear Control**: A global "Clear All" action, if present, is treated as a standard button within the toolbar, separate from the primary option set, to preserve the segmented option semantics while retaining keyboard accessibility.
