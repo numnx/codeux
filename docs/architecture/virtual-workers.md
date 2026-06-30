@@ -126,6 +126,18 @@ For QA review execution, Code UX now runs the review itself against a fresh snap
 
 Unsupported worker-owned attention types are escalated back to human attention with a summary.
 
+
+## Reconciliation Scanning
+
+To minimize idle work and redundant compute cycles, virtual worker scheduling computes a minimal actionable candidate set before checking specific project rules.
+
+The reconciliation scan merges:
+- Projects with active (unclaimed or virtual-worker-claimed) open attention items
+- Projects with pending task dispatches
+- Projects that already have an active virtual cycle running
+
+It deduplicates this project set and explicitly ignores all other projects in the system. This ensures the 3-second reconciliation timer only evaluates settings resolution, scheduling policies, and state transitions for projects that have demonstrable immediate work to do or finish.
+
 ## Recovery
 
 Startup cleanup prunes orphaned `virtual_cli` endpoints from previous runs.
