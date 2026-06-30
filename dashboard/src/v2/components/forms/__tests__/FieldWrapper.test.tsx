@@ -233,4 +233,26 @@ expect(errorElement.className).not.toContain("pointer-events-none");
       expect(input.getAttribute("aria-errormessage")).not.toBeNull();
     });
   });
+
+  it("changes label to div and uses aria-labelledby for composite controls like radiogroup", () => {
+    render(
+      <FieldWrapper label="Radio Group Label">
+        <div role="radiogroup">
+          <input type="radio" value="1" />
+          <input type="radio" value="2" />
+        </div>
+      </FieldWrapper>
+    );
+
+    const labelContainer = screen.getByText("Radio Group Label").closest("div");
+    expect(labelContainer).toBeInTheDocument();
+
+    // Label should not be a <label> element
+    expect(labelContainer?.tagName).toBe("DIV");
+
+    const radiogroup = screen.getByRole("radiogroup");
+    const labelledby = radiogroup.getAttribute("aria-labelledby");
+
+    expect(labelledby).toBe(labelContainer?.id);
+  });
 });

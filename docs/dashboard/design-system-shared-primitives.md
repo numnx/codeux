@@ -40,7 +40,7 @@ The goal is to ensure all primitives align with the signal-and-ember operational
 
 ### Field Accessibility & Error Contracts
 
-1.  **FieldWrapper**: Always associates labels with the first control. It dynamically passes down `id`, `aria-describedby`, `aria-errormessage`, `aria-invalid`, and `aria-required` to its children.
+1.  **FieldWrapper**: Always associates labels with the first control. It dynamically passes down `id`, `aria-describedby`, `aria-errormessage`, `aria-invalid`, and `aria-required` to its children. For composite controls (e.g., radiogroups), it automatically changes the label to a div and uses `aria-labelledby`.
 2.  **Helper Text & Errors**: Helper text uses `aria-describedby`. When an error becomes visible, the error ID is provided in both `aria-errormessage` and `aria-describedby` (replacing the helper text ID in `aria-describedby` to avoid redundant announcements).
 3.  **FormError**: Visible errors render with `role="alert"` for assertive live-region announcements.
 4.  **Inputs & Selects**: Component primitives like `Input`, `Select`, and `AvantgardeSelect` gracefully fall back to these external `aria-*` props from `FieldWrapper` to avoid duplicate ID generation or conflicting descriptions.
