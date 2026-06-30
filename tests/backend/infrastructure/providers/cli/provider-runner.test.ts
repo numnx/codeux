@@ -139,6 +139,50 @@ describe("ProviderRunner", () => {
     }));
   });
 
+  it("cleans up workspace and codex output path if internal execution throws in runProvider", async () => {
+    dockerRunner.runProviderInDocker.mockRejectedValueOnce(new Error("Execution failed"));
+
+    const mockCleanup = vi.fn();
+    dockerRunner.ensureWorkspace.mockResolvedValueOnce({ cwd: "docker-volume://workspace-error", cleanup: mockCleanup });
+
+    await expect(runner.runProvider({
+      provider: "claude-code",
+      prompt: "throw",
+      cwd: "/repo",
+      model: "sonnet",
+      apiKey: "key",
+      sessionId: "session-1",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      onActivity: vi.fn(),
+    })).rejects.toThrow("Execution failed");
+
+    expect(dockerRunner.ensureWorkspace).toHaveBeenCalled();
+    expect(mockCleanup).toHaveBeenCalled();
+  });
+
+  it("cleans up workspace and codex output path if internal execution throws in runProviderForText", async () => {
+    dockerRunner.runProviderInDocker.mockRejectedValueOnce(new Error("Text execution failed"));
+
+    const mockCleanup = vi.fn();
+    dockerRunner.ensureWorkspace.mockResolvedValueOnce({ cwd: "docker-volume://workspace-error-text", cleanup: mockCleanup });
+
+    await expect(runner.runProviderForText({
+      provider: "codex",
+      prompt: "throw text",
+      cwd: "/repo",
+      model: "default",
+      apiKey: "key",
+      sessionId: "session-1",
+      workflowSettings: { executionMode: "DOCKER" } as any,
+      repoPath: "/repo",
+      onActivity: vi.fn(),
+    })).rejects.toThrow("Text execution failed");
+
+    expect(dockerRunner.ensureWorkspace).toHaveBeenCalled();
+    expect(mockCleanup).toHaveBeenCalled();
+  });
+
   it("keeps JSON output enabled for Gemini when MCP config is injected", async () => {
     await runner.runProvider({
       provider: "gemini",
