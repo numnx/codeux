@@ -50,7 +50,7 @@ import { BookOpen, Brain, Gauge } from "lucide-preact";
               }))}
             />
           </Row>
-          <Row label="Auto-promote to project scope" description="Automatically promote recurring or high-strength sprint memories to long-term project knowledge when a sprint completes." badge={getFieldBadge("memory.autoPromote")} last>
+          <Row label="Auto-promote to project scope" description="Automatically promote recurring or high-strength sprint memories to long-term project knowledge when a sprint completes." badge={getFieldBadge("memory.autoPromote")}>
             <Toggle aria-label="Toggle setting"               value={editableSettings.memory.autoPromote}
               disabled={!editableSettings.memory.enabled}
               onChange={() => updateEditableSettings((current) => ({
@@ -58,6 +58,24 @@ import { BookOpen, Brain, Gauge } from "lucide-preact";
                 memory: { ...current.memory, autoPromote: !current.memory.autoPromote },
               }))}
             />
+          </Row>
+          <Row label="Post-sprint remediation" description="Curate sprint memories after completion. AI mode uses the Remediation route and guardrail." badge={getFieldBadge("memory.remediationMode")} last>
+            <select
+              value={editableSettings.memory.remediationMode}
+              disabled={!editableSettings.memory.enabled}
+              onChange={(event) => {
+                const value = (event.currentTarget as HTMLSelectElement).value as typeof editableSettings.memory.remediationMode;
+                updateEditableSettings((current) => ({
+                  ...current,
+                  memory: { ...current.memory, remediationMode: value },
+                }));
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-void-900 dark:text-slate-100"
+            >
+              <option value="off">Off</option>
+              <option value="deterministic">Deterministic</option>
+              <option value="ai">AI remediation</option>
+            </select>
           </Row>
         </SectionCard>
 
@@ -101,7 +119,7 @@ import { BookOpen, Brain, Gauge } from "lucide-preact";
               }))}
             />
           </Row>
-          <Row label="Map edges per node" description="Maximum number of similarity connections per memory node on the neural map. Lower values produce a cleaner graph, higher values reveal more relationships." badge={getFieldBadge("memory.mapMaxEdgesPerNode")} last>
+          <Row label="Map edges per node" description="Maximum number of similarity connections per memory node on the neural map. Lower values produce a cleaner graph, higher values reveal more relationships." badge={getFieldBadge("memory.mapMaxEdgesPerNode")}>
             <NumberInput
               value={editableSettings.memory.mapMaxEdgesPerNode}
               min={1}
@@ -114,6 +132,85 @@ import { BookOpen, Brain, Gauge } from "lucide-preact";
               }))}
             />
           </Row>
+          <Row label="Max remediation promotions" description="Upper bound for memories promoted during one post-sprint remediation run." badge={getFieldBadge("memory.remediationMaxPromotions")} last>
+            <NumberInput
+              value={editableSettings.memory.remediationMaxPromotions}
+              min={1}
+              max={100}
+              step={1}
+              disabled={!editableSettings.memory.enabled}
+              onChange={(value) => updateEditableSettings((current) => ({
+                ...current,
+                memory: { ...current.memory, remediationMaxPromotions: value },
+              }))}
+            />
+          </Row>
+        </SectionCard>
+
+        <SectionCard title="Embedding Provider" watermark="EMB" badge={getBadge("memory")} icon={<Brain strokeWidth={2.4} />}>
+          <Row label="Embedding backend" description="Use downloaded in-app ONNX models or an external OpenAI-compatible embeddings API." badge={getFieldBadge("memory.embeddingProvider")}>
+            <select
+              value={editableSettings.memory.embeddingProvider}
+              disabled={!editableSettings.memory.enabled}
+              onChange={(event) => {
+                const value = (event.currentTarget as HTMLSelectElement).value as typeof editableSettings.memory.embeddingProvider;
+                updateEditableSettings((current) => ({
+                  ...current,
+                  memory: { ...current.memory, embeddingProvider: value },
+                }));
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-void-900 dark:text-slate-100"
+            >
+              <option value="in_app">In-app models</option>
+              <option value="external_api">External API</option>
+            </select>
+          </Row>
+          {editableSettings.memory.embeddingProvider === "external_api" && (
+            <>
+              <Row label="Embedding API URL" description="OpenAI-compatible embeddings endpoint." badge={getFieldBadge("memory.externalEmbedding.baseUrl")}>
+                <TextInput
+                  value={editableSettings.memory.externalEmbedding.baseUrl}
+                  disabled={!editableSettings.memory.enabled}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    memory: {
+                      ...current.memory,
+                      externalEmbedding: { ...current.memory.externalEmbedding, baseUrl: value },
+                    },
+                  }))}
+                />
+              </Row>
+              <Row label="Embedding model" description="Model id sent to the external embeddings endpoint." badge={getFieldBadge("memory.externalEmbedding.model")}>
+                <TextInput
+                  value={editableSettings.memory.externalEmbedding.model}
+                  disabled={!editableSettings.memory.enabled}
+                  onChange={(value) => updateEditableSettings((current) => ({
+                    ...current,
+                    memory: {
+                      ...current.memory,
+                      embeddingModel: value,
+                      externalEmbedding: { ...current.memory.externalEmbedding, model: value },
+                    },
+                  }))}
+                />
+              </Row>
+              <Row label="Embedding API key" description="Bearer token for the external embedding provider." badge={getFieldBadge("memory.externalEmbedding.apiKey")} last>
+                <input
+                  type="password"
+                  value={editableSettings.memory.externalEmbedding.apiKey}
+                  disabled={!editableSettings.memory.enabled}
+                  onInput={(event) => updateEditableSettings((current) => ({
+                    ...current,
+                    memory: {
+                      ...current.memory,
+                      externalEmbedding: { ...current.memory.externalEmbedding, apiKey: (event.currentTarget as HTMLInputElement).value },
+                    },
+                  }))}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-void-900 dark:text-slate-100"
+                />
+              </Row>
+            </>
+          )}
         </SectionCard>
 
         <SectionCard title="Worker Learnings Instruction" watermark="LRN" badge={getBadge("memory")} icon={<BookOpen strokeWidth={2.4} />}>

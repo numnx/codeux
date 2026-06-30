@@ -1,6 +1,14 @@
 # Memory Architecture and Search
 
-Sprint OS utilizes semantic embeddings to retrieve relevant project context ("memories") during tasks. This guide outlines the memory search workflow and the configuration of retrieval bounds.
+Code UX uses semantic embeddings to retrieve relevant project context ("memories") during tasks. This guide outlines memory search, embedding provider selection, and remediation.
+
+## Embedding Providers
+
+Memory embeddings can run through either backend:
+- `in_app`: downloaded ONNX models managed from the Memory page (`bge-small-en-v1.5` or `multilingual-e5-large`).
+- `external_api`: an OpenAI-compatible embeddings endpoint configured in Settings → Memory with `baseUrl`, `apiKey`, `model`, and optional `dimensions`.
+
+`MemoryService` resolves the effective project settings before capture, search, map generation, stale-count checks, and re-embedding. External API dimensions can be inferred from the returned vector, so models with custom vector sizes can be stored safely in `embeddingDimension`.
 
 ## Memory Search Behavior
 
@@ -31,6 +39,28 @@ To preserve memory efficiency, the core scoring and sorting operate strictly on 
 ## Storage Requirements
 
 Memory records encapsulate the base `content` string alongside its vectorized byte representation (`embeddingBlob`). The byte buffer must correctly decode based on its stored `embeddingDimension`. The system expects IEEE 754 32-bit floats.
+
+## Post-Sprint Remediation
+
+When a sprint completes, Code UX can run memory remediation according to `memory.remediationMode`:
+- `off`: no post-sprint curation.
+- `deterministic`: uses promotion scoring and promotes qualifying sprint memories up to `memory.remediationMaxPromotions`.
+- `ai`: first builds deterministic candidates, then invokes the provider routed through the `remediation` invocation route. The AI may select which candidates to promote; if the AI invocation fails, deterministic promotion is used as a fallback.
+
+The remediation guardrail job type is `remediation`, so runaway review loops are capped by the same guardrail system as planning, CI fix, and merge-conflict repair.
+
+CI-failure learnings are treated specially:
+- auto-captured CI/check/build failure memories are stored at lower strength (`0.35`)
+- they are tagged with `source.originType = "ci_failure_learning"`
+- promotion analysis excludes them even if their text would otherwise score highly
+
+## Long-Term Remediation
+
+The Scheduler page can run project-scoped long-term memory remediation. Deterministic cleanup removes:
+- project-scope memories tagged as CI-failure learnings
+- exact duplicate project memories, keeping the strongest and most recently updated copy
+
+AI mode routes cleanup candidates through the `remediation` invocation route before deletion.
 
 ## UI Updates and Accessibility
 - Added keyboard-accessible clear search functionality to `MemorySearch.tsx` (supports clearing via `Escape` and a dedicated clear button with an explicit `<kbd>Esc</kbd>` visual affordance).

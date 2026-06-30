@@ -57,12 +57,23 @@ export interface ParsedMemoryEntry {
   content: string;
 }
 
-export type EmbeddingModelId = "bge-small-en-v1.5" | "multilingual-e5-large";
+export type InAppEmbeddingModelId = "bge-small-en-v1.5" | "multilingual-e5-large";
+export type EmbeddingModelId = InAppEmbeddingModelId | (string & {});
 
-export const EMBEDDING_MODEL_IDS: EmbeddingModelId[] = [
+export const EMBEDDING_MODEL_IDS: InAppEmbeddingModelId[] = [
   "bge-small-en-v1.5",
   "multilingual-e5-large",
 ];
+
+export type EmbeddingProviderMode = "in_app" | "external_api";
+export type MemoryRemediationMode = "off" | "deterministic" | "ai";
+
+export interface ExternalEmbeddingSettings {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  dimensions: number | null;
+}
 
 export interface MemorySource {
   type: "auto_capture" | "manual" | "promotion";
@@ -156,11 +167,15 @@ export interface PromotionCandidate {
 
 export interface MemorySettings {
   enabled: boolean;
+  embeddingProvider: EmbeddingProviderMode;
   embeddingModel: EmbeddingModelId | null;
+  externalEmbedding: ExternalEmbeddingSettings;
   autoCaptureSprint: boolean;
   autoCaptureAgent: boolean;
   autoPromote: boolean;
   promotionThreshold: number;
+  remediationMode: MemoryRemediationMode;
+  remediationMaxPromotions: number;
   maxSprintMemories: number;
   maxProjectMemories: number;
   mapMaxEdgesPerNode: number;

@@ -1,6 +1,6 @@
-import type { EmbeddingModelId, EmbeddingModelInfo } from "../contracts/memory-types.js";
+import type { EmbeddingModelInfo, InAppEmbeddingModelId } from "../contracts/memory-types.js";
 
-export const EMBEDDING_MODEL_CATALOG: Record<EmbeddingModelId, EmbeddingModelInfo> = {
+export const EMBEDDING_MODEL_CATALOG: Record<InAppEmbeddingModelId, EmbeddingModelInfo> = {
   "bge-small-en-v1.5": {
     id: "bge-small-en-v1.5",
     displayName: "BGE Small EN v1.5",
@@ -29,8 +29,8 @@ export const EMBEDDING_MODEL_CATALOG: Record<EmbeddingModelId, EmbeddingModelInf
   },
 };
 
-export function getModelDownloadUrl(modelId: EmbeddingModelId, fileName: string): string {
-  const repoMap: Record<EmbeddingModelId, string> = {
+export function getModelDownloadUrl(modelId: InAppEmbeddingModelId, fileName: string): string {
+  const repoMap: Record<InAppEmbeddingModelId, string> = {
     "bge-small-en-v1.5": "BAAI/bge-small-en-v1.5",
     "multilingual-e5-large": "intfloat/multilingual-e5-large",
   };

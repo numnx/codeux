@@ -10,7 +10,7 @@ import type {
   MemoryCategory,
   CreateMemoryInput,
   UpdateMemoryInput,
-  EmbeddingModelId,
+  InAppEmbeddingModelId,
 } from "../contracts/memory-types.js";
 import { MEMORY_SCOPES, MEMORY_CATEGORIES, EMBEDDING_MODEL_IDS } from "../contracts/memory-types.js";
 import { EMBEDDING_MODEL_CATALOG } from "../services/embedding-model-catalog.js";
@@ -191,7 +191,7 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
       const statuses = embeddingModelManager.getStatuses();
       const models = statuses.map((status) => ({
         ...status,
-        ...EMBEDDING_MODEL_CATALOG[status.id],
+        ...EMBEDDING_MODEL_CATALOG[status.id as InAppEmbeddingModelId],
         active: embeddingService.getLoadedModelId() === status.id,
       }));
       res.json(models);
@@ -202,7 +202,7 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
 
   app.post("/api/embedding-models/:modelId/download", asyncRoute(async (req, res) => {
     try {
-      const modelId = String(req.params.modelId) as EmbeddingModelId;
+      const modelId = String(req.params.modelId) as InAppEmbeddingModelId;
       if (!EMBEDDING_MODEL_IDS.includes(modelId)) {
         res.status(400).json({ error: `Unknown model: ${modelId}` });
         return;
@@ -221,7 +221,7 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
 
   app.post("/api/embedding-models/:modelId/cancel", syncRoute((req, res) => {
     try {
-      const modelId = String(req.params.modelId) as EmbeddingModelId;
+      const modelId = String(req.params.modelId) as InAppEmbeddingModelId;
       embeddingModelManager.cancelDownload(modelId);
       res.json({ status: "cancelled", modelId });
     } catch (error) {
@@ -231,7 +231,7 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
 
   app.post("/api/embedding-models/:modelId/select", asyncRoute(async (req, res) => {
     try {
-      const modelId = String(req.params.modelId) as EmbeddingModelId;
+      const modelId = String(req.params.modelId) as InAppEmbeddingModelId;
       if (!EMBEDDING_MODEL_IDS.includes(modelId)) {
         res.status(400).json({ error: `Unknown model: ${modelId}` });
         return;
@@ -246,7 +246,7 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
 
   app.delete("/api/embedding-models/:modelId", asyncRoute(async (req, res) => {
     try {
-      const modelId = String(req.params.modelId) as EmbeddingModelId;
+      const modelId = String(req.params.modelId) as InAppEmbeddingModelId;
       await embeddingModelManager.deleteModel(modelId);
       res.status(204).send();
     } catch (error) {
@@ -256,7 +256,11 @@ export function registerMemoryRoutes(app: Express, deps: MemoryRouteDependencies
 
   app.get("/api/embedding-models/:modelId/status", syncRoute((req, res) => {
     try {
-      const modelId = String(req.params.modelId) as EmbeddingModelId;
+      const modelId = String(req.params.modelId) as InAppEmbeddingModelId;
+      if (!EMBEDDING_MODEL_IDS.includes(modelId)) {
+        res.status(400).json({ error: `Unknown model: ${modelId}` });
+        return;
+      }
       const status = memoryRepository.getModelStatus(modelId);
       if (!status) {
         res.json({

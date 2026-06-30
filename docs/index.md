@@ -16,7 +16,8 @@ Use this page as the main entrypoint.
 5. [Project Initialization](./dashboard/project-initialization.md)
 6. [Quicksprint Templates](./dashboard/quicksprint-templates.md)
 7. [Scheduler](./dashboard/scheduler.md)
-8. [Glossary](./reference/glossary.md)
+8. [Memory Architecture and Search](./dashboard/memory.md)
+9. [Glossary](./reference/glossary.md)
 
 ### Path 2: Building or modifying orchestration behavior
 1. [System Overview](./architecture/system-overview.md)
@@ -127,6 +128,7 @@ Use this page as the main entrypoint.
 - [Sprint Imports](./dashboard/sprint-imports.md)
 - [Quicksprint Templates](./dashboard/quicksprint-templates.md)
 - [Scheduler](./dashboard/scheduler.md)
+- [Memory Architecture and Search](./dashboard/memory.md)
 - [Configuration and Storage](./settings/configuration-and-storage.md)
 - [Provider Routing](./settings/provider-routing.md)
 - [Qwen Code Integration](./settings/qwen-code-integration.md)

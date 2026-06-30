@@ -15,6 +15,7 @@ Operators can create entries for:
 - Sprints whose status is not `completed`.
 - Built-in or custom quicksprint templates available to the selected project.
 - Messages sent into `/chat` at the selected date and time.
+- Long-term memory remediation, either deterministic or AI-routed through the Remediation route.
 
 Scheduler target selectors, recurrence indicators, and repeating-count summary icons use the dashboard signal jade palette for interactive accents. Sprint and next-run status tones remain differentiated with their existing ember/status colors.
 
@@ -73,5 +74,6 @@ Due entries execute through existing production paths:
 - sprint entries call `ExecutionControlService.orchestrateSprint`
 - quicksprint entries call `QuicksprintService.executeQuicksprint`
 - chat entries call `ChatThreadRuntimeService.postMessage`
+- memory remediation entries call `MemoryRemediationService.remediateLongTermMemories`
 
 After a successful run, the service advances `nextRunAt` from the scheduled occurrence time. One-time entries move to `completed`; recurring entries stay `scheduled` until their count or end date/time is exhausted. Failed entries move to `failed` with `lastError` for operator visibility.

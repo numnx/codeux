@@ -5,6 +5,7 @@ import type {
 } from "../contracts/memory-types.js";
 import { MemoryRepository } from "../repositories/memory-repository.js";
 import { MemoryService } from "./memory-service.js";
+import { isCiFailureMemoryContent } from "./memory-service.js";
 import type { Logger } from "../shared/logging/logger.js";
 
 const CATEGORY_WEIGHTS: Record<string, number> = {
@@ -41,6 +42,9 @@ export class MemoryPromotionService {
     const candidates: PromotionCandidate[] = [];
 
     for (const memory of sprintMemories) {
+      if (memory.source.originType === "ci_failure_learning" || isCiFailureMemoryContent(memory.category, memory.content)) {
+        continue;
+      }
       if (memory.strength < 0.6) continue;
 
       // Check for semantic similarity across other sprint memories (cross-sprint consistency)

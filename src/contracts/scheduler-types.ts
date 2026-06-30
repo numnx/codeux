@@ -1,6 +1,6 @@
 import type { QuicksprintExecutionInput } from "./quicksprint-types.js";
 
-export type ScheduleTargetType = "sprint" | "quicksprint" | "chat";
+export type ScheduleTargetType = "sprint" | "quicksprint" | "chat" | "memory_remediation";
 export type ScheduleStatus = "scheduled" | "paused" | "completed" | "failed" | "cancelled";
 export type ScheduleRecurrenceFrequency = "none" | "hourly" | "daily" | "weekly" | "monthly";
 export type ScheduleRecurrenceEndMode = "never" | "after_count" | "on_date";
@@ -33,6 +33,10 @@ export interface ScheduleChatTarget {
   connectionId?: string | null;
 }
 
+export interface ScheduleMemoryRemediationTarget {
+  mode: "deterministic" | "ai";
+}
+
 export interface SchedulerEntryRecord {
   id: string;
   projectId: string;
@@ -49,6 +53,7 @@ export interface SchedulerEntryRecord {
   sprintTarget?: ScheduleSprintTarget;
   quicksprintTarget?: ScheduleQuicksprintTarget;
   chatTarget?: ScheduleChatTarget;
+  memoryRemediationTarget?: ScheduleMemoryRemediationTarget;
   createdAt: string;
   updatedAt: string;
 }
@@ -82,6 +87,7 @@ export interface CreateSchedulerEntryInput {
   sprintTarget?: ScheduleSprintTarget;
   quicksprintTarget?: ScheduleQuicksprintTarget;
   chatTarget?: ScheduleChatTarget;
+  memoryRemediationTarget?: ScheduleMemoryRemediationTarget;
 }
 
 export interface UpdateSchedulerEntryInput {
@@ -94,5 +100,5 @@ export interface UpdateSchedulerEntryInput {
   sprintTarget?: ScheduleSprintTarget;
   quicksprintTarget?: ScheduleQuicksprintTarget;
   chatTarget?: ScheduleChatTarget;
+  memoryRemediationTarget?: ScheduleMemoryRemediationTarget;
 }
-

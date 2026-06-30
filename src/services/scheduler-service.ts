@@ -10,6 +10,7 @@ import type { ProjectManagementRepository } from "../repositories/project-manage
 import type { QuicksprintService } from "./quicksprint-service.js";
 import type { ChatThreadRuntimeService } from "./chat-thread-runtime-service.js";
 import type { ExecutionControlService } from "./execution-control-service.js";
+import type { MemoryRemediationService } from "./memory-remediation-service.js";
 import { buildSchedulerOccurrences, computeNextRunAfterOccurrence } from "../domain/scheduler/schedule-time.js";
 import type { CreateDashboardConversationMessageInput } from "../contracts/connection-chat-types.js";
 
@@ -19,6 +20,7 @@ export interface SchedulerServiceDeps {
   quicksprintService: QuicksprintService;
   chatThreadRuntimeService: ChatThreadRuntimeService;
   executionControlService: ExecutionControlService;
+  memoryRemediationService?: MemoryRemediationService;
   logger: Logger;
   tickIntervalMs?: number;
 }
@@ -76,6 +78,7 @@ export class SchedulerService {
       sprintTarget: input.sprintTarget ?? current.sprintTarget,
       quicksprintTarget: input.quicksprintTarget ?? current.quicksprintTarget,
       chatTarget: input.chatTarget ?? current.chatTarget,
+      memoryRemediationTarget: input.memoryRemediationTarget ?? current.memoryRemediationTarget,
     });
     return this.deps.schedulerRepository.updateEntry(entryId, input);
   }
@@ -137,6 +140,22 @@ export class SchedulerService {
         throw new Error("Scheduled quicksprint target is missing.");
       }
       await this.deps.quicksprintService.executeQuicksprint(entry.projectId, target);
+      return;
+    }
+
+    if (entry.targetType === "memory_remediation") {
+      if (!this.deps.memoryRemediationService) {
+        throw new Error("Memory remediation service is not enabled.");
+      }
+      const project = this.deps.projectManagementRepository.getProject(entry.projectId);
+      if (!project) {
+        throw new Error("Scheduled memory remediation project is missing.");
+      }
+      await this.deps.memoryRemediationService.remediateLongTermMemories({
+        projectId: entry.projectId,
+        repoPath: project.baseDir,
+        mode: entry.memoryRemediationTarget?.mode ?? "deterministic",
+      });
       return;
     }
 

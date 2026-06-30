@@ -74,6 +74,7 @@ const invocationRouteDefinitions: Array<{
   { id: "qa_review", label: "QA review", description: "Completion-time quality assurance reviews that can request follow-up fixes." },
   { id: "ci_fix", label: "CI fix", description: "Worker-owned CI repair loops and retry work." },
   { id: "merge_conflict", label: "Merge conflict", description: "Worker-owned merge conflict resolution runs." },
+  { id: "remediation", label: "Remediation", description: "Memory curation and long-term remediation reviews." },
 ];
 
 const routingProfileOptions = [

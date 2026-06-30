@@ -161,7 +161,7 @@ export const dashboardSettingsToProjectSettings = (settings: DashboardSettings):
   skills: cloneSkills(settings.skills),
   mcpTools: cloneMcpTools(settings.mcpTools),
   customMcpServers: cloneCustomMcpServers(settings.customMcpServers),
-  memory: { ...settings.memory },
+  memory: { ...settings.memory, externalEmbedding: { ...settings.memory.externalEmbedding } },
 });
 
 export const cloneProjectSettings = (settings: ProjectSettings): ProjectSettings => ({
@@ -213,7 +213,7 @@ export const cloneProjectSettings = (settings: ProjectSettings): ProjectSettings
   skills: cloneSkills(settings.skills),
   mcpTools: settings.mcpTools ? cloneMcpTools(settings.mcpTools) : undefined,
   customMcpServers: settings.customMcpServers ? cloneCustomMcpServers(settings.customMcpServers) : undefined,
-  memory: { ...settings.memory },
+  memory: { ...settings.memory, externalEmbedding: { ...settings.memory.externalEmbedding } },
 });
 
 export const cloneSystemSettings = (settings: SystemSettings): SystemSettings => ({

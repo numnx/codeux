@@ -83,6 +83,22 @@ describe("MemoryPromotionService", () => {
       expect(candidates[0].memory.id).toBe("high");
     });
 
+    it("never promotes auto-captured CI failure memories", async () => {
+      const ciFailure = makeMemory({
+        id: "ci",
+        category: "error",
+        strength: 0.95,
+        content: "GitHub Actions CI failed on the build check.",
+        source: { type: "auto_capture", originType: "ci_failure_learning" },
+      });
+      memoryRepository.listBySprint.mockReturnValue([ciFailure]);
+
+      const candidates = await service.analyzeForPromotion("proj-1", "sprint-1");
+
+      expect(candidates).toHaveLength(0);
+      expect(memoryService.search).not.toHaveBeenCalled();
+    });
+
     it("deduplicates against existing project memories with >0.95 similarity", async () => {
       const mem = makeMemory({ strength: 0.9 });
       memoryRepository.listBySprint.mockReturnValue([mem]);

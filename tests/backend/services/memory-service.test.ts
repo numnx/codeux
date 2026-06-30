@@ -144,6 +144,29 @@ describe("MemoryService", () => {
     });
   });
 
+  describe("captureMemoriesFromContent", () => {
+    it("captures CI failure learnings with low strength and CI source metadata", async () => {
+      mockRepo.createMemories.mockReturnValue([makeMemoryRecord({ id: "ci-memory" })]);
+      mockEmbeddingService.isLoaded.mockReturnValue(false);
+
+      const count = await service.captureMemoriesFromContent(
+        "proj-1",
+        "sprint-1",
+        null,
+        "## Category: error\n- GitHub Actions CI failed on the build check.\n",
+        "task-run-1",
+      );
+
+      expect(count).toBe(1);
+      expect(mockRepo.createMemories).toHaveBeenCalledWith("proj-1", [
+        expect.objectContaining({
+          strength: 0.35,
+          source: expect.objectContaining({ originType: "ci_failure_learning" }),
+        }),
+      ]);
+    });
+  });
+
   describe("createMemories", () => {
     it("creates via repository and triggers async embeddings when model is loaded", async () => {
       const input1 = { scope: "sprint", content: "mem1", category: "context" };
@@ -425,9 +448,12 @@ describe("MemoryService", () => {
       expect(mockEmbeddingService.embed).not.toHaveBeenCalled();
     });
 
-    it("returns empty when dimension is not available", async () => {
+    it("uses the query embedding dimension when configured dimension is not available", async () => {
       mockEmbeddingService.getLoadedModelId.mockReturnValue("bge-small-en-v1.5");
       mockEmbeddingService.getDimension.mockReturnValue(null);
+      mockEmbeddingService.embed.mockResolvedValue(new Float32Array([1, 0, 0]));
+      mockRepo.loadEmbeddingsForScope.mockReturnValue([]);
+      mockRepo.getMemories.mockReturnValue([]);
 
       const results = await service.search({
         projectId: "proj-1",
@@ -435,7 +461,7 @@ describe("MemoryService", () => {
       });
 
       expect(results).toEqual([]);
-      expect(mockEmbeddingService.embed).not.toHaveBeenCalled();
+      expect(mockEmbeddingService.embed).toHaveBeenCalledWith("anything");
     });
   });
 
