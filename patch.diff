@@ -1,0 +1,39 @@
+--- dashboard/src/v2/components/sprints/SprintLedgerRow.tsx
++++ dashboard/src/v2/components/sprints/SprintLedgerRow.tsx
+@@ -296,20 +296,25 @@
+         <div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-start">
+           {isDeletePending ? (
+             <span className="inline-flex items-center gap-1.5 rounded-full border border-status-red/25 bg-status-red/10 px-3 py-1.5 text-[11px] font-bold text-status-red">
++              <span className="sr-only">Status: </span>
+               <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.2} /> Deleting
+             </span>
+           ) : isPinPending ? (
+             <span className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/25 bg-signal-500/10 px-3 py-1.5 text-[11px] font-bold text-signal-700 dark:text-signal-300">
++              <span className="sr-only">Status: </span>
+               <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.2} /> Pinning
+             </span>
+           ) : isTogglePending ? (
+             <span className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/25 bg-signal-500/10 px-3 py-1.5 text-[11px] font-bold text-signal-700 dark:text-signal-300">
++              <span className="sr-only">Status: </span>
+               <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.2} /> {sprint.status === "running" ? "Stopping" : "Starting"}
+             </span>
+           ) : isPauseResumePending ? (
+             <span className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/25 bg-signal-500/10 px-3 py-1.5 text-[11px] font-bold text-signal-700 dark:text-signal-300">
++              <span className="sr-only">Status: </span>
+               <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.2} /> {sprint.status === "paused" ? "Resuming" : "Pausing"}
+             </span>
+           ) : (
+             <span className={`inline-flex rounded-full border px-4 py-1.5 text-[11px] font-bold ${badgeTone}`}>
+-              {badgeLabel}
++              <span className="sr-only">Status: </span>{badgeLabel}
+             </span>
+           )}
+         </div>
+@@ -365,6 +370,7 @@
+         <div className="flex min-w-0 flex-1 flex-col items-end justify-center gap-3 pr-2 lg:flex-row lg:items-center">
+           <SprintControls
+             isActive={sprint.status === "running"}
++            sprintName={sprint.name}
+             isPaused={sprint.status === "paused"}
+             isStartStopPending={isTogglePending}
+             isPauseResumePending={isPauseResumePending}

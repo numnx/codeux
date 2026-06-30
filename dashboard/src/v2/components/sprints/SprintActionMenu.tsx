@@ -99,6 +99,7 @@ export const SprintActionMenu: FunctionComponent<SprintActionMenuProps> = ({
                 onClose?.();
                 onPrimaryAction();
               }}
+              aria-label={isRunning ? `Stop sprint ${sprint.name}` : `Start sprint ${sprint.name}`}
               disabled={primaryBusy}
               className={disabledClassName}
             >
@@ -120,6 +121,7 @@ export const SprintActionMenu: FunctionComponent<SprintActionMenuProps> = ({
                 onClose?.();
                 onPauseResume?.();
               }}
+              aria-label={isPaused ? `Resume sprint ${sprint.name}` : `Pause sprint ${sprint.name}`}
               disabled={pauseResumeBusy}
               className={disabledClassName}
             >

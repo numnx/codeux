@@ -219,13 +219,13 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
       className={`group transition-all focus-within:ring-2 focus-within:ring-signal-500/20 ${rowTone} ${isCompleted ? "text-slate-500 dark:text-slate-400" : ""} ${pendingRowClass} hover:bg-[var(--bg-hover-subtle)] transition-[box-shadow,transform] duration-150 [@media(hover:hover)]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] [@media(hover:hover)]:hover:-translate-y-px motion-reduce:transition-none motion-reduce:hover:transform-none`}
       style={{ transitionDuration: duration, transitionTimingFunction: ease }}
     >
-      <TableCell isFirst className={`lg:w-[80px] lg:min-w-[80px] ${desktopCellTone}`} mobileLabel="Select">
+      <TableCell isFirst className={`lg:w-[80px] lg:min-w-[80px] ${desktopCellTone}`} mobileLabel="Select sprint">
         <button
           type="button"
           onClick={() => onToggleRow(sprint.id)}
           disabled={isDeletePending || isAnyBulkPending}
           className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-black/[0.06] bg-white/72 text-slate-400 transition-colors hover:border-signal-500/25 hover:text-signal-500 focus-visible:ring-2 focus-visible:ring-signal-500/30 dark:border-white/[0.07] dark:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
-          title={isSelected ? "Deselect sprint" : "Select sprint"}
+          title={isSelected ? `Deselect sprint ${sprint.name}` : `Select sprint ${sprint.name}`}
           aria-label={isSelected ? `Deselect sprint ${sprint.name}` : `Select sprint ${sprint.name}`}
         >
           {isSelected
@@ -243,7 +243,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
               ? "border-status-red/20 bg-status-red/10 text-status-red shadow-[0_8px_20px_rgba(239,68,68,0.10)]"
               : "border-black/[0.06] bg-white/70 text-slate-400 hover:border-status-red/20 hover:text-status-red dark:border-white/[0.07] dark:bg-white/[0.04]"
           } disabled:cursor-not-allowed disabled:opacity-50`}
-          title={sprint.showcasePinned ? "Remove from showcase" : "Pin to showcase"}
+          title={sprint.showcasePinned ? `Remove sprint ${sprint.name} from showcase` : `Pin sprint ${sprint.name} to showcase`}
           aria-label={sprint.showcasePinned ? `Remove sprint ${sprint.name} from showcase` : `Pin sprint ${sprint.name} to showcase`}
         >
           {isPinPending ? (
@@ -297,23 +297,27 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
         <div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-start">
           {isDeletePending ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-status-red/25 bg-status-red/10 px-3 py-1.5 text-[11px] font-bold text-status-red">
+              <span className="sr-only">Status: </span>
               <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.2} /> Deleting
             </span>
           ) : isPinPending ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/25 bg-signal-500/10 px-3 py-1.5 text-[11px] font-bold text-signal-700 dark:text-signal-300">
+              <span className="sr-only">Status: </span>
               <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.2} /> Pinning
             </span>
           ) : isTogglePending ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/25 bg-signal-500/10 px-3 py-1.5 text-[11px] font-bold text-signal-700 dark:text-signal-300">
+              <span className="sr-only">Status: </span>
               <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.2} /> {activeRun ? "Stopping" : "Starting"}
             </span>
           ) : isPauseResumePending ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-signal-500/25 bg-signal-500/10 px-3 py-1.5 text-[11px] font-bold text-signal-700 dark:text-signal-300">
+              <span className="sr-only">Status: </span>
               <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.2} /> {sprint.status === "paused" ? "Resuming" : "Pausing"}
             </span>
           ) : (
             <span className={`inline-flex rounded-full border px-4 py-1.5 text-[11px] font-bold ${badgeTone}`}>
-              {badgeLabel}
+              <span className="sr-only">Status: </span>{badgeLabel}
             </span>
           )}
         </div>

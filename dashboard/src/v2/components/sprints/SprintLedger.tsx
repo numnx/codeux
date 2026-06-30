@@ -305,6 +305,9 @@ const SprintLedgerComponent: FunctionComponent<SprintLedgerProps> = ({
       />
 
       <div className="min-h-[20rem] px-3 py-4 sm:px-4 lg:px-5">
+        <span className="sr-only" aria-live="polite" aria-atomic="true">
+          Showing {ledgerSprints.length} of {sprints.length} sprints
+        </span>
         <div className="overflow-x-auto w-full overscroll-x-contain -mx-3 px-3 sm:-mx-4 sm:px-4 lg:-mx-5 lg:px-5">
           <div className="min-w-max">
             <Table caption="Sprint ledger with selection, sorting, and bulk actions.">

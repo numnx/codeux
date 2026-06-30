@@ -353,7 +353,7 @@ describe("SprintLedger Accessibility", () => {
     const idLabel = idLabels.find(el => el.classList.contains('lg:hidden'));
     expect(idLabel).toBeInTheDocument();
 
-    const selectLabels = screen.getAllByText("Select");
+    const selectLabels = screen.getAllByText("Select sprint");
     expect(selectLabels.find(el => el.classList.contains('lg:hidden'))).toBeInTheDocument();
 
     const pinLabels = screen.getAllByText("Pin");
