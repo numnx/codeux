@@ -552,9 +552,10 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                         <button
                             type="button"
                             onClick={toggleNotificationMenu}
-                            onFocus={handleNotificationFocus}
                             onBlur={handleNotificationBlur}
-                            aria-haspopup="menu"
+                            aria-haspopup="dialog"
+                            id="notification-trigger"
+                            aria-controls="notification-panel"
                             aria-expanded={isNotificationMenuVisible}
                             aria-label={`Notifications: ${notifications.unreadCount} unread`}
                             className="relative w-11 h-11 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50"
