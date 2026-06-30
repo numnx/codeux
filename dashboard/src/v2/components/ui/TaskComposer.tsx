@@ -172,28 +172,26 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
             </FieldWrapper>
 
             <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Status</div>
-                {(state.hasAttemptedSubmit || state.touchedFields.status) && state.statusError && (
-                  <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">{state.statusError}</div>
-                )}
-              </div>
-              <div className="flex gap-2 flex-wrap" onBlur={() => state.setFieldTouched('status')}>
-                {STATUS_OPTIONS.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => state.setStatus(option)}
-                    className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.14em] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 ${
-                      state.status === option
-                        ? "bg-signal-500 text-void-900 shadow-[0_2px_12px_rgba(0,224,160,0.3)]"
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                    }`}
-                  >
-                    {option.replace("_", " ")}
-                  </button>
-                ))}
-              </div>
+              <FieldWrapper label="Status" labelAs="div" error={state.statusError} forceTouch={state.touchedFields.status || state.hasAttemptedSubmit}>
+                <div role="radiogroup" tabIndex={-1} className="flex gap-2 flex-wrap" onBlur={() => state.setFieldTouched('status')}>
+                  {STATUS_OPTIONS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      role="radio"
+                      aria-checked={state.status === option}
+                      onClick={() => state.setStatus(option)}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.14em] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 ${
+                        state.status === option
+                          ? "bg-signal-500 text-void-900 shadow-[0_2px_12px_rgba(0,224,160,0.3)]"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      {option.replace("_", " ")}
+                    </button>
+                  ))}
+                </div>
+              </FieldWrapper>
             </div>
           </div>
 
@@ -251,7 +249,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                 <Target className="w-3.5 h-3.5 text-ember-500" strokeWidth={2.3} />
                 <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Dependencies</label>
                 {state.dependencyOptions.length === 0 && availableTasks.filter(t => t.sprintId === state.sprintId && t.recordId !== initialTask?.recordId).length > 0 && (
-                   <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-amber-500 ml-2 bg-amber-500/10 px-1.5 py-0.5 rounded">Cycle Prevented</span>
+                   <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-amber-500 ml-2 bg-amber-500/10 px-1.5 py-0.5 rounded"><span className="sr-only">Notice: </span>Cycle Prevented</span>
                 )}
               </div>
               {availableTasks.filter(t => t.sprintId === state.sprintId && t.recordId !== initialTask?.recordId).length > 5 && (
@@ -269,7 +267,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                 No existing tasks in this sprint yet.
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-44 overflow-y-auto pr-1">
+              <div role="group" aria-label="Dependencies" className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-44 overflow-y-auto pr-1">
                 {state.dependencyOptions.map((task) => {
                   const active = state.dependsOnTaskIds.includes(task.recordId);
                   return (
@@ -278,6 +276,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                       type="button"
                       onClick={() => state.toggleDependency(task.recordId)}
                       aria-pressed={active ? "true" : "false"}
+                      aria-label={`Dependency ${task.id || task.recordId} (${task.priority} priority): ${task.title}`}
                       className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 ${
                         active
                           ? "border-ember-500/45 bg-ember-500/[0.08] text-ember-600 dark:text-ember-400"
@@ -304,63 +303,62 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
 
         <aside className="flex flex-col gap-4 p-6 sm:p-8">
           <div data-composer-stagger>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Priority</div>
-              {(state.hasAttemptedSubmit || state.touchedFields.priority) && state.priorityError && (
-                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">{state.priorityError}</div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-2" onBlur={() => state.setFieldTouched('priority')}>
-              {PRIORITY_OPTIONS.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => state.setPriority(option)}
-                  className={`px-3 py-2 rounded-[1.1rem] border text-[10px] font-bold uppercase tracking-[0.14em] transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 active:scale-95 ${
-                    state.priority === option
-                      ? "border-ember-500/45 bg-ember-500/[0.08] text-ember-600 dark:text-ember-400 shadow-[0_4px_12px_rgba(255,184,0,0.15)]"
-                      : "border-black/[0.06] bg-black/[0.025] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400"
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
+            <FieldWrapper label="Priority" labelAs="div" error={state.priorityError} forceTouch={state.touchedFields.priority || state.hasAttemptedSubmit}>
+              <div role="radiogroup" tabIndex={-1} className="grid grid-cols-2 gap-2" onBlur={() => state.setFieldTouched('priority')}>
+                {PRIORITY_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    role="radio"
+                    aria-checked={state.priority === option}
+                    onClick={() => state.setPriority(option)}
+                    className={`px-3 py-2 rounded-[1.1rem] border text-[10px] font-bold uppercase tracking-[0.14em] transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 active:scale-95 ${
+                      state.priority === option
+                        ? "border-ember-500/45 bg-ember-500/[0.08] text-ember-600 dark:text-ember-400 shadow-[0_4px_12px_rgba(255,184,0,0.15)]"
+                        : "border-black/[0.06] bg-black/[0.025] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400"
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </FieldWrapper>
           </div>
 
           <div data-composer-stagger>
-            <div className="flex items-center gap-2 mb-3">
-              <Bot className="w-3.5 h-3.5 text-signal-500" strokeWidth={2.3} />
-              <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Executor</label>
-              {(state.hasAttemptedSubmit || state.touchedFields.executorType) && state.executorTypeError && (
-                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">{state.executorTypeError}</div>
-              )}
-            </div>
-            <div className="grid gap-3" onBlur={() => state.setFieldTouched('executorType')}>
-              {EXECUTOR_OPTIONS.map((option) => {
-                const isActive = state.executorType === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => state.setExecutorType(option.value)}
-                    className={`rounded-[1.35rem] border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 active:scale-[0.98] ${
-                      isActive
-                        ? "border-signal-500/30 bg-signal-500/[0.08] shadow-[0_12px_24px_rgba(0,224,160,0.08)]"
-                        : "border-black/[0.06] bg-white/66 hover:border-black/[0.1] hover:bg-white dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/[0.1]"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-700 dark:text-white">
-                      <span className={`w-2 h-2 rounded-full ${isActive ? "bg-signal-500" : "bg-slate-300 dark:bg-slate-600"}`} />
-                      {option.label}
-                    </div>
-                    <div className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                      {option.description}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            <FieldWrapper label="Executor" labelAs="div" error={state.executorTypeError} forceTouch={state.touchedFields.executorType || state.hasAttemptedSubmit}>
+              <div role="radiogroup" tabIndex={-1} className="grid gap-3" onBlur={() => state.setFieldTouched('executorType')}>
+                {EXECUTOR_OPTIONS.map((option) => {
+                  const isActive = state.executorType === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={isActive}
+                      onClick={() => state.setExecutorType(option.value)}
+                      className={`rounded-[1.35rem] border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 active:scale-[0.98] ${
+                        isActive
+                          ? "border-signal-500/30 bg-signal-500/[0.08] shadow-[0_12px_24px_rgba(0,224,160,0.08)]"
+                          : "border-black/[0.06] bg-white/66 hover:border-black/[0.1] hover:bg-white dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/[0.1]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-700 dark:text-white">
+                        <span className={`w-2 h-2 rounded-full ${isActive ? "bg-signal-500" : "bg-slate-300 dark:bg-slate-600"}`} />
+                        {option.label}
+                      </div>
+                      <div className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                        {option.description}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </FieldWrapper>
+          </div>
+
+          <div aria-live="polite" className="sr-only">
+            {!state.isValid && state.hasAttemptedSubmit ? "Form has validation errors." : ""}
           </div>
 
           <div data-composer-stagger className="mt-auto flex flex-col gap-3 pt-2">

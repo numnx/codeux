@@ -35,6 +35,73 @@ describe("TaskComposer Accessibility", () => {
     { id: "T-2", recordId: "rec2", title: "Task 2", sprintId: "1", status: "pending", priority: "medium", executorType: "auto", dependsOnTaskIds: [] }
   ];
 
+  test("status radiogroup exposes aria-checked correctly", async () => {
+    Object.defineProperty(window, 'matchMedia', { writable: true, value: vi.fn().mockImplementation(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) });
+    render(<TaskComposer sprints={dummySprints as any} availableTasks={dummyTasks as any} onClose={() => {}} onSubmit={() => {}} />);
+    const pendingRadio = screen.getByRole("radio", { name: /pending/i });
+    const inProgressRadio = screen.getByRole("radio", { name: /in progress/i });
+    expect(pendingRadio).toHaveAttribute("aria-checked", "true");
+    expect(inProgressRadio).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(inProgressRadio);
+    await waitFor(() => {
+      expect(inProgressRadio).toHaveAttribute("aria-checked", "true");
+      expect(pendingRadio).toHaveAttribute("aria-checked", "false");
+    });
+  });
+
+  test("priority radiogroup exposes aria-checked correctly", async () => {
+    Object.defineProperty(window, 'matchMedia', { writable: true, value: vi.fn().mockImplementation(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) });
+    render(<TaskComposer sprints={dummySprints as any} availableTasks={dummyTasks as any} onClose={() => {}} onSubmit={() => {}} />);
+    const mediumRadio = screen.getByRole("radio", { name: /medium/i });
+    const highRadio = screen.getByRole("radio", { name: /high/i });
+    expect(mediumRadio).toHaveAttribute("aria-checked", "true");
+    expect(highRadio).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(highRadio);
+    await waitFor(() => {
+      expect(highRadio).toHaveAttribute("aria-checked", "true");
+      expect(mediumRadio).toHaveAttribute("aria-checked", "false");
+    });
+  });
+
+  test("executor radiogroup exposes aria-checked correctly", async () => {
+    Object.defineProperty(window, 'matchMedia', { writable: true, value: vi.fn().mockImplementation(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) });
+    render(<TaskComposer sprints={dummySprints as any} availableTasks={dummyTasks as any} onClose={() => {}} onSubmit={() => {}} />);
+    const autoRadio = screen.getByRole("radio", { name: /auto/i });
+    const cliRadio = screen.getByRole("radio", { name: /cli/i });
+    expect(autoRadio).toHaveAttribute("aria-checked", "true");
+    expect(cliRadio).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(cliRadio);
+    await waitFor(() => {
+      expect(cliRadio).toHaveAttribute("aria-checked", "true");
+      expect(autoRadio).toHaveAttribute("aria-checked", "false");
+    });
+  });
+
+  test("dependency toggle uses descriptive aria-label", async () => {
+    Object.defineProperty(window, 'matchMedia', { writable: true, value: vi.fn().mockImplementation(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) });
+    render(<TaskComposer sprints={dummySprints as any} availableTasks={dummyTasks as any} onClose={() => {}} onSubmit={() => {}} />);
+    const depButton = screen.getByRole("button", { name: /Dependency T-1 \(medium priority\): Task 1/i });
+    expect(depButton).toBeInTheDocument();
+  });
+
+  test("cycle prevented notice includes screen reader text", async () => {
+    Object.defineProperty(window, 'matchMedia', { writable: true, value: vi.fn().mockImplementation(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) });
+    // Initial task that creates a cycle scenario. T-1 depends on T-2, so T-2 editing shouldn't allow depending on T-1.
+    const initialTask = { id: "T-2", recordId: "rec2", title: "Task 2", sprintId: "1", status: "pending", priority: "medium", executorType: "auto", dependsOnTaskIds: ["rec1"] };
+    const tasksWithCycle = [
+      { id: "T-1", recordId: "rec1", title: "Task 1", sprintId: "1", status: "pending", priority: "medium", executorType: "auto", dependsOnTaskIds: ["rec2"] },
+      initialTask
+    ];
+    render(<TaskComposer sprints={dummySprints as any} availableTasks={tasksWithCycle as any} initialTask={initialTask as any} onClose={() => {}} onSubmit={() => {}} />);
+
+    // wait for cycle prevented span to show up
+    await waitFor(() => {
+      const notice = screen.getByText(/Notice:/i);
+      expect(notice).toBeInTheDocument();
+      expect(notice.parentElement?.textContent).toMatch(/Notice: Cycle Prevented/i);
+    });
+  });
+
   test("validation reveal focus moves to first invalid field", async () => {
     // Need a mock window.matchMedia for useReducedMotion
     Object.defineProperty(window, 'matchMedia', {
