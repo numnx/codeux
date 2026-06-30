@@ -1,8 +1,7 @@
-import { h, ComponentChildren, VNode, cloneElement, isValidElement, toChildArray, ComponentType } from "preact";
+import { h, ComponentChildren, VNode, cloneElement, isValidElement, toChildArray } from "preact";
 import { useEffect, useState, useId } from "preact/hooks";
 
 export interface FieldWrapperProps {
-  labelAs?: keyof h.JSX.IntrinsicElements | ComponentType<any>;
   helperTextId?: string;
   label: string;
   error?: string;
@@ -14,15 +13,17 @@ export interface FieldWrapperProps {
   valid?: boolean;
 }
 
-export function FieldWrapper({ label, error, children, htmlFor, required, helperTextId, helperText, forceTouch, valid, labelAs }: FieldWrapperProps) {
+export function FieldWrapper({ label, error, children, htmlFor, required, helperTextId, helperText, forceTouch, valid }: FieldWrapperProps) {
   const [shake, setShake] = useState(false);
   const [touched, setTouched] = useState(false);
 
   let explicitChildId: string | undefined;
   const childArray = toChildArray(children);
-  const firstValidChild = childArray.find(isValidElement);
-  if (firstValidChild) {
-    explicitChildId = (firstValidChild as any).props?.id;
+  for (const child of childArray) {
+    if (isValidElement(child) && (child as any).props?.id) {
+      explicitChildId = (child as any).props.id;
+      break;
+    }
   }
 
   const generatedId = useId();
@@ -30,13 +31,6 @@ export function FieldWrapper({ label, error, children, htmlFor, required, helper
   const showError = (touched || !!forceTouch) && !!error;
   const errorId = `${inputId}-error`;
   const actualHelperId = helperText ? (helperTextId || `${inputId}-helper`) : helperTextId;
-  const labelId = `${inputId}-label`;
-
-  const existingRole = firstValidChild ? (firstValidChild as any).props?.role : undefined;
-  const isComposite = ["radiogroup", "group", "listbox", "tree", "grid", "dialog"].includes(existingRole);
-
-  const LabelComponent = labelAs || (isComposite ? 'div' : 'label');
-  const labelProps = LabelComponent === 'label' ? { htmlFor: inputId } : { id: labelId };
 
   const [previousError, setPreviousError] = useState<string | undefined>(undefined);
   const [previousShowError, setPreviousShowError] = useState<boolean>(false);
@@ -119,10 +113,6 @@ export function FieldWrapper({ label, error, children, htmlFor, required, helper
       valid: !error ? (valid ?? (child as any).props.valid) : undefined,
     };
 
-    if (LabelComponent !== 'label' && !idAssigned) {
-      childProps["aria-labelledby"] = [labelId, (child as any).props?.["aria-labelledby"]].filter(Boolean).join(" ");
-    }
-
     if (!idAssigned) {
       childProps.id = inputId;
       idAssigned = true;
@@ -133,11 +123,11 @@ export function FieldWrapper({ label, error, children, htmlFor, required, helper
 
   return (
     <div class="flex flex-col mb-4">
-      <LabelComponent {...labelProps} class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex gap-1">
+      <label htmlFor={inputId} class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex gap-1">
         {label}
         {required && <span class="text-status-red" aria-hidden="true">*</span>}
         {required && <span class="sr-only">(Required)</span>}
-      </LabelComponent>
+      </label>
       <div
         class={`
           relative rounded-md
@@ -169,28 +159,26 @@ export function FieldWrapper({ label, error, children, htmlFor, required, helper
             {helperText}
           </div>
         )}
-        {(isVisible || isFadingOut) && (
-          <p
-            id={errorId}
-            role="alert"
-            aria-hidden={!isVisible}
-            class={`col-start-1 row-start-1 text-xs font-medium text-status-red ${
-              isAnimatingIn ? 'motion-safe:animate-form-slide-down' : ''
-            } ${
-              isFadingOut ? 'fading transition-opacity duration-150 opacity-0' : 'opacity-100'
-            }`}
-            style={isAnimatingIn ? { animationDelay: '50ms', animationFillMode: 'both' } : undefined}
-            onAnimationEnd={() => setIsAnimatingIn(false)}
-            onTransitionEnd={() => {
-              if (isFadingOut) {
-                setIsVisible(false);
-                setIsFadingOut(false);
-              }
-            }}
-          >
-            {displayedError}
-          </p>
-        )}
+        <p
+          id={errorId}
+          role="alert"
+          aria-hidden={!isVisible}
+          class={`col-start-1 row-start-1 text-xs font-medium text-status-red ${
+            isAnimatingIn ? 'motion-safe:animate-form-slide-down' : ''
+          } ${
+            isFadingOut ? 'fading transition-opacity duration-150 opacity-0' : 'opacity-100'
+          } ${!isVisible && !isFadingOut ? 'invisible' : 'visible'}`}
+          style={isAnimatingIn ? { animationDelay: '50ms', animationFillMode: 'both' } : undefined}
+          onAnimationEnd={() => setIsAnimatingIn(false)}
+          onTransitionEnd={() => {
+            if (isFadingOut) {
+              setIsVisible(false);
+              setIsFadingOut(false);
+            }
+          }}
+        >
+          {displayedError}
+        </p>
       </div>
     </div>
   );
