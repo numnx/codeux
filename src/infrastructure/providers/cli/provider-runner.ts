@@ -126,7 +126,10 @@ export interface IProviderRunner {
 export class ProviderRunner implements IProviderRunner {
   constructor(private readonly dockerRunner: IDockerRunner) { }
 
-  async runProvider(input: ProviderRunInput): Promise<ProviderRunResult> {
+  private async executeWithWorkspace<T>(
+    input: ProviderRunInput,
+    callback: (prepared: { cwd: string; cleanup: () => Promise<void> }, outputPath: string | null) => Promise<T>
+  ): Promise<T> {
     const preserveSessionWorkspace = this.shouldPreserveSessionWorkspace(input);
     const prepared = input.workflowSettings.executionMode === "DOCKER"
       ? await this.dockerRunner.ensureWorkspace({
@@ -145,36 +148,25 @@ export class ProviderRunner implements IProviderRunner {
     }
 
     try {
+      return await callback(prepared, outputPath);
+    } finally {
+      await prepared.cleanup();
+      await cleanupCodexOutputPath(outputPath, input.workflowSettings.executionMode, prepared.cwd, this.dockerRunner.removeWorkspaceDir ? this.dockerRunner.removeWorkspaceDir.bind(this.dockerRunner) : undefined);
+    }
+  }
+
+  async runProvider(input: ProviderRunInput): Promise<ProviderRunResult> {
+    return this.executeWithWorkspace(input, async (prepared, outputPath) => {
       return await this.runProviderInternal({
         ...input,
         cwd: prepared.cwd,
         codexOutputPath: outputPath,
       });
-    } finally {
-      await prepared.cleanup();
-      await cleanupCodexOutputPath(outputPath,  input.workflowSettings.executionMode,  prepared.cwd, this.dockerRunner.removeWorkspaceDir ? this.dockerRunner.removeWorkspaceDir.bind(this.dockerRunner) : undefined);
-    }
+    });
   }
 
   async runProviderForText(input: ProviderRunInput): Promise<ProviderRunResult & { text: string }> {
-    const preserveSessionWorkspace = this.shouldPreserveSessionWorkspace(input);
-    const prepared = input.workflowSettings.executionMode === "DOCKER"
-      ? await this.dockerRunner.ensureWorkspace({
-        cwd: input.cwd,
-        repoPath: input.repoPath,
-        sessionId: input.workspaceSessionId || input.sessionId,
-        preserve: preserveSessionWorkspace,
-        reuseExisting: preserveSessionWorkspace,
-      })
-      : { cwd: input.cwd, cleanup: async () => undefined };
-
-    const outputPath = resolveCodexOutputPath(input);
-
-    if (outputPath && !outputPath.startsWith("/workspace/")) {
-      await fs.mkdir(path.dirname(outputPath), { recursive: true });
-    }
-
-    try {
+    return this.executeWithWorkspace(input, async (prepared, outputPath) => {
       const result = await this.runProviderInternal({
         ...input,
         cwd: prepared.cwd,
@@ -182,19 +174,14 @@ export class ProviderRunner implements IProviderRunner {
       });
 
       const capturedText = outputPath
-        ? outputPath.startsWith("/workspace/")
-          ? ((await this.dockerRunner.readWorkspaceFile?.(prepared.cwd, outputPath).catch(() => null)) || "").trim()
-          : (await fs.readFile(outputPath, "utf8").catch(() => "")).trim()
+        ? await this.readProviderOutputPath(prepared.cwd, outputPath, input.workflowSettings.executionMode)
         : "";
 
       return {
         ...result,
         text: sanitizeInvocationOutputText(capturedText || result.usageTelemetry.transcriptText || result.stdout || result.stderr),
       };
-    } finally {
-      await prepared.cleanup();
-      await cleanupCodexOutputPath(outputPath,  input.workflowSettings.executionMode,  prepared.cwd, this.dockerRunner.removeWorkspaceDir ? this.dockerRunner.removeWorkspaceDir.bind(this.dockerRunner) : undefined);
-    }
+    });
   }
 
   private shouldPreserveSessionWorkspace(input: ProviderRunInput): boolean {
