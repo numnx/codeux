@@ -80,6 +80,8 @@ export const NotificationPanel: FunctionComponent<{
   return (
     <div
       ref={panelRef}
+      id="notification-panel"
+      role="dialog"
       aria-label="Notifications Panel"
       className="fixed inset-x-4 top-[72px] sm:inset-auto sm:absolute sm:top-full sm:right-0 mt-2 w-[23rem] max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-5rem)] overflow-y-auto overflow-x-hidden rounded-2xl border border-black/[0.08] dark:border-white/[0.08] bg-white/95 shadow-2xl backdrop-blur-2xl dark:bg-void-800/95 z-50 flex flex-col"
     >
@@ -141,14 +143,13 @@ export const NotificationPanel: FunctionComponent<{
             <li
               key={notification.id}
               data-notification-item
-              tabIndex={0}
-              onFocus={() => onMarkRead(notification.id)}
               className="group relative mb-2 rounded-2xl border border-black/[0.05] bg-white/75 p-3 text-left transition-colors hover:border-black/[0.1] hover:bg-black/[0.025] last:mb-0 dark:border-white/[0.06] dark:bg-white/[0.04] dark:hover:border-white/[0.1] dark:hover:bg-white/[0.06]"
             >
               {notification.unread ? (
                 <div className={`absolute bottom-3 left-0 top-3 w-[3px] rounded-r-full ${accentClass}`} />
               ) : null}
               <div className="flex items-start gap-3">
+                <span className="sr-only">Severity: {notification.severity}, {notification.unread ? 'Unread' : 'Read'}</span>
                 <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${classes.badge}`}>
                   <Icon className={`h-4 w-4 ${iconClass}`} strokeWidth={2.3} />
                 </div>
@@ -165,6 +166,7 @@ export const NotificationPanel: FunctionComponent<{
                   <div className="mt-3 flex items-center justify-between gap-2">
                     <button
                       type="button"
+                      aria-label={(notification.unread ? "Mark read " : "Read ") + notification.title}
                       onClick={() => onMarkRead(notification.id)}
                       className="rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 hover:bg-black/[0.04] hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:hover:bg-white/[0.06] dark:hover:text-slate-200"
                     >
@@ -174,9 +176,10 @@ export const NotificationPanel: FunctionComponent<{
                       {notification.actionLabel && notification.onAction ? (
                         <button
                           type="button"
+                          aria-label={notification.actionLabel + " for " + notification.title}
                           onClick={(e) => {
                             if (document.activeElement === e.currentTarget) {
-                              const fallback = document.querySelector('[role="main"]') || document.body;
+                              const fallback = document.getElementById('notification-trigger') || document.body;
                               (fallback as HTMLElement).focus();
                               (e.currentTarget as HTMLElement).blur();
                             }
@@ -193,7 +196,7 @@ export const NotificationPanel: FunctionComponent<{
                           type="button"
                           onClick={(e) => {
                             if (document.activeElement === e.currentTarget) {
-                              const fallback = document.querySelector('[role="main"]') || document.body;
+                              const fallback = document.getElementById('notification-trigger') || document.body;
                               (fallback as HTMLElement).focus();
                               (e.currentTarget as HTMLElement).blur();
                             }
