@@ -48,6 +48,7 @@ const cloneMcpTools = (tools: McpToolToggle[]): McpToolToggle[] => tools.map((to
 const cloneCustomMcpServers = (servers: CustomMcpServer[] = []): CustomMcpServer[] => servers.map((server) => ({
   ...server,
   headers: server.headers ? { ...server.headers } : undefined,
+  env: server.env ? { ...server.env } : undefined,
   providers: server.providers ? [...server.providers] : undefined,
 }));
 const cloneProjectAiProviderSettings = (
