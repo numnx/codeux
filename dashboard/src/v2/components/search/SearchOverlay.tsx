@@ -240,7 +240,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
                         aria-autocomplete="list"
                         aria-expanded={isOpen}
                         aria-controls="search-results-list"
-                        aria-activedescendant={!isLoading && focusedIndex >= 0 ? `search-result-${allItems[focusedIndex]?.category}-${allItems[focusedIndex]?.id}` : undefined}
+                        aria-activedescendant={!isLoading && focusedIndex >= 0 ? `search-result-${allItems[focusedIndex]?.id}` : undefined}
                         aria-label="Global search"
                         placeholder="Search sprints, tasks, agents..."
                         value={searchQuery}
@@ -274,7 +274,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
                                     onClick={onClose}
                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-black/[0.06] dark:border-white/[0.06] text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-signal-500/30 transition-colors"
                                 >
-                                    <Layers aria-hidden="true" className="w-4 h-4" />
+                                    <Layers className="w-4 h-4" />
                                     Sprints
                                 </Link>
                                 <Link
@@ -282,7 +282,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
                                     onClick={onClose}
                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-black/[0.06] dark:border-white/[0.06] text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-signal-500/30 transition-colors"
                                 >
-                                    <Activity aria-hidden="true" className="w-4 h-4" />
+                                    <Activity className="w-4 h-4" />
                                     Tasks
                                 </Link>
                                 <Link
@@ -290,20 +290,20 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
                                     onClick={onClose}
                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-black/[0.06] dark:border-white/[0.06] text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-signal-500/30 transition-colors"
                                 >
-                                    <Cpu aria-hidden="true" className="w-4 h-4" />
+                                    <Cpu className="w-4 h-4" />
                                     Agents
                                 </Link>
                             </div>
                         </div>
                     ) : allItems.length === 0 && !isLoading ? (
                         !hasProjectData ? (
-                            <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
+                            <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400" aria-live="polite" role="status">
                                 <FileX className="w-8 h-8 mb-4 opacity-50 text-status-red" />
                                 <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Project data unavailable</span>
                                 <span className="text-xs mt-1 text-slate-500 dark:text-slate-400">Unable to load project search results.</span>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
+                            <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400" aria-live="polite" role="status">
                                 <Inbox className="w-8 h-8 mb-4 opacity-50" />
                                 <span className="text-sm font-medium text-slate-900 dark:text-slate-100">No results found for '{searchQuery}'</span>
                                 <span className="text-xs mt-1 text-slate-500 dark:text-slate-400">Try adjusting your search terms or checking for typos.</span>
@@ -314,10 +314,10 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
                             {CATEGORIES.map((category) => {
                                 if (category.items?.length === 0) return null;
                                 return (
-                                    <div key={category.id} className="flex flex-col" role="group" aria-labelledby={`category-title-${category.id}`}>
-                                        <div id={`category-title-${category.id}`} className="flex items-center justify-between px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                                    <div key={category.id} className="flex flex-col">
+                                        <div className="flex items-center justify-between px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                                             <div className="flex items-center gap-2">
-                                                <category.icon aria-hidden="true" className="w-4 h-4" />
+                                                <category.icon className="w-4 h-4" />
                                                 {category.title}
                                             </div>
                                             <span className="text-[10px] font-mono opacity-60 bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">

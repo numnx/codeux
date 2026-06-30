@@ -61,10 +61,6 @@ All interaction timings automatically respect the user's system preferences or d
 - This ensures visual state changes happen instantly while preserving logical flows and React/Preact lifecycle events that depend on state transitions.
 - Do not hardcode custom fallback logic for `duration`. Use the hooks, and the components will naturally skip the animation timing.
 
-### Decorative vs State-Communicating Motion
-- **Decorative Motion:** Continuous or ambient movement (like particle effects, flowing lines, swaying ships) must be completely disabled when `prefers-reduced-motion` is true.
-- **State-Communicating Motion:** If an animation is the primary indicator of state (e.g. an animated pulsing dot for "live" or a shake for "error"), replacing the animation with a static visual equivalent is required so that comprehension is not lost. Use explicit non-animated static elements (like colored shadows, badges, or text) to convey the same meaning.
-
 ## Overlay Transitions & Focus Management
 
 All standard overlays (Dialog, DropdownMenu, Popover, Tooltip, ConfirmDialog) adhere to specific rules for transitions and accessibility:

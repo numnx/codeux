@@ -1,6 +1,5 @@
 import { lazy, Suspense } from "preact/compat";
 import type { FunctionComponent } from "preact";
-import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 const DeepOceanBackground = lazy(() => import("../chat/DeepOceanBackground.js").then((module) => ({
   default: module.DeepOceanBackground,
@@ -34,9 +33,7 @@ export interface BackgroundManagerProps {
 }
 
 export const BackgroundManager: FunctionComponent<BackgroundManagerProps> = ({ mode, animation, staticColor, isDark }) => {
-  const isReducedMotion = useReducedMotion();
-
-  if (mode === "STATIC" || isReducedMotion) {
+  if (mode === "STATIC") {
     return (
       <div
         className="fixed inset-0 overflow-hidden"

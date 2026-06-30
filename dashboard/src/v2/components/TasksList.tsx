@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useMemo, useRef, useState } from "preact/hooks";
 
 import { TaskRow } from "./ui/TaskRow.js";
 import { SprintStreamRow } from "./ui/SprintStreamRow.js";
@@ -17,8 +17,6 @@ const FILTER_OPTIONS = ["All Tasks", "Running", "Queued", "Completed"] as const;
 export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("../hooks/use-overview-page-data.js").useOverviewPageData> }> = ({ pageData }) => {
     const listRef = useRef<HTMLDivElement>(null);
     const [activeFilter, setActiveFilter] = useState<TaskFilter>("All Tasks");
-    const [statusAnnouncement, setStatusAnnouncement] = useState("");
-    const prevStatuses = useRef(new Map<string, string>());
 
     const handleFilterChange = (newFilter: TaskFilter) => {
         setActiveFilter(newFilter);
@@ -67,25 +65,8 @@ export const TasksList: FunctionComponent<{ pageData: ReturnType<typeof import("
         stagger: 0.03
     });
 
-    useEffect(() => {
-        const announcements: string[] = [];
-        for (const task of filteredTasks) {
-            const prev = prevStatuses.current.get(task.id);
-            if (prev && prev !== task.status) {
-                announcements.push(`Task ${task.id} status is now ${task.status.replace('_', ' ')}`);
-            }
-            prevStatuses.current.set(task.id, task.status);
-        }
-        if (announcements.length > 0) {
-            setStatusAnnouncement(announcements.join(', '));
-        }
-    }, [filteredTasks]);
-
     return (
         <div className="w-full relative z-10 px-2">
-            <div role="status" aria-live="polite" className="sr-only">
-                {statusAnnouncement}
-            </div>
             {/* Section Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 md:mb-12 gap-6 sm:gap-8">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">

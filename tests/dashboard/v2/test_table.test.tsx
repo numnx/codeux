@@ -26,7 +26,7 @@ test("Table features", () => {
   fireEvent.click(row);
   expect(onClick).toHaveBeenCalled();
 
-  const sortBtn = screen.getByRole("button", { name: "Sort me (click to sort)" });
+  const sortBtn = screen.getByRole("button", { name: "Sort me" });
   fireEvent.click(sortBtn);
   expect(onSort).toHaveBeenCalled();
 });

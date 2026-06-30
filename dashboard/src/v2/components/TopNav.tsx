@@ -53,7 +53,7 @@ export function useDropdownKeyboard(
 
             const focusableElements = Array.from(
                 containerRef.current.querySelectorAll<HTMLElement>(
-                    'button:not([disabled]):not([aria-disabled="true"]):not([tabindex="-1"]), a[href]:not([tabindex="-1"]), input:not([tabindex="-1"])'
+                    'button:not([disabled]), a[href], input'
                 )
             ).filter(el => el !== toggleRef.current && el.id !== 'sprint-selector-button' && el.id !== 'project-selector-button');
 
@@ -118,7 +118,7 @@ export function useDropdownKeyboard(
         } else if (!isOpen) {
             onFilterChange?.("");
             setActiveDescendantId(undefined);
-            if (toggleRef.current) {
+            if (toggleRef.current && document.activeElement && containerRef.current?.contains(document.activeElement)) {
                 toggleRef.current.focus();
             }
         }
@@ -313,6 +313,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                         id="project-selector-button"
                         aria-label={`Selected project: ${selectedProject?.name || "None"}`}
                         aria-controls="project-listbox"
+                        aria-activedescendant={dropdownOpen && filteredProjects.length > 0 ? (projectKb.activeDescendantId || `project-option-${selectedProject?.id || 'none'}`) : undefined}
                         aria-busy={projectSwitchBusy || loading ? "true" : "false"}
                         className="flex h-9 items-center gap-2.5 rounded-xl border border-black/[0.06] bg-black/[0.04] px-3.5 py-0 transition-all group hover:border-black/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 dark:border-white/[0.06] dark:bg-white/[0.04] dark:hover:border-white/[0.08]"
                     >
@@ -333,9 +334,6 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                                 <input
                                     type="text"
                                     id="project-filter-input"
-                                    role="combobox"
-                                    aria-expanded="true"
-                                    aria-autocomplete="list"
                                     aria-label="Filter projects"
                                     aria-controls="project-listbox"
                                     placeholder="Filter projects..."
@@ -345,9 +343,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                                     aria-activedescendant={projectKb.activeDescendantId}
                                     className="w-full px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-signal-500/30"
                                 />
-                                <span id="project-filter-desc" className="sr-only">
-                                    {filteredProjects.length === 0 ? "No projects found." : `${filteredProjects.length} project${filteredProjects.length === 1 ? '' : 's'} found. Use arrow keys to navigate.`}
-                                </span>
+                                <span id="project-filter-desc" className="sr-only">Use arrow keys to navigate options.</span>
                             </div>
                             <div className="max-h-[calc(100dvh-5rem)] overflow-y-auto dropdown-scrollbar">
                             {filteredProjects.length === 0 && (
@@ -377,10 +373,9 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                                     <StatusDot status={source.status} />
                                     <span className={`text-sm font-medium font-mono truncate transition-colors ${selectedProject?.id === source.id ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
                                         {source.name}
-                                        {selectedProject?.id === source.id && <span className="sr-only"> (Selected)</span>}
                                     </span>
                                     {selectedProject?.id === source.id && (
-                                        <span aria-hidden="true" className="ml-auto w-1.5 h-1.5 rounded-full bg-signal-500" />
+                                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-signal-500" />
                                     )}
                                 </button>
                             ))}
@@ -422,6 +417,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                             id="sprint-selector-button"
                             aria-label={`Selected sprint: ${sprintsLoading ? "Loading..." : selectedSprint ? formatSprintDisplay(selectedSprint, sprintKeyPrefix) : "All Sprints"}`}
                             aria-controls="sprint-listbox"
+                            aria-activedescendant={sprintDropdownOpen && sprints.length > 0 ? (sprintKb.activeDescendantId || `sprint-option-${selectedSprintId || 'none'}`) : undefined}
                             aria-busy={sprintSwitchBusy || sprintsLoading ? "true" : "false"}
                             onClick={(e) => {
                                 if (sprints.length === 0) {
@@ -458,9 +454,6 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                                     <input
                                         type="text"
                                         id="sprint-filter-input"
-                                        role="combobox"
-                                        aria-expanded="true"
-                                        aria-autocomplete="list"
                                         aria-label="Filter sprints"
                                         aria-controls="sprint-listbox"
                                         placeholder="Filter sprints..."
@@ -470,9 +463,7 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                                         aria-activedescendant={sprintKb.activeDescendantId}
                                         className="w-full px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-signal-500/30"
                                     />
-                                    <span id="sprint-filter-desc" className="sr-only">
-                                        {filteredSprints.length === 0 && !sprintFilter.toLowerCase().includes('all') ? "No sprints found." : `${filteredSprints.length + (sprintFilter === '' || 'all sprints'.includes(sprintFilter.toLowerCase()) ? 1 : 0)} sprint${filteredSprints.length + (sprintFilter === '' || 'all sprints'.includes(sprintFilter.toLowerCase()) ? 1 : 0) === 1 ? '' : 's'} found. Use arrow keys to navigate.`}
-                                    </span>
+                                    <span id="sprint-filter-desc" className="sr-only">Use arrow keys to navigate options.</span>
                                 </div>
                                 <div className="max-h-[calc(100dvh-5rem)] overflow-y-auto dropdown-scrollbar">
                                 {filteredSprints.length === 0 && !sprintFilter.toLowerCase().includes('all') && (
@@ -500,10 +491,9 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                                 >
                                     <span className={`text-sm font-medium font-mono truncate transition-colors ${selectedSprintId === null ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
                                         All Sprints
-                                        {selectedSprintId === null && <span className="sr-only"> (Selected)</span>}
                                     </span>
                                     {selectedSprintId === null && (
-                                        <span aria-hidden="true" className="ml-auto w-1.5 h-1.5 rounded-full bg-signal-500" />
+                                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-signal-500" />
                                     )}
                                 </button>
                                 )}
@@ -529,10 +519,9 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                                         <StatusDot status={sprint.status} />
                                         <span className={`text-sm font-medium font-mono truncate transition-colors ${selectedSprintId === sprint.id ? 'text-signal-600 dark:text-signal-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
                                             {formatSprintDisplay(sprint, sprintKeyPrefix)}
-                                            {selectedSprintId === sprint.id && <span className="sr-only"> (Selected)</span>}
                                         </span>
                                         {selectedSprintId === sprint.id && (
-                                            <span aria-hidden="true" className="ml-auto w-1.5 h-1.5 rounded-full bg-signal-500" />
+                                            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-signal-500" />
                                         )}
                                     </button>
                                 ))}
@@ -563,10 +552,9 @@ export const TopNav: FunctionComponent<TopNavProps> = ({ onMenuToggle, isMobile,
                         <button
                             type="button"
                             onClick={toggleNotificationMenu}
+                            onFocus={handleNotificationFocus}
                             onBlur={handleNotificationBlur}
-                            aria-haspopup="dialog"
-                            id="notification-trigger"
-                            aria-controls="notification-panel"
+                            aria-haspopup="menu"
                             aria-expanded={isNotificationMenuVisible}
                             aria-label={`Notifications: ${notifications.unreadCount} unread`}
                             className="relative w-11 h-11 flex items-center justify-center rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50"

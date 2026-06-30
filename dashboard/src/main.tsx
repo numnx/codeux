@@ -46,7 +46,7 @@ const BackgroundManager = lazy(() => import("./v2/components/backgrounds/Backgro
 })));
 
 // 0. AppLayout extracted to use context hooks
-const AppLayout = () => {
+export const AppLayout = () => {
   const { selectedProject } = useProjectData();
   const { data: effectiveSettings } = useProjectEffectiveSettings(selectedProject?.id || null);
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
@@ -189,6 +189,10 @@ const AppLayout = () => {
     <div className="app-shell flex flex-col h-dvh overflow-hidden font-sans text-slate-900 dark:text-slate-200 bg-[#F9F8F4] dark:bg-void-900 transition-colors duration-700">
       <a
         href="#main-content"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById('main-content')?.focus({ preventScroll: true });
+        }}
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[200] focus:bg-white dark:focus:bg-void-800 focus:text-slate-900 dark:focus:text-slate-100 focus:px-4 focus:py-2 focus:rounded-xl focus:shadow-lg focus:ring-2 focus:ring-signal-500 focus-visible:outline-none"
       >
         Skip to main content
@@ -243,7 +247,7 @@ const AppLayout = () => {
             isMobileMenuOpen={isMobileSidebarOpen}
           />
 
-          <main id="main-content" tabIndex={-1} aria-label="Main content" className={`flex-1 overflow-y-auto dashboard-scrollbar relative ${showSidebar ? 'pb-20 lg:pb-0' : 'pb-32'}`} style={{ contain: 'layout style' }}>
+          <main id="main-content" role="main" tabIndex={-1} aria-label="Main content" className={`flex-1 overflow-y-auto dashboard-scrollbar relative ${showSidebar ? 'pb-20 lg:pb-0' : 'pb-32'}`} style={{ contain: 'layout style' }}>
             <Suspense fallback={<div className="flex-1 p-8"><SkeletonPanel /></div>}>
               <Outlet />
             </Suspense>

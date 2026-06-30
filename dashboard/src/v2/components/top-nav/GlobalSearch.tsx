@@ -165,7 +165,6 @@ export const GlobalSearch: FunctionComponent<GlobalSearchProps> = ({ projectId, 
                     className="w-full h-9 pl-10 pr-4 sm:pr-12 bg-black/[0.04] dark:bg-white/[0.04] border border-transparent hover:border-black/[0.08] dark:hover:border-white/[0.08] rounded-xl text-sm text-left text-slate-400 focus:outline-none focus-visible:outline-none transition-all relative z-0"
                     aria-expanded={isSearchOpen}
                     aria-haspopup="dialog"
-                    aria-label="Search... (opens global search dialog)"
                 >
                     Search...
                 </button>

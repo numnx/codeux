@@ -29,7 +29,7 @@ type PageContainerProps = Omit<JSX.HTMLAttributes<HTMLElement>, "ref"> & {
   className?: string;
   containerRef?: Ref<HTMLElement>;
   padding?: PageContainerPadding;
-  as?: "div" | "main";
+  as?: "div" | "section";
   id?: string;
 };
 

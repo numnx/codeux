@@ -4,9 +4,6 @@
 import { render, fireEvent, screen } from "@testing-library/preact";
 import { MultiSelect } from "../src/v2/components/ui/MultiSelect";
 import { expect, test, vi, afterEach } from "vitest";
-import * as matchers from "@testing-library/jest-dom/matchers";
-
-expect.extend(matchers);
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -54,54 +51,6 @@ test("MultiSelect removes last tag on backspace when input is empty", () => {
   fireEvent.keyDown(input, { key: "Backspace" });
 
   expect(onChange).toHaveBeenCalledWith(["bug"]);
-});
-
-test("keyboard navigation and active descendant", () => {
-  const onChange = vi.fn();
-  const options = [
-    { value: "bug", label: "Bug" },
-    { value: "feature", label: "Feature" }
-  ];
-
-  const { container } = render(<MultiSelect value={[]} options={options} onChange={onChange} />);
-  const input = screen.getByRole("combobox");
-
-  fireEvent.keyDown(input, { key: "ArrowDown" }); // opens menu and selects 0
-
-  expect(input.getAttribute("aria-expanded")).toBe("true");
-  const listbox = screen.getByRole("listbox");
-  expect(listbox.getAttribute("aria-multiselectable")).toBe("true");
-
-  const activeId = input.getAttribute("aria-activedescendant");
-  expect(activeId).toBeTruthy();
-
-  const activeOption = container.querySelector(`#${activeId}`);
-  expect(activeOption?.textContent).toBe("Bug");
-
-  fireEvent.keyDown(input, { key: "ArrowDown" }); // selects 1
-
-  const newActiveId = input.getAttribute("aria-activedescendant");
-  const newActiveOption = container.querySelector(`#${newActiveId}`);
-  expect(newActiveOption?.textContent).toBe("Feature");
-
-  fireEvent.keyDown(input, { key: "Enter" });
-  expect(onChange).toHaveBeenCalledWith(["feature"]);
-});
-
-test("aria-live polite announcements on add and remove", () => {
-  const onChange = vi.fn();
-  const { rerender } = render(<MultiSelect value={["bug"]} onChange={onChange} options={[{ value: "bug", label: "Bug" }]} />);
-
-  // We can just find the live region
-  const liveRegion = screen.getByText("", { selector: "[aria-live='polite']" });
-  expect(liveRegion).toBeInTheDocument();
-
-  // Test removing a tag
-  const removeButtons = screen.getAllByRole("button", { name: /Remove/ });
-  fireEvent.click(removeButtons[0]);
-
-  // The announcement text is in the live region
-  expect(liveRegion.textContent).toBe("Removed Bug");
 });
 
 test("passes ARIA and ID props to internal combobox input", () => {

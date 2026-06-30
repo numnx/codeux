@@ -71,7 +71,7 @@ describe("TasksList", () => {
         expect(screen.getByText("Test Task")).toBeInTheDocument();
 
         // Change filter
-        const completedBtn = screen.getByRole("button", { name: "Completed" });
+        const completedBtn = screen.getByRole("tab", { name: "Completed" });
         await act(async () => {
             fireEvent.click(completedBtn);
         });
@@ -79,7 +79,7 @@ describe("TasksList", () => {
         expect(screen.queryByText("Test Task")).not.toBeInTheDocument();
         expect(screen.getByText("No Active Streams")).toBeInTheDocument();
 
-        const allTasksBtn = screen.getByRole("button", { name: "All Tasks" });
+        const allTasksBtn = screen.getByRole("tab", { name: "All Tasks" });
         await act(async () => {
             fireEvent.click(allTasksBtn);
         });
