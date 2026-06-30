@@ -6,6 +6,7 @@ import { planSessionActivityFetches } from "../../domain/sprint/session-sync/act
 import type { ProviderInvocationUsageRecord } from "../../contracts/execution-types.js";
 import { applyPendingTaskRuntimeReset } from "../../domain/sprint/task-reset-state.js";
 import { isCompletedTaskSettled } from "../../domain/sprint/task-merge-state.js";
+import { fetchActivitiesBounded } from "../../domain/sprint/session-sync/bounded-activity-fetch.js";
 import { hasUserReplyAfterLatestAgentRequest } from "../action-required-automation.js";
 import {
   extractProviderErrorCategory,
@@ -566,22 +567,13 @@ export const runSessionSyncStep = async (
     isLocallyTerminal
   );
 
-  const activitiesMap = new Map<string, JulesActivity[]>();
-  const chunkSize = 5;
-
-  for (let i = 0; i < sessionNameArray.length; i += chunkSize) {
-    const chunk = sessionNameArray.slice(i, i + chunkSize);
-    await Promise.all(
-      chunk.map(async (sessionName) => {
-        try {
-          const activities = await deps.fetchRecentActivities(sessionName, 5);
-          activitiesMap.set(sessionName, activities);
-        } catch {
-          deps.logger.warn("Could not fetch activities for session", { sessionName });
-        }
-      })
-    );
-  }
+  const activitiesMap = await fetchActivitiesBounded(
+    sessionNameArray,
+    5, // concurrency
+    5, // pageSize
+    deps.fetchRecentActivities,
+    deps.logger
+  );
 
   for (const task of subtasks) {
     const expectedRunKey = buildTaskRunKey(context.repoPath, context.sprintNumber, task.id);
