@@ -41,6 +41,7 @@ import {
   projectNeedsVirtualWorker,
   peekNextWorkerAttention,
   resolveWorkerExecutionMode,
+  computeReconciliationCandidates,
 } from "../domain/workers/virtual-worker-scheduling-policy.js";
 import { planVirtualWorkerCycle } from "../domain/workers/virtual-worker-cycle-plan.js";
 
@@ -242,11 +243,11 @@ export class VirtualWorkerService {
     const activeAttentionProjects = this.deps.projectAttentionService.listProjectIdsWithOpenWorkerAttention();
     const pendingDispatchProjects = this.deps.executionRepository.listProjectIdsWithPendingDispatches();
 
-    const activeProjectIds = new Set([
-      ...activeAttentionProjects,
-      ...pendingDispatchProjects,
-      ...this.activeCycles.keys()
-    ]);
+    const activeProjectIds = computeReconciliationCandidates(
+      activeAttentionProjects,
+      pendingDispatchProjects,
+      Array.from(this.activeCycles.keys())
+    );
 
     for (const projectId of activeProjectIds) {
       if (this.projectNeedsVirtualWorker(projectId, resolver)) {
