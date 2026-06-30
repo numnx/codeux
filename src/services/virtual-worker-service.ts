@@ -1,3 +1,4 @@
+import { buildProviderSettingsOverride } from "./provider-settings-override.js";
 import { randomUUID } from "crypto";
 import type { CliWorkflowSettings, DashboardSettings, GitCiRunStatus, JulesSession, ProviderId, QwenModelProviderSettings, WorkerExecutionMode, Subtask } from "../contracts/app-types.js";
 import type { WorkerTaskDispatchClaim } from "../contracts/execution-types.js";
@@ -347,32 +348,14 @@ export class VirtualWorkerService {
 
     const session = await this.deps.cliWorkflowService.startTask({
       provider,
-      providerSettingsOverride: {
-        model: resolveWorkerModelForProvider(
+      providerSettingsOverride: buildProviderSettingsOverride(
+        resolveWorkerModelForProvider(
           provider,
           task?.model || settings.workers.model,
           providerSettings.model,
         ),
-        thinkingMode: providerSettings.thinkingMode,
-        apiKey: providerSettings.apiKey,
-      qwenAuthMode: providerSettings.qwenAuthMode,
-      qwenRegion: providerSettings.qwenRegion,
-      qwenBaseUrl: providerSettings.qwenBaseUrl,
-      qwenEnvKey: providerSettings.qwenEnvKey,
-      qwenModelId: providerSettings.qwenModelId,
-      qwenProtocol: providerSettings.qwenProtocol,
-      qwenAdditionalModelProviders: providerSettings.qwenAdditionalModelProviders,
-        openCodeAuthMode: providerSettings.openCodeAuthMode,
-        openCodeProviderId: providerSettings.openCodeProviderId,
-        openCodeModelId: providerSettings.openCodeModelId,
-        openCodeBaseUrl: providerSettings.openCodeBaseUrl,
-        openCodeEnvKey: providerSettings.openCodeEnvKey,
-        openCodePackage: providerSettings.openCodePackage,
-        providerMountAuth: providerSettings.mountAuth,
-        providerAuthPath: providerSettings.authPath,
-        customBaseUrl: providerSettings.customBaseUrl,
-        customModel: providerSettings.customModel,
-      },
+        providerSettings
+      ),
       task: {
         record_id: claim.task.id,
         project_id: claim.project.id,
