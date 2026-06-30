@@ -36,119 +36,90 @@ export const MultiSelect: FunctionComponent<MultiSelectProps> = ({
 }) => {
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [announcement, setAnnouncement] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLDivElement>(null);
   const [listboxId] = useState(() => 'ms-' + Math.random().toString(36).slice(2, 7));
+  const optionIdPrefix = `${listboxId}-opt-`;
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setActiveIndex(-1);
       }
     };
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
-  const addTag = (tag: string) => {
-    const trimmed = tag.trim();
-    if (trimmed && !value.includes(trimmed)) {
-      onChange([...value, trimmed]);
-    }
-    setInputValue("");
-  };
-
-  const removeTag = (tagToRemove: string) => {
-    onChange(value.filter((tag) => tag !== tagToRemove));
-  };
-
-  const toggleOption = (optionValue: string) => {
-    const newValue = value.includes(optionValue)
-      ? value.filter((v) => v !== optionValue)
-      : [...value, optionValue];
-    onChange(newValue);
-  };
-
   const filteredOptions = options.filter(opt =>
     opt.label.toLowerCase().includes(inputValue.toLowerCase()) ||
     opt.value.toLowerCase().includes(inputValue.toLowerCase())
   );
 
-  const getFocusedIndex = () => {
-    if (!listboxRef.current) return -1;
-    const items = Array.from(listboxRef.current.querySelectorAll('[role="option"]')) as HTMLElement[];
-    return items.findIndex(item => item === document.activeElement);
+  const addTag = (tag: string) => {
+    const trimmed = tag.trim();
+    if (trimmed && !value.includes(trimmed)) {
+      onChange([...value, trimmed]);
+      setAnnouncement(`Added ${trimmed}`);
+    }
+    setInputValue("");
+    setActiveIndex(-1);
   };
 
-  const focusOption = (index: number) => {
-    if (!listboxRef.current) return;
-    const items = Array.from(listboxRef.current.querySelectorAll('[role="option"]')) as HTMLElement[];
-    if (items[index]) {
-      items[index].focus();
-    }
+  const removeTag = (tagToRemove: string) => {
+    onChange(value.filter((tag) => tag !== tagToRemove));
+    const matchedOption = options.find(o => o.value === tagToRemove);
+    setAnnouncement(`Removed ${matchedOption ? matchedOption.label : tagToRemove}`);
+    inputRef.current?.focus();
+  };
+
+  const toggleOption = (optionValue: string) => {
+    const isAdding = !value.includes(optionValue);
+    const newValue = isAdding
+      ? [...value, optionValue]
+      : value.filter((v) => v !== optionValue);
+    onChange(newValue);
+
+    const matchedOption = options.find(o => o.value === optionValue);
+    const label = matchedOption ? matchedOption.label : optionValue;
+    setAnnouncement(isAdding ? `Selected ${label}` : `Unselected ${label}`);
+    inputRef.current?.focus();
   };
 
   const handleInputKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
-      addTag(inputValue);
+      if (isOpen && activeIndex >= 0 && activeIndex < filteredOptions.length) {
+        toggleOption(filteredOptions[activeIndex].value);
+      } else {
+        addTag(inputValue);
+      }
     } else if (e.key === "Backspace" && inputValue === "" && value.length > 0) {
       removeTag(value[value.length - 1]);
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       if (!isOpen) {
         setIsOpen(true);
-        // Focus first option after render
-        setTimeout(() => focusOption(0), 0);
+        setActiveIndex(0);
       } else {
-        focusOption(0);
+        setActiveIndex((prev) => (prev < filteredOptions.length - 1 ? prev + 1 : prev));
       }
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       if (!isOpen) {
         setIsOpen(true);
-        // Focus last option after render
-        setTimeout(() => focusOption(filteredOptions.length - 1), 0);
+        setActiveIndex(filteredOptions.length - 1);
       } else {
-        focusOption(filteredOptions.length - 1);
+        setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
       setIsOpen(false);
-    }
-  };
-
-  const handleListboxKeyDown = (e: KeyboardEvent) => {
-    const currentIndex = getFocusedIndex();
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      if (currentIndex < filteredOptions.length - 1) {
-        focusOption(currentIndex + 1);
-      }
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      if (currentIndex > 0) {
-        focusOption(currentIndex - 1);
-      } else {
-        inputRef.current?.focus();
-      }
-    } else if (e.key === "Home") {
-      e.preventDefault();
-      focusOption(0);
-    } else if (e.key === "End") {
-      e.preventDefault();
-      focusOption(filteredOptions.length - 1);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      setIsOpen(false);
-      inputRef.current?.focus();
-    } else if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      if (currentIndex >= 0 && currentIndex < filteredOptions.length) {
-        toggleOption(filteredOptions[currentIndex].value);
-      }
+      setActiveIndex(-1);
     }
   };
 
@@ -167,6 +138,9 @@ export const MultiSelect: FunctionComponent<MultiSelectProps> = ({
 
   return (
     <div className={`relative ${className}`} ref={containerRef}>
+      <span aria-live="polite" className="sr-only">
+        {announcement}
+      </span>
       <div
         className={`flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-[0.95rem] border border-black/[0.06] bg-transparent px-3 py-1.5 transition-colors focus-within:border-signal-500 dark:border-white/[0.07] ${ariaInvalid === 'true' || ariaInvalid === true ? 'border-status-red' : ''}`}
         onClick={() => {
@@ -209,10 +183,12 @@ export const MultiSelect: FunctionComponent<MultiSelectProps> = ({
           aria-invalid={ariaInvalid}
           aria-errormessage={ariaErrorMessage}
           aria-required={ariaRequired}
+          aria-activedescendant={activeIndex >= 0 && filteredOptions[activeIndex] ? `${optionIdPrefix}${filteredOptions[activeIndex].value}` : undefined}
           value={inputValue}
           onInput={(e) => {
             setInputValue((e.target as HTMLInputElement).value);
             setIsOpen(true);
+            setActiveIndex(-1);
           }}
           onKeyDown={handleInputKeyDown}
           onBlur={handleBlur}
@@ -225,19 +201,22 @@ export const MultiSelect: FunctionComponent<MultiSelectProps> = ({
         <div
           id={listboxId}
           role="listbox"
+          aria-multiselectable="true"
           ref={listboxRef}
-          onKeyDown={handleListboxKeyDown}
           className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-black/[0.08] bg-white py-1 shadow-lg dark:border-white/[0.08] dark:bg-void-800"
         >
-          {filteredOptions.map((option) => {
+          {filteredOptions.map((option, index) => {
             const isSelected = value.includes(option.value);
+            const isActive = index === activeIndex;
             return (
               <div
+                id={`${optionIdPrefix}${option.value}`}
                 key={option.value}
                 role="option"
                 aria-selected={isSelected}
-                tabIndex={-1}
-                className={`flex cursor-pointer items-center px-3 py-2 text-xs hover:bg-black/[0.04] dark:hover:bg-white/[0.05] focus:bg-black/[0.04] dark:focus:bg-white/[0.05] focus:ring-1 focus:ring-inset focus:ring-signal-500/50 outline-none ${
+                className={`flex cursor-pointer items-center px-3 py-2 text-xs hover:bg-black/[0.04] dark:hover:bg-white/[0.05] ${
+                  isActive ? 'bg-black/[0.04] dark:bg-white/[0.05] ring-1 ring-inset ring-signal-500/50' : ''
+                } outline-none ${
                   isSelected ? "bg-signal-500/10 text-signal-700 dark:text-signal-400" : "text-slate-700 dark:text-slate-300"
                 }`}
                 onMouseDown={(e) => {
@@ -252,6 +231,7 @@ export const MultiSelect: FunctionComponent<MultiSelectProps> = ({
                   type="checkbox"
                   checked={isSelected}
                   readOnly
+                  aria-hidden="true"
                   tabIndex={-1}
                   className="mr-2 h-3 w-3 rounded border-slate-300 text-signal-500 focus:ring-signal-500 dark:border-white/[0.18] dark:bg-transparent pointer-events-none"
                 />
