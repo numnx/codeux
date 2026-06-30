@@ -114,6 +114,9 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
   const ignoredRequestIdsRef = useRef<Set<string>>(new Set());
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const isUnmountedRef = useRef(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const goalInputRef = useRef<HTMLTextAreaElement>(null);
+
   const previousDefaultsRef = useRef({
     planningAgentPresetId: defaultPlanningAgentPresetId || null,
     agentRoutingMode: defaultAgentRoutingMode,
@@ -313,6 +316,13 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     if (!state.name.trim() || !state.goal.trim()) {
       state.setHasAttemptedSubmit(true);
       state.setHasAttemptedImprove(true);
+      if (!state.name.trim()) {
+        nameInputRef.current?.focus();
+        setError("Sprint name is required");
+      } else if (!state.goal.trim()) {
+        goalInputRef.current?.focus();
+        setError("Prompt is required to plan");
+      }
       return;
     }
     previousFocusRef.current = document.activeElement as HTMLElement | null;
@@ -380,6 +390,8 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
     event.preventDefault();
     if (!state.name.trim()) {
       state.setHasAttemptedSubmit(true);
+      nameInputRef.current?.focus();
+      setError("Sprint name is required");
       return;
     }
 
@@ -669,6 +681,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
               return (
                 <div className="relative">
                   <input
+                    ref={nameInputRef}
                     type="text"
                     value={state.name}
                     onInput={(event) => state.setName((event.target as HTMLInputElement).value)}
@@ -735,6 +748,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                               ? "border-ember-500/20 bg-ember-500/10 text-ember-600 dark:text-ember-400"
                               : "border-slate-900/10 bg-slate-900/[0.06] text-slate-800 dark:border-white/10 dark:bg-white/[0.07] dark:text-white"
                           }`}>
+                            <span className="sr-only">{issue.provider === "gitlab" ? "Gitlab issue" : issue.provider === "jira" ? "Jira issue" : "GitHub issue"}</span>
                             <ProviderIcon className="h-4 w-4" strokeWidth={2.1} />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -751,7 +765,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-black/[0.05] hover:text-slate-900 dark:hover:bg-white/[0.06] dark:hover:text-white"
-                            aria-label={`Open ${issue.title}`}
+                            aria-label={`Open external link for ${issue.title}`}
                           >
                             <ExternalLink className="h-3.5 w-3.5" strokeWidth={2.2} />
                           </a>
@@ -774,6 +788,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                           <button
                             type="button"
                             onClick={() => onRemoveLinkedIssue(issue)}
+                            aria-label={`Remove linked issue ${issue.title}`}
                             className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-status-red"
                           >
                             Remove Link
@@ -799,6 +814,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                   return (
                     <div className="relative h-full">
                       <textarea
+                        ref={goalInputRef}
                         value={state.goal}
                         onInput={(event) => state.setGoal((event.target as HTMLTextAreaElement).value)}
                         onBlur={() => setTouchedGoal(true)}
@@ -960,6 +976,8 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             </button>
             <button
               type="button"
+              aria-busy={isBusy}
+              aria-label={isBusy ? "Cancel Active Request" : "Cancel"}
               onClick={isBusy ? handleCancel : onClose}
               className={`rounded-[1.2rem] border px-5 py-3 text-sm font-semibold transition-colors ${
                 isBusy

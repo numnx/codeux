@@ -157,6 +157,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
           <div className="flex flex-col items-center">
             <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">ETA</div>
             <div className="font-mono text-xl font-medium tracking-tight text-slate-900 dark:text-white">
+              <span className="sr-only">ETA: </span>
               {String(Math.floor(Math.max(0, planningEta - elapsedMs) / 60000)).padStart(2, "0")}:{String(Math.floor((Math.max(0, planningEta - elapsedMs) % 60000) / 1000)).padStart(2, "0")}
             </div>
           </div>
@@ -164,6 +165,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
           <div className="flex flex-col items-center">
             <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Elapsed</div>
             <div className="font-mono text-xl font-medium tracking-tight text-slate-500">
+              <span className="sr-only">Elapsed: </span>
               {String(Math.floor(elapsedMs / 60000)).padStart(2, "0")}:{String(Math.floor((elapsedMs % 60000) / 1000)).padStart(2, "0")}
             </div>
           </div>

@@ -55,6 +55,7 @@ describe("SprintComposer", () => {
 
     expect(screen.getByText("Sprint name is required")).toBeInTheDocument();
     expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(document.activeElement).toBe(input);
 
     // Test that the form-shake class is not applied due to reduced motion
     expect(input).not.toHaveClass("animate-form-shake");
@@ -82,6 +83,7 @@ describe("SprintComposer", () => {
 
     expect(screen.getByText("Sprint name is required")).toBeInTheDocument();
     expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(document.activeElement).toBe(input);
 
     // Test that the form-shake class IS applied due to normal motion
     expect(input).toHaveClass("animate-form-shake");

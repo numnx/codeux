@@ -35,6 +35,8 @@ This document outlines the design system for the Sprints page and related planni
 *   Visual alignment with the rest of the sprints workspace.
 *   Consistent treatment for async feedback states, planning ETA indicators, and linked issue chips.
 *   The expanded task append flows should transition smoothly and maintain context.
+*   **Accessibility:** Ensure all form fields and action buttons expose their states appropriately (`aria-busy`, `aria-invalid`, etc.). On validation failure, shift focus to the first invalid field.
+*   **Async Feedback:** Include a live status path (`aria-live`) for planning progress, cancellation, success, and failure. Progress indicators must remain comprehensible (e.g. using visually hidden `.sr-only` text) even when reduced motion is enabled.
 
 ### Action Menus & Import Surfaces
 
