@@ -36,12 +36,17 @@ jobs:
         if: steps.nm-cache-e2e.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Restore Vite & compilation caches
+      # Cache only Vite's transform cache — NOT the server tsc incremental
+      # state (.cache/tsc). The server build runs `tsc --incremental` emitting
+      # to dist/, but dist/ is not cached here. Restoring the .tsbuildinfo
+      # without its matching dist/ makes incremental tsc consider the output
+      # up-to-date and emit nothing, leaving dist/index.js absent — which then
+      # crashes the Playwright webServer (`node dist/index.js`). Dropping the
+      # tsc cache forces a full server emit on every run.
+      - name: Restore Vite cache
         uses: actions/cache@v5
         with:
-          path: |
-            .cache/vite
-            .cache/tsc
+          path: .cache/vite
           key: ${{ runner.os }}-e2e-cache-${{ hashFiles('package.json', 'pnpm-lock.yaml', 'vite.config.ts', 'tsconfig.json') }}
 
       - name: Build server & dashboard
