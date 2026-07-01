@@ -27,3 +27,8 @@ For empty states on the Agents page, avoid generic `<EmptyState />` implementati
 - Use `flex-col-reverse` for primary-secondary layouts so side panels (like roster) stack below editors on small viewports.
 - Apply `min-w-0` aggressively in `flex` containers and flex children where text truncation is required.
 - Ensure action button clusters wrap natively using `flex-wrap` and preserve alignment.
+
+## Editor and Modal Feedback Patterns
+- **Save Feedback:** Forms should use `useActionFeedback` and wrap the header area in an `<ActionFeedbackRegion>` to present transient success or error states directly within the editor's visual flow rather than a global toast.
+- **Focus Management:** Floating manager panels (e.g. MCP Manage, Memory Config) must immediately transfer focus to their internal `Close` controls upon mounting so screen reader users aren't stranded in the background layout.
+- **Disabled Explanations:** When tools or features are disabled because a preset is read-only or not in edit mode, ensure the disabled state is accompanied by an explicit `title` or tooltip explaining the condition (e.g. "Edit mode required to change MCP settings").

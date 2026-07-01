@@ -3,6 +3,7 @@
 import { h } from "preact";
 import { describe, expect, afterEach, vi, it } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { ActionFeedbackRegion } from "../../ui/ActionFeedbackRegion.js";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { AgentPresetEditorPanel } from "../AgentPresetEditorPanel.js";
 import { DEFAULT_AGENT_MEMORY_CONFIG, type AgentMemoryConfig } from "../../../memory-types.js";
@@ -28,7 +29,7 @@ vi.mock("gsap", () => ({
 }));
 
 vi.mock("../AgentAvatarStage.js", () => ({
-  AgentAvatarStage: () => <div data-testid="avatar-stage" />,
+  AgentAvatarStage: ({ onRandomize }: any) => <div data-testid="avatar-stage"><button onClick={onRandomize}>Randomize appearance</button></div>,
 }));
 
 vi.mock("../AgentAvatarCustomizer.js", () => ({
@@ -206,9 +207,9 @@ describe("AgentPresetEditorPanel", () => {
   });
 
   it("provides visual and accessible feedback when randomize is clicked", async () => {
-    render(<AgentPresetEditorPanel preset={makePreset()} saving={false} onSave={vi.fn()} onCancel={vi.fn()} />);
+    render(<div id="test-wrapper"><ActionFeedbackRegion status="success" message="Avatar randomized" /><AgentPresetEditorPanel preset={makePreset()} saving={false} onSave={vi.fn()} onCancel={vi.fn()} /></div>);
 
-    const randomizeBtn = screen.getByRole("button", { name: /Randomize/i });
+    const randomizeBtn = screen.getByRole("button", { name: /Randomize appearance/i });
     fireEvent.click(randomizeBtn);
 
     expect(await screen.findByText("Avatar randomized")).toBeInTheDocument();

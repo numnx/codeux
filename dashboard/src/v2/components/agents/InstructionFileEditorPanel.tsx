@@ -7,6 +7,8 @@ import {
 } from "lucide-preact";
 import type { InstructionFileSummary, InstructionFileContent } from "../../lib/instruction-file-api.js";
 import { fetchInstructionFile, saveInstructionFile } from "../../lib/instruction-file-api.js";
+import { useActionFeedback } from "../../hooks/use-action-feedback.js";
+import { ActionFeedbackRegion } from "../ui/ActionFeedbackRegion.js";
 import { ProviderBrandIcon } from "../providers/ProviderBrandIcon.js";
 import { BorderTrace } from "../ui/BorderTrace.js";
 import { MARKDOWN_PROSE_CLASS } from "../ui/MarkdownEditorField.js";
@@ -35,6 +37,7 @@ export const InstructionFileEditorPanel: FunctionComponent<{
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const saveFeedback = useActionFeedback();
   const [content, setContent] = useState("");
   const [loadedContent, setLoadedContent] = useState("");
   const [exists, setExists] = useState(file.exists);
@@ -132,6 +135,7 @@ export const InstructionFileEditorPanel: FunctionComponent<{
       <BorderTrace accentHex={accentHex} />
 
       {/* ── Sticky header ── */}
+      <ActionFeedbackRegion {...saveFeedback.feedback} onDismiss={() => saveFeedback.clearFeedback()} clearError={() => { setError(null); saveFeedback.clearError(); }} retryAction={error ? handleSave : undefined} retryLabel="Retry Save" />
       <div className="sticky top-0 z-20 flex flex-col gap-4 border-b border-black/[0.05] bg-white/75 px-6 py-5 backdrop-blur-2xl md:flex-row md:items-center md:justify-between md:px-8 md:py-6 dark:border-white/[0.05] dark:bg-void-800/70">
         <div className="flex min-w-0 items-center gap-3.5">
           <div

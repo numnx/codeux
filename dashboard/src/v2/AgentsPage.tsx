@@ -370,7 +370,7 @@ export const AgentsPage: FunctionComponent = () => {
 
       {/* Content */}
       {!selectedProject ? (
-        <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.9rem] border border-dashed border-black/[0.08] bg-white/40 px-8 py-16 text-center backdrop-blur-2xl dark:border-white/[0.08] dark:bg-void-800/40">
+        <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.9rem] border border-dashed border-black/[0.1] bg-white/40 px-8 py-16 text-center backdrop-blur-2xl dark:border-white/[0.08] dark:bg-void-800/40">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-signal-500/10 text-signal-600 shadow-sm ring-1 ring-slate-900/5 dark:bg-signal-500/15 dark:text-signal-400 dark:ring-white/[0.06]">
             <Bot className="h-8 w-8 text-signal-600 dark:text-signal-400" strokeWidth={1.2} />
           </div>
@@ -378,7 +378,7 @@ export const AgentsPage: FunctionComponent = () => {
           <p className="max-w-sm text-sm leading-relaxed text-slate-500 dark:text-slate-400">Choose a project from the top navigation and your roster of agents will load here.</p>
         </div>
       ) : presets.length === 0 && instructionFiles.length === 0 && !loading ? (
-        <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.9rem] border border-dashed border-black/[0.08] bg-white/40 px-8 py-16 text-center backdrop-blur-2xl dark:border-white/[0.08] dark:bg-void-800/40">
+        <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.9rem] border border-dashed border-black/[0.1] bg-white/40 px-8 py-16 text-center backdrop-blur-2xl dark:border-white/[0.08] dark:bg-void-800/40">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-signal-500/10 text-signal-600 shadow-sm ring-1 ring-slate-900/5 dark:bg-signal-500/15 dark:text-signal-400 dark:ring-white/[0.06]">
             <Bot className="h-8 w-8 text-signal-600 dark:text-signal-400" strokeWidth={1.2} />
           </div>
@@ -491,7 +491,7 @@ export const AgentsPage: FunctionComponent = () => {
                 />
               )
             ) : (
-              <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.9rem] border border-dashed border-black/[0.08] bg-white/40 px-8 py-16 text-center backdrop-blur-2xl dark:border-white/[0.08] dark:bg-void-800/40">
+              <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-[1.9rem] border border-dashed border-black/[0.1] bg-white/40 px-8 py-16 text-center backdrop-blur-2xl dark:border-white/[0.08] dark:bg-void-800/40">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-signal-500/10 text-signal-600 dark:bg-signal-500/15 dark:text-signal-400">
                   <Bot className="h-7 w-7" strokeWidth={1.6} />
                 </div>

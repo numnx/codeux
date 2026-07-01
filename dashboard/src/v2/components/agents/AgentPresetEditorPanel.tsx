@@ -36,6 +36,7 @@ import { BorderTrace } from "../ui/BorderTrace.js";
 import { ConfirmDialog } from "../ui/ConfirmDialog.js";
 import { MarkdownEditorField } from "../ui/MarkdownEditorField.js";
 import { getAccentHex, generateRandomAgentAvatar } from "../../lib/agent-avatar.js";
+import { useActionFeedback } from "../../hooks/use-action-feedback.js";
 import { defaultAgentMcpAccess, normalizeAgentMcpAccess } from "../../lib/agent-mcp-display.js";
 import { estimateTokens, formatTokenCount } from "../../lib/token-estimate.js";
 
@@ -248,9 +249,12 @@ export const AgentPresetEditorPanel: FunctionComponent<{
 
   const accentHex = getAccentHex(avatarConfig?.accent);
 
+  const randomizeFeedback = useActionFeedback();
+
   const handleRandomizeAvatar = (): void => {
     const seed = Date.now().toString(36) + Math.random().toString(36).substring(2);
     setAvatarConfig(generateRandomAgentAvatar(seed));
+    randomizeFeedback.setSuccess("Avatar randomized");
   };
 
   /* Reset when preset switches */
