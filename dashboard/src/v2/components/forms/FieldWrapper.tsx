@@ -1,5 +1,6 @@
 import { h, ComponentChildren, VNode, cloneElement, isValidElement, toChildArray } from "preact";
 import { useEffect, useState, useId } from "preact/hooks";
+import { useInteractionTokens } from "../../lib/motion/tokens.js";
 
 export interface FieldWrapperProps {
   helperTextId?: string;
@@ -14,6 +15,7 @@ export interface FieldWrapperProps {
 }
 
 export function FieldWrapper({ label, error, children, htmlFor, required, helperTextId, helperText, forceTouch, valid }: FieldWrapperProps) {
+  const tokens = useInteractionTokens();
   const [shake, setShake] = useState(false);
   const [touched, setTouched] = useState(false);
 
@@ -74,9 +76,7 @@ export function FieldWrapper({ label, error, children, htmlFor, required, helper
 
   // Only include helperId if there's no error showing, to prevent redundant announcements
   const wrapperDescribedByIds = [];
-  if (showError && errorId) {
-    wrapperDescribedByIds.push(errorId);
-  } else if (actualHelperId) {
+  if (!showError && actualHelperId) {
     wrapperDescribedByIds.push(actualHelperId);
   }
   const wrapperDescribedBy = wrapperDescribedByIds.length > 0 ? wrapperDescribedByIds.join(" ") : undefined;
@@ -111,6 +111,7 @@ export function FieldWrapper({ label, error, children, htmlFor, required, helper
         existingOnBlur?.(e);
       },
       valid: !error ? (valid ?? (child as any).props.valid) : undefined,
+      style: { transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease, ...((child as any)?.props?.style || {}) }
     };
 
     if (!idAssigned) {
@@ -132,12 +133,12 @@ export function FieldWrapper({ label, error, children, htmlFor, required, helper
         class={`
           relative rounded-md
           ${shake && showError ? 'motion-safe:animate-form-shake' : ''}
-          ${showError ? 'ring-1 ring-status-red transition-shadow duration-200 ease-in-out' : 'transition-shadow duration-200 ease-in-out'}
+          ${showError ? 'ring-1 ring-status-red transition-shadow ease-in-out' : 'transition-shadow ease-in-out'}
         `}
       >
         <div class={`
-          [&_input]:transition-colors [&_input]:duration-200 [&_input]:ease-in-out
-          [&_textarea]:transition-colors [&_textarea]:duration-200 [&_textarea]:ease-in-out
+          [&_input]:transition-colors [&_input]:ease-in-out
+          [&_textarea]:transition-colors [&_textarea]:ease-in-out
           ${showError ? '[&_input]:border-status-red [&_textarea]:border-status-red [&_input]:ring-status-red [&_textarea]:ring-status-red' : ''}
         `}>
           {child}
@@ -166,9 +167,9 @@ export function FieldWrapper({ label, error, children, htmlFor, required, helper
           class={`col-start-1 row-start-1 text-xs font-medium text-status-red ${
             isAnimatingIn ? 'motion-safe:animate-form-slide-down' : ''
           } ${
-            isFadingOut ? 'fading transition-opacity duration-150 opacity-0' : 'opacity-100'
+            isFadingOut ? 'fading transition-opacity opacity-0' : 'opacity-100'
           } ${!isVisible && !isFadingOut ? 'invisible' : 'visible'}`}
-          style={isAnimatingIn ? { animationDelay: '50ms', animationFillMode: 'both' } : undefined}
+          style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease, ...(isAnimatingIn ? { animationDelay: '50ms', animationFillMode: 'both' } : {}) }}
           onAnimationEnd={() => setIsAnimatingIn(false)}
           onTransitionEnd={() => {
             if (isFadingOut) {

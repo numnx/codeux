@@ -44,7 +44,7 @@ export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger
       role="switch"
       onClick={() => onChange(!value)}
       disabled={disabled}
-      className={`group relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 focus-visible:ring-[var(--color-accent-primary)] disabled:cursor-not-allowed disabled:opacity-50 motion-safe:enabled:active:scale-[0.98] enabled:active:brightness-95 dark:enabled:active:brightness-110 ${
+      className={`group relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 focus-visible:ring-[var(--accent-focus-ring)] disabled:cursor-not-allowed disabled:opacity-50 motion-safe:enabled:active:scale-[0.98] enabled:active:brightness-95 dark:enabled:active:brightness-110 ${
         value
           ? danger
             ? "border-status-red/40 bg-status-red shadow-[0_0_16px_rgba(227,0,15,0.24)] enabled:hover:bg-status-red/90"
@@ -56,11 +56,13 @@ export const Toggle: FunctionComponent<ToggleProps> = ({ value, onChange, danger
     >
       <span
         aria-hidden
+        style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}
         className={`absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.28),rgba(255,255,255,0))] transition-opacity ${value ? "opacity-100" : "opacity-40"}`}
       />
       <span
         ref={thumbRef}
-        className={`absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-[0_2px_7px_rgba(0,0,0,0.18)] ${!disabled ? "group-enabled:group-active:w-6" : ""} ${
+        style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}
+        className={`absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full transition-[width] bg-white shadow-[0_2px_7px_rgba(0,0,0,0.18)] ${!disabled ? "group-enabled:group-active:w-6" : ""} ${
           value ? "group-enabled:group-active:translate-x-4" : ""
         }`}
       >

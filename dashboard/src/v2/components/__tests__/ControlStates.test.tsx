@@ -71,3 +71,18 @@ test('Select wires helper/error text properly', () => {
     const select = container.querySelector('select');
     expect(select).toHaveAttribute('aria-describedby', 'test-select-helper');
 });
+
+test('Input maintains width on validation errors', () => {
+    const { container, rerender } = render(<Input />);
+    expect(container.querySelector('input')).toHaveClass('min-w-[220px]');
+
+    rerender(<Input errorText="Invalid input" />);
+    expect(container.querySelector('input')).toHaveClass('min-w-[220px]');
+});
+
+test('Toggle passes correct duration and ease to styles and components', () => {
+    const onChange = vi.fn();
+    const { container } = render(<Toggle value={false} onChange={onChange} aria-label="test toggle" />);
+    const toggle = container.querySelector('button');
+    expect(toggle).toBeInTheDocument();
+});

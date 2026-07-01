@@ -67,14 +67,14 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
   useMagnetic(buttonRef, contentRef, { enabled: variant === "primary" || variant === "signal" });
 
   useLayoutEffect(() => {
-    if (isPending && buttonRef.current && fixedWidthRef.current === null) {
+    if ((isPending || isSuccess || isError) && buttonRef.current && fixedWidthRef.current === null) {
       fixedWidthRef.current = buttonRef.current.offsetWidth;
       buttonRef.current.style.width = `${fixedWidthRef.current}px`;
-    } else if (!isPending && buttonRef.current) {
+    } else if (!isPending && !isSuccess && !isError && buttonRef.current) {
       fixedWidthRef.current = null;
       buttonRef.current.style.width = "";
     }
-  }, [isPending]);
+  }, [isPending, isSuccess, isError]);
 
   const previousState = useRef({ isPending, isSuccess, isError });
   useLayoutEffect(() => {
@@ -188,7 +188,7 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
     [onClick, isPending, setPending, setSuccess, setError]
   );
 
-  const baseClasses = `group/btn inline-flex items-center justify-center gap-2 font-bold ${SHARED_INTERACTION_CLASSES}`;
+  const baseClasses = `group/btn min-w-0 inline-flex items-center justify-center gap-2 font-bold ${SHARED_INTERACTION_CLASSES}`;
   const variantClasses = VARIANTS[variant];
   const sizeClasses = SIZES[size];
 
@@ -209,7 +209,7 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
       className={`${baseClasses} ${variantClasses} ${sizeClasses} ${overrideClasses} relative overflow-hidden ${className}`}
     >
 
-      <div ref={contentRef} className={`flex items-center justify-center gap-2`}>
+      <div ref={contentRef} className={`flex items-center justify-center gap-2 min-w-0`}>
         {(Icon || isSuccess || isError) && (
           <div ref={iconContainerRef} className="relative flex items-center justify-center w-4 h-4 shrink-0">
             <div data-active={!isPending && !isSuccess && !isError} className={`absolute inset-0 flex items-center justify-center transition-all  ${isPending || isSuccess || isError ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"}`}
@@ -226,8 +226,8 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
             </div>
           </div>
         )}
-        <div className="relative flex items-center justify-center">
-          <span ref={labelRef} className="flex items-center justify-center gap-2" style={{ opacity: isPending ? 0 : 1 }}>{children}</span>
+        <div className="relative flex items-center justify-center min-w-0">
+          <span ref={labelRef} className="flex items-center justify-center gap-2 truncate min-w-0" style={{ opacity: isPending ? 0 : 1 }}>{children}</span>
           <div ref={spinnerRef} className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ opacity: isPending ? 1 : 0, transform: isPending ? "scale(1)" : "scale(0.7)" }}>
             <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
           </div>
