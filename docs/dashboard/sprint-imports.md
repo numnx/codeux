@@ -77,3 +77,5 @@ Selected Jira issues are loaded through the same prompt-context path as GitHub/G
 `Settings -> Sprint -> Git Flow -> Auto-close linked issues` controls whether imported GitHub/GitLab issues are closed automatically. `Settings -> Integrations -> Jira -> Auto-close Jira issues` separately controls Jira transitions.
 
 When enabled, the sprint loop closes linked issues only after the sprint reaches terminal completion and the main merge gate is no longer blocking. GitHub/GitLab issues are closed through their host APIs or `gh`; Jira issues are moved through the configured transition. Closing failures are recorded per issue and surfaced in the sprint completion report without hiding the sprint result.
+
+- The import flow supports keyboard navigation, and returns focus to the origin button upon closing.

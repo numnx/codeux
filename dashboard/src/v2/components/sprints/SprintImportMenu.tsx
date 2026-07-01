@@ -71,6 +71,7 @@ export const SprintImportMenu = ({ disabled, onImportMarkdown, onImportIssues, o
             role="menuitem"
             onClick={() => {
               setIsOpen(false);
+              containerRef.current?.querySelector("button")?.focus();
               onImportMarkdown();
             }}
             className="group flex w-full items-center gap-3 rounded-[0.9rem] px-3 py-2.5 text-left transition-all hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
@@ -93,6 +94,7 @@ export const SprintImportMenu = ({ disabled, onImportMarkdown, onImportIssues, o
             role="menuitem"
             onClick={() => {
               setIsOpen(false);
+              containerRef.current?.querySelector("button")?.focus();
               onImportIssues();
             }}
             className="group flex w-full items-center gap-3 rounded-[0.9rem] px-3 py-2.5 text-left transition-all hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
@@ -115,6 +117,7 @@ export const SprintImportMenu = ({ disabled, onImportMarkdown, onImportIssues, o
             role="menuitem"
             onClick={() => {
               setIsOpen(false);
+              containerRef.current?.querySelector("button")?.focus();
               onImportIssues();
             }}
             className="group flex w-full items-center gap-3 rounded-[0.9rem] px-3 py-2.5 text-left transition-all hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
@@ -137,6 +140,7 @@ export const SprintImportMenu = ({ disabled, onImportMarkdown, onImportIssues, o
             role="menuitem"
             onClick={() => {
               setIsOpen(false);
+              containerRef.current?.querySelector("button")?.focus();
               onImportJira?.();
             }}
             className="group flex w-full items-center gap-3 rounded-[0.9rem] px-3 py-2.5 text-left transition-all hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
