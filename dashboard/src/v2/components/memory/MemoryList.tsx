@@ -123,9 +123,10 @@ export const MemoryList: FunctionComponent<{
     if (renderedNodes.length === 0) {
         const isEmpty = nodes.length === 0;
         const message = isEmpty ? "No memories exist" : "No memories match your search or filters";
+        const emptyQueryAnnouncement = searchQuerySignal.value && filteredNodes.value.length === 0 ? "No results found for " + searchQuerySignal.value : message;
         return (
             <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400">
-                <div className="sr-only" aria-live="polite" aria-atomic="true">{message}</div>
+                <div className="sr-only" aria-live="polite" aria-atomic="true">{emptyQueryAnnouncement}</div>
                 <p className="text-sm font-medium">{message}</p>
             </div>
         );

@@ -46,7 +46,10 @@ export const AddMemoryModal: FunctionComponent<{
                 role="dialog" aria-modal="true" aria-labelledby="add-memory-title">
                 <h3 id="add-memory-title" className="text-lg font-black text-slate-900 dark:text-white font-display">Add Memory</h3>
                 <FieldWrapper label="Memory Content" htmlFor="memory-content" required forceTouch={showError} error={showError && !content.trim() ? "Content is required" : undefined}>
-                    <textarea id="memory-content" value={content} onInput={e => setContent((e.target as HTMLTextAreaElement).value)}
+                    <textarea id="memory-content" value={content} onInput={e => {
+                        setContent((e.target as HTMLTextAreaElement).value);
+                        if (showError) setShowError(false);
+                    }}
                         placeholder="What should be remembered…"
                         rows={3}
                         className="w-full px-4 py-3 rounded-xl text-sm

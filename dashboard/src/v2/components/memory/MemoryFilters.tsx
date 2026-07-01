@@ -87,7 +87,7 @@ export const MemoryFilters: FunctionComponent<{
             <div className="flex flex-wrap items-center gap-2.5">
                 {/* Sprint selector — only for Short Term */}
                 {activeTier === "short_term" && sprints.length > 0 && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
                         <label htmlFor="sprint-selector" className="sr-only">Filter by Sprint</label>
                         <select
                             id="sprint-selector"
@@ -109,7 +109,7 @@ export const MemoryFilters: FunctionComponent<{
                 )}
                 {/* Agent selector — both tiers */}
                 {agentPresets.length > 0 && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
                         <label htmlFor="agent-selector" className="sr-only">Filter by Agent Preset</label>
                         <select
                             id="agent-selector"

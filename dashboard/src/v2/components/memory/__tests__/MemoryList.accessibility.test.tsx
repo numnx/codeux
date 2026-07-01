@@ -19,10 +19,12 @@ describe("MemoryList", () => {
 
     test("renders empty state polite announcement", () => {
         searchQuerySignal.value = "nonexistent query";
-        const { getByText } = render(
+        const { getAllByText } = render(
             <MemoryList nodes={[]} onSelectNode={vi.fn()} />
         );
-        const announcement = getByText("No memories exist");
+        const announcements = getAllByText("No results found for nonexistent query");
+        expect(announcements.length).toBeGreaterThan(0);
+        const announcement = announcements[0];
         expect(announcement).toBeInTheDocument();
         expect(announcement).toHaveClass("sr-only");
     });
