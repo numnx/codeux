@@ -8,6 +8,10 @@ import {
   PREVIEW_REBUILD_PATH,
   PREVIEW_START_PATH,
   PREVIEW_STATUS_PATH,
+  PREVIEW_MAX_REQUEST_BODY_BYTES,
+  PREVIEW_MAX_BUFFERED_RESPONSE_BYTES,
+  PREVIEW_MAX_STREAMED_HTML_BYTES,
+  PREVIEW_UPSTREAM_TIMEOUT_MS,
   applyPreviewCorsHeaders,
   buildPreviewBridgeScript,
   buildPreviewProxyRequestHeaders,
@@ -146,6 +150,7 @@ export function createPreviewHostMiddleware(options: DashboardServerOptions): ex
       method: req.method,
       path: targetPath,
       headers: upstreamHeaders,
+      timeout: PREVIEW_UPSTREAM_TIMEOUT_MS,
     }, (proxyResponse: IncomingMessage) => {
       const contentType = String(proxyResponse.headers["content-type"] || "");
       const isHtml = contentType.toLowerCase().includes("text/html");
@@ -156,13 +161,29 @@ export function createPreviewHostMiddleware(options: DashboardServerOptions): ex
           responseHeaders.location = rewritePreviewLocationHeader(responseHeaders.location, req, session.hostPort!);
         }
         res.writeHead(proxyResponse.statusCode || 502, responseHeaders);
+
+        let binarySize = 0;
+        proxyResponse.on("data", (chunk: any) => {
+          binarySize += Buffer.byteLength(chunk);
+          if (binarySize > PREVIEW_MAX_BUFFERED_RESPONSE_BYTES) {
+            proxyRequest.destroy(new Error("Response body exceeds maximum allowed size"));
+          }
+        });
+
         proxyResponse.pipe(res);
         return;
       }
 
       const chunks: Buffer[] = [];
+      let htmlSize = 0;
       proxyResponse.on("data", (chunk: any) => {
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        htmlSize += buf.length;
+        if (htmlSize > PREVIEW_MAX_STREAMED_HTML_BYTES) {
+          proxyRequest.destroy(new Error("Response body exceeds maximum allowed size for HTML injection"));
+          return;
+        }
+        chunks.push(buf);
       });
       proxyResponse.on("end", () => {
         const body = Buffer.concat(chunks).toString("utf8");
@@ -180,6 +201,16 @@ export function createPreviewHostMiddleware(options: DashboardServerOptions): ex
 
     proxyRequest.on("error", (error: any) => {
       if (!res.headersSent) {
+        if (error.message && error.message.includes("Request body exceeds maximum allowed size")) {
+          res.status(413).send(toErrorResponse(error, "Request Entity Too Large").error);
+          req.destroy();
+          return;
+        }
+        if (error.message && error.message.includes("Response body exceeds maximum allowed size")) {
+          res.status(502).send(toErrorResponse(error, "Bad Gateway").error);
+          req.destroy();
+          return;
+        }
         const accept = String(req.headers.accept || "").toLowerCase();
         if (req.method === "GET" && accept.includes("text/html")) {
           res.status(200).type("html").send(buildPreviewStandbyHtml({
@@ -192,6 +223,14 @@ export function createPreviewHostMiddleware(options: DashboardServerOptions): ex
         res.status(502).send(toErrorResponse(error, "Failed to proxy sprint preview host request").error);
       } else {
         res.end();
+      }
+    });
+
+    let reqSize = 0;
+    req.on("data", (chunk: any) => {
+      reqSize += Buffer.byteLength(chunk);
+      if (reqSize > PREVIEW_MAX_REQUEST_BODY_BYTES) {
+        proxyRequest.destroy(new Error("Request body exceeds maximum allowed size"));
       }
     });
 
