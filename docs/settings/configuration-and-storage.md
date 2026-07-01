@@ -454,10 +454,11 @@ Repository demo script:
 - `npm` refresh is now opt-in via `CODE_UX_REFRESH_NPM=1` instead of happening on every container start.
 - Playwright bootstrap is now opt-in via `CODE_UX_INSTALL_PLAYWRIGHT=1` instead of downloading Chromium during every fresh container bootstrap.
 - Docker CLI execution now uses isolated Docker volumes as the workspace backing store instead of repo-local worktrees or persistent host-side runtime homes.
-  - container `HOME` lives inside the isolated workspace at `/workspace/.code-ux-home`
+  - container `/workspace` contains only the Git checkout used for the coding task
+  - provider `HOME` lives in a sibling runtime volume mounted at `/code-ux-runtime-home`, so CLI auth/config/cache/session state does not appear inside the Git worktree
   - write-back happens via Git patch artifacts applied on the host, not direct file sync from the container
   - patch export preserves raw `git diff --binary` output byte-for-byte so whitespace-only EOF hunks and `\ No newline at end of file` markers still apply cleanly on the host branch
-  - patch export always excludes `/workspace/.code-ux-home` so provider home/cache state cannot be committed, even when the target repository does not ignore `.cache/` or `.code-ux-home/`
+  - patch export still excludes legacy `/workspace/.code-ux-home` paths as a defense-in-depth guard for older preserved volumes, but fresh Docker workspaces should not contain provider home/cache state
   - the remaining persistent Docker-side cache is the optional setup-image cache, not per-session provider home directories under `~/.code-ux/runtime/docker`
 - If setup script is missing or does not provide the requested provider CLI, the runner attempts a provider-specific fallback install (`gemini`, `codex`, or `claude`) before failing.
   - CLI model settings continue to flow into Docker-backed providers:
@@ -474,7 +475,7 @@ Repository demo script:
   - Runtime syncs only Claude auth artifacts into container home before launch (`~/.claude/.credentials.json` and `~/.claude.json`) instead of recursively copying the full `.claude` state tree.
   - GitHub sync still copies directory contents into a fixed destination (`~/.config/gh`); Gemini now avoids recursive state copy so concurrent Docker sessions do not race on shared `.gemini/tmp` output files.
   - Provider auth mounts are controlled per credential type. When a Docker auth mount is enabled, the matching API key/token is no longer injected into the container environment.
-  - Provider-generated MCP/config files are no longer bind-mounted directly into `/workspace/.code-ux-home/...`; runtime stages them under `/opt/provider-config/*` and merges or appends them into the writable home during bootstrap so provider CLIs can keep existing auth/config state while still receiving runtime MCP wiring.
+  - Provider-generated MCP/config files are not bind-mounted directly into provider home; runtime stages them under `/opt/provider-config/*` and merges or appends them into `/code-ux-runtime-home` during bootstrap so provider CLIs can keep existing auth/config state while still receiving runtime MCP wiring.
   - Gemini bootstrap now pre-seeds `~/.gemini/projects.json` plus the `tmp/`, `history/`, and `memory/` directories so the CLI does not hit its first-write race on a brand-new isolated home.
 
 Worker runtime notes:
@@ -488,7 +489,7 @@ Runtime cleanup notes:
 - startup now prunes orphaned virtual worker endpoints before new virtual cycles begin
 - startup prunes stale Docker workspaces for failed, finished, unrecoverable, and outdated sessions while preserving content-addressed setup-cache images for reuse
 - successful CLI task runs now preserve their workspace while the owning sprint is still non-terminal (so QA follow-up and sprint-side retries can continue in the same workspace handle)
-- preserved workspaces are tagged by persisted task-run workspace metadata (including Docker `docker-volume://...` handles) and cleaned when the sprint reaches a terminal state (`completed`, `failed`, or `cancelled`)
+- preserved workspaces are tagged by persisted task-run workspace metadata (including Docker `docker-volume://...` handles) and cleaned when the sprint reaches a terminal state (`completed`, `failed`, or `cancelled`); cleanup removes both the workspace volume and its `-runtime` provider-state volume
 - terminal sprint completion/failure/cancellation removes those retained CLI task workspaces immediately instead of waiting for the next restart sweep
 - sprint planning and prompt improvement also honor worker mode, so `VIRTUAL` projects can plan without any live MCP listener
 

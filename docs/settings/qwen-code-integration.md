@@ -77,11 +77,11 @@ The bootstrap merge is additive and preserves existing `mcpServers` entries.
 
 ## Session Continuation
 
-Qwen Code stores saved chat sessions under `$HOME/.qwen/projects/<sanitized-cwd>/chats`. In Docker mode, Code UX sets `$HOME` to `/workspace/.code-ux-home`, so those saved sessions live inside the Docker workspace volume rather than inside the short-lived provider container.
+Qwen Code stores saved chat sessions under `$HOME/.qwen/projects/<sanitized-cwd>/chats`. In Docker mode, Code UX sets `$HOME` to `/code-ux-runtime-home`, a sibling runtime volume mounted outside `/workspace`, so saved sessions persist across short-lived provider containers without polluting the Git checkout.
 
 Code UX does not pass its logical session ids to `qwen --resume <id>`. Those ids are not guaranteed to be Qwen saved-session ids and can produce errors such as `No saved session found with ID ...`. Instead, continuation uses Qwen's project-scoped `--continue` flag, which resumes the most recent saved Qwen session for the current workspace.
 
-For Qwen runs where Code UX has to create a Docker workspace from a repo path, the workspace volume is preserved and reused for the same logical session. This keeps `/workspace/.code-ux-home/.qwen` stable across short-lived provider containers, so planning retries, dashboard chat turns, and follow-up provider invocations can continue the same Qwen session.
+For Qwen runs where Code UX has to create a Docker workspace from a repo path, the workspace volume and its paired runtime volume are preserved and reused for the same logical session. This keeps `/code-ux-runtime-home/.qwen` stable across short-lived provider containers, so planning retries, dashboard chat turns, and follow-up provider invocations can continue the same Qwen session while `/workspace` remains a clean coding worktree.
 
 Dashboard chat continuations pass the previous logical chat session as `continueSessionId` even when native MCP is enabled, so Qwen receives `--continue` on follow-up turns. Chat prompts also mark dashboard user messages with `### User` and instruct Qwen to ignore provider setup text when answering questions about prior user messages.
 
