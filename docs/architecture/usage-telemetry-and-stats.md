@@ -178,7 +178,7 @@ Historical Docker-backed CLI invocations that were persisted as `unavailable` be
 
 The stats snapshot includes:
 
-- project totals (including dynamic cost rollups based on typed token-pricing configurations which calculate input, output, and cached input costs in USD based on per-million token rates, defaulting to zero if unset or unconfigured)
+- project totals (including dynamic cost rollups based on typed token-pricing configurations which calculate input, output, and cached input costs in USD based on per-million token rates, defaulting to zero if unset or unconfigured. This relies on a per-snapshot pricing cache to prevent redundant provider/model lookups)
 - total provider cost totals (e.g. `providerCost` map)
 - total model cost totals (e.g. `modelCost` map)
 - usage cost chart series for historical visualization (e.g. `core_total_cost`, `provider_cost_*`)
