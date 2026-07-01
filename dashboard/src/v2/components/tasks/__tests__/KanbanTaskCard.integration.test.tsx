@@ -334,6 +334,11 @@ describe("KanbanTaskCard Integration", () => {
     const { getByRole } = render(<KanbanTaskCard viewModel={mockViewModel} onEdit={vi.fn()} onDelete={vi.fn()} />);
     expect(getByRole('button', { name: /Edit task TASK-123: Implement new feature/i })).toBeInTheDocument();
     expect(getByRole('button', { name: /Delete task TASK-123: Implement new feature/i })).toBeInTheDocument();
+    expect(getByRole('button', { name: /Rerun task TASK-123: Implement new feature/i })).toBeInTheDocument();
+    expect(getByRole('button', { name: /Inspect task TASK-123: Implement new feature/i })).toBeInTheDocument();
+    expect(getByRole('button', { name: /View dependencies for TASK-123: Implement new feature/i })).toBeInTheDocument();
+    expect(getByRole('button', { name: /Open TASK-123 externally: Implement new feature/i })).toBeInTheDocument();
+    expect(getByRole('button', { name: /Rerun task TASK-123: Implement new feature/i })).toHaveAttribute("title", "Rerun task TASK-123");
   });
 
   it("prevents long metadata strings from overflowing the card horizontally", () => {

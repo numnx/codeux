@@ -28,8 +28,9 @@ export const DependencyStatusIndicators: FunctionComponent<{
         return (
           <div
             key={dep.recordId}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[9px] font-bold uppercase tracking-[0.14em] ${containerClass}`}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[9px] font-bold uppercase tracking-[0.14em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 ${containerClass}`}
             title={`Depends on ${dep.title} (${statusText})`}
+            tabIndex={0}
           >
             <span className="sr-only">Dependency {dep.id} ({dep.title}) is {statusText}</span>
             <ArrowRight className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden="true" />
