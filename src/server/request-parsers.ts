@@ -181,7 +181,12 @@ export function parseCreateTaskInput(body: unknown): CreateTaskInput {
     executorType: parseEnum(input.executorType, ["auto", "docker_cli", "jules"], "executorType"),
     agentPresetId: parseOptionalString(input.agentPresetId) ?? (input.agentPresetId === null ? null : undefined),
     sortOrder: parseOptionalInteger(input.sortOrder, -1000000, 1000000, "sortOrder"),
-    dependsOnTaskIds: Array.isArray(input.dependsOnTaskIds) ? input.dependsOnTaskIds.map(String) : undefined,
+    dependsOnTaskIds: Array.isArray(input.dependsOnTaskIds)
+      ? input.dependsOnTaskIds.map(id => {
+          if (typeof id !== "string") throw new Error("Invalid dependency array: elements must be strings");
+          return id;
+        })
+      : undefined,
     isIndependent: parseOptionalBoolean(input.isIndependent, "isIndependent"),
     isMerged: parseOptionalBoolean(input.isMerged, "isMerged"),
     mergeIndicator: parseOptionalString(input.mergeIndicator) ?? (input.mergeIndicator === null ? null : undefined),
@@ -205,7 +210,12 @@ export function parseUpdateTaskInput(body: unknown): UpdateTaskInput {
     agentPresetId: parseOptionalString(input.agentPresetId) ?? (input.agentPresetId === null ? null : undefined),
     model: parseOptionalString(input.model) ?? (input.model === null ? null : undefined),
     sortOrder: parseOptionalInteger(input.sortOrder, -1000000, 1000000, "sortOrder"),
-    dependsOnTaskIds: Array.isArray(input.dependsOnTaskIds) ? input.dependsOnTaskIds.map(String) : undefined,
+    dependsOnTaskIds: Array.isArray(input.dependsOnTaskIds)
+      ? input.dependsOnTaskIds.map(id => {
+          if (typeof id !== "string") throw new Error("Invalid dependency array: elements must be strings");
+          return id;
+        })
+      : undefined,
     isIndependent: parseOptionalBoolean(input.isIndependent, "isIndependent"),
     isMerged: parseOptionalBoolean(input.isMerged, "isMerged"),
     mergeIndicator: parseOptionalString(input.mergeIndicator) ?? (input.mergeIndicator === null ? null : undefined),

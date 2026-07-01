@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import type { DashboardDependencies } from "./dashboard-server.js";
 import { asyncRoute, toErrorResponse, syncRoute } from "./route-utils.js";
-import { requireTrimmedString, parseTrimmedString } from "./request-parsers.js";
+import { requireTrimmedString, parseTrimmedString , parseCreateProjectInput , parseUpdateProjectInput } from "./request-parsers.js";
 import type { CreateProjectInput, ProjectSetupRequestInput, UpdateProjectInput } from "../contracts/project-management-types.js";
 import type { ProjectSettingsOverride } from "../contracts/settings-scope-types.js";
 import { initializeProject } from "../domain/projects/project-initializer.js";
@@ -13,7 +13,8 @@ export function registerProjectRoutes(router: Express, deps: DashboardDependenci
 
   router.post("/api/projects", async (req, res) => {
     try {
-      const result = await initializeProject(req.body as CreateProjectInput, {
+      const input = parseCreateProjectInput(req.body);
+      const result = await initializeProject(input, {
         createProject: (i) => deps.createProject(i),
         getGithubToken: () => {
           try {
@@ -31,7 +32,6 @@ export function registerProjectRoutes(router: Express, deps: DashboardDependenci
         },
       });
 
-      const input = req.body as CreateProjectInput;
       if (input.setup?.enabled === true && deps.setupProject) {
         const setup = await deps.setupProject(result.id, input.setup);
         res.status(201).json({ ...result, setup });
@@ -111,7 +111,7 @@ export function registerProjectRoutes(router: Express, deps: DashboardDependenci
   router.patch("/api/projects/:projectId", syncRoute((req, res) => {
     try {
       const projectId = requireTrimmedString(req.params.projectId, "projectId");
-      res.json(deps.updateProject(projectId, req.body as UpdateProjectInput));
+      res.json(deps.updateProject(projectId, parseUpdateProjectInput(req.body)));
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to update project"));
     }

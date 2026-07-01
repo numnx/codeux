@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import type { DashboardDependencies } from "./dashboard-server.js";
 import { asyncRoute, toErrorResponse, syncRoute } from "./route-utils.js";
-import { requireTrimmedString, parseTrimmedString } from "./request-parsers.js";
+import { requireTrimmedString, parseTrimmedString , parseCreateSprintInput , parseUpdateSprintInput } from "./request-parsers.js";
 import type {
   CreateSprintInput,
   IssuePromptContextInput,
@@ -108,7 +108,7 @@ export function registerSprintRoutes(router: Express, deps: DashboardDependencie
 
   router.post("/api/projects/:projectId/sprints", syncRoute((req, res) => {
     try {
-      const payload = req.body as CreateSprintInput;
+      const payload = parseCreateSprintInput(req.body);
       if (payload.showcasePinned === undefined) {
         payload.showcasePinned = true;
       }
@@ -138,7 +138,7 @@ export function registerSprintRoutes(router: Express, deps: DashboardDependencie
 
   router.patch("/api/sprints/:sprintId", syncRoute((req, res) => {
     try {
-      res.json(deps.updateSprint(requireTrimmedString(req.params.sprintId, "sprintId"), req.body as UpdateSprintInput));
+      res.json(deps.updateSprint(requireTrimmedString(req.params.sprintId, "sprintId"), parseUpdateSprintInput(req.body)));
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to update sprint"));
     }

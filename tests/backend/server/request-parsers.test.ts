@@ -286,11 +286,16 @@ describe("Request Parsers", () => {
 
     it("parses create task with dependencies and enums", () => {
       const result = parseCreateTaskInput({
-        sprintId: "s", title: "t", priority: "high", status: "pending", dependsOnTaskIds: [1, "x"],
+        sprintId: "s", title: "t", priority: "high", status: "pending", dependsOnTaskIds: ["1", "x"],
       });
       expect(result.dependsOnTaskIds).toEqual(["1", "x"]);
       expect(result.priority).toBe("high");
     });
+
+    it("rejects non-string dependencies", () => {
+      expect(() => parseCreateTaskInput({ sprintId: "s", title: "t", dependsOnTaskIds: [1, "x"] })).toThrow(/dependency array/);
+    });
+
 
     it("rejects an invalid task priority", () => {
       expect(() => parseCreateTaskInput({ sprintId: "s", title: "t", priority: "urgent" })).toThrow(/priority/);
