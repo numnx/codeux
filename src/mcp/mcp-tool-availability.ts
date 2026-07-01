@@ -6,21 +6,59 @@ const VALID_PROVIDER_IDS: ReadonlySet<ProviderId> = new Set<ProviderId>([
   "jules", "gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity",
 ]);
 
-const sanitizeStringMap = (value: unknown): Record<string, string> | undefined => {
+const HEADER_NAME_PATTERN = /^[a-zA-Z0-9-]+$/;
+const ENV_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+const CONTROL_CHAR_PATTERN = /[\x00-\x1F\x7F]/;
+const SHELL_METACHAR_PATTERN = /[&|;<>$\(\)\`'"\x00-\x1F\x7F]/;
+
+const sanitizeHeadersMap = (value: unknown): Record<string, string> | undefined => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const out: Record<string, string> = {};
+  let count = 0;
   for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
     const name = key.trim();
-    if (name.length === 0 || typeof raw !== "string") continue;
+    if (name.length === 0 || name.length > 64 || typeof raw !== "string" || raw.length > 4096) continue;
+    if (!HEADER_NAME_PATTERN.test(name)) continue;
+    if (CONTROL_CHAR_PATTERN.test(raw)) continue;
     out[name] = raw;
+    count++;
+    if (count >= 32) break;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+};
+
+const sanitizeEnvMap = (value: unknown): Record<string, string> | undefined => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const out: Record<string, string> = {};
+  let count = 0;
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    const name = key.trim();
+    if (name.length === 0 || name.length > 64 || typeof raw !== "string" || raw.length > 4096) continue;
+    if (!ENV_NAME_PATTERN.test(name)) continue;
+    if (CONTROL_CHAR_PATTERN.test(raw)) continue;
+    out[name] = raw;
+    count++;
+    if (count >= 64) break;
   }
   return Object.keys(out).length > 0 ? out : undefined;
 };
 
 const sanitizeArgs = (value: unknown): string[] | undefined => {
   if (!Array.isArray(value)) return undefined;
-  const out = value.filter((entry): entry is string => typeof entry === "string");
+  const out = value.filter((entry): entry is string => {
+    return typeof entry === "string" && entry.length <= 4096 && !CONTROL_CHAR_PATTERN.test(entry);
+  }).slice(0, 64);
   return out.length > 0 ? out : undefined;
+};
+
+const isValidHttpUrl = (urlStr: string): boolean => {
+  if (CONTROL_CHAR_PATTERN.test(urlStr)) return false;
+  try {
+    const u = new URL(urlStr);
+    return (u.protocol === "http:" || u.protocol === "https:") && !u.username && !u.password;
+  } catch {
+    return false;
+  }
 };
 
 const sanitizeProviders = (value: unknown): ProviderId[] | undefined => {
@@ -53,8 +91,11 @@ export const sanitizeCustomMcpServers = (value: unknown): CustomMcpServer[] => {
       ? "stdio"
       : "http";
 
-    if (transport === "http" && url.length === 0) continue;
-    if (transport === "stdio" && command.length === 0) continue;
+    if (transport === "http") {
+      if (url.length === 0 || !isValidHttpUrl(url)) continue;
+    } else if (transport === "stdio") {
+      if (command.length === 0 || command.length > 256 || SHELL_METACHAR_PATTERN.test(command)) continue;
+    }
 
     byId.set(id, {
       id,
@@ -64,8 +105,8 @@ export const sanitizeCustomMcpServers = (value: unknown): CustomMcpServer[] => {
       enabled: candidate.enabled !== false,
       transport,
       ...(transport === "http"
-        ? { url, headers: sanitizeStringMap(candidate.headers) }
-        : { command, args: sanitizeArgs(candidate.args), env: sanitizeStringMap(candidate.env) }),
+        ? { url, headers: sanitizeHeadersMap(candidate.headers) }
+        : { command, args: sanitizeArgs(candidate.args), env: sanitizeEnvMap(candidate.env) }),
       providers: sanitizeProviders(candidate.providers),
     });
   }
