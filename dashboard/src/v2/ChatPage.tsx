@@ -585,7 +585,6 @@ export const ChatPage: FunctionComponent = () => {
         manualRefreshing={manualRefreshing}
         onCreateThread={() => void createThreadForCompose()}
         pendingDashboardMessages={pendingDashboardMessages}
-        activeConnectionLabel={activeConnection ? `${activeConnection.displayName} · ${activeConnection.status}` : undefined}
         error={error}
         railSlot={(
           <ChatRail title="Threads" count={0} secondaryTitle="Listeners" secondaryCount={0}>
@@ -616,7 +615,6 @@ export const ChatPage: FunctionComponent = () => {
       manualRefreshing={manualRefreshing}
       onCreateThread={() => void createThreadForCompose()}
       pendingDashboardMessages={pendingDashboardMessages}
-      activeConnectionLabel={activeConnection ? `${activeConnection.displayName} · ${activeConnection.status}` : undefined}
       error={error}
       railSlot={renderRail()}
       detailSlot={renderDetail()}

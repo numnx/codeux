@@ -17,7 +17,6 @@ export const ChatPageShell: FunctionComponent<{
   manualRefreshing: boolean;
   onCreateThread: () => void;
   pendingDashboardMessages: number;
-  activeConnectionLabel?: string;
   error: string | null;
   railSlot: ComponentChildren;
   detailSlot: ComponentChildren;
@@ -29,7 +28,6 @@ export const ChatPageShell: FunctionComponent<{
   manualRefreshing,
   onCreateThread,
   pendingDashboardMessages,
-  activeConnectionLabel,
   error,
   railSlot,
   detailSlot,
@@ -144,26 +142,28 @@ export const ChatPageShell: FunctionComponent<{
               Invocations
             </button>
           </div>
-          {chatMode === "threads" && (
-            <>
-              <span className="rounded-full border border-black/[0.06] bg-white/70 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
-                {activeConnectionLabel || "Unassigned"}
-              </span>
-              <span className={`flex items-center gap-2 rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] ${
-                pendingDashboardMessages > 0
+          <span
+            style={{
+              transitionProperty: "color, background-color, border-color, opacity",
+              transitionDuration: interactionTokens.controlFeedback.duration,
+              transitionTimingFunction: interactionTokens.controlFeedback.ease,
+            }}
+            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] ${
+              chatMode !== "threads"
+                ? "border-black/[0.06] bg-white/70 text-slate-400 opacity-50 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-500"
+                : pendingDashboardMessages > 0
                   ? "border-status-amber/30 bg-status-amber/10 text-status-amber"
                   : "border-signal-500/20 bg-signal-500/10 text-signal-500"
-              }`}>
-                {pendingDashboardMessages > 0 && (
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-amber opacity-75"></span>
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-status-amber"></span>
-                  </span>
-                )}
-                {pendingDashboardMessages > 0 ? <>{pendingDashboardMessages} pending<span className="sr-only"> messages</span></> : "Inbox clear"}
+            }`}
+          >
+            {chatMode === "threads" && pendingDashboardMessages > 0 && (
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-amber opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-status-amber"></span>
               </span>
-            </>
-          )}
+            )}
+            {chatMode === "threads" && pendingDashboardMessages > 0 ? <>{pendingDashboardMessages} pending<span className="sr-only"> messages</span></> : "Inbox clear"}
+          </span>
           <button
             type="button"
             onClick={onRefresh}
@@ -179,22 +179,24 @@ export const ChatPageShell: FunctionComponent<{
             <RefreshCw className={`h-3.5 w-3.5 ${manualRefreshing ? "animate-spin" : ""}`} strokeWidth={2.1} />
             {manualRefreshing ? "Refreshing..." : "Refresh"}
           </button>
-          {chatMode === "threads" && (
-            <button
-              type="button"
-              onClick={onCreateThread}
-              disabled={!selectedProject}
-              style={{
-                transitionProperty: "color, background-color, border-color, text-decoration-color, fill, stroke",
-                transitionDuration: interactionTokens.controlFeedback.duration,
-                transitionTimingFunction: interactionTokens.controlFeedback.ease,
-              }}
-              className="inline-flex items-center gap-2 rounded-full bg-signal-500 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-void-900 hover:bg-signal-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Plus className="h-3.5 w-3.5" strokeWidth={2.3} />
-              New Thread
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onCreateThread}
+            disabled={!selectedProject || chatMode !== "threads"}
+            style={{
+              transitionProperty: "color, background-color, border-color, opacity, text-decoration-color, fill, stroke",
+              transitionDuration: interactionTokens.controlFeedback.duration,
+              transitionTimingFunction: interactionTokens.controlFeedback.ease,
+            }}
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] disabled:cursor-not-allowed ${
+              chatMode === "threads"
+                ? "bg-signal-500 text-void-900 hover:bg-signal-400 disabled:opacity-50"
+                : "bg-black/[0.06] text-slate-400 opacity-50 dark:bg-white/[0.06] dark:text-slate-500"
+            }`}
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.3} />
+            New Thread
+          </button>
         </div>
         }
       />
