@@ -53,6 +53,10 @@ describe("DependencyStatusIndicators", () => {
 
     const unknownIndicator = getByTitle(/Depends on Unknown Task \(missing\) \(pending\)/i);
     expect(unknownIndicator.className).toContain("border-dashed");
+
+    // Verify accessibility attributes and focus classes
+    expect(completedIndicator).toHaveAttribute("tabIndex", "0");
+    expect(completedIndicator.className).toContain("focus-visible:ring-signal-500/30");
   });
 
   it("returns null when no indicators provided", () => {

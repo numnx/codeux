@@ -440,9 +440,9 @@ export const TasksPage: FunctionComponent = () => {
           opacity: 1,
           y: 0,
           scale: 1,
-          stagger: 0.05,
-          duration: 0.6,
-          ease: "power2.out",
+          stagger: 0.04,
+          duration: 0.4,
+          ease: "power3.out",
           delay: 0.05,
         });
       }
