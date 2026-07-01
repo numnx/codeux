@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { inspect } from "util";
 import { getCorrelationId } from "./correlation-id.js";
+import { redactMetadata } from "../security/redaction.js";
 import type { ConsoleLogMode, RuntimeLogLevel } from "../../contracts/app-types.js";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -158,45 +159,8 @@ const inferPurpose = (metadata: LogMetadata | undefined, message: string): LogPu
   return "general";
 };
 
-const SENSITIVE_KEYS = new Set([
-  "apikey", "token", "authorization", "password", "secret",
-  "githubtoken", "gitlabtoken", "jiratoken",
-  "anthropic_api_key", "openai_api_key", "gemini_api_key",
-  "gh_token", "gitlab_token"
-]);
-
-const isSensitiveKey = (key: string): boolean => {
-  return SENSITIVE_KEYS.has(key.toLowerCase());
-};
-
 const normalizeMetadataValue = (value: unknown, keyName: string = ""): unknown => {
-  if (value instanceof Error) {
-    return {
-      name: value.name,
-      message: value.message,
-      stack: value.stack,
-    };
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => normalizeMetadataValue(item, keyName));
-  }
-
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, normalizeMetadataValue(item, key)])
-    );
-  }
-
-  if (typeof value === "string" && isSensitiveKey(keyName)) {
-    return "[REDACTED]";
-  }
-
-  if (typeof value === "bigint") {
-    return value.toString();
-  }
-
-  return value;
+  return redactMetadata(value, keyName);
 };
 
 const normalizeMetadata = (metadata: LogMetadata | undefined): LogMetadata | undefined => {
