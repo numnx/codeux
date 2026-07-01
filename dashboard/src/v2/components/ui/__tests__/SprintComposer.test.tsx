@@ -121,7 +121,7 @@ describe("SprintComposer", () => {
     }, { timeout: 3000 });
   });
 
-  it("cancels pending requests", async () => {
+  it("cancels pending requests, updates aria-busy correctly, and prevents duplicate submissions", async () => {
     let resolveImprove: any;
     let isCanceled = false;
     const improvePromise = new Promise((res, rej) => {
@@ -146,7 +146,18 @@ describe("SprintComposer", () => {
     fireEvent.input(goalInput, { target: { value: "A new goal" } });
 
     const improveBtn = screen.getByRole("button", { name: "Plan ahead with AI" });
+    const formContainer = input.closest('form');
+    expect(formContainer).not.toHaveAttribute('aria-busy', 'true');
+
     fireEvent.click(improveBtn);
+
+    // Form should immediately become busy and improveBtn should disable to prevent double clicks
+    expect(formContainer).toHaveAttribute('aria-busy', 'true');
+    expect(improveBtn).toBeDisabled();
+
+    // Trigger another click while disabled to prove double submit is prevented (handled by HTML disabled attribute but good to assert)
+    fireEvent.click(improveBtn);
+    expect(improvePromptMock).toHaveBeenCalledTimes(1);
 
     // Overlay is active, cancel it
     await waitFor(() => {
@@ -157,6 +168,41 @@ describe("SprintComposer", () => {
     fireEvent.click(cancelBtn);
 
     expect(onCancelMock).toHaveBeenCalled();
+    expect(isCanceled).toBe(true);
+
+    // Ensure form is released and error message is populated about cancellation
+    await waitFor(() => {
+        expect(formContainer).not.toHaveAttribute('aria-busy', 'true');
+        expect(screen.getByText("Planning request cancelled.")).toBeInTheDocument();
+    });
+  });
+
+  it("handles successful completions and restores focus", async () => {
+    const improvePromptMock = vi.fn().mockResolvedValue("Improved text");
+    const { container } = renderWithContext(<SprintComposer {...defaultProps} onImprovePrompt={improvePromptMock} />);
+
+    const input = screen.getByRole("textbox", { name: "Sprint Name" });
+    const goalInput = screen.getByPlaceholderText(/Describe the outcome/);
+
+    fireEvent.input(input, { target: { value: "A new sprint" } });
+    fireEvent.input(goalInput, { target: { value: "A new goal" } });
+
+    const improveBtn = screen.getByRole("button", { name: "Plan ahead with AI" });
+    // Keep focus on the button to check if it restores
+    improveBtn.focus();
+    fireEvent.click(improveBtn);
+
+    const formContainer = input.closest('form');
+    expect(formContainer).toHaveAttribute('aria-busy', 'true');
+
+    await waitFor(() => {
+        expect(formContainer).not.toHaveAttribute('aria-busy', 'true');
+    }, { timeout: 3000 });
+
+    // Ensure focus is restored to the previous element
+    await waitFor(() => {
+        expect(document.activeElement).toBe(improveBtn);
+    });
   });
 
 });

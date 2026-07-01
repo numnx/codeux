@@ -1,6 +1,6 @@
 import type { FunctionComponent } from "preact";
 import { X } from "lucide-preact";
-import { useRef, useLayoutEffect, useEffect } from "preact/hooks";
+import { useRef, useLayoutEffect, useEffect, useState } from "preact/hooks";
 import gsap from "gsap";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { ContainerShip, WoodenShip } from "./PlanningShip.js";
@@ -53,6 +53,34 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isBusy, isDismissed, onDismiss]);
 
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [shouldRender, setShouldRender] = useState(isBusy && !isDismissed);
+
+  useEffect(() => {
+    if (isBusy && !isDismissed) {
+      setShouldRender(true);
+    }
+  }, [isBusy, isDismissed]);
+
+  useLayoutEffect(() => {
+    if (shouldRender && overlayRef.current && cardRef.current) {
+      if (isBusy && !isDismissed) {
+        const ctx = gsap.context(() => {
+          gsap.fromTo(overlayRef.current, { opacity: 0 }, { opacity: 1, duration: reducedMotion ? 0 : MODAL_MOTION.overlay.entry, ease: MODAL_MOTION.overlay.entryEase });
+          gsap.fromTo(cardRef.current, { opacity: 0, y: reducedMotion ? 0 : 20, scale: reducedMotion ? 1 : 0.95 }, { opacity: 1, y: 0, scale: 1, duration: reducedMotion ? 0 : MODAL_MOTION.overlay.cardEntry, ease: MODAL_MOTION.overlay.cardEntryEase });
+        });
+        return () => ctx.revert();
+      } else {
+        const ctx = gsap.context(() => {
+          gsap.to(overlayRef.current, { opacity: 0, duration: reducedMotion ? 0 : MODAL_MOTION.overlay.exit, ease: MODAL_MOTION.overlay.exitEase });
+          gsap.to(cardRef.current, { opacity: 0, y: reducedMotion ? 0 : 10, scale: reducedMotion ? 1 : 0.98, duration: reducedMotion ? 0 : MODAL_MOTION.overlay.exit, ease: MODAL_MOTION.overlay.exitEase, onComplete: () => setShouldRender(false) });
+        });
+        return () => ctx.revert();
+      }
+    }
+  }, [isBusy, isDismissed, shouldRender, reducedMotion]);
+
   useLayoutEffect(() => {
     if (!feedback || !textContainerRef.current) return;
     if (prevTextRef.current !== feedback.text) {
@@ -68,7 +96,8 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
       return () => ctx.revert();
     }
   }, [feedback?.text, reducedMotion]);
-  if (!isBusy || isDismissed || !feedback) return null;
+
+  if (!shouldRender || !feedback) return null;
 
   const accentColors = {
     signal: {
@@ -119,12 +148,13 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
 
   return (
     <div
+      ref={overlayRef}
       className="absolute inset-0 z-50 flex cursor-pointer items-center justify-center bg-void-900/50 backdrop-blur-sm p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onDismiss();
       }}
     >
-      <div className="flex flex-col items-center justify-center bg-white dark:bg-void-800 rounded-2xl shadow-2xl border border-black/[0.08] dark:border-white/[0.08] max-w-2xl w-full p-6 sm:p-8 relative cursor-default max-h-[calc(100dvh-2rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div ref={cardRef} className="flex flex-col items-center justify-center bg-white dark:bg-void-800 rounded-2xl shadow-2xl border border-black/[0.08] dark:border-white/[0.08] max-w-2xl w-full p-6 sm:p-8 relative cursor-default max-h-[calc(100dvh-2rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
         onClick={onDismiss}
