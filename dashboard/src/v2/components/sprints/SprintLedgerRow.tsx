@@ -12,6 +12,9 @@ import {
   Loader2,
   ListChecks,
   Maximize2,
+  Play,
+  Pause,
+  XCircle,
   MoreVertical,
   Square,
 } from "lucide-preact";
@@ -39,6 +42,16 @@ const STATUS_BADGE_TONES: Record<SprintStatus, string> = {
   failed: "border-status-red/25 bg-status-red/10 text-status-red",
   cancelled: "border-slate-300/35 bg-slate-100/80 text-slate-500 dark:border-white/15 dark:bg-white/[0.05] dark:text-slate-400",
   idle: "border-signal-500/25 bg-signal-500/10 text-signal-700 dark:text-signal-300",
+};
+
+
+const STATUS_ICONS: Record<SprintStatus, preact.FunctionComponent<any>> = {
+  running: Play,
+  paused: Pause,
+  completed: CheckCircle2,
+  failed: AlertTriangle,
+  cancelled: XCircle,
+  idle: Square,
 };
 
 const ATTENTION_BADGE_OVERRIDES: Partial<Record<string, { tone: string; label: string }>> = {
@@ -416,7 +429,12 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
                   markCompletedDisabled={false}
                   deleteBusy={isDeletePending}
                   onToggleShowcase={() => onToggleShowcase(sprint)}
-                  onClose={() => setMenuOpen(false)}
+                  onClose={() => {
+                    setMenuOpen(false);
+                    requestAnimationFrame(() => {
+                      document.getElementById(`sprint-menu-trigger-${sprint.id}`)?.focus();
+                    });
+                  }}
                   markCompletedIcon="square"
                   role="menuitem"
                   buttonClassName="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-black/[0.04] hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white focus:outline-none"
@@ -425,6 +443,7 @@ const SprintLedgerRowComponent: FunctionComponent<SprintLedgerRowProps> = ({
             >
               <button
                 type="button"
+                id={`sprint-menu-trigger-${sprint.id}`}
                 disabled={isDeletePending}
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}

@@ -8,6 +8,7 @@ import { SprintLedger } from "../SprintLedger.js";
 import { SprintLedgerRow } from "../SprintLedgerRow.js";
 import { SprintLedgerHeader } from "../SprintLedgerHeader.js";
 import { SprintLedgerBulkActions } from "../SprintLedgerBulkActions.js";
+import { SprintImportMenu } from "../SprintImportMenu.js";
 import type { Sprint } from "../../../types.js";
 
 expect.extend(matchers);
@@ -396,4 +397,26 @@ describe("SprintLedger Accessibility", () => {
     // Let's test the span with aria-live exists
     const liveRegion = document.querySelector('span[aria-live="polite"][aria-atomic="true"]');
     expect(liveRegion).toBeInTheDocument();
+
+
+  it("restores focus to trigger button when import menu closes via keyboard", async () => {
+    const user = userEvent.setup();
+    const { getByRole } = render(
+      <SprintImportMenu
+        onImportMarkdown={vi.fn()}
+        onImportIssues={vi.fn()}
+        onImportJira={vi.fn()}
+      />
+    );
+
+    const importBtn = getByRole("button", { name: /Import/i });
+    importBtn.focus();
+    await user.click(importBtn);
+
+    expect(importBtn).toHaveAttribute("aria-expanded", "true");
+
+    await user.keyboard("{Escape}");
+    expect(importBtn).toHaveAttribute("aria-expanded", "false");
+    expect(document.activeElement).toBe(importBtn);
   });
+});

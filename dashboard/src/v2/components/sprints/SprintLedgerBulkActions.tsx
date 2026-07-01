@@ -32,6 +32,7 @@ export const SprintLedgerBulkActions: FunctionComponent<SprintLedgerBulkActionsP
   onClearSelection,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const clearBtnRef = useRef<HTMLButtonElement>(null);
   const prevSelectedCount = useRef(selectedCount);
   const { expansionCollapse } = useGsapInteractionTokens();
   const { base: duration } = useGsapDurations();
@@ -56,6 +57,9 @@ export const SprintLedgerBulkActions: FunctionComponent<SprintLedgerBulkActionsP
         });
       }
     } else {
+      if (document.activeElement && el.contains(document.activeElement) && clearBtnRef.current) {
+        clearBtnRef.current.focus();
+      }
       if (duration === 0) {
         gsap.set(el, { height: 0, opacity: 0 });
       } else {
@@ -147,7 +151,7 @@ export const SprintLedgerBulkActions: FunctionComponent<SprintLedgerBulkActionsP
             aria-label="Clear sprint selection"
             title={isAnyPending ? "Wait for the current action to finish" : undefined}
             aria-disabled={isAnyPending}
-            onClick={onClearSelection}
+            onClick={() => { onClearSelection(); }} ref={clearBtnRef}
             disabled={isAnyPending}
             className="inline-flex min-w-0 flex-1 sm:flex-none justify-center whitespace-nowrap h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-slate-500 transition-colors hover:bg-black/[0.04] hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
           >

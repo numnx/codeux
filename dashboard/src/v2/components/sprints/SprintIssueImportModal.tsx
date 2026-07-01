@@ -241,13 +241,14 @@ export const SprintIssueImportModal: FunctionComponent<SprintIssueImportModalPro
               className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-black/[0.025] px-4 text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-signal-500 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
             />
             <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              {loading ? <Loader2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-signal-500 animate-spin" /> : <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />}
               <input
                 value={search}
                 onInput={(event) => setSearch((event.target as HTMLInputElement).value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") void runSearch();
                 }}
+                autoFocus
                 placeholder="Search title or body"
                 className="h-12 w-full rounded-[1.1rem] border border-black/[0.07] bg-black/[0.025] pl-11 pr-4 text-sm text-slate-700 outline-none transition-colors focus:border-signal-500 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
               />
