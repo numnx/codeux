@@ -251,6 +251,21 @@ export const OnboardingExperience: FunctionComponent = () => {
     return () => window.removeEventListener(ONBOARDING_OPEN_EVENT, handleOpen);
   }, [resetOnboardingState]);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        void markOnboardingCompleted("cancel");
+        window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
+        setOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, markOnboardingCompleted]);
+
   const handleIntroExitStart = () => {
     setIntroPhase("transitioning");
   };
@@ -686,7 +701,7 @@ export const OnboardingExperience: FunctionComponent = () => {
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
                 <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Cluster</div>
-                <div className={`mt-2 inline-flex rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${clusterReady ? "bg-signal-400/15 text-signal-200" : "bg-status-amber/15 text-status-amber"}`}>
+                <div aria-live="polite" className={`mt-2 inline-flex rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] ${clusterReady ? "bg-signal-400/15 text-signal-200" : "bg-status-amber/15 text-status-amber"}`}>
                   {clusterReady ? "Ready" : "Blocked"}
                 </div>
               </div>
@@ -757,6 +772,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                     key={step.id}
                     data-step-item
                     type="button"
+                    aria-current={activeItem ? "step" : undefined}
                     onClick={step.onClick}
                     className={`group flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-[background-color,border-color,transform] hover:translate-x-1 ${
                       activeItem ? "border-white/30 bg-white text-slate-950 shadow-[0_16px_40px_rgba(0,0,0,0.18)]" : "border-white/0 text-slate-300 hover:border-white/10 hover:bg-white/8 hover:text-white"
@@ -814,7 +830,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                     <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${clusterReady ? "bg-signal-500/12 text-signal-600" : "bg-status-amber/15 text-status-amber"}`}>
                       {clusterReady ? <Check className="h-6 w-6" /> : <Info className="h-6 w-6" />}
                     </div>
-                    <div>
+                    <div aria-live="polite">
                       <div className="text-lg font-black text-slate-900 dark:text-white">{readiness.cluster.label}</div>
                       <div className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{readiness.cluster.detail}</div>
                     </div>
