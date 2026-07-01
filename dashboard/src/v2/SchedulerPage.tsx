@@ -795,10 +795,11 @@ export const SchedulerPage: FunctionComponent = () => {
                 variant="signal"
                 size="lg"
                 onClick={() => void submitSchedule()}
+                disabled={loading}
                 className={editingEntry ? "flex-1 text-[10px] uppercase tracking-[0.16em]" : "w-full text-[10px] uppercase tracking-[0.16em]"}
                 icon={editingEntry ? Check : Send}
               >
-                {editingEntry ? "Save" : "Schedule"}
+                {loading ? "Saving..." : (editingEntry ? "Save" : "Schedule")}
               </Button>
             </div>
 
@@ -1008,7 +1009,10 @@ export const SchedulerPage: FunctionComponent = () => {
                             Fired ({entry.runCount})
                           </span>
                         )}
-                        <span className="text-[11px] font-bold text-slate-400">{recurrenceSummary(entry.recurrence)}</span>
+                        <span className={`flex items-center gap-1 text-[11px] font-bold ${entry.recurrence.frequency !== "none" && entry.status === "scheduled" ? "text-signal-500" : "text-slate-400"}`}>
+                          {entry.recurrence.frequency !== "none" && <Repeat className="h-3 w-3" />}
+                          {recurrenceSummary(entry.recurrence)}
+                        </span>
                       </div>
                       <h4 className="mt-2 truncate text-sm font-black text-slate-900 dark:text-white">{entry.title}</h4>
                       <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -1023,7 +1027,8 @@ export const SchedulerPage: FunctionComponent = () => {
                       <button
                         type="button"
                         onClick={() => startEdit(entry)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.06] bg-white/70 text-slate-600 transition-all duration-150 hover:bg-white hover:text-slate-950 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
+                        disabled={loading}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.06] bg-white/70 text-slate-600 transition-all duration-150 hover:bg-white hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
                         aria-label="Edit schedule entry"
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -1031,7 +1036,7 @@ export const SchedulerPage: FunctionComponent = () => {
                       <button
                         type="button"
                         onClick={() => void toggleEntryStatus(entry.id, entry.status === "paused")}
-                        disabled={entry.status === "completed" || entry.status === "cancelled"}
+                        disabled={entry.status === "completed" || entry.status === "cancelled" || loading}
                         className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.06] bg-white/70 text-slate-600 transition-all duration-150 hover:bg-white hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
                         aria-label={entry.status === "paused" ? "Resume schedule entry" : "Pause schedule entry"}
                       >
@@ -1040,7 +1045,8 @@ export const SchedulerPage: FunctionComponent = () => {
                       <button
                         type="button"
                         onClick={() => void removeEntry(entry.id)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-status-red/20 bg-status-red/[0.06] text-status-red transition-all duration-150 hover:bg-status-red/[0.12]"
+                        disabled={loading}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-status-red/20 bg-status-red/[0.06] text-status-red transition-all duration-150 hover:bg-status-red/[0.12] disabled:cursor-not-allowed disabled:opacity-40"
                         aria-label="Delete schedule entry"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
