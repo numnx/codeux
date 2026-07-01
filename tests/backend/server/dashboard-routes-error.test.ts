@@ -57,6 +57,7 @@ describe("dashboard route handlers", () => {
   it("covers sprint route errors, success branches, and validation", async () => {
     const sprintDeps = {
       listSprints: () => ({ sprints: [] }),
+      getSprint: () => ({ projectId: "project-1" }),
       createSprint: () => { throw new Error("sprint create"); },
       importSprintFromMarkdown: () => ({ id: "sprint-1" }),
       exportSprintToMarkdown: () => ({ markdown: "# sprint" }),
