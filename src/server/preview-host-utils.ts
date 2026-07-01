@@ -59,6 +59,18 @@ export function parsePreviewSessionIdFromHost(hostHeader: string | undefined): s
   return sessionId || null;
 }
 
+export function isAllowedPreviewControlOrigin(req: express.Request): boolean {
+  const origin = typeof req.headers.origin === "string" ? req.headers.origin.trim() : "";
+  if (!origin) {
+    return true;
+  }
+  const currentHost = String(req.headers.host || "").trim();
+  const protocol = req.protocol || "http";
+  const currentOrigin = `${protocol}://${currentHost}`;
+  const dashboardOrigin = buildDashboardOriginForPreviewHost(req);
+  return origin === currentOrigin || origin === dashboardOrigin;
+}
+
 export function buildDashboardOriginForPreviewHost(req: express.Request): string {
   const protocol = req.protocol || "http";
   const rawHost = String(req.headers.host || "").trim();
@@ -222,8 +234,8 @@ function removeHeaderCaseInsensitive(headers: Record<string, string | string[] |
   }
 }
 
-export function applyPreviewCorsHeaders(req: express.Request, res: express.Response): void {
-  for (const [key, value] of Object.entries(buildPreviewCorsHeaders(req))) {
+export function applyPreviewCorsHeaders(req: express.Request, res: express.Response, isControlPath?: boolean): void {
+  for (const [key, value] of Object.entries(buildPreviewCorsHeaders(req, undefined, isControlPath))) {
     res.setHeader(key, value);
   }
 }
@@ -231,6 +243,7 @@ export function applyPreviewCorsHeaders(req: express.Request, res: express.Respo
 export function mergePreviewCorsHeaders(
   req: express.Request,
   headers: Record<string, string | string[] | undefined>,
+  isControlPath?: boolean,
 ): void {
   const existingVary = getHeaderValuesCaseInsensitive(headers, "vary");
   for (const key of Object.keys(headers)) {
@@ -239,7 +252,7 @@ export function mergePreviewCorsHeaders(
     }
   }
   removeHeaderCaseInsensitive(headers, "vary");
-  Object.assign(headers, buildPreviewCorsHeaders(req, existingVary));
+  Object.assign(headers, buildPreviewCorsHeaders(req, existingVary, isControlPath));
 }
 
 function getHeaderValuesCaseInsensitive(
@@ -264,10 +277,15 @@ function getHeaderValuesCaseInsensitive(
 function buildPreviewCorsHeaders(
   req: express.Request,
   existingVary?: string | string[],
+  isControlPath?: boolean,
 ): Record<string, string> {
-  const origin = typeof req.headers.origin === "string" && req.headers.origin.trim()
+  let origin = typeof req.headers.origin === "string" && req.headers.origin.trim()
     ? req.headers.origin.trim()
     : "*";
+
+  if (isControlPath && !isAllowedPreviewControlOrigin(req)) {
+    origin = buildDashboardOriginForPreviewHost(req);
+  }
   const requestedHeaders = typeof req.headers["access-control-request-headers"] === "string"
     ? req.headers["access-control-request-headers"]
     : "Authorization, Content-Type, X-Requested-With";
