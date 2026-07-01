@@ -898,7 +898,7 @@ export const OnboardingExperience: FunctionComponent = () => {
             <button
               type="button"
               disabled={activeStep === 0}
-              onClick={() => goToPreviousStep()}
+              onClick={() => setActiveStep((step) => Math.max(0, step - 1))}
               className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold text-slate-500 transition-colors hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.06]"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -936,7 +936,7 @@ export const OnboardingExperience: FunctionComponent = () => {
               <button
                 type="button"
                 disabled={!canGoNext}
-                onClick={() => goToNextStep()}
+                onClick={() => setActiveStep((step) => Math.min(steps.length - 1, step + 1))}
                 className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] transition-colors hover:bg-slate-700 disabled:opacity-60 dark:bg-white dark:text-void-900"
               >
                 Next

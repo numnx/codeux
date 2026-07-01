@@ -16,10 +16,7 @@ export const OnboardingIntroductionStep: FunctionComponent<OnboardingIntroductio
             <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2.5} />
             <span>Local AI Orchestration</span>
           </div>
-          <h2 className="mt-5 text-2xl font-black tracking-tight text-slate-900 dark:text-white sm:text-3xl">
-            Bring your own compute. <br className="hidden sm:block" />
-            Control your own data.
-          </h2>
+          <h4 className="mt-4 font-display text-3xl font-black leading-none tracking-tight text-slate-950 dark:text-white">Welcome to Code UX.</h4>
           <p className="mt-4 text-[15px] leading-relaxed text-slate-600 dark:text-slate-300">
             Code UX is not a wrapper service. It orchestrates official CLI tools from supported AI providers directly on your local machine using Docker.
           </p>
