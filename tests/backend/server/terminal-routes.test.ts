@@ -3,7 +3,7 @@ import request from "supertest";
 import express from "express";
 import { EventEmitter } from "events";
 import { spawn } from "child_process";
-import { registerTerminalRoutes, bootDashboardTerminalWebSocketServer, buildLoginDockerfile, activeTerminalSessions } from "../../../src/server/terminal-routes.js";
+import { registerTerminalRoutes, bootDashboardTerminalWebSocketServer, buildLoginDockerfile, parseAndValidateLoginUrl } from "../../../src/server/terminal-routes.js";
 import type { DashboardDependencies } from "../../../src/server/dashboard-server.js";
 
 // Mock child_process.spawn
@@ -280,6 +280,67 @@ describe("Terminal Routes", () => {
     expect(response.status).toBe(200);
     expect(response.body.sessionId).toBeDefined();
     expect(response.body.providerId).toBe("gemini");
+  });
+
+  describe("login URL validation", () => {
+    it("should accept valid provider login URL with redirect", () => {
+      const result = parseAndValidateLoginUrl("https://login.example.com/oauth?redirect_uri=http://127.0.0.1:8080/callback");
+      expect(result.isValid).toBe(true);
+      if (result.isValid) {
+        expect(result.randomPort).toBe(8080);
+        expect(result.url).toBe("https://login.example.com/oauth?redirect_uri=http://127.0.0.1:8080/callback");
+      }
+    });
+
+    it("should accept valid url without redirect_uri", () => {
+      const result = parseAndValidateLoginUrl("https://login.example.com/oauth");
+      expect(result.isValid).toBe(true);
+      if (result.isValid) {
+        expect(result.randomPort).toBeUndefined();
+      }
+    });
+
+    it("should reject javascript: URL", () => {
+      const result = parseAndValidateLoginUrl("javascript:alert(1)");
+      expect(result.isValid).toBe(false);
+    });
+
+    it("should reject malformed URL", () => {
+      const result = parseAndValidateLoginUrl("not-a-valid-url");
+      expect(result.isValid).toBe(false);
+    });
+
+    it("should skip proxy on redirect target on non-localhost", () => {
+      const result = parseAndValidateLoginUrl("https://login.example.com/oauth?redirect_uri=http://evil.com:8080/callback");
+      expect(result.isValid).toBe(true);
+      if (result.isValid) {
+        expect(result.randomPort).toBeUndefined();
+      }
+    });
+
+    it("should skip proxy on redirect target with privileged port (e.g. port 80)", () => {
+      const result = parseAndValidateLoginUrl("https://login.example.com/oauth?redirect_uri=http://127.0.0.1:80/callback");
+      expect(result.isValid).toBe(true);
+      if (result.isValid) {
+        expect(result.randomPort).toBeUndefined();
+      }
+    });
+
+    it("should skip proxy on redirect target without http/https protocol", () => {
+      const result = parseAndValidateLoginUrl("https://login.example.com/oauth?redirect_uri=ftp://127.0.0.1:8080/callback");
+      expect(result.isValid).toBe(true);
+      if (result.isValid) {
+        expect(result.randomPort).toBeUndefined();
+      }
+    });
+
+    it("should accept valid URL with non-URL redirect target", () => {
+      const result = parseAndValidateLoginUrl("https://login.example.com/oauth?redirect_uri=urn:ietf:wg:oauth:2.0:oob");
+      expect(result.isValid).toBe(true);
+      if (result.isValid) {
+        expect(result.randomPort).toBeUndefined();
+      }
+    });
   });
 
   it("should successfully stop an active session", async () => {
