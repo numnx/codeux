@@ -24,6 +24,8 @@ interface AvantgardeSelectProps {
   variant?: "default" | "compact" | "card";
   className?: string;
   searchable?: boolean;
+  /** When searchable, offers a synthetic "Use "<typed text>"" option if nothing matches, committing the raw typed value via onChange. */
+  allowCustomValue?: boolean;
   invalid?: boolean;
   "aria-label"?: string;
   "aria-labelledby"?: string;
@@ -82,6 +84,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
   variant = "default",
   className = "",
   searchable = false,
+  allowCustomValue = false,
   invalid = false,
   "aria-label": ariaLabel,
   "aria-labelledby": ariaLabelledby,
@@ -257,9 +260,14 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
 
   const filteredOptions = useMemo(() => {
     if (!searchable || !filter.trim()) return options;
-    const lowerFilter = filter.toLowerCase();
-    return options.filter(o => o.label.toLowerCase().includes(lowerFilter));
-  }, [options, searchable, filter]);
+    const trimmed = filter.trim();
+    const lowerFilter = trimmed.toLowerCase();
+    const matches = options.filter(o => o.label.toLowerCase().includes(lowerFilter));
+    if (!allowCustomValue) return matches;
+    const hasExactMatch = options.some(o => o.value.toLowerCase() === lowerFilter || o.label.toLowerCase() === lowerFilter);
+    if (hasExactMatch) return matches;
+    return [...matches, { value: trimmed, label: `Use "${trimmed}"` }];
+  }, [options, searchable, allowCustomValue, filter]);
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (!open) return;

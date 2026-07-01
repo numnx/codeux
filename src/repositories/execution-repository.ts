@@ -83,6 +83,10 @@ import type {
 } from "../contracts/app-types.js";
 import type { DashboardRealtimeMutationNotifier } from "../services/dashboard-realtime-service.js";
 import type { ProviderId } from "../contracts/app-types.js";
+import { PROVIDER_IDS } from "./settings-defaults.js";
+import { resolveCatalogModelId } from "../domain/model-catalog/model-catalog-matcher.js";
+import { getModelCatalogEntry } from "../domain/model-catalog/model-catalog-loader.js";
+import { SettingsRepository } from "./settings-repository.js";
 import { queryExecutionSprintRuns } from "./execution/execution-sprint-runs-query.js";
 import { queryExecutionTaskDispatches } from "./execution/execution-task-dispatches-query.js";
 import { queryExecutionRuntimeEvents } from "./execution/execution-runtime-events-query.js";
@@ -246,7 +250,8 @@ export class ExecutionRepository {
   constructor(
     private readonly storage: AppDbStorage = new AppDbStorage(),
     private readonly realtimeNotifier?: DashboardRealtimeMutationNotifier,
-    private readonly logger: Logger = createLogger({ bindings: { component: "ExecutionRepository" } })
+    private readonly logger: Logger = createLogger({ bindings: { component: "ExecutionRepository" } }),
+    private readonly settingsRepository: SettingsRepository = new SettingsRepository(),
   ) {
     this.db = storage.getDatabase();
     this.wallTimeQuery = new ExecutionWallTimeQuery(this.db, this.storage);
@@ -1067,13 +1072,16 @@ export class ExecutionRepository {
       requireProject: (id) => requireProject(this.db, id),
       getWallTimeTotalsByTaskIdsForRange: (id, start, end, now) => this.wallTimeQuery.getWallTimeTotalsByTaskIdsForRange(id, start, end, now),
       getWallTimeTotalsBySprintRunIdsForRange: (id, start, end, now) => this.wallTimeQuery.getWallTimeTotalsBySprintRunIdsForRange(id, start, end, now),
-      getProviderPricing: (providerId, model) => {
-        try {
-          const sys = this.db.prepare("SELECT settings_json FROM settings WHERE scope_type = 'system'").get() as any;
-          if (!sys || !sys.settings_json) return undefined;
-          const parsed = JSON.parse(sys.settings_json);
-          return parsed?.integrations?.providers?.[providerId]?.pricing;
-        } catch { return undefined; }
+      getModelPricing: (providerId, model) => {
+        if (!model || !PROVIDER_IDS.includes(providerId as ProviderId)) {
+          return undefined;
+        }
+        const canonicalId = resolveCatalogModelId(providerId as ProviderId, model);
+        if (!canonicalId) {
+          return undefined;
+        }
+        const override = this.settingsRepository.getSystemSettings().modelPricing.overrides[canonicalId];
+        return override ?? getModelCatalogEntry(canonicalId)?.cost;
       },
       getTaskMetadata: (id, ids) => {
         const missing = ids.filter(i => !taskMetaCache.has(i));
