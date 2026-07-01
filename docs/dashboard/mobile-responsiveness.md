@@ -39,3 +39,9 @@ For modals with extensive form content (like `AddProjectModal` and `AddTaskModal
 1.  **Headers and Footers are Fixed**: The modal header (title/description) and footer (actions like Cancel/Submit) must remain pinned and visible at all times, independent of scrolling.
 2.  **Scrolling Body**: The internal form body should own the vertical scrolling using `overflow-y-auto` and `flex-1 min-h-0`. This ensures forms are robust under small viewport heights and on-screen keyboards.
 3.  **Invalid Field Scroll**: When a form validation fails, use `getBoundingClientRect()` against the scrollable container to smoothly scroll the first invalid field into view, preventing the browser from natively scrolling it under fixed headers or keyboards.
+
+## Safe Areas & Bottom Navigation
+
+Fixed bottom navigation elements, such as the `KineticDock`, must account for mobile browser UI chrome and safe areas:
+1. **Dynamic Bottom Constraints**: Use `bottom-0` and set the container's height dynamically with `h-[calc(height+env(safe-area-inset-bottom))]` while applying `pb-[env(safe-area-inset-bottom)]` or a style attribute for bottom padding to elevate the controls above the iOS home indicator.
+2. **Horizontal Scroll Boundaries**: For horizontally scrolling lists inside constrained boundaries (e.g., `snap-x`), add an explicit right spacer (`<div className="w-[1px] shrink-0" aria-hidden="true" />`) and apply horizontal scroll padding (`scroll-px-*`) to prevent the last navigation item from being clipped visually or causing focus states to overflow out of bounds.
