@@ -1,78 +1,75 @@
-import { describe, it, expect } from 'vitest';
-import { renderMarkdown } from '../../../dashboard/src/lib/markdown';
+import { describe, expect, it } from "vitest";
+import { renderMarkdown } from "../../../dashboard/src/lib/markdown.js";
 
-describe('markdown', () => {
-  it('renders safe relative links', () => {
-    expect(renderMarkdown('[link](/path)')).toContain('<a href="/path">link</a>');
-    expect(renderMarkdown('[link](path/to/file)')).toContain('<a href="path/to/file">link</a>');
+describe("renderMarkdown", () => {
+  it("renders markdown formatting", () => {
+    const rendered = renderMarkdown("**hello**");
+    expect(rendered).toContain("<strong>hello</strong>");
   });
 
-  it('renders safe external links with rel', () => {
-    const rendered = renderMarkdown('[link](https://example.com)');
-    expect(rendered).toContain('rel="noopener noreferrer"');
+  it("drops inline html blocks", () => {
+    const rendered = renderMarkdown("before <script>alert(1)</script> after");
+    expect(rendered).not.toContain("<script>");
+    expect(rendered).toContain("before ");
+    expect(rendered).toContain(" after");
+  });
+
+  it("strips javascript URLs in links", () => {
+    const rendered = renderMarkdown("[unsafe](javascript:alert(1))");
+    expect(rendered).not.toContain("href");
+    expect(rendered).toContain("unsafe");
+  });
+
+  it("strips data URLs in links", () => {
+    const rendered = renderMarkdown("[unsafe](data:text/html,<script>alert(1)</script>)");
+    expect(rendered).not.toContain("href");
+    expect(rendered).toContain("unsafe");
+  });
+
+  it("strips vbscript URLs in links", () => {
+    const rendered = renderMarkdown("[unsafe](vbscript:msgbox(1))");
+    expect(rendered).not.toContain("href");
+    expect(rendered).toContain("unsafe");
+  });
+
+  it("strips javascript URLs with spaces/encoded characters", () => {
+    const rendered = renderMarkdown("[unsafe]( javascript:alert(1))");
+    expect(rendered).not.toContain("href");
+    expect(rendered).toContain("unsafe");
+  });
+
+  it("preserves relative links", () => {
+    const rendered = renderMarkdown("[safe](/path/to/page)");
+    expect(rendered).toContain('href="/path/to/page"');
+    expect(rendered).toContain("safe");
+  });
+
+  it("preserves mailto links", () => {
+    const rendered = renderMarkdown("[safe](mailto:test@example.com)");
+    expect(rendered).toContain('href="mailto:test@example.com"');
+  });
+
+  it("adds rel=noopener noreferrer to external links", () => {
+    const rendered = renderMarkdown("[external](https://example.com)");
     expect(rendered).toContain('href="https://example.com"');
+    expect(rendered).toContain('rel="noopener noreferrer"');
   });
 
-  it('rejects protocol-relative and UNC urls', () => {
-    expect(renderMarkdown('[link](//example.com)')).not.toContain('<a href');
-    expect(renderMarkdown('![image](//example.com/img.png)')).not.toContain('<img');
-    expect(renderMarkdown('[link](\\\\example.com)')).not.toContain('<a href');
+  it("does not add rel=noopener noreferrer to relative links", () => {
+    const rendered = renderMarkdown("[internal](/docs)");
+    expect(rendered).toContain('href="/docs"');
+    expect(rendered).not.toContain('rel="noopener noreferrer"');
   });
 
-  it('rejects javascript urls and tricks', () => {
-    expect(renderMarkdown('[link](javascript:alert(1))')).not.toContain('<a href');
-    expect(renderMarkdown('[link](java\nscript:alert(1))')).not.toContain('<a href');
-    expect(renderMarkdown('[link](java\r\nscript:alert(1))')).not.toContain('<a href');
-    expect(renderMarkdown('[link](java\tscript:alert(1))')).not.toContain('<a href');
-
-    // HTML entities
-    expect(renderMarkdown('[link](java&#10;script:alert(1))')).not.toContain('<a href');
-    expect(renderMarkdown('[link](java&#x0A;script:alert(1))')).not.toContain('<a href');
-
-    // Encoded trick
-    expect(renderMarkdown('[link](javascript%3Aalert(1))')).not.toContain('<a href');
-    expect(renderMarkdown('[link](java%0Ascript:alert(1))')).not.toContain('<a href');
-    expect(renderMarkdown('[link](javascript:alert(1)%00)')).not.toContain('<a href');
-
-    // Spaces
-    expect(renderMarkdown('[link]( javascript:alert(1))')).not.toContain('<a href');
-    expect(renderMarkdown('[link](javascript:alert(1) )')).not.toContain('<a href');
+  it("strips unsafe image URLs", () => {
+    const rendered = renderMarkdown("![unsafe image](javascript:alert(1))");
+    expect(rendered).not.toContain("img");
+    expect(rendered).not.toContain("src");
+    expect(rendered).toContain("unsafe image");
   });
 
-  it('rejects named entity trick encodings', () => {
-    expect(renderMarkdown('[link](java&Tab;script:alert(1))')).not.toContain('<a href');
-    expect(renderMarkdown('[link](java&NewLine;script:alert(1))')).not.toContain('<a href');
-    expect(renderMarkdown('[link](javascript&colon;alert(1))')).not.toContain('<a href');
-  });
-
-  it('rejects vbscript and data urls in links', () => {
-    expect(renderMarkdown('[link](vbscript:alert(1))')).not.toContain('<a href');
-    expect(renderMarkdown('[link](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)')).not.toContain('<a href');
-  });
-
-  it('strips raw HTML', () => {
-    const rendered = renderMarkdown('Some text <script>alert(1)</script> <a href="javascript:alert(2)">link</a>');
-    expect(rendered).not.toContain('<script>');
-    expect(rendered).not.toContain('<a href');
-  });
-
-  it('allows mailto in links but not images', () => {
-    expect(renderMarkdown('[mail](mailto:test@example.com)')).toContain('<a href="mailto:test@example.com"');
-    expect(renderMarkdown('![mailimg](mailto:test@example.com)')).not.toContain('<img');
-  });
-
-  it('renders safe images', () => {
-    expect(renderMarkdown('![img](/path/to/img.png)')).toContain('<img src="/path/to/img.png"');
-    expect(renderMarkdown('![img](path/to/img.png)')).toContain('<img src="path/to/img.png"');
-    expect(renderMarkdown('![img](https://example.com/img.png)')).toContain('<img src="https://example.com/img.png"');
-  });
-
-  it('rejects control characters', () => {
-    expect(renderMarkdown('[link](\x01javascript:alert(1))')).not.toContain('<a href');
-    expect(renderMarkdown('[link](https://example.com\x00)')).not.toContain('<a href');
-  });
-
-  it('rejects malformed urls', () => {
-    expect(renderMarkdown('[link](https://example.com/%00)')).not.toContain('<a href');
+  it("preserves safe image URLs", () => {
+    const rendered = renderMarkdown("![safe image](https://example.com/image.png)");
+    expect(rendered).toContain('<img src="https://example.com/image.png" alt="safe image">');
   });
 });

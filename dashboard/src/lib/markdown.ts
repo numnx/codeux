@@ -3,72 +3,48 @@ import { marked } from "marked";
 const renderer = new marked.Renderer();
 renderer.html = () => "";
 
-// Replaces html entities before validating, to catch named ones like &Tab;, &NewLine;, &colon;, and numeric ones.
-const decodeHtmlEntities = (html: string): string => {
-    let res = html;
-    try {
-        res = res.replace(/&#x([0-9a-fA-F]+);?/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-        res = res.replace(/&#([0-9]+);?/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
-        res = res.replace(/&tab;/gi, "\t");
-        res = res.replace(/&newline;/gi, "\n");
-        res = res.replace(/&colon;/gi, ":");
-    } catch {}
-    return res;
-};
-
 const isSafe = (url: string, allowedProtocols: string[]): boolean => {
   try {
-    let decoded = decodeHtmlEntities(url);
-    decoded = decoded.trim();
+    let decoded = url.trim();
+    // decode trick encodings
+    decoded = decodeURI(decoded);
 
-    // Check if original or decoded string contains control characters or space encoded
-    if (/[\x00-\x1F\x7F-\x9F]/.test(decoded)) {
-        return false;
-    }
-
-    let uriDecoded = decoded;
-    try {
-        uriDecoded = decodeURIComponent(decoded);
-        if (/[\x00-\x1F\x7F-\x9F]/.test(uriDecoded)) {
-            return false;
-        }
-    } catch {
-        return false; // reject malformed percent encoding
-    }
-
-    // reject protocol-relative URLs or UNC paths.
-    // marked unescapes \\ to \ in links. So we check for \ as well to prevent UNC.
-    if (uriDecoded.startsWith("//") || uriDecoded.startsWith("\\\\") || uriDecoded.startsWith("\\")) {
+    // reject control characters
+    if (/[\x00-\x1F\x7F]/.test(decoded)) {
       return false;
     }
 
-    if (uriDecoded.startsWith("/") || uriDecoded.startsWith("#") || uriDecoded.startsWith("?")) {
+    // reject protocol-relative URLs
+    if (decoded.startsWith("//")) {
+      return false;
+    }
+
+    if (decoded.startsWith("/") || decoded.startsWith("#") || decoded.startsWith("?")) {
       return true;
     }
 
-    const parsed = new URL(uriDecoded, "http://dummy.com");
-    if (parsed.origin !== "http://dummy.com") {
-        return allowedProtocols.includes(parsed.protocol);
-    } else {
-        // If it used dummy.com, the protocol should have remained http: (it was a relative path).
-        // If it somehow parsed differently but still used dummy.com origin (unlikely), block.
-        if (parsed.protocol !== "http:") {
-            return false;
-        }
-        // Since it used dummy.com, it didn't have a protocol itself.
-        // Let's strip whitespace/alphanumeric and check for trick schemes again just in case
-        const stripped = uriDecoded.replace(/[^a-z0-9:]/gi, '').toLowerCase();
-        if (stripped.startsWith('javascript:') || stripped.startsWith('vbscript:') || stripped.startsWith('data:')) {
-            return false;
-        }
-        return true;
+    // Try parsing as absolute URL
+    try {
+      const parsed = new URL(decoded);
+      return allowedProtocols.includes(parsed.protocol);
+    } catch {
+      // If it fails to parse as absolute, we need to be extremely strict to avoid falling back on dummy domains.
+      // We will check for dangerous scheme prefixes by stripping out whitespace and non-alphanumeric chars
+      const stripped = decoded.replace(/[^a-z0-9:]/gi, '').toLowerCase();
+      if (stripped.startsWith('javascript:') || stripped.startsWith('vbscript:') || stripped.startsWith('data:')) {
+          return false;
+      }
+
+      // We only allow relative paths that parse cleanly with a dummy origin.
+      const parsedRelative = new URL(decoded, "http://dummy.com");
+      return parsedRelative.protocol === "http:";
     }
   } catch {
-    return false; // Reject malformed URLs
+    return false;
   }
 };
 
-const isLinkUrlSafe = (url: string): boolean => {
+const isAnchorUrlSafe = (url: string): boolean => {
   return isSafe(url, ["http:", "https:", "mailto:"]);
 };
 
@@ -85,11 +61,27 @@ const escapeHtml = (html: string): string => {
     .replace(/'/g, "&#39;");
 };
 
+// Replace html entities before validating, to catch named ones like &Tab;, &NewLine;, &colon;, and numeric ones.
+const decodeHtmlEntitiesStrict = (html: string): string => {
+    let res = html;
+    try {
+        res = res.replace(/&#x([0-9a-fA-F]+);?/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+        res = res.replace(/&#([0-9]+);?/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
+        // Also handle some common named entities that can be used for obfuscation in URL schemes
+        res = res.replace(/&tab;/gi, "\t");
+        res = res.replace(/&newline;/gi, "\n");
+        res = res.replace(/&colon;/gi, ":");
+    } catch {}
+    return res;
+};
+
 renderer.link = function (token) {
   const { href, title, tokens } = token;
   const parsedText = this.parser.parseInline(tokens);
 
-  if (!isLinkUrlSafe(href)) {
+  let decodedHref = decodeHtmlEntitiesStrict(href);
+
+  if (!isAnchorUrlSafe(decodedHref)) {
     return parsedText;
   }
 
@@ -109,7 +101,9 @@ renderer.link = function (token) {
 renderer.image = function (token) {
   const { href, title, text } = token;
 
-  if (!isImageUrlSafe(href)) {
+  let decodedHref = decodeHtmlEntitiesStrict(href);
+
+  if (!isImageUrlSafe(decodedHref)) {
     return escapeHtml(text);
   }
 
