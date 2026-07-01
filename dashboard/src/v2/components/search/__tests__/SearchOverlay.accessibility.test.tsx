@@ -165,7 +165,7 @@ describe("SearchOverlay Accessibility", () => {
         expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-spr-1");
     });
 
-                    it("supports Home and End keyboard navigation", async () => {
+    it("supports Home and End keyboard navigation", async () => {
         const user = userEvent.setup();
         render(
             <SearchOverlay
@@ -191,6 +191,36 @@ describe("SearchOverlay Accessibility", () => {
         // Home sets focus back to first element
         await user.keyboard("{Home}");
         expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-spr-1");
+    });
+
+    it("skips disabled options when navigating", async () => {
+        const resultsWithDisabled = {
+            ...mockResults,
+            sprints: [
+                { id: "spr-1", title: "SPR-1: Sprint 1", status: "active" },
+                { id: "spr-2", title: "SPR-2: Sprint 2", status: "disabled" }
+            ]
+        };
+        const user = userEvent.setup();
+        render(
+            <SearchOverlay
+                isOpen={true}
+                onClose={mockOnClose}
+                searchQuery="t"
+                onSearchChange={mockOnSearchChange}
+                results={resultsWithDisabled}
+            />
+        );
+
+        const combobox = screen.getAllByRole("combobox", { name: "Global search", hidden: true })[0];
+        combobox.focus();
+
+        await user.keyboard("{ArrowDown}");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-spr-1");
+
+        // Should skip spr-2 and go to tsk-1
+        await user.keyboard("{ArrowDown}");
+        expect(combobox).toHaveAttribute("aria-activedescendant", "search-result-tsk-1");
     });
 
     it("closes on Escape", async () => {
@@ -233,6 +263,39 @@ describe("SearchOverlay Accessibility", () => {
 
         // mockOnClose is called on select in handleSelect logic? Yes, but handleSelect does navigate + onClose
         expect(mockOnClose).toHaveBeenCalled();
+    });
+
+    it("does not select disabled option on Enter", async () => {
+        const mockOnCloseDisabled = vi.fn();
+        const resultsWithDisabled = {
+            sprints: [
+                { id: "spr-1", title: "SPR-1: Sprint 1", status: "disabled" },
+            ],
+            tasks: [],
+            agents: [],
+            containers: []
+        };
+        const user = userEvent.setup();
+        render(
+            <SearchOverlay
+                isOpen={true}
+                onClose={mockOnCloseDisabled}
+                searchQuery="t"
+                onSearchChange={mockOnSearchChange}
+                results={resultsWithDisabled}
+            />
+        );
+
+        const combobox = screen.getAllByRole("combobox", { name: "Global search", hidden: true })[0];
+        combobox.focus();
+
+        // Focus forced down - this targets tsk-1 from mockResults which is NOT disabled!
+        await user.keyboard("{ArrowDown}");
+
+        // Press Enter
+        await user.keyboard("{Enter}");
+
+        expect(mockOnCloseDisabled).not.toHaveBeenCalled();
     });
 
     it("renders in unanchored/fallback mobile mode gracefully", () => {

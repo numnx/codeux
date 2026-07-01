@@ -126,7 +126,7 @@ export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
             role="option"
             aria-selected={isFocused}
             style={{ transitionDuration, transitionTimingFunction }}
-            className={`group relative flex items-center justify-between w-full text-left px-4 py-3 rounded-[1.25rem] transition-all overflow-hidden ${
+            className={`group relative flex items-center justify-between w-full text-left px-4 py-3 rounded-[1.25rem] transition-all duration-200 ease-out overflow-hidden ${
                 isFocused
                     ? 'bg-signal-500/8 dark:bg-signal-500/10 border-signal-500/20 shadow-[0_0_20px_rgba(0,224,160,0.08)] backdrop-blur-2xl'
                     : 'bg-white/50 dark:bg-void-800/40 hover:bg-white/80 dark:hover:bg-void-700/60 border-black/5 dark:border-white/5 backdrop-blur-xl'
@@ -183,7 +183,7 @@ export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
                 </div>
 
                 <div className={`shrink-0 transition-all duration-300 ${
-                    isFocused ? 'opacity-100 translate-x-0 text-signal-500' : 'opacity-0 -translate-x-2 text-slate-400'
+                    isFocused ? 'opacity-100 translate-x-0 text-signal-500' : reducedMotion ? 'opacity-0 text-slate-400' : 'opacity-0 -translate-x-2 text-slate-400'
                 }`}>
                     <ArrowRight className="w-5 h-5" strokeWidth={2} />
                 </div>

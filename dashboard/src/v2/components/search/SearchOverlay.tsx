@@ -180,14 +180,30 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
                 setFocusedIndex((allItems?.length || 0) - 1);
             } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                setFocusedIndex(prev => (prev < (allItems?.length || 0) - 1 ? prev + 1 : 0));
+                setFocusedIndex(prev => {
+                    let next = prev < (allItems?.length || 0) - 1 ? prev + 1 : 0;
+                    let start = next;
+                    while (allItems[next] && (allItems[next].status === 'unavailable' || allItems[next].status === 'disabled')) {
+                        next = next < (allItems?.length || 0) - 1 ? next + 1 : 0;
+                        if (next === prev || next === start) break;
+                    }
+                    return next;
+                });
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                setFocusedIndex(prev => (prev > 0 ? prev - 1 : (allItems?.length || 0) - 1));
+                setFocusedIndex(prev => {
+                    let next = prev > 0 ? prev - 1 : (allItems?.length || 0) - 1;
+                    let start = next;
+                    while (allItems[next] && (allItems[next].status === 'unavailable' || allItems[next].status === 'disabled')) {
+                        next = next > 0 ? next - 1 : (allItems?.length || 0) - 1;
+                        if (next === prev || next === start) break;
+                    }
+                    return next;
+                });
             } else if (e.key === 'Enter' && focusedIndex >= 0) {
                 e.preventDefault();
                 const selectedItem = allItems[focusedIndex];
-                if (selectedItem) {
+                if (selectedItem && selectedItem.status !== 'unavailable' && selectedItem.status !== 'disabled') {
                     handleSelect(selectedItem);
                 }
             }
@@ -202,7 +218,7 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
     useEffect(() => {
         if (activeItemRef.current) {
             const el = activeItemRef.current;
-            const container = el.closest('.overflow-y-auto') as HTMLElement;
+            const container = typeof el.closest === 'function' ? el.closest('.overflow-y-auto') as HTMLElement : null;
             if (container) {
                 const containerRect = container.getBoundingClientRect();
                 const elRect = el.getBoundingClientRect();
@@ -306,13 +322,13 @@ export const SearchOverlay: FunctionComponent<SearchOverlayProps> = ({ anchorRef
                         </div>
                     ) : allItems.length === 0 && !isLoading ? (
                         !hasProjectData ? (
-                            <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400" aria-live="polite" role="status">
+                            <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-black/[0.02] dark:bg-white/[0.02] rounded-xl border border-black/[0.04] dark:border-white/[0.04] text-slate-500 dark:text-slate-400" aria-live="polite" role="status">
                                 <FileX className="w-8 h-8 mb-4 opacity-50 text-status-red" />
                                 <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Project data unavailable</span>
                                 <span className="text-xs mt-1 text-slate-500 dark:text-slate-400">Unable to load project search results.</span>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400" aria-live="polite" role="status">
+                            <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-black/[0.02] dark:bg-white/[0.02] rounded-xl border border-black/[0.04] dark:border-white/[0.04] text-slate-500 dark:text-slate-400" aria-live="polite" role="status">
                                 <Inbox className="w-8 h-8 mb-4 opacity-50" />
                                 <span className="text-sm font-medium text-slate-900 dark:text-slate-100">No results found for '{searchQuery}'</span>
                                 <span className="text-xs mt-1 text-slate-500 dark:text-slate-400">Try adjusting your search terms or checking for typos.</span>
