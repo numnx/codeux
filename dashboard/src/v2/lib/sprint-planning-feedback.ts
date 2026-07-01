@@ -11,38 +11,38 @@ export interface PlanningFeedback {
 const STAGES: Record<PlanningActionType, Array<{ text: string; threshold: number }>> = {
   improve: [
     { text: "Researching codebase context...", threshold: 0.10 },
-    { text: "Analyzing codebase...", threshold: 0.30 },
+    { text: "Analyzing code architecture...", threshold: 0.30 },
     { text: "Refining technical requirements...", threshold: 0.60 },
-    { text: "Synthesizing improved plan...", threshold: 0.90 },
+    { text: "Synthesizing an improved prompt...", threshold: 0.85 },
   ],
   plan_only: [
     { text: "Registering sprint definition...", threshold: 0.10 },
     { text: "Analyzing codebase...", threshold: 0.30 },
-    { text: "Resolving dependencies...", threshold: 0.50 },
-    { text: "Orchestrating subtask generation...", threshold: 0.70 },
-    { text: "Finalizing sprint structure...", threshold: 0.90 },
+    { text: "Resolving execution dependencies...", threshold: 0.50 },
+    { text: "Decomposing into atomic subtasks...", threshold: 0.70 },
+    { text: "Finalizing grounded sprint structure...", threshold: 0.90 },
   ],
   plan_and_start: [
     { text: "Registering sprint definition...", threshold: 0.10 },
     { text: "Analyzing codebase...", threshold: 0.30 },
-    { text: "Resolving dependencies...", threshold: 0.50 },
-    { text: "Orchestrating subtask generation...", threshold: 0.70 },
-    { text: "Preparing launch sequence...", threshold: 0.90 },
+    { text: "Resolving execution dependencies...", threshold: 0.50 },
+    { text: "Decomposing into atomic subtasks...", threshold: 0.70 },
+    { text: "Preparing execution launch sequence...", threshold: 0.90 },
   ],
   replan: [
     { text: "Analyzing existing tasks...", threshold: 0.10 },
-    { text: "Discarding outdated plan...", threshold: 0.30 },
+    { text: "Discarding outdated execution plan...", threshold: 0.30 },
     { text: "Analyzing codebase...", threshold: 0.50 },
-    { text: "Generating new subtasks...", threshold: 0.75 },
-    { text: "Finalizing new structure...", threshold: 0.95 },
+    { text: "Generating grounded subtasks...", threshold: 0.75 },
+    { text: "Finalizing new execution structure...", threshold: 0.95 },
   ],
   draft: [
-    { text: "Saving draft...", threshold: 0.10 },
-    { text: "Finalizing draft...", threshold: 0.80 },
+    { text: "Saving sprint definition draft...", threshold: 0.10 },
+    { text: "Finalizing draft context...", threshold: 0.80 },
   ],
   append_tasks: [
-    { text: "Appending tasks...", threshold: 0.10 },
-    { text: "Finalizing sprint...", threshold: 0.80 },
+    { text: "Appending manual tasks...", threshold: 0.10 },
+    { text: "Finalizing updated sprint...", threshold: 0.80 },
   ],
 };
 

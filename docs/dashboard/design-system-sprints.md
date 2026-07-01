@@ -52,3 +52,12 @@ All asynchronous sprint actions (such as starting, pausing, toggling showcase st
 *   **Preventing Duplicate Submissions:** Automatically filters out actions that are already pending using `pendingActionIds`.
 *   **Optimistic UI:** Safely applies and reverts optimistic visual statuses.
 *   **Error Handling and Cleanup:** Centralizes `try/catch/finally` blocks, ensuring data grids refresh (via `refresh()` and `refreshExecution()`) before surfaces display errors via `setError`, keeping the system state perfectly aligned with backend truth.
+
+### Sprint Composer Async States
+
+When managing async planning operations (improve prompt, plan only, plan and start, replan, draft, append tasks) in the Sprint Composer, use the following interaction model:
+
+*   **Pending State & Progress Overlay:** Use `PlanningProgressOverlay` to communicate the active phase. Ensure `aria-busy` and `aria-live` are applied correctly on form containers to announce the status.
+*   **Disabled Fields:** Use opacity dimming (`opacity-60`), grayscale (`grayscale-[50%]`), and `pointer-events-none` on grouped fields that must be locked during submission. Retain focusability for actionable elements where logical.
+*   **Cancellation Affordances:** Provide clear mechanisms to cancel active requests using specific labels (e.g., "Cancel Active Request"). When requests detach or complete in the background, ensure the UI clarifies this boundary.
+*   **Motion Fallbacks:** Always respect user reduced-motion preferences (`motion-safe:animate-ping`, `duration: 0` for explicit gsap configs) during overlay entries/exits and ship animation states.

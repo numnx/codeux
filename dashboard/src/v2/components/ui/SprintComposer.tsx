@@ -536,7 +536,9 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
         onSubmit={handleSubmit}
         className="relative z-10 flex min-h-0 flex-1 flex-col"
         tabIndex={-1}
+        aria-busy={isBusy}
       >
+        <fieldset disabled={isBusy} className="flex min-h-0 flex-1 flex-col border-none p-0 m-0">
         <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_21rem]">
             <div className="border-b border-black/[0.06] p-6 dark:border-white/[0.06] sm:p-8 lg:p-10 xl:border-b-0 xl:border-r">
@@ -587,7 +589,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             </div>
 
             <div className={`rounded-xl border p-3 transition-all ${
-              isBusy ? "border-black/[0.06] bg-black/[0.025] opacity-50 dark:border-white/[0.06] dark:bg-white/[0.03]" : "border-black/[0.06] bg-black/[0.025] dark:border-white/[0.06] dark:bg-white/[0.03]"
+              isBusy ? "border-black/[0.06] bg-black/[0.025] pointer-events-none opacity-60 grayscale-[50%] dark:border-white/[0.06] dark:bg-white/[0.03]" : "border-black/[0.06] bg-black/[0.025] dark:border-white/[0.06] dark:bg-white/[0.03]"
             }`}>
               <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Planning Route</div>
               <div className="mt-2">
@@ -793,7 +795,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
                 isImproving
                   ? "border-signal-500/35 bg-black/[0.025] shadow-[0_0_0_1px_rgba(0,224,160,0.16),0_0_30px_rgba(0,224,160,0.1)] dark:bg-white/[0.03]"
                   : isBusy
-                    ? "border-black/[0.07] bg-black/[0.025] opacity-50 dark:border-white/[0.08] dark:bg-white/[0.03]"
+                    ? "border-black/[0.07] bg-black/[0.025] pointer-events-none opacity-60 grayscale-[50%] dark:border-white/[0.08] dark:bg-white/[0.03]"
                     : "border-black/[0.07] bg-black/[0.025] dark:border-white/[0.08] dark:bg-white/[0.03]"
               }`}>
                 {(() => {
@@ -835,7 +837,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
 
         <aside className="flex flex-col gap-4 p-6 sm:p-8">
           <div data-composer-stagger>
-            <div className={`transition-all ${isBusy ? "opacity-50" : ""}`}>
+            <div className={`transition-all ${isBusy ? "pointer-events-none opacity-60 grayscale-[50%]" : ""}`}>
               <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Agent Routing</div>
               <div className="mt-3">
                 <AvantgardeSelect
@@ -855,7 +857,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
           </div>
 
           <div data-composer-stagger>
-            <div className={`transition-all ${isBusy ? "opacity-50" : ""}`}>
+            <div className={`transition-all ${isBusy ? "pointer-events-none opacity-60 grayscale-[50%]" : ""}`}>
               <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Planning Agent</div>
               <div className="mt-3">
                 <AvantgardeSelect
@@ -876,7 +878,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
 
           {state.agentRoutingMode === "MANUAL" && (
             <div data-composer-stagger>
-              <div className={`transition-all ${isBusy ? "opacity-50" : ""}`}>
+              <div className={`transition-all ${isBusy ? "pointer-events-none opacity-60 grayscale-[50%]" : ""}`}>
                 <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Worker Agent</div>
                 <div className="mt-3">
                   <AvantgardeSelect
@@ -958,7 +960,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
             onClick={isBusy ? handleCancel : onClose}
             className={`rounded-[1.2rem] border px-5 py-3 text-sm font-semibold transition-colors w-full sm:w-auto ${
               isBusy
-                ? "border-status-red/30 bg-status-red/[0.06] text-status-red hover:bg-status-red/[0.12]"
+                ? "border-status-red/30 bg-status-red/[0.06] text-status-red hover:bg-status-red/[0.12] ring-status-red/20 focus:outline-none focus:ring-4"
                 : "border-black/[0.06] bg-white/66 text-slate-500 hover:text-slate-900 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-300 dark:hover:text-white"
             }`}
           >
@@ -976,6 +978,7 @@ export const SprintComposer: FunctionComponent<SprintComposerProps> = ({
               : state.submitMode === 'draft' ? (state.isEditing ? "Save Changes" : "Save Draft") : activeMode.label}
           </button>
         </div>
+      </fieldset>
       </form>
     </section>
   );
