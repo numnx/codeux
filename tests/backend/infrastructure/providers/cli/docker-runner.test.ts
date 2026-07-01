@@ -5,6 +5,7 @@ import { DockerRunner } from "../../../../../src/infrastructure/providers/cli/do
 vi.mock("fs/promises");
 vi.mock("../../../../../src/services/cli-process-runner.js", () => ({
   runStreamingCommand: vi.fn(),
+  runCommandStrict: vi.fn(),
 }));
 vi.mock("../../../../../src/infrastructure/providers/cli/docker-bootstrap-builder.js", () => ({
   CLAUDE_CODE_MCP_CONFIG_MOUNT: "/opt/provider-config/claude-mcp.json",
@@ -36,7 +37,7 @@ vi.mock("../../../../../src/infrastructure/providers/cli/docker-runtime-paths.js
   resolveDockerRuntimeRoot: vi.fn(() => "/runtime-root"),
 }));
 
-import { runStreamingCommand } from "../../../../../src/services/cli-process-runner.js";
+import { runCommandStrict, runStreamingCommand } from "../../../../../src/services/cli-process-runner.js";
 import { DockerSetupImageCache } from "../../../../../src/infrastructure/providers/cli/docker-setup-image-cache.js";
 
 describe("DockerRunner", () => {
@@ -50,6 +51,7 @@ describe("DockerRunner", () => {
     vi.mocked(fs.stat).mockResolvedValue({ uid: 1000, gid: 1000 } as any);
     vi.mocked(fs.access).mockRejectedValue(new Error("missing"));
     vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+    vi.mocked(runCommandStrict).mockResolvedValue({ ok: true, stdout: "", stderr: "", code: 0 } as any);
     vi.mocked(runStreamingCommand).mockResolvedValue({
       ok: true,
       stdout: "done",
