@@ -13,6 +13,7 @@ import {
   buildPreviewProxyRequestHeaders,
   buildPreviewStandbyHtml,
   injectPreviewBridgeIntoHtml,
+  isAllowedPreviewControlOrigin,
   mergePreviewCorsHeaders,
   parsePreviewSessionIdFromHost,
   requestBufferedPreviewResponse,
@@ -30,7 +31,12 @@ export function createPreviewHostMiddleware(options: DashboardServerOptions): ex
       next();
       return;
     }
-    applyPreviewCorsHeaders(req, res);
+    const isControlPath = req.path === PREVIEW_START_PATH || req.path === PREVIEW_REBUILD_PATH || req.path === PREVIEW_STATUS_PATH;
+    if (isControlPath && !isAllowedPreviewControlOrigin(req)) {
+      res.status(403).send("Forbidden");
+      return;
+    }
+    applyPreviewCorsHeaders(req, res, isControlPath);
     if (req.method === "OPTIONS") {
       res.status(204).end();
       return;
@@ -145,7 +151,7 @@ export function createPreviewHostMiddleware(options: DashboardServerOptions): ex
       const isHtml = contentType.toLowerCase().includes("text/html");
       if (!isHtml) {
         const responseHeaders = { ...proxyResponse.headers };
-        mergePreviewCorsHeaders(req, responseHeaders);
+        mergePreviewCorsHeaders(req, responseHeaders, false);
         if (typeof responseHeaders.location === "string") {
           responseHeaders.location = rewritePreviewLocationHeader(responseHeaders.location, req, session.hostPort!);
         }
@@ -163,7 +169,7 @@ export function createPreviewHostMiddleware(options: DashboardServerOptions): ex
         const injected = injectPreviewBridgeIntoHtml(body);
         const responseHeaders = { ...proxyResponse.headers };
         sanitizePreviewDocumentHeaders(responseHeaders);
-        mergePreviewCorsHeaders(req, responseHeaders);
+        mergePreviewCorsHeaders(req, responseHeaders, false);
         if (typeof responseHeaders.location === "string") {
           responseHeaders.location = rewritePreviewLocationHeader(responseHeaders.location, req, session.hostPort!);
         }
