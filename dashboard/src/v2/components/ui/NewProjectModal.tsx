@@ -230,7 +230,7 @@ export const NewProjectModal: FunctionComponent<NewProjectModalProps> = ({ onClo
                         <div ref={fieldsRef} className="flex flex-col gap-5 lg:gap-6 flex-1">
 
                             {submitError && (
-                                <div role="alert" aria-live="assertive" className="text-status-red text-sm font-medium">
+                                <div role="alert" aria-live="assertive" className="text-status-red text-sm font-medium bg-status-red/10 border border-status-red/20 rounded-xl p-3">
                                     {submitError}
                                 </div>
                             )}

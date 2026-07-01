@@ -174,7 +174,7 @@ function DestructiveConfirmButton({
 
       <span className="relative z-10 flex items-center justify-center gap-2">
         {isLoading && <><Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /><span className="sr-only">Processing, please wait</span></>}
-        {isHolding ? `Hold to ${label}` : isLoading ? "Processing..." : label}
+        {isLoading ? "Processing..." : `Hold to ${label}`}
       </span>
     </button>
   );

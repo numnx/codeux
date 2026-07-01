@@ -43,3 +43,6 @@ This document outlines the design system for the Projects page and related compo
 
 *   **Consistency:** Align forms, field styling, segmented options, directory browsers, and CTAs across the Add Project modal and any other setup overlays.
 *   **Hierarchy:** Keep form sections clearly separated.
+
+### Actions
+- Quick actions (Setup, Settings, Delete) visibly select the project before navigation.

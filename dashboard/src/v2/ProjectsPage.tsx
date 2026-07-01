@@ -463,9 +463,14 @@ export const ProjectsPage: FunctionComponent = () => {
         selectedProjectId,
         loading,
         createProject,
-        deleteProject,
+        deleteProject: deleteProjectRaw,
         selectProject,
     } = useProjectData();
+
+    const deleteProject = async (id: string) => {
+        await deleteProjectRaw(id);
+        document.getElementById('add-project-card-btn')?.focus();
+    };
     const { addToast } = useToast();
 
     const [showSkeletons, setShowSkeletons] = useState(false);
@@ -771,8 +776,9 @@ export const ProjectsPage: FunctionComponent = () => {
                                         isSettingUp={runningSetupProjectIds.has(source.id)}
                                         setupInvocationId={setupInvocationByProjectId[source.id] || null}
                                         onSelect={() => { void selectProject(source.id); }}
-                                        onDelete={() => { void deleteProject(source.id); }}
+                                        onDelete={() => { void selectProject(source.id); void deleteProject(source.id); }}
                                         onSetup={() => {
+                                            void selectProject(source.id);
                                             setSetupProjectId(source.id);
                                             setSetupOptions({ agents: true, quicksprints: true, previewScript: true, ci: true });
                                             setSetupError(null);
@@ -783,11 +789,11 @@ export const ProjectsPage: FunctionComponent = () => {
                                                 openInvocation(invocationId);
                                             }
                                         }}
-                                        onSettings={() => openProjectSettings(source.id)}
+                                        onSettings={() => { void selectProject(source.id); openProjectSettings(source.id); }}
                                     />
                                 </div>
                             ))}
-                            <div className="project-card-entry h-full">
+                            <div id="add-project-card-btn" tabIndex={-1} className="project-card-entry h-full focus:outline-none">
                                 <AddCard onClick={() => {
                                     setModalSourceType('local');
                                     setShowModal(true);

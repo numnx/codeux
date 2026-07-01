@@ -169,13 +169,13 @@ describe("ProjectsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Widget Service is selected/i }));
     expect(selectProjectMock).toHaveBeenCalledTimes(2);
 
-    fireEvent.click(screen.getByRole("button", { name: /Project settings/i }));
-    expect(selectProjectMock).toHaveBeenCalledTimes(3);
+    fireEvent.click(screen.getAllByRole("button", { name: /Project settings/i })[0]);
+    // It should have been called with project-1 since we get the first button
+    expect(selectProjectMock).toHaveBeenCalledWith("project-1");
     expect(navigateMock).toHaveBeenCalledWith({ to: "/config" });
 
     fireEvent.click(screen.getByRole("button", { name: /Delete project/i }));
     expect(deleteProjectMock).toHaveBeenCalledTimes(1);
-    expect(selectProjectMock).toHaveBeenCalledTimes(3);
   });
 
   it("opens the add-project modal from the add card", () => {
