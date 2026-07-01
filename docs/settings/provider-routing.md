@@ -75,6 +75,7 @@ Manual route selection is authoritative for that route. If a route sets `provide
 - `qa_review`: completion-time quality assurance reviews that can request follow-up fixes
 - `ci_fix`: worker-owned CI repair runs
 - `merge_conflict`: worker-owned merge-conflict repair runs
+- `remediation`: memory curation runs, including optional AI post-sprint promotion review and scheduled long-term memory cleanup
 
 ## Resolution Rules
 
@@ -114,6 +115,7 @@ To prevent conflicting generated runtime configuration and credential leakage, C
 - `qa_review` uses `WORKER`
 - `ci_fix` uses `WORKER`
 - `merge_conflict` uses `WORKER`
+- `remediation` uses `WORKER`
 
 That means:
 - task coding uses the strategy stored on the `task_coding` route
@@ -138,6 +140,8 @@ Provider-cap queueing is not a task creation failure. It must not increment the 
   - virtual planning provider/model resolution
 - `src/services/virtual-worker-service.ts`
   - CI fix and merge-conflict worker-owned repair flows
+- `src/services/memory-remediation-service.ts`
+  - post-sprint memory curation and scheduled long-term memory cleanup
 - `src/services/cli-workflow/pipeline/prepare-stage.ts`
 - `src/services/cli-workflow/pipeline/execute-provider-stage.ts`
   - consume explicit per-run provider settings instead of implicitly borrowing worker model overrides
@@ -170,3 +174,8 @@ Dashboard route and model controls share provider display metadata from the sett
 
 File:
 - `dashboard/src/v2/SettingsPage.tsx`
+
+
+## Provider Override Settings Boundary
+
+Code UX enforces a single shared typed mapping boundary, `buildProviderSettingsOverride` in `src/services/provider-settings-override.ts`, for converting resolved dashboard provider settings and models into the isolated `providerSettingsOverride` payload needed for CLI execution and QA review dispatches. This shared boundary keeps contract drift out of the duplicated dispatch call sites while maintaining support for auth path overrides, Qwen auth mode sub-fields, OpenCode custom provider logic, and base provider parameters like model or API keys.

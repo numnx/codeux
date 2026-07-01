@@ -5,17 +5,21 @@ import { Modal } from "../ui/Modal.js";
 import { NumberInput, Row } from "./SettingsFormFields.js";
 import type { TokenPricing } from "../../../../../src/contracts/app-types.js";
 
-interface TokenPricingModalProps {
+interface ModelPriceOverrideModalProps {
   isOpen: boolean;
   onClose: () => void;
-  pricing?: TokenPricing;
-  onSave: (pricing?: TokenPricing) => void;
+  modelLabel: string;
+  basePrice: TokenPricing | undefined;
+  override: TokenPricing | undefined;
+  onSave: (pricing: TokenPricing | undefined) => void;
 }
 
-export const TokenPricingModal: FunctionComponent<TokenPricingModalProps> = ({
+export const ModelPriceOverrideModal: FunctionComponent<ModelPriceOverrideModalProps> = ({
   isOpen,
   onClose,
-  pricing,
+  modelLabel,
+  basePrice,
+  override,
   onSave,
 }) => {
   const [inputTokens, setInputTokens] = useState<number>(0);
@@ -24,11 +28,12 @@ export const TokenPricingModal: FunctionComponent<TokenPricingModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setInputTokens(pricing?.inputTokens ?? 0);
-      setOutputTokens(pricing?.outputTokens ?? 0);
-      setCachedInputTokens(pricing?.cachedInputTokens ?? 0);
+      const seed = override ?? basePrice;
+      setInputTokens(seed?.inputTokens ?? 0);
+      setOutputTokens(seed?.outputTokens ?? 0);
+      setCachedInputTokens(seed?.cachedInputTokens ?? 0);
     }
-  }, [isOpen, pricing]);
+  }, [isOpen, override, basePrice]);
 
   const handleSave = () => {
     const normalize = (val: number) => Math.max(0, isNaN(val) ? 0 : val);
@@ -38,7 +43,6 @@ export const TokenPricingModal: FunctionComponent<TokenPricingModalProps> = ({
       cachedInputTokens: normalize(cachedInputTokens),
     };
 
-    // Only save if at least one price is greater than 0, otherwise clear pricing
     if (normalizedPricing.inputTokens > 0 || normalizedPricing.outputTokens > 0 || normalizedPricing.cachedInputTokens > 0) {
       onSave(normalizedPricing);
     } else {
@@ -52,7 +56,7 @@ export const TokenPricingModal: FunctionComponent<TokenPricingModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       className="w-full max-w-lg"
-      ariaLabelledBy="token-pricing-title"
+      ariaLabelledBy="model-price-override-title"
     >
       <div className="flex flex-col gap-6 p-6">
         <div className="flex items-center gap-3">
@@ -60,39 +64,24 @@ export const TokenPricingModal: FunctionComponent<TokenPricingModalProps> = ({
             <Banknote className="h-5 w-5" />
           </div>
           <div>
-            <h2 id="token-pricing-title" className="text-lg font-bold text-slate-900 dark:text-white">
-              Token pricing
+            <h2 id="model-price-override-title" className="text-lg font-bold text-slate-900 dark:text-white">
+              Price override
             </h2>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Configure cost per million tokens for accurate execution metrics.
+              {modelLabel} — cost per million tokens. Leave all fields at 0 to fall back to the catalogue base price.
             </p>
           </div>
         </div>
 
         <div className="flex flex-col gap-4">
-          <Row label="Input tokens" description="Price per 1M input tokens.">
-            <NumberInput
-              value={inputTokens}
-              onChange={setInputTokens}
-              min={0}
-              step={0.01}
-            />
+          <Row label="Input tokens" description={basePrice ? `Catalogue base price: $${basePrice.inputTokens}/M.` : "No published base price."}>
+            <NumberInput value={inputTokens} onChange={setInputTokens} min={0} step={0.01} />
           </Row>
-          <Row label="Output tokens" description="Price per 1M output tokens.">
-            <NumberInput
-              value={outputTokens}
-              onChange={setOutputTokens}
-              min={0}
-              step={0.01}
-            />
+          <Row label="Output tokens" description={basePrice ? `Catalogue base price: $${basePrice.outputTokens}/M.` : "No published base price."}>
+            <NumberInput value={outputTokens} onChange={setOutputTokens} min={0} step={0.01} />
           </Row>
-          <Row label="Cached input tokens" description="Price per 1M cached input tokens.">
-            <NumberInput
-              value={cachedInputTokens}
-              onChange={setCachedInputTokens}
-              min={0}
-              step={0.01}
-            />
+          <Row label="Cached input tokens" description={basePrice ? `Catalogue base price: $${basePrice.cachedInputTokens}/M.` : "No published base price."}>
+            <NumberInput value={cachedInputTokens} onChange={setCachedInputTokens} min={0} step={0.01} />
           </Row>
         </div>
 
@@ -109,7 +98,7 @@ export const TokenPricingModal: FunctionComponent<TokenPricingModalProps> = ({
             onClick={handleSave}
             className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-white shadow-[var(--elevation-raised)] hover:bg-amber-600 transition-colors"
           >
-            Save pricing
+            Save override
           </button>
         </div>
       </div>

@@ -9,6 +9,7 @@ import type { IProviderRunner } from "../infrastructure/providers/cli/provider-r
 import type { Logger } from "../shared/logging/logger.js";
 import type { ConversationCompactionSummary, CreateDashboardConversationMessageInput, ConversationThreadRecord, ConversationMessageRecord, ConversationRuntimeState, UpdateConversationThreadRouteInput } from "../contracts/connection-chat-types.js";
 import { buildProviderPrompt } from "./cli-workflow-utils.js";
+import { resolveEffectiveModel } from "./provider-execution-service.js";
 import {
   buildChatCompactionPrompt,
   buildChatContinuationPrompt,
@@ -63,7 +64,14 @@ export interface ThreadRouteResolution {
   thinkingMode?: string;
 }
 
+interface InFlightChatTurn {
+  abortController: AbortController;
+  latestMessage: ConversationMessageRecord;
+}
+
 export class ChatThreadRuntimeService {
+  private readonly inFlightTurns = new Map<string, InFlightChatTurn>();
+
   constructor(private readonly deps: ChatThreadRuntimeServiceDependencies) {}
 
   public async resolveThreadRoute(
@@ -213,25 +221,63 @@ export class ChatThreadRuntimeService {
     const thread = this.deps.connectionChatRepository.getThread(userMessage.threadId);
     if (!thread) throw new Error("Thread not found");
 
-    const project = this.deps.projectManagementRepository.getProject(projectId);
-    if (!project) throw new Error(`Project not found: ${projectId}`);
+    const existingTurn = this.inFlightTurns.get(thread.id);
+    if (existingTurn) {
+      // A turn for this thread is already in flight — either still waiting on a provider
+      // concurrency slot or already running inside its docker container. Abort it; the
+      // owning call below will notice the abort, fold this (and any other still-pending)
+      // message into a single follow-up turn instead of racing two invocations against
+      // the same provider session.
+      existingTurn.abortController.abort(new Error("Superseded by a newer chat message"));
+      return userMessage;
+    }
 
-    const assignments = this.deps.projectWorkerAssignmentRepository.listAssignmentsForProject(projectId, { activeOnly: true });
-    const settings = this.deps.getDashboardSettings({ projectId });
+    const turnHandle: InFlightChatTurn = {
+      abortController: new AbortController(),
+      latestMessage: userMessage,
+    };
+    this.inFlightTurns.set(thread.id, turnHandle);
 
     try {
-      const route = await this.resolveThreadRoute(thread, assignments, settings, userMessage.bodyMarkdown);
-      await this.runVirtualProvider(projectId, thread, userMessage, route);
+      const assignments = this.deps.projectWorkerAssignmentRepository.listAssignmentsForProject(projectId, { activeOnly: true });
+      const settings = this.deps.getDashboardSettings({ projectId });
+
+      for (;;) {
+        const currentThread = this.deps.connectionChatRepository.getThread(thread.id) || thread;
+        try {
+          const route = await this.resolveThreadRoute(currentThread, assignments, settings, turnHandle.latestMessage.bodyMarkdown);
+          await this.runVirtualProvider(projectId, currentThread, turnHandle.latestMessage, route, turnHandle.abortController.signal);
+          break;
+        } catch (err) {
+          if (!turnHandle.abortController.signal.aborted) {
+            throw err;
+          }
+
+          // Superseded mid-flight: gather every dashboard message still awaiting a reply
+          // (the one that triggered this abort, plus any others sent while it ran) and
+          // retry as a single combined follow-up against the same (resumed) session.
+          const pendingMessages = this.deps.connectionChatRepository
+            .listMessages(thread.id)
+            .filter((candidate) => candidate.direction === "dashboard_to_connection" && candidate.deliveryStatus === "pending");
+          if (pendingMessages.length === 0) {
+            break;
+          }
+
+          const combinedBody = pendingMessages.map((candidate) => candidate.bodyMarkdown).join("\n\n");
+          turnHandle.latestMessage = { ...pendingMessages[pendingMessages.length - 1], bodyMarkdown: combinedBody };
+          turnHandle.abortController = new AbortController();
+        }
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.deps.logger?.error("Dashboard chat turn failed", {
         projectId,
         threadId: thread.id,
-        messageId: userMessage.id,
+        messageId: turnHandle.latestMessage.id,
         error: message,
       });
       this.deps.connectionChatRepository.markDashboardMessagesFailed(thread.id, {
-        upToMessageId: userMessage.id,
+        upToMessageId: turnHandle.latestMessage.id,
       });
       this.deps.connectionChatRepository.postSystemMessage(projectId, {
         threadId: thread.id,
@@ -241,6 +287,8 @@ export class ChatThreadRuntimeService {
         ...userMessage,
         deliveryStatus: "failed",
       };
+    } finally {
+      this.inFlightTurns.delete(thread.id);
     }
     return userMessage;
   }
@@ -249,13 +297,28 @@ export class ChatThreadRuntimeService {
     projectId: string,
     thread: ConversationThreadRecord,
     latestMessage: ConversationMessageRecord,
-    route: ThreadRouteResolution
+    route: ThreadRouteResolution,
+    signal: AbortSignal,
   ): Promise<void> {
     const project = this.deps.projectManagementRepository.getProject(projectId);
     if (!project) return;
 
     const provider = route.providerId!;
-    const model = route.model!;
+    // Fold the instance's customModel into the model exactly like the coding path
+    // (ProviderExecutionService.executeProvider). The low-level runner keys off `model`
+    // alone and ignores `customModel`, so without this a "Claude Local"-style instance
+    // (customModel/customBaseUrl pointing at a local LM server) would run as `model=default`
+    // and hit the real Anthropic subscription instead of the configured local endpoint.
+    const model = resolveEffectiveModel({
+      provider,
+      model: route.model!,
+      customModel: route.customModel,
+      qwenAuthMode: route.qwenAuthMode,
+      qwenModelId: route.qwenModelId,
+      openCodeAuthMode: route.openCodeAuthMode,
+      openCodeProviderId: route.openCodeProviderId,
+      openCodeModelId: route.openCodeModelId,
+    });
     const apiKey = route.apiKey!;
     const thinkingMode = route.thinkingMode;
     const dashboardSettings = this.deps.getDashboardSettings({ projectId });
@@ -380,6 +443,7 @@ export class ChatThreadRuntimeService {
       providerMountAuth: route.providerMountAuth,
       providerAuthPath: route.providerAuthPath,
       customBaseUrl: route.customBaseUrl,
+      customModel: route.customModel,
       sessionId: thread.id,
       continueSessionId,
       settings: dashboardSettings,
@@ -388,6 +452,7 @@ export class ChatThreadRuntimeService {
       mcpConnection,
       agentMcpAccess: respondingAgent.mcpAccess ?? null,
       mcpAgentId: respondingAgent.id,
+      signal,
     });
 
     this.deps.connectionChatRepository.markDashboardMessagesProcessed(thread.id, {
@@ -460,7 +525,19 @@ export class ChatThreadRuntimeService {
     route: ThreadRouteResolution,
   ): Promise<ConversationCompactionSummary> {
     const provider = route.providerId!;
-    const model = route.model!;
+    // Fold customModel into the model so a local-redirect instance (customModel/customBaseUrl)
+    // compacts against its configured endpoint rather than the real subscription. The runner
+    // keys off `model` and ignores the separate `customModel` field.
+    const model = resolveEffectiveModel({
+      provider,
+      model: route.model!,
+      customModel: route.customModel,
+      qwenAuthMode: route.qwenAuthMode,
+      qwenModelId: route.qwenModelId,
+      openCodeAuthMode: route.openCodeAuthMode,
+      openCodeProviderId: route.openCodeProviderId,
+      openCodeModelId: route.openCodeModelId,
+    });
     const apiKey = route.apiKey!;
     const thinkingMode = route.thinkingMode;
     const dashboardSettings = this.deps.getDashboardSettings({ projectId });

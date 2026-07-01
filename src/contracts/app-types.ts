@@ -90,7 +90,8 @@ export type InvocationRoutingId =
   | "clarification_reply"
   | "qa_review"
   | "ci_fix"
-  | "merge_conflict";
+  | "merge_conflict"
+  | "remediation";
 export type CliExecutionMode = "DOCKER" | "HOST";
 export type FeaturePrAutoMergeMode = "OFF" | "CREATE_PR" | "WHEN_GREEN" | "ALWAYS";
 export type WorkerExecutionMode = "VIRTUAL";
@@ -654,8 +655,9 @@ export interface ProviderSettings {
   customBaseUrl?: string;
   /** Custom model identifier sent to the CLI when routing through a custom base URL (claude-code, codex). */
   customModel?: string;
+  /** models.dev provider id selected to autofill customBaseUrl, or a free-typed provider name (claude-code, codex). */
+  customProviderId?: string;
   maxConcurrentTasks: number;
-  pricing?: TokenPricing;
   qwenAuthMode?: "LOCAL_AUTH" | "ALIBABA_CODING_PLAN" | "MODEL_PROVIDER";
   qwenRegion?: "china" | "international";
   qwenBaseUrl?: string;
@@ -663,6 +665,8 @@ export interface ProviderSettings {
   qwenModelId?: string;
   qwenProtocol?: "openai" | "anthropic" | "gemini";
   qwenAdditionalModelProviders?: QwenModelProviderSettings[];
+  /** models.dev provider id selected to autofill qwenBaseUrl, or a free-typed provider name. */
+  qwenApiProviderId?: string;
   openCodeAuthMode?: "LOCAL_AUTH" | "ENV_KEY" | "CUSTOM_PROVIDER";
   openCodeProviderId?: string;
   openCodeModelId?: string;
@@ -764,7 +768,8 @@ export type GuardrailJobType =
   | "ci_fix"
   | "merge_conflict"
   | "clarification_reply"
-  | "planning";
+  | "planning"
+  | "remediation";
 
 /** What happens when a task hits an invocation cap for a given job type. */
 export type GuardrailOnLimitAction =
@@ -960,6 +965,11 @@ export interface CustomMcpServer {
 export type RuntimeLogLevel = "off" | "debug" | "info" | "warn" | "error";
 export type ConsoleLogMode = "standard" | "full";
 
+export interface ModelPricingSettings {
+  /** Per-model user price overrides, keyed by canonical models.dev id ("<provider>/<model>"). */
+  overrides: Record<string, TokenPricing>;
+}
+
 export interface DashboardSettings {
   dashboardPort: number;
   consoleLogLevel: RuntimeLogLevel;
@@ -985,6 +995,7 @@ export interface DashboardSettings {
   mcpTools: McpToolToggle[];
   customMcpServers: CustomMcpServer[];
   memory: MemorySettings;
+  modelPricing: ModelPricingSettings;
 }
 
 export interface DashboardSettingsScope {

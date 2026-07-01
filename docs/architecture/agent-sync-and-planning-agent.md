@@ -122,7 +122,7 @@ Behavior:
 5. the worker (or virtual provider) processes the request and generates the reply.
 6. Code UX captures the reply in the invocation, parses the payload, and applies the result. During parsing, Code UX utilizes a shared `src/services/structured-provider-response-service.ts` to execute virtual provider runs and automatically retry parsing using corrective prompts if the shape is malformed. The payload extraction leverages `src/services/planning-json-extractor.ts` to recursively search noisy, markdown-wrapped, or nested provider responses for the canonical JSON payload.
 
-Planning route cancellation is explicit. Dashboard route handlers no longer bind sprint planning or prompt improvement to the HTTP response close event, so refreshing or closing the browser does not terminate the provider run. The sprint composer attaches a `clientRequestId` to each planning request; `Cancel Active Request` posts that id to the planning cancellation endpoint, while `New Sprint` detaches the current composer UI, clears local busy ownership, and leaves the server-side planning run active so a fresh sprint can be composed immediately.
+Planning route cancellation is explicit. Dashboard route handlers no longer bind sprint planning, prompt improvement, or quicksprint execution to the HTTP response close event, so refreshing or closing the browser does not terminate the provider run. The sprint composer attaches a `clientRequestId` to each planning request; `Cancel Active Request` posts that id to the planning cancellation endpoint, while `New Sprint` detaches the current composer UI, clears local busy ownership, and leaves the server-side planning run active so a fresh sprint can be composed immediately. Quicksprint execution follows the same background-safe lifetime and must not kill provider work simply because the client request is detached.
 
 When memory is enabled, planning prompts also include:
 
@@ -146,7 +146,7 @@ Behavior:
 6. The setup prompt requires repository discovery across assistant instruction markdown, documentation, dependency manifests, package scripts, source layout, preview/runtime configuration, and existing CI files.
 7. The provider returns strict JSON containing selected artifacts.
 8. Code UX writes agents through `AgentPresetSyncService`, quicksprints through `QuicksprintService`, preview startup to `.code-ux/browser/start-preview.sh`, and CI files to the returned GitHub/GitLab paths.
-9. Agent routing is updated so the setup agent is the planning default and generated worker specialists become the task-coding orchestrator roster.
+9. Agent routing preserves the existing Planning agent default and updates generated worker specialists into the task-coding orchestrator roster.
 
 The base-template handoff is fail-soft: if a user intentionally deleted a built-in default role, project setup continues with the remaining templates rather than recreating the deleted role implicitly. Template injection is conditional by artifact category, so disabling agents, quicksprints, or preview generation also omits that category's template context from the provider prompt.
 
