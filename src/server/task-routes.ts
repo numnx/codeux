@@ -24,7 +24,18 @@ export function registerTaskRoutes(router: Express, deps: DashboardDependencies)
 
   router.patch("/api/tasks/:taskId", syncRoute((req, res) => {
     try {
-      res.json(deps.updateTask(requireTrimmedString(req.params.taskId, "taskId"), parseUpdateTaskInput(req.body)));
+      const taskId = requireTrimmedString(req.params.taskId, "taskId");
+      const task = deps.getTask(taskId);
+      if (!task) {
+        res.status(404).json({ error: `Task not found: ${taskId}` });
+        return;
+      }
+      const projectId = parseTrimmedString(req.body?.projectId) || parseTrimmedString(req.query.projectId);
+      if (projectId && task.projectId !== projectId) {
+        res.status(400).json({ error: `Task ${taskId} does not belong to project ${projectId}` });
+        return;
+      }
+      res.json(deps.updateTask(taskId, parseUpdateTaskInput(req.body)));
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to update task"));
     }
@@ -32,7 +43,18 @@ export function registerTaskRoutes(router: Express, deps: DashboardDependencies)
 
   router.delete("/api/tasks/:taskId", syncRoute((req, res) => {
     try {
-      deps.deleteTask(requireTrimmedString(req.params.taskId, "taskId"));
+      const taskId = requireTrimmedString(req.params.taskId, "taskId");
+      const task = deps.getTask(taskId);
+      if (!task) {
+        res.status(404).json({ error: `Task not found: ${taskId}` });
+        return;
+      }
+      const projectId = parseTrimmedString(req.body?.projectId) || parseTrimmedString(req.query.projectId);
+      if (projectId && task.projectId !== projectId) {
+        res.status(400).json({ error: `Task ${taskId} does not belong to project ${projectId}` });
+        return;
+      }
+      deps.deleteTask(taskId);
       res.json({ ok: true });
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to delete task"));
