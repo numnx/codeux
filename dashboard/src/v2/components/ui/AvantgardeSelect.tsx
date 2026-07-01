@@ -4,13 +4,14 @@ import { createPortal } from "preact/compat";
 import { Check, ChevronDown } from "lucide-preact";
 import gsap from "gsap";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
-import { useGsapDurations, GSAP_EASINGS } from "../../lib/motion/constants.js";
+import { useGsapDurations, GSAP_EASINGS, useGsapInteractionTokens } from "../../lib/motion/constants.js";
 import { useInteractionTokens } from "../../lib/motion/tokens.js";
 
 export interface SelectOption {
   value: string;
   label: string;
   icon?: ComponentChildren | (() => ComponentChildren);
+  disabled?: boolean;
 }
 
 interface AvantgardeSelectProps {
@@ -109,6 +110,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
   const reducedMotion = useReducedMotion();
   const tokens = useInteractionTokens();
   const durations = useGsapDurations();
+  const gsapTokens = useGsapInteractionTokens();
 
   const updatePosition = useCallback(() => {
     const el = triggerRef.current;
@@ -204,8 +206,8 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
             y: targetY,
             scale: 1,
             filter: "blur(0px)",
-            duration: durations.base,
-            ease: GSAP_EASINGS.smooth,
+            duration: gsapTokens.enterExit.duration,
+            ease: gsapTokens.enterExit.ease,
             clearProps: "filter"
           }
         );
@@ -215,8 +217,8 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
           y: initialY,
           scale: 0.98,
           filter: "blur(4px)",
-          duration: durations.fast,
-          ease: GSAP_EASINGS.smoothInOut,
+          duration: gsapTokens.enterExit.duration,
+          ease: gsapTokens.enterExit.ease,
           onComplete: () => {
             setIsRendered(false);
           }
@@ -309,22 +311,48 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
     if (!filteredOptions.length) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIndex(prev => (prev + 1) % filteredOptions.length);
+      setActiveIndex(prev => {
+        let next = (prev + 1) % filteredOptions.length;
+        let count = 0;
+        while (filteredOptions[next]?.disabled && count < filteredOptions.length) {
+          next = (next + 1) % filteredOptions.length;
+          count++;
+        }
+        return next;
+      });
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActiveIndex(prev => (prev - 1 + filteredOptions.length) % filteredOptions.length);
+      setActiveIndex(prev => {
+        let next = (prev - 1 + filteredOptions.length) % filteredOptions.length;
+        let count = 0;
+        while (filteredOptions[next]?.disabled && count < filteredOptions.length) {
+          next = (next - 1 + filteredOptions.length) % filteredOptions.length;
+          count++;
+        }
+        return next;
+      });
     } else if (e.key === "Home") {
       e.preventDefault();
-      setActiveIndex(0);
+      const next = filteredOptions.findIndex(o => !o.disabled);
+      if (next !== -1) setActiveIndex(next);
     } else if (e.key === "End") {
       e.preventDefault();
-      setActiveIndex(filteredOptions.length - 1);
+      let next = -1;
+      for (let i = filteredOptions.length - 1; i >= 0; i--) {
+        if (!filteredOptions[i].disabled) {
+          next = i;
+          break;
+        }
+      }
+      if (next !== -1) setActiveIndex(next);
     } else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       if (activeIndex >= 0 && activeIndex < filteredOptions.length) {
-        onChange(filteredOptions[activeIndex].value);
-        setOpen(false);
-        focusWithoutScroll(triggerRef.current);
+        if (!filteredOptions[activeIndex].disabled) {
+          onChange(filteredOptions[activeIndex].value);
+          setOpen(false);
+          focusWithoutScroll(triggerRef.current);
+        }
       }
     }
   };
@@ -420,9 +448,12 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
                   id={`select-option-${option.value.replace(/\W/g, '-')}`}
                   role="option"
                   aria-selected={isSelected}
+                  aria-disabled={option.disabled}
+                  disabled={option.disabled}
                   type="button"
                   ref={isFocused ? activeOptionRef : null}
                   onClick={() => {
+                    if (option.disabled) return;
                     onChange(option.value);
                     setOpen(false);
                     focusWithoutScroll(triggerRef.current);
@@ -433,7 +464,7 @@ export const AvantgardeSelect: FunctionComponent<AvantgardeSelectProps> = ({
                     isSelected
                       ? "bg-signal-50/50 dark:bg-signal-900/20 font-semibold text-signal-700 dark:text-signal-300"
                       : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-void-700"
-                  }`}
+                  } ${option.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   {option.icon && <span className="flex-shrink-0">{renderOptionIcon(option.icon)}</span>}
                   <span className="truncate">{option.label}</span>

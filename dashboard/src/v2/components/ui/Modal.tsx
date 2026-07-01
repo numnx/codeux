@@ -40,7 +40,7 @@ export const Modal: FunctionComponent<ModalProps> = ({
   const reducedMotion = useReducedMotion();
   const [shouldRender, setShouldRender] = useState(isOpen);
   const cardRef = useRef<HTMLDivElement>(null);
-  const trapRef = useFocusTrap(isOpen && shouldRender, { onClose, restoreFocus: true, initialFocusRef });
+  const trapRef = useFocusTrap(isOpen, { onClose, restoreFocus: true, initialFocusRef });
 
   const hasAccessibleName = ariaLabel || titleId || ariaLabelledBy || ariaLabelledby;
   const fallbackAriaLabel = !hasAccessibleName ? "Dialog" : undefined;

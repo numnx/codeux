@@ -64,3 +64,8 @@ Feedback surfaces indicate system status or asynchronous progress.
 - Action feedback and toasts must use `role="status"` for polite announcements and `role="alert"` or `aria-live="assertive"` exclusively for destructive errors.
 - All badges, status dots, and live timing indicators must include visually hidden text (`<span className="sr-only">`) to provide explicit status and severity announcements, ensuring they do not rely purely on color or motion.
 - Spinning or pinging indicators must respect reduced motion by using `motion-reduce:animate-none` or `motion-safe` variants.
+
+## Overlay Interaction Rules
+- All overlays must properly handle `useReducedMotion`, respecting `enterExit` and `controlFeedback` tokens.
+- Non-modal popovers must explicitly disable focus traps.
+- Dismissing overlays (e.g., via `Escape` or backdrop clicks) must smoothly restore focus to the original trigger element, even if the trigger has momentarily disappeared during interaction.

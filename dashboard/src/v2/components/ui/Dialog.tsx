@@ -1,5 +1,6 @@
 import { h, ComponentChildren, FunctionComponent, toChildArray, isValidElement, cloneElement } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useState, useRef } from "preact/hooks";
+import gsap from "gsap";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { useFocusTrap } from "../../hooks/use-focus-trap.js";
 import { Overlay } from "./Overlay.js";
@@ -47,29 +48,45 @@ export const Dialog: FunctionComponent<DialogProps> = ({
   const hasAccessibleName = ariaLabel || ariaLabelledBy || ariaLabelledby;
   const fallbackAriaLabel = !hasAccessibleName ? "Dialog" : undefined;
 
+  const cardRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true);
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setVisible(true);
-        });
+        if (cardRef.current) {
+          gsap.fromTo(cardRef.current,
+            { opacity: 0, scale: 0.95 },
+            { opacity: 1, scale: 1, duration: reducedMotion ? 0 : MODAL_MOTION.entry.duration, ease: MODAL_MOTION.entry.ease }
+          );
+        }
+        setVisible(true);
       });
     } else {
       setVisible(false);
-      const timer = setTimeout(() => {
+      if (cardRef.current) {
+        gsap.to(cardRef.current, {
+          opacity: 0,
+          scale: 0.95,
+          duration: reducedMotion ? 0 : MODAL_MOTION.exit.duration,
+          ease: MODAL_MOTION.exit.ease,
+          onComplete: () => setShouldRender(false)
+        });
+      } else {
         setShouldRender(false);
-      }, reducedMotion ? 0 : MODAL_MOTION.exit.duration * 1000); // Exit transition time
-      return () => clearTimeout(timer);
+      }
     }
-  }, [isOpen, reducedMotion, gsapTokens.enterExit.duration]);
+  }, [isOpen, reducedMotion]);
 
   if (!shouldRender) return null;
 
   return (
     <Overlay isOpen={isOpen} onClose={disableBackdropClick ? undefined : onClose} blur className="!items-end sm:!items-center pb-4 sm:pb-0">
       <div
-        ref={trapRef}
+        ref={(el) => {
+          (cardRef as any).current = el;
+          if (trapRef) (trapRef as any).current = el;
+        }}
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel || fallbackAriaLabel}
@@ -78,11 +95,6 @@ export const Dialog: FunctionComponent<DialogProps> = ({
         tabIndex={-1}
         inert={!isOpen ? true : undefined}
         className={`relative z-50 bg-white dark:bg-void-800 rounded-[1.75rem] shadow-2xl border border-black/[0.06] dark:border-white/[0.06] outline-none max-w-[calc(100vw-2rem)] max-h-[min(calc(100dvh-2rem),85vh)] overflow-y-auto overscroll-contain ${className}`}
-        style={{
-          opacity: visible ? 1 : 0,
-          transform: visible ? 'scale(1)' : 'scale(0.95)',
-          transition: reducedMotion ? 'none' : `opacity ${MODAL_MOTION.exit.duration}s ${MODAL_MOTION.exit.ease}, transform ${MODAL_MOTION.exit.duration}s ${MODAL_MOTION.exit.ease}`,
-        }}
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside dialog
       >
         {toChildArray(children).map((child, index) => {

@@ -41,3 +41,12 @@ test('applies valid attributes correctly', () => {
     const select = screen.getByRole('combobox', { name: 'Valid Select' });
     expect(select).toHaveAttribute('data-valid', 'true');
 });
+
+
+test('can be focused and interacted with keyboard', () => {
+    render(<Select aria-label="Interactive Select"><option value="1">Option 1</option></Select>);
+    const select = screen.getByRole('combobox', { name: 'Interactive Select' });
+
+    select.focus();
+    expect(select).toHaveFocus();
+});

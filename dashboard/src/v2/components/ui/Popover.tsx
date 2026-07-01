@@ -19,6 +19,7 @@ interface PopoverProps {
   triggerRef?: RefObject<HTMLElement>;
   isTooltip?: boolean;
   ariaLabel?: string;
+  trapFocus?: boolean;
 }
 
 export const Popover = ({
@@ -33,8 +34,9 @@ export const Popover = ({
   triggerRef: externalTriggerRef,
   isTooltip = false,
   ariaLabel,
+  trapFocus = false,
 }: PopoverProps) => {
-  const focusTrapRef = useFocusTrap(!isTooltip && isOpen, { onClose: () => onOpenChange(false), restoreFocus: true });
+  const focusTrapRef = useFocusTrap(trapFocus && !isTooltip && isOpen, { onClose: () => onOpenChange(false), restoreFocus: true });
   const isReducedMotion = useReducedMotion();
   const gsapTokens = useGsapInteractionTokens();
   const [isRendered, setIsRendered] = useState(false);
