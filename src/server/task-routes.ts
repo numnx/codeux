@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import type { DashboardDependencies } from "./dashboard-server.js";
 import { toErrorResponse, syncRoute } from "./route-utils.js";
-import { requireTrimmedString, parseTrimmedString } from "./request-parsers.js";
+import { requireTrimmedString, parseTrimmedString , parseCreateTaskInput , parseUpdateTaskInput } from "./request-parsers.js";
 import type { CreateTaskInput, UpdateTaskInput } from "../contracts/project-management-types.js";
 
 export function registerTaskRoutes(router: Express, deps: DashboardDependencies): void {
@@ -16,7 +16,7 @@ export function registerTaskRoutes(router: Express, deps: DashboardDependencies)
 
   router.post("/api/projects/:projectId/tasks", syncRoute((req, res) => {
     try {
-      res.status(201).json(deps.createTask(requireTrimmedString(req.params.projectId, "projectId"), req.body as CreateTaskInput));
+      res.status(201).json(deps.createTask(requireTrimmedString(req.params.projectId, "projectId"), parseCreateTaskInput(req.body)));
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to create task"));
     }
@@ -35,7 +35,7 @@ export function registerTaskRoutes(router: Express, deps: DashboardDependencies)
         res.status(400).json({ error: `Task ${taskId} does not belong to project ${projectId}` });
         return;
       }
-      res.json(deps.updateTask(taskId, req.body as UpdateTaskInput));
+      res.json(deps.updateTask(taskId, parseUpdateTaskInput(req.body)));
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to update task"));
     }

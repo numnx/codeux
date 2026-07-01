@@ -1588,6 +1588,82 @@ describe("dashboard project management API", () => {
     });
   });
 
+  it("rejects invalid request payloads correctly using parsers", async () => {
+    const { fetch, repository } = await createServerHandle();
+    const baseUrl = "http://127.0.0.1";
+
+    // Create Project Parser rejection
+    const projectResponse = await fetch(`${baseUrl}/api/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Test Project",
+        isPrivate: "not-a-boolean" // Invalid boolean
+      }),
+    });
+    expect(projectResponse.status).toBe(400);
+
+    const project = repository.createProject({
+      name: "Valid Project",
+      sourceType: "local",
+      sourceRef: "/workspace/valid-project",
+    });
+
+    // Create Sprint Parser rejection
+    const sprintResponse = await fetch(`${baseUrl}/api/projects/${project.id}/sprints`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Test Sprint",
+        showcasePinned: "not-a-boolean" // Invalid boolean
+      }),
+    });
+    expect(sprintResponse.status).toBe(400);
+
+    const sprint = repository.createSprint(project.id, {
+      name: "Valid Sprint",
+    });
+
+    // Create Task Parser rejection
+    const taskResponse = await fetch(`${baseUrl}/api/projects/${project.id}/tasks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "Test Task",
+        sprintId: sprint.id,
+        executorType: "invalid-type" // Invalid executor type
+      }),
+    });
+    expect(taskResponse.status).toBe(400);
+
+    const task = repository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Valid Task",
+    });
+
+    // Update Task Parser rejection
+    const updateTaskResponse = await fetch(`${baseUrl}/api/tasks/${task.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dependsOnTaskIds: ["valid", 123] // Malformed dependency array (should be array of strings)
+      }),
+    });
+    expect(updateTaskResponse.status).toBe(400);
+
+    // Destructive flags parser rejection (rerun task)
+    // We expect 400 Bad Request because clearWorktree is not a boolean.
+    // Note: the task rerun endpoint is POST /api/tasks/:taskId/rerun
+    const rerunTaskResponse = await fetch(`${baseUrl}/api/tasks/${task.id}/rerun`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clearWorktree: "not-a-boolean" // Invalid destructive flag
+      }),
+    });
+    expect(rerunTaskResponse.status).toBe(400);
+  });
+
   describe("cross-project IDOR validations", () => {
     it("rejects cross-project sprint and task mutations", async () => {
       const { fetch, repository } = await createServerHandle();
@@ -1669,5 +1745,4 @@ describe("dashboard project management API", () => {
       expect(await deleteTaskResponse.json()).toEqual({ error: `Task ${taskA.id} does not belong to project ${projectB.id}` });
     });
   });
-
 });
