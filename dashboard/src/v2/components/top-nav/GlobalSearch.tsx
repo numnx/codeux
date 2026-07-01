@@ -65,7 +65,7 @@ export const GlobalSearch: FunctionComponent<GlobalSearchProps> = ({ projectId, 
             scaleX: 1.05,
             duration: durations.base,
             ease: GSAP_INTERACTION_TOKENS.controlFeedback.ease,
-            boxShadow: "0 0 0 2px rgba(0,224,160,0.3)",
+            boxShadow: "0 0 0 2px rgba(0,224,160,0.5)",
             overwrite: "auto"
         });
     };

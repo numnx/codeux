@@ -23,6 +23,7 @@ All interactive components inside the shell layer must follow exactly the same f
 
 - **Class Rule:** `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50`
 - **Application:** Applies universally to top-nav dropdowns, global search inputs, sidebar navigation links, tooltips, and notification buttons.
+- **Programmatic Focus:** For complex animated interactive elements (like the global search trigger), programmatic focus styles (like GSAP box-shadow tweens) should emulate the `ring-2 ring-signal-500/50` appearance (e.g., `boxShadow: '0 0 0 2px rgba(0,224,160,0.5)'`).
 
 ### 4. Responsiveness and Truncation
 Stable layouts on narrow widths (especially mobile or multi-panel layouts) must maintain access to controls without triggering horizontal overflow.
