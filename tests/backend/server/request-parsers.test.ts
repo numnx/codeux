@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  parseOptionalBoolean,
+  parseOptionalInteger,
   requireTrimmedString,
   parseTrimmedString,
   parsePlanningOverrides,
@@ -27,6 +29,38 @@ import {
 } from "../../../src/server/request-parsers.js";
 
 describe("Request Parsers", () => {
+  describe("Validation Helpers", () => {
+    it("parseOptionalBoolean rejects invalid forms", () => {
+      expect(() => parseOptionalBoolean("yes")).toThrow();
+      expect(() => parseOptionalBoolean({})).toThrow();
+      expect(() => parseOptionalBoolean([])).toThrow();
+    });
+    it("parseOptionalBoolean accepts strings, numbers and booleans", () => {
+      expect(parseOptionalBoolean("true")).toBe(true);
+      expect(parseOptionalBoolean("false")).toBe(false);
+      expect(parseOptionalBoolean("1")).toBe(true);
+      expect(parseOptionalBoolean("0")).toBe(false);
+      expect(parseOptionalBoolean(1)).toBe(true);
+      expect(parseOptionalBoolean(0)).toBe(false);
+      expect(parseOptionalBoolean(true)).toBe(true);
+      expect(parseOptionalBoolean(false)).toBe(false);
+      expect(parseOptionalBoolean(null)).toBeUndefined();
+      expect(parseOptionalBoolean(undefined)).toBeUndefined();
+    });
+    it("parseOptionalInteger handles strings, numbers, flooring, and throws on invalid boundaries and formats", () => {
+      expect(parseOptionalInteger(2.8)).toBe(2);
+      expect(parseOptionalInteger("5")).toBe(5);
+      expect(parseOptionalInteger("-5", -10, 10)).toBe(-5);
+      expect(() => parseOptionalInteger(11, 1, 10)).toThrow(/between/);
+      expect(() => parseOptionalInteger(-1, 1, 10)).toThrow(/between/);
+      expect(() => parseOptionalInteger("")).toThrow(/valid integer/);
+      expect(() => parseOptionalInteger("foo")).toThrow(/valid integer/);
+      expect(() => parseOptionalInteger(NaN)).toThrow(/valid integer/);
+      expect(() => parseOptionalInteger(Infinity)).toThrow(/valid integer/);
+      expect(() => parseOptionalInteger({})).toThrow(/valid integer/);
+    });
+  });
+
   describe("requireTrimmedString", () => {
     it("should reject non-strings, null, undefined, or empty strings", () => {
       expect(() => requireTrimmedString(null, "testField")).toThrow("Missing or empty required field: testField");
@@ -156,6 +190,12 @@ describe("Request Parsers", () => {
       expect(parseProjectStatsQuery({ window: "unknown" }).window).toBe("7d");
     });
 
+    it("parses valid limits and rejects unbounded ones", () => {
+      expect(parseProjectStatsQuery({ limit: 50 }).limit).toBe(50);
+      expect(parseProjectStatsQuery({ limit: "50" }).limit).toBe(50);
+      expect(() => parseProjectStatsQuery({ limit: 100000 })).toThrow(/between/);
+    });
+
     it("validates and formats custom ranges", () => {
       const result = parseProjectStatsQuery({ window: "custom", from: "2024-01-01", to: "2024-01-31" });
       expect(result.window).toBe("custom");
@@ -280,9 +320,11 @@ describe("Request Parsers", () => {
     });
 
     it("validates execution input", () => {
-      expect(() => parseQuicksprintExecutionInput({ templateId: "t", taskCount: 0, submitMode: "plan_only" })).toThrow(/taskCount/);
+      expect(() => parseQuicksprintExecutionInput({ templateId: "t", taskCount: 0, submitMode: "plan_only" })).toThrow(/between/);
+      expect(() => parseQuicksprintExecutionInput({ templateId: "t", taskCount: 2000, submitMode: "plan_only" })).toThrow(/between/);
       expect(() => parseQuicksprintExecutionInput({ templateId: "t", taskCount: 2, submitMode: "bad" })).toThrow(/submitMode/);
       expect(parseQuicksprintExecutionInput({ templateId: "t", taskCount: 2.8, submitMode: "plan_and_start" })).toMatchObject({ taskCount: 2, submitMode: "plan_and_start" });
+      expect(parseQuicksprintExecutionInput({ templateId: "t", taskCount: "2", submitMode: "plan_and_start" })).toMatchObject({ taskCount: 2, submitMode: "plan_and_start" });
     });
   });
 
@@ -306,6 +348,8 @@ describe("Request Parsers", () => {
 
     it("parses plan sprint options as booleans", () => {
       expect(parsePlanSprintOptions({ autoStart: 1, replan: 0 })).toMatchObject({ autoStart: true, replan: false });
+      expect(parsePlanSprintOptions({ autoStart: "false", replan: "true" })).toMatchObject({ autoStart: false, replan: true });
+      expect(() => parsePlanSprintOptions({ autoStart: "yes" })).toThrow(/Invalid boolean value/);
     });
 
     it("rejects non-object bodies", () => {
@@ -316,9 +360,10 @@ describe("Request Parsers", () => {
 
   describe("parseRerunTaskOptions & attention payloads", () => {
     it("coerces rerun task flags", () => {
-      expect(parseRerunTaskOptions({ provider: "codex", clearWorktree: 1, undoMerge: true })).toMatchObject({
+      expect(parseRerunTaskOptions({ provider: "codex", clearWorktree: 1, undoMerge: true, resetDependents: "false" })).toMatchObject({
         provider: "codex", clearWorktree: true, resetDependents: false, undoMerge: true,
       });
+      expect(() => parseRerunTaskOptions({ clearWorktree: "invalid" })).toThrow(/Invalid boolean value/);
     });
 
     it("parses claim attention payloads", () => {
