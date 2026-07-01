@@ -54,19 +54,30 @@ export const ModelCombobox: FunctionComponent<{
 
   const options = useMemo<SelectOption[]>(() => {
     const scoped = providerId ? catalog.filter((entry) => entry.providerId === providerId) : catalog;
-    const catalogOptions: SelectOption[] = scoped.map((entry) => ({
-      value: entry.modelId,
-      label: providerId ? entry.modelName : `${entry.providerName} — ${entry.modelName}`,
-      icon: (
-        <ProviderBrandIcon
-          id={entry.providerId}
-          src={modelsDevLogoUrl(entry.providerId)}
-          fallbackLabel={entry.providerName}
-          className="h-4 w-4 rounded-[0.35rem]"
-          imageClassName="h-2.5 w-2.5"
-        />
-      ),
-    }));
+    // Always a bare model selector: label/value are just the model id/name, never
+    // "<provider> — <model>". Without a provider filter many catalog entries share the
+    // same bare model id across providers/resellers, so dedupe down to one row each.
+    const seenModelIds = new Set<string>();
+    const catalogOptions: SelectOption[] = [];
+    for (const entry of scoped) {
+      if (seenModelIds.has(entry.modelId)) {
+        continue;
+      }
+      seenModelIds.add(entry.modelId);
+      catalogOptions.push({
+        value: entry.modelId,
+        label: entry.modelName,
+        icon: providerId ? (
+          <ProviderBrandIcon
+            id={entry.providerId}
+            src={modelsDevLogoUrl(entry.providerId)}
+            fallbackLabel={entry.providerName}
+            className="h-4 w-4 rounded-[0.35rem]"
+            imageClassName="h-2.5 w-2.5"
+          />
+        ) : undefined,
+      });
+    }
     const trimmedValue = value.trim();
     if (trimmedValue && !catalogOptions.some((option) => option.value === trimmedValue)) {
       catalogOptions.unshift({ value: trimmedValue, label: trimmedValue });

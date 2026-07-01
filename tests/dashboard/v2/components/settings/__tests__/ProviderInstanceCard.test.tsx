@@ -14,6 +14,8 @@ const MODEL_CATALOG = [
   { id: "anthropic/claude-sonnet-4-5", providerId: "anthropic", providerName: "Anthropic", modelId: "claude-sonnet-4-5", modelName: "Claude Sonnet 4.5" },
   { id: "anthropic/claude-opus-4-5", providerId: "anthropic", providerName: "Anthropic", modelId: "claude-opus-4-5", modelName: "Claude Opus 4.5" },
   { id: "openai/gpt-5.5", providerId: "openai", providerName: "OpenAI", modelId: "gpt-5.5", modelName: "GPT-5.5" },
+  // A reseller mirroring the same bare model id as openai's, to exercise dedup when unfiltered.
+  { id: "302ai/gpt-5.5", providerId: "302ai", providerName: "302.AI", modelId: "gpt-5.5", modelName: "GPT-5.5" },
 ];
 
 describe("ProviderInstanceCard", () => {
@@ -223,5 +225,41 @@ describe("ProviderInstanceCard", () => {
     fireEvent.click(screen.getByText("Claude Sonnet 4.5"));
 
     expect(onUpdate).toHaveBeenCalledWith({ customModel: "claude-sonnet-4-5" });
+  });
+
+  it("shows a bare, deduped model selector with no provider prefix when no API provider is selected yet", async () => {
+    const provider: SystemProviderConfig = {
+      provider: "codex",
+      name: "Codex Gateway",
+      apiKey: "test-key",
+      mountAuth: false,
+      authPath: "",
+      authType: "apiKey",
+    };
+    const onUpdate = vi.fn();
+
+    render(
+      <ProviderInstanceCard
+        providerConfigId="test-id"
+        provider={provider}
+        providerModel="gpt-5.5"
+        dockerExecutionEnabled={false}
+        onUpdate={onUpdate}
+      />
+    );
+
+    const trigger = await screen.findByText("Leave empty to use the agent's selected model");
+    fireEvent.click(trigger.closest("button")!);
+
+    // Bare model names only, no "<provider> — <model>" prefix.
+    expect(await screen.findByText("Claude Sonnet 4.5")).toBeDefined();
+    expect(screen.queryByText("Anthropic — Claude Sonnet 4.5")).toBeNull();
+    expect(screen.queryByText("OpenAI — GPT-5.5")).toBeNull();
+
+    // openai/gpt-5.5 and 302ai/gpt-5.5 share the same bare model id — only one row should show.
+    expect(screen.getAllByText("GPT-5.5")).toHaveLength(1);
+
+    fireEvent.click(screen.getByText("GPT-5.5"));
+    expect(onUpdate).toHaveBeenCalledWith({ customModel: "gpt-5.5" });
   });
 });
