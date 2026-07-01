@@ -6,6 +6,7 @@ import gsap from "gsap";
 import { tooltipMotion } from "../../utils/motion.js";
 import { useGsapInteractionTokens } from "../../lib/motion/constants.js";
 import { calculatePosition } from "../../lib/positioning/index.js";
+import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
 interface TooltipProps {
     children: ComponentChildren;
@@ -36,6 +37,7 @@ export const Tooltip: FunctionComponent<TooltipProps> = ({
     const gsapTokens = useGsapInteractionTokens();
     const gsapCtx = useRef<gsap.Context | null>(null);
     const [tooltipId] = useState(() => `tooltip-${Math.random().toString(36).substr(2, 9)}`);
+    const reducedMotion = useReducedMotion();
 
     const handlePointerEnter = (e: PointerEvent) => {
         if (e.pointerType === "mouse" || e.pointerType === "pen") {
@@ -43,7 +45,7 @@ export const Tooltip: FunctionComponent<TooltipProps> = ({
             hoverTimeout.current = window.setTimeout(() => {
                 setIsVisible(true);
                 setIsRendered(true);
-            }, delay);
+            }, reducedMotion ? 0 : delay);
         }
     };
 
@@ -58,14 +60,14 @@ export const Tooltip: FunctionComponent<TooltipProps> = ({
         hoverTimeout.current = window.setTimeout(() => {
             setIsVisible(true);
             setIsRendered(true);
-        }, delay);
+        }, reducedMotion ? 0 : delay);
     };
 
     const handlePointerLeave = (e?: PointerEvent | FocusEvent) => {
         if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
         hoverTimeout.current = window.setTimeout(() => {
             setIsVisible(false);
-        }, 150);
+        }, reducedMotion ? 0 : 150);
     };
 
     useLayoutEffect(() => {
