@@ -1,3 +1,4 @@
+import type { TokenPricing } from "../contracts/app-types.js";
 import {
   queryExecutionInvocation,
   queryProviderInvocationUsage,
@@ -1068,6 +1069,14 @@ export class ExecutionRepository {
     const taskMetaCache = new Map<string, StatsEntityMetadata>();
     const sprintMetaCache = new Map<string, StatsEntityMetadata>();
 
+    let cachedSettings: ReturnType<typeof this.settingsRepository.getSystemSettings> | undefined;
+    try {
+      cachedSettings = this.settingsRepository.getSystemSettings();
+    } catch {
+      // ignore
+    }
+    const pricingCache = new Map<string, TokenPricing | undefined>();
+
     return queryProjectStatsSnapshot(this.db, projectId, input, {
       requireProject: (id) => requireProject(this.db, id),
       getWallTimeTotalsByTaskIdsForRange: (id, start, end, now) => this.wallTimeQuery.getWallTimeTotalsByTaskIdsForRange(id, start, end, now),
@@ -1076,22 +1085,37 @@ export class ExecutionRepository {
         if (!model || !PROVIDER_IDS.includes(providerId as ProviderId)) {
           return undefined;
         }
-        const settings = this.settingsRepository.getSystemSettings();
-        const overrides = settings.modelPricing.overrides;
+
+        const cacheKey = `${providerId}:${model}`;
+        if (pricingCache.has(cacheKey)) {
+          return pricingCache.get(cacheKey);
+        }
+
+        if (!cachedSettings || !cachedSettings.modelPricing) {
+          pricingCache.set(cacheKey, undefined);
+          return undefined;
+        }
+
+        const overrides = cachedSettings.modelPricing.overrides || {};
 
         const canonicalId = resolveCatalogModelId(providerId as ProviderId, model);
         if (canonicalId) {
-          return overrides[canonicalId] ?? getModelCatalogEntry(canonicalId)?.cost;
+          const cost = overrides[canonicalId] ?? getModelCatalogEntry(canonicalId)?.cost;
+          pricingCache.set(cacheKey, cost);
+          return cost;
         }
 
         // Not a built-in slug/alias match — fall back to a custom API provider/gateway
         // routing (e.g. a self-hosted model with no catalogue entry), which still gets a
         // stable override key reconstructed from the paired "API provider" field.
-        const customCanonicalId = resolveCustomProviderModelId(providerId as ProviderId, model, settings);
+        const customCanonicalId = resolveCustomProviderModelId(providerId as ProviderId, model, cachedSettings);
         if (customCanonicalId) {
-          return overrides[customCanonicalId] ?? getModelCatalogEntry(customCanonicalId)?.cost;
+          const cost = overrides[customCanonicalId] ?? getModelCatalogEntry(customCanonicalId)?.cost;
+          pricingCache.set(cacheKey, cost);
+          return cost;
         }
 
+        pricingCache.set(cacheKey, undefined);
         return undefined;
       },
       getTaskMetadata: (id, ids) => {
