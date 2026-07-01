@@ -50,7 +50,7 @@ The top-level fields within `ProjectLiveDashboardSnapshot` are explicitly owned 
    The `DashboardRealtimeClient` drives deterministic degraded UI modes. If the WebSocket disconnects, the transport transitions through `connecting`, `connected`, `reconnecting`, and `disconnected` states. The UI reflects these states natively without mutating the source-of-truth live snapshots, ensuring the user knows the data is stale rather than attempting to guess the current system state.
 
 7. **Diagnostics and Metrics:**
-   For observability, the assembly path is benchmarked (e.g., `scripts/measure-live-snapshot.ts`) to track latency and payload size. These metrics guarantee that as the `ProjectLiveDashboardSnapshot` grows, the backend can continually assemble and deliver it within real-time latency budgets.
+   For observability, the assembly path is benchmarked (e.g., `scripts/measure-live-snapshot.ts`) to track latency and payload size. These metrics guarantee that as the `ProjectLiveDashboardSnapshot` grows, the backend can continually assemble and deliver it within real-time latency budgets. To further ensure predictable latency, the snapshot projection explicitly avoids issuing empty usage and wall-time rollup queries for idle projects, preventing database query bloat during repeated live refresh cycles.
 
 8. **Reconnect and Restart Recovery Rules:**
    When a client reconnects, it receives only replayable events for its subscribed scopes. If a client misses a non-replayable snapshot, the transport natively handles gap detection by forcing a complete snapshot reload rather than replaying outdated or heavy payloads from the SQLite event log.
