@@ -61,6 +61,14 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
 
     const navItems = browserVisible ? ALL_NAV_ITEMS : ALL_NAV_ITEMS.filter((item) => item.path !== "/browser");
 
+    const handleNavigationClick = (e: MouseEvent, path: string) => {
+        if (!selectedProject && (path === "/config" || path === "/sprints")) {
+            e.preventDefault();
+            alert(`Please select a project before opening ${path === "/config" ? "Settings" : "Sprints"}.`);
+            // Alternatively we could navigate to /projects
+        }
+    };
+
     const prefersReducedMotion = useReducedMotion();
 
     const matches = useRouterState({ select: (s) => s.matches });
@@ -201,6 +209,7 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
                         isMinimized={isMinimized}
                         isMobile={isMobile}
                         onClose={onClose}
+                        onClick={(e) => handleNavigationClick(e, item.path)}
                     />
                 ))}
             </nav>
@@ -209,7 +218,10 @@ export const Sidebar: FunctionComponent<SidebarProps> = ({ isMobile, isOpen, onC
             <div className="relative z-10 flex flex-col">
                 <Link
                     to="/config"
-                    onClick={isMobile ? onClose : undefined}
+                    onClick={(e: any) => {
+                        handleNavigationClick(e as unknown as MouseEvent, "/config");
+                        if (isMobile && onClose) onClose();
+                    }}
                     onMouseEnter={() => prefetchRoute("/config")}
                     onPointerDown={() => prefetchRoute("/config")}
                     onFocus={() => prefetchRoute("/config")}

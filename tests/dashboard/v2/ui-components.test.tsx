@@ -420,7 +420,7 @@ describe("UI Components Coverage", () => {
       />
     );
 
-    const confirmBtn = screen.getByText("Confirm").closest("button");
+    const confirmBtn = screen.getByText(/Hold to Confirm/i).closest("button");
     expect(confirmBtn).toBeDefined();
 
     fireEvent.pointerDown(confirmBtn!, { button: 0 });

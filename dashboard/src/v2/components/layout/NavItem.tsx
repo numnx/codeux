@@ -13,15 +13,19 @@ interface NavItemProps {
     isMobile?: boolean;
     onClose?: () => void;
     elementRef?: preact.Ref<HTMLAnchorElement>;
+    onClick?: (e: MouseEvent) => void;
 }
 
-export const NavItem: FunctionComponent<NavItemProps> = ({ item, isActive, isMinimized, isMobile, onClose, elementRef }) => {
+export const NavItem: FunctionComponent<NavItemProps> = ({ item, isActive, isMinimized, isMobile, onClose, elementRef, onClick }) => {
     return (
         <Link
             aria-label={isMinimized && !isMobile ? item.label : undefined}
             ref={elementRef}
             to={item.path}
-            onClick={isMobile ? onClose : undefined}
+            onClick={(e: any) => {
+                if (onClick) onClick(e as unknown as MouseEvent);
+                if (isMobile && onClose) onClose();
+            }}
             onMouseEnter={() => prefetchRoute(item.path)}
             onPointerDown={() => prefetchRoute(item.path)}
             onFocus={() => prefetchRoute(item.path)}
