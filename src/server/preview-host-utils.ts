@@ -11,6 +11,10 @@ export const PREVIEW_STATUS_PATH = "/_code_ux/preview-status";
 export const PREVIEW_START_PATH = "/_code_ux/preview-start";
 export const PREVIEW_REBUILD_PATH = "/_code_ux/preview-rebuild";
 export const PREVIEW_HOST_PREFIX = "preview-";
+export const PREVIEW_MAX_BUFFERED_RESPONSE_BYTES = 5 * 1024 * 1024;
+export const PREVIEW_MAX_STREAMED_HTML_BYTES = 5 * 1024 * 1024;
+export const PREVIEW_MAX_REQUEST_BODY_BYTES = 5 * 1024 * 1024;
+export const PREVIEW_UPSTREAM_TIMEOUT_MS = 60000;
 
 export function escapeHtml(value: string | null | undefined): string {
   return String(value || "")
@@ -166,13 +170,14 @@ export async function requestBufferedPreviewResponse(args: {
       method: args.method,
       path: args.targetPath,
       headers: args.headers,
+      timeout: PREVIEW_UPSTREAM_TIMEOUT_MS,
     }, (proxyResponse: IncomingMessage) => {
       const chunks: Buffer[] = [];
       let totalSize = 0;
       proxyResponse.on("data", (chunk: any) => {
         const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
         totalSize += buf.length;
-        if (totalSize > 5 * 1024 * 1024) {
+        if (totalSize > PREVIEW_MAX_BUFFERED_RESPONSE_BYTES) {
           proxyResponse.destroy(new Error("Response body exceeds maximum allowed size for buffered proxying"));
           return;
         }
