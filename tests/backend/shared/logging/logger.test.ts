@@ -157,20 +157,35 @@ describe("createLogger", () => {
       level: "debug",
     });
 
-    logger.info("testing secrets", {
+    const error = new Error("auth failed for Authorization: Bearer token123");
+    error.stack = "Error: auth failed for Authorization: Bearer token123\n  at fn()";
+
+    const originalMetadata = {
       apiKey: "secret123",
       nested: { token: "secret456", public: "ok" },
-      errors: [new Error("auth failed")]
-    });
+      message: "connecting to https://user:pass@example.com",
+      errors: [error]
+    };
+
+    logger.info("testing secrets", originalMetadata);
 
     expect(stderrSpy).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(String(stderrSpy.mock.calls[0][0]));
     expect(payload.metadata.apiKey).toBe("[REDACTED]");
     expect(payload.metadata.nested.token).toBe("[REDACTED]");
     expect(payload.metadata.nested.public).toBe("ok");
+
+    // Arrays, nested strings, and Error objects should be redacted.
+    expect(payload.metadata.message).toBe("connecting to https://[REDACTED]@example.com");
     expect(payload.metadata.errors[0].name).toBe("Error");
-    expect(payload.metadata.errors[0].message).toBe("auth failed");
-    expect(payload.metadata.errors[0].stack).toBeDefined();
+    expect(payload.metadata.errors[0].message).toBe("auth failed for Authorization: Bearer [REDACTED]");
+    expect(payload.metadata.errors[0].stack).toBe("Error: auth failed for Authorization: Bearer [REDACTED]\n  at fn()");
+
+    // Original metadata must not be mutated
+    expect(originalMetadata.apiKey).toBe("secret123");
+    expect(originalMetadata.nested.token).toBe("secret456");
+    expect(originalMetadata.message).toBe("connecting to https://user:pass@example.com");
+    expect(error.message).toBe("auth failed for Authorization: Bearer token123");
   });
 });
 
