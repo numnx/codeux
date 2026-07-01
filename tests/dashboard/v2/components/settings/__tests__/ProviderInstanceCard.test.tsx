@@ -4,6 +4,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, fireEvent, screen, cleanup } from "@testing-library/preact";
 import { ProviderInstanceCard } from "../../../../../../dashboard/src/v2/components/settings/ProviderInstanceCard";
 import type { SystemProviderConfig } from "../../../../../../dashboard/src/v2/lib/provider-runtime-preview";
+import { resetModelCatalogCache } from "../../../../../../dashboard/src/v2/components/ui/ModelCombobox";
+import { resetProviderCatalogCache } from "../../../../../../dashboard/src/v2/components/ui/ProviderCombobox";
 
 const PROVIDER_CATALOG = [
   { id: "openrouter", name: "OpenRouter", apiBaseUrl: "https://openrouter.ai/api/v1" },
@@ -16,12 +18,17 @@ const MODEL_CATALOG = [
   { id: "openai/gpt-5.5", providerId: "openai", providerName: "OpenAI", modelId: "gpt-5.5", modelName: "GPT-5.5" },
   // A reseller mirroring the same bare model id as openai's, to exercise dedup when unfiltered.
   { id: "302ai/gpt-5.5", providerId: "302ai", providerName: "302.AI", modelId: "gpt-5.5", modelName: "GPT-5.5" },
+  // A reseller-only model under its own id — excluded from the default (no provider selected)
+  // list entirely, since 302ai isn't a primary model-creator provider.
+  { id: "302ai/gizmo-x", providerId: "302ai", providerName: "302.AI", modelId: "gizmo-x", modelName: "Gizmo X" },
 ];
 
 describe("ProviderInstanceCard", () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
+    resetModelCatalogCache();
+    resetProviderCatalogCache();
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if (url === "/api/model-catalog/providers") {
         return Promise.resolve({ ok: true, json: async () => PROVIDER_CATALOG });
@@ -227,7 +234,7 @@ describe("ProviderInstanceCard", () => {
     expect(onUpdate).toHaveBeenCalledWith({ customModel: "claude-sonnet-4-5" });
   });
 
-  it("shows a bare, deduped model selector with no provider prefix when no API provider is selected yet", async () => {
+  it("shows a clean, deduped model list with no provider prefix when no API provider is selected yet", async () => {
     const provider: SystemProviderConfig = {
       provider: "codex",
       name: "Codex Gateway",
@@ -256,10 +263,61 @@ describe("ProviderInstanceCard", () => {
     expect(screen.queryByText("Anthropic — Claude Sonnet 4.5")).toBeNull();
     expect(screen.queryByText("OpenAI — GPT-5.5")).toBeNull();
 
-    // openai/gpt-5.5 and 302ai/gpt-5.5 share the same bare model id — only one row should show.
+    // openai/gpt-5.5 and 302ai/gpt-5.5 share the same bare model id — only one row, not one per reseller.
     expect(screen.getAllByText("GPT-5.5")).toHaveLength(1);
+
+    // 302.AI is a reseller, not a primary model-creator provider — its reseller-only model
+    // shouldn't show up in the default (no provider selected) list at all.
+    expect(screen.queryByText("Gizmo X")).toBeNull();
 
     fireEvent.click(screen.getByText("GPT-5.5"));
     expect(onUpdate).toHaveBeenCalledWith({ customModel: "gpt-5.5" });
+  });
+
+  it("caps the visible model list so it never dumps the entire catalogue into the DOM at once", async () => {
+    const bigCatalog = Array.from({ length: 200 }, (_, i) => ({
+      id: `bigprovider/model-${i}`,
+      providerId: "bigprovider",
+      providerName: "Big Provider",
+      modelId: `model-${i}`,
+      modelName: `Model ${i}`,
+    }));
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/model-catalog/providers") {
+        return Promise.resolve({ ok: true, json: async () => PROVIDER_CATALOG });
+      }
+      if (url === "/api/model-catalog") {
+        return Promise.resolve({ ok: true, json: async () => bigCatalog });
+      }
+      return Promise.resolve({ ok: true, json: async () => [] });
+    }) as any;
+
+    const provider: SystemProviderConfig = {
+      provider: "codex",
+      name: "Codex Gateway",
+      apiKey: "test-key",
+      mountAuth: false,
+      authPath: "",
+      authType: "apiKey",
+      // Provider-filtered browsing shows a specific provider's full list regardless of the
+      // primary-provider allowlist, so this is the path that needs the render cap.
+      customProviderId: "bigprovider",
+    };
+
+    render(
+      <ProviderInstanceCard
+        providerConfigId="test-id"
+        provider={provider}
+        providerModel="gpt-5.5"
+        dockerExecutionEnabled={false}
+        onUpdate={vi.fn()}
+      />
+    );
+
+    const trigger = await screen.findByText("Leave empty to use the agent's selected model");
+    fireEvent.click(trigger.closest("button")!);
+
+    await screen.findByText("Model 0");
+    expect(screen.getAllByText(/^Model \d+$/).length).toBeLessThanOrEqual(50);
   });
 });

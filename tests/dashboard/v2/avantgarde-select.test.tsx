@@ -197,4 +197,22 @@ describe("AvantgardeSelect", () => {
 
     expect(screen.queryByText('Use "Anthropic"')).toBeNull();
   });
+
+  it("caps rendered options via maxVisibleOptions without limiting what search can match", () => {
+    const options = Array.from({ length: 20 }, (_, i) => ({ value: `${i}`, label: `Option ${i}` }));
+    render(
+      <AvantgardeSelect value="" onChange={() => {}} options={options} searchable maxVisibleOptions={5} placeholder="Pick" />
+    );
+    fireEvent.click(screen.getByText("Pick"));
+
+    // Unfiltered: capped to 5 even though 20 options exist.
+    expect(screen.getAllByText(/^Option \d+$/).length).toBe(5);
+
+    // Still searchable across the full underlying set, just capped again after matching.
+    const search = screen.getByPlaceholderText("Search...");
+    fireEvent.input(search, { target: { value: "Option 1" } });
+    // Matches "Option 1", "Option 10".."Option 19" (11 matches) but stays capped at 5.
+    expect(screen.getAllByText(/^Option 1\d?$/).length).toBeLessThanOrEqual(5);
+    expect(screen.queryByText("Option 1")).not.toBeNull();
+  });
 });

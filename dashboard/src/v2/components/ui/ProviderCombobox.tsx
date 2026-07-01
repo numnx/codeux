@@ -16,6 +16,11 @@ function loadProviderCatalog(): Promise<ModelCatalogProviderSummary[]> {
   return providersPromise;
 }
 
+/** Test-only hook to force a re-fetch on the next render. */
+export function resetProviderCatalogCache(): void {
+  providersPromise = null;
+}
+
 export function useProviderCatalog(): ModelCatalogProviderSummary[] {
   const [providers, setProviders] = useState<ModelCatalogProviderSummary[]>([]);
   useEffect(() => {

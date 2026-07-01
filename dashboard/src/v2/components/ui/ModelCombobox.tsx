@@ -15,6 +15,11 @@ function loadModelCatalog(): Promise<ModelCatalogEntry[]> {
   return catalogPromise;
 }
 
+/** Test-only hook to force a re-fetch on the next render. */
+export function resetModelCatalogCache(): void {
+  catalogPromise = null;
+}
+
 export function useModelCatalog(): ModelCatalogEntry[] {
   const [catalog, setCatalog] = useState<ModelCatalogEntry[]>([]);
   useEffect(() => {
@@ -30,6 +35,22 @@ export function useModelCatalog(): ModelCatalogEntry[] {
 export const modelsDevLogoUrl = (providerId: string): string => `https://models.dev/logos/${providerId}.svg`;
 
 /**
+ * models.dev catalogues ~147 "providers", but most are gateways/resellers/regional mirrors
+ * (OpenRouter, Vercel AI Gateway, Databricks, GitLab Duo, dozens of proxy/aggregator brands)
+ * that re-list the same underlying models from a handful of real model creators under their
+ * own id/name conventions — e.g. the same GPT-5 shows up as "gpt-5", "databricks-gpt-5",
+ * "duo-chat-gpt-5-1", etc. Deduping by bare model id doesn't collapse those, since each
+ * gateway invents its own id. So without a specific provider selected, the browsable default
+ * list is restricted to the primary model-creator providers below — a real "one row per
+ * model" list — rather than every gateway's copy of it. Selecting a specific provider (e.g.
+ * OpenRouter itself) still shows that provider's full model list, allowlist or not.
+ */
+const PRIMARY_MODEL_PROVIDER_IDS = new Set([
+  "anthropic", "openai", "google", "alibaba", "mistral", "deepseek", "xai",
+  "cohere", "perplexity", "moonshotai", "zhipuai", "minimax", "zai", "llama",
+]);
+
+/**
  * Searchable, icon-enhanced model picker sourced from the models.dev catalogue
  * (https://models.dev), prefetched into assets/models-dev/catalog.json and served via
  * GET /api/model-catalog. Falls back to a free-typed value for models outside the
@@ -37,9 +58,13 @@ export const modelsDevLogoUrl = (providerId: string): string => `https://models.
  *
  * The value is always the bare model identifier (e.g. "claude-sonnet-4-5"), never a
  * "<provider>/<model>" composite — the provider is a separate, paired field (see
- * ProviderCombobox), and most APIs reject a provider-prefixed model id. When `providerId`
- * is set, options are restricted to that provider's models so the identifier is guaranteed
- * correct for whichever endpoint the paired provider field points at.
+ * ProviderCombobox). Without one selected, the list is limited to primary model-creator
+ * providers (see PRIMARY_MODEL_PROVIDER_IDS) and deduped to one row per bare model id, so it
+ * reads as a clean model list rather than every gateway's copy of the same models; the
+ * visible list is also capped so it never dumps thousands of rows into the DOM. Once a
+ * provider is selected, options are scoped to just that provider's models (any provider,
+ * allowlisted or not), which also guarantees the identifier is correct for whichever
+ * endpoint the paired provider field points at.
  */
 export const ModelCombobox: FunctionComponent<{
   value: string;
@@ -47,16 +72,17 @@ export const ModelCombobox: FunctionComponent<{
   disabled?: boolean;
   placeholder?: string;
   "aria-label"?: string;
-  /** Restrict results to a single models.dev provider id, paired with an API provider field. */
+  /** Scopes the browsable model list to a single models.dev provider id, paired with an API provider field. */
   providerId?: string;
 }> = ({ value, onChange, disabled = false, placeholder = "Search models…", "aria-label": ariaLabel, providerId }) => {
   const catalog = useModelCatalog();
 
   const options = useMemo<SelectOption[]>(() => {
-    const scoped = providerId ? catalog.filter((entry) => entry.providerId === providerId) : catalog;
-    // Always a bare model selector: label/value are just the model id/name, never
-    // "<provider> — <model>". Without a provider filter many catalog entries share the
-    // same bare model id across providers/resellers, so dedupe down to one row each.
+    const scoped = providerId
+      ? catalog.filter((entry) => entry.providerId === providerId)
+      : catalog.filter((entry) => PRIMARY_MODEL_PROVIDER_IDS.has(entry.providerId));
+    // Dedupe to one row per bare model id — a small residual overlap even within the
+    // primary-provider list (e.g. regional variants) shouldn't show as separate rows.
     const seenModelIds = new Set<string>();
     const catalogOptions: SelectOption[] = [];
     for (const entry of scoped) {
@@ -95,6 +121,7 @@ export const ModelCombobox: FunctionComponent<{
         placeholder={placeholder}
         searchable
         allowCustomValue
+        maxVisibleOptions={50}
         aria-label={ariaLabel}
       />
     </div>
