@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useMemo } from "preact/hooks";
+import { useMemo, useRef, useEffect } from "preact/hooks";
 import { Server, Boxes, BrainCircuit, SlidersHorizontal, Wrench, Plug, X, Check } from "lucide-preact";
 import type { AgentMcpAccessConfig, CustomMcpServer, McpToolToggle } from "../../types.js";
 import { Toggle } from "../ui/Toggle.js";
@@ -37,6 +37,12 @@ export const AgentMcpManagePanel: FunctionComponent<{
   }, [value.codeUxToolToggles]);
 
   const isToolEnabled = (name: string): boolean => toolEnabledByName.get(name) ?? true;
+
+  const initialFocusRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    // Restore focus on mount
+    initialFocusRef.current?.focus();
+  }, []);
 
   const setCodeUxEnabled = (enabled: boolean): void => onChange({ ...value, codeUxEnabled: enabled });
 
