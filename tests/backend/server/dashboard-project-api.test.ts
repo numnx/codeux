@@ -318,12 +318,14 @@ async function createServerHandle(): Promise<{
     selectProject: (projectId) => repository.setSelectedProjectId(projectId),
     selectSprint: (projectId, sprintId) => repository.setSelectedSprintId(projectId, sprintId),
     listSprints: (projectId) => repository.listSprints(projectId),
+    getSprint: (sprintId) => repository.getSprint(sprintId),
     createSprint: (projectId, input) => repository.createSprint(projectId, input),
     updateSprint: (sprintId, input) => repository.updateSprint(sprintId, input),
     deleteSprint: (sprintId) => repository.deleteSprint(sprintId),
     importSprintFromMarkdown: (projectId, input) => markdownService.importSprint(projectId, input),
     exportSprintToMarkdown: (projectId, sprintId) => markdownService.exportSprint(projectId, sprintId),
     listTasks: (projectId, sprintId) => repository.listTasks(projectId, sprintId),
+    getTask: (taskId) => repository.getTask(taskId),
     createTask: (projectId, input) => repository.createTask(projectId, input),
     updateTask: (taskId, input) => repository.updateTask(taskId, input),
     deleteTask: (taskId) => repository.deleteTask(taskId),
@@ -1585,4 +1587,87 @@ describe("dashboard project management API", () => {
       error: "Internal Server Error",
     });
   });
+
+  describe("cross-project IDOR validations", () => {
+    it("rejects cross-project sprint and task mutations", async () => {
+      const { fetch, repository } = await createServerHandle();
+      const baseUrl = "http://127.0.0.1";
+
+      const projectA = repository.createProject({
+        name: "Project A",
+        sourceType: "local",
+        sourceRef: "/workspace/project-a",
+      });
+      const projectB = repository.createProject({
+        name: "Project B",
+        sourceType: "local",
+        sourceRef: "/workspace/project-b",
+      });
+
+      const sprintA = repository.createSprint(projectA.id, {
+        name: "Sprint A",
+      });
+
+      const taskA = repository.createTask(projectA.id, {
+        sprintId: sprintA.id,
+        title: "Task A",
+        promptMarkdown: "Do something",
+      });
+
+      // 1. PUT /api/sprints/:sprintId/linked-issues
+      const linkedIssuesResponse = await fetch(`${baseUrl}/api/sprints/${sprintA.id}/linked-issues`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: projectB.id, issues: [] }),
+      });
+      expect(linkedIssuesResponse.status).toBe(400);
+      expect(await linkedIssuesResponse.json()).toEqual({ error: `Sprint ${sprintA.id} does not belong to project ${projectB.id}` });
+
+      // 2. PUT /api/sprints/:sprintId/settings
+      const settingsResponse = await fetch(`${baseUrl}/api/sprints/${sprintA.id}/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: projectB.id }),
+      });
+      expect(settingsResponse.status).toBe(400);
+      expect(await settingsResponse.json()).toEqual({ error: `Sprint ${sprintA.id} does not belong to project ${projectB.id}` });
+
+      // 3. PATCH /api/sprints/:sprintId
+      const patchSprintResponse = await fetch(`${baseUrl}/api/sprints/${sprintA.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: projectB.id, name: "Hacked Sprint" }),
+      });
+      expect(patchSprintResponse.status).toBe(400);
+      expect(await patchSprintResponse.json()).toEqual({ error: `Sprint ${sprintA.id} does not belong to project ${projectB.id}` });
+
+      // 4. DELETE /api/sprints/:sprintId
+      const deleteSprintResponse = await fetch(`${baseUrl}/api/sprints/${sprintA.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: projectB.id }),
+      });
+      expect(deleteSprintResponse.status).toBe(400);
+      expect(await deleteSprintResponse.json()).toEqual({ error: `Sprint ${sprintA.id} does not belong to project ${projectB.id}` });
+
+      // 5. PATCH /api/tasks/:taskId
+      const patchTaskResponse = await fetch(`${baseUrl}/api/tasks/${taskA.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: projectB.id, title: "Hacked Task" }),
+      });
+      expect(patchTaskResponse.status).toBe(400);
+      expect(await patchTaskResponse.json()).toEqual({ error: `Task ${taskA.id} does not belong to project ${projectB.id}` });
+
+      // 6. DELETE /api/tasks/:taskId
+      const deleteTaskResponse = await fetch(`${baseUrl}/api/tasks/${taskA.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: projectB.id }),
+      });
+      expect(deleteTaskResponse.status).toBe(400);
+      expect(await deleteTaskResponse.json()).toEqual({ error: `Task ${taskA.id} does not belong to project ${projectB.id}` });
+    });
+  });
+
 });
