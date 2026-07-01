@@ -51,3 +51,15 @@ test('renders custom icon', () => {
     const svg = btn.querySelector('svg');
     expect(svg).toBeInTheDocument();
 });
+
+test('handles min-w-0 for truncate', () => {
+    render(
+        <ProjectDataProvider>
+            <Button>Test truncate</Button>
+        </ProjectDataProvider>
+    );
+
+    const btn = screen.getByRole('button', { name: /Test truncate/i });
+    expect(btn).toHaveClass('min-w-0');
+    expect(btn.querySelector('span')).toHaveClass('min-w-0 truncate');
+});
