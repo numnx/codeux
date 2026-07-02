@@ -424,6 +424,78 @@ describe("DashboardRealtimeService extracted publisher helper", () => {
     );
   });
 
+  it("publishes changed payloads when duplicate check fails", async () => {
+    const loggerMock = { warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn(), child: vi.fn() };
+    const eventRepoMock = {
+      getLatestSequence: () => 1,
+      appendEvent: vi.fn().mockImplementation((event) => ({ sequence: 2, ...event })),
+    };
+
+    const service = new DashboardRealtimeService(eventRepoMock as any, loggerMock as any);
+
+    let mockPayloadValue = "foo";
+    service.setSnapshotLoaders({
+      getProjectLiveSnapshot: vi.fn().mockImplementation(() => ({
+        selectedSprintId: "sprint-1",
+        updatedAt: new Date().toISOString(),
+        dummyValue: mockPayloadValue,
+      })),
+      getProjectExecutionSnapshot: vi.fn().mockResolvedValue({
+        projectId: "proj-1",
+        updatedAt: new Date().toISOString(),
+      }),
+    } as any);
+
+    // Initial publish
+    service.scheduleProjectLiveRefresh("proj-1");
+    await vi.advanceTimersByTimeAsync(100);
+    expect(eventRepoMock.appendEvent).toHaveBeenCalledTimes(1);
+
+    // Change payload content to bypass duplicate suppression
+    mockPayloadValue = "baz";
+
+    service.scheduleProjectLiveRefresh("proj-1");
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(eventRepoMock.appendEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it("evicts old fingerprint keys based on cache limits", async () => {
+    const loggerMock = { warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn(), child: vi.fn() };
+    const eventRepoMock = {
+      getLatestSequence: () => 1,
+      appendEvent: vi.fn().mockImplementation((event) => ({ sequence: 2, ...event })),
+    };
+
+    const service = new DashboardRealtimeService(eventRepoMock as any, loggerMock as any);
+
+    service.setSnapshotLoaders({
+      getProjectLiveSnapshot: vi.fn().mockImplementation((projectId) => ({
+        selectedSprintId: "sprint-1",
+        updatedAt: new Date().toISOString(),
+        projectId,
+      })),
+    } as any);
+
+    // Initial publish for target project
+    service.scheduleProjectLiveRefresh("target-proj");
+    await vi.advanceTimersByTimeAsync(100);
+
+    // The cache limit is 500. Add 505 more distinct items to force eviction of the first one.
+    // For performance in tests, we just schedule them all and wait for one batch flush.
+    for (let i = 0; i < 505; i++) {
+      service.scheduleProjectLiveRefresh(`padding-proj-${i}`);
+    }
+    await vi.advanceTimersByTimeAsync(6000);
+
+    const publishCountBefore = eventRepoMock.appendEvent.mock.calls.length;
+
+    // Schedule target project again. Since it was evicted, it should publish again.
+    service.scheduleProjectLiveRefresh("target-proj");
+    await vi.advanceTimersByTimeAsync(6000);
+
+    expect(eventRepoMock.appendEvent.mock.calls.length).toBe(publishCountBefore + 1);
+  });
+
   it("expediteProjectLiveRefresh bypasses the live throttle for an immediate publish", async () => {
     const loggerMock = { warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn(), child: vi.fn() };
     const eventRepoMock = {
