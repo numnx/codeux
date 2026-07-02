@@ -2,6 +2,7 @@ import type { FunctionComponent } from "preact";
 import type { SettingsPageState } from "../../../hooks/use-settings-page-state.js";
 import type { MemoryClearTier } from "../../../lib/memory-api.js";
 import { ActionButton } from "../SettingsSurface.js";
+import { ActionFeedbackRegion } from "../../ui/ActionFeedbackRegion.js";
 import { useConfirmDialog } from "../../../hooks/use-confirm-dialog.js";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.js";
 import { Row } from "../SettingsFormFields.js";
