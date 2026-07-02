@@ -77,6 +77,10 @@ Current fields include:
 - lease token
 - acquire / expiry / heartbeat timestamps
 
+## Prepared Statement Caching
+
+The DB-native execution path consolidates SQLite statement caching into a single, bounded LRU cache maintained in `SqliteDatabaseAdapter`. This ensures that dynamically generated queries—such as bucketed `IN` clauses from `executeChunkedInQuery`—do not cause memory leaks from unbounded statement retention.
+
 ## Repository Surface
 
 `ExecutionRepository` currently supports:
