@@ -11,6 +11,9 @@ export class DashboardSnapshotCachePolicy {
   static readonly OVERVIEW_CACHE_TTL_MS = 500;
   static readonly PROJECTS_CACHE_TTL_MS = 500;
 
+  static readonly MAX_PROJECT_EXECUTION_SNAPSHOTS = 50;
+  static readonly MAX_PROJECT_STATS_SNAPSHOTS = 50;
+
   static getProjectExecutionCacheKey(projectId: string, options: ProjectExecutionSnapshotOptions = {}): string {
     return `${projectId}:${options.selectedSprintId || ""}`;
   }

@@ -174,6 +174,8 @@ export class DashboardSnapshotCache {
     const cacheKey = DashboardSnapshotCachePolicy.getProjectExecutionCacheKey(projectId, options);
     const cached = this.projectExecutionSnapshotCache.get(cacheKey);
     if (cached && cached.expiresAt > now) {
+      this.projectExecutionSnapshotCache.delete(cacheKey);
+      this.projectExecutionSnapshotCache.set(cacheKey, cached);
       return cached.snapshot;
     }
 
@@ -196,10 +198,19 @@ export class DashboardSnapshotCache {
       ),
     };
 
+    this.projectExecutionSnapshotCache.delete(cacheKey);
     this.projectExecutionSnapshotCache.set(cacheKey, {
       snapshot,
       expiresAt: now + DashboardSnapshotCachePolicy.PROJECT_EXECUTION_CACHE_TTL_MS,
     });
+
+    if (this.projectExecutionSnapshotCache.size > DashboardSnapshotCachePolicy.MAX_PROJECT_EXECUTION_SNAPSHOTS) {
+      const oldestKey = this.projectExecutionSnapshotCache.keys().next().value;
+      if (oldestKey) {
+        this.projectExecutionSnapshotCache.delete(oldestKey);
+      }
+    }
+
     return snapshot;
   };
 
@@ -222,13 +233,24 @@ export class DashboardSnapshotCache {
     const cacheKey = DashboardSnapshotCachePolicy.getProjectStatsCacheKey(projectId, query);
     const cached = this.projectStatsSnapshotCache.get(cacheKey);
     if (cached && cached.expiresAt > now) {
+      this.projectStatsSnapshotCache.delete(cacheKey);
+      this.projectStatsSnapshotCache.set(cacheKey, cached);
       return cached.snapshot;
     }
     const snapshot = this.deps.executionRepository.getProjectStatsSnapshot(projectId, query);
+    this.projectStatsSnapshotCache.delete(cacheKey);
     this.projectStatsSnapshotCache.set(cacheKey, {
       snapshot,
       expiresAt: now + DashboardSnapshotCachePolicy.PROJECT_STATS_CACHE_TTL_MS,
     });
+
+    if (this.projectStatsSnapshotCache.size > DashboardSnapshotCachePolicy.MAX_PROJECT_STATS_SNAPSHOTS) {
+      const oldestKey = this.projectStatsSnapshotCache.keys().next().value;
+      if (oldestKey) {
+        this.projectStatsSnapshotCache.delete(oldestKey);
+      }
+    }
+
     return snapshot;
   };
 
