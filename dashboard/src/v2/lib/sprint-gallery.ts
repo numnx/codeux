@@ -1,12 +1,17 @@
 import type { Sprint } from "../types.js";
 
+/** Maximum number of sprints shown in the showcase gallery at once. */
+export const MAX_SHOWCASE_SPRINTS = 20;
+
 /**
  * Filter and sort sprints for the showcase gallery.
  * Returns only sprints that have showcasePinned: true,
- * regardless of their status (survives transitions).
+ * regardless of their status (survives transitions), capped to the
+ * most recent MAX_SHOWCASE_SPRINTS entries so the gallery can't grow
+ * without bound and overlap the content below it.
  */
 export function filterShowcaseSprints(sprints: Sprint[]): Sprint[] {
-  return sprints.filter((s) => s.showcasePinned);
+  return sprints.filter((s) => s.showcasePinned).slice(0, MAX_SHOWCASE_SPRINTS);
 }
 
 /**
