@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createSnapshotPricingResolver, applyPricingToUsage } from "../../../../src/repositories/execution/project-stats-costing.js";
+import { createSnapshotPricingResolver, applyPricingToUsage } from "../../../../src/repositories/execution/project-stats-costs.js";
 import { ExecutionUsageTotals } from "../../../../src/contracts/app-types.js";
 import { createEmptyUsageTotals } from "../../../../src/repositories/execution/stats-buckets.js";
 
-describe("project-stats-costing", () => {
+describe("project-stats-costs", () => {
   describe("createSnapshotPricingResolver", () => {
     it("caches pricing lookups per provider and model", () => {
       const getModelPricing = vi.fn().mockImplementation((provider: string, model: string | null) => {
