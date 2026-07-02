@@ -176,8 +176,8 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
             disabled={!navigationEnabled}
             aria-disabled={!navigationEnabled}
             aria-busy={!navigationEnabled && session?.status === 'starting'}
-            title={navigationEnabled ? "Go back" : "Back navigation requires a running container"}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/[0.08] text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
+            title={!navigationEnabled && session?.status === 'starting' ? "Container starting..." : navigationEnabled ? "Go back" : "Back navigation requires a running container"}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/[0.08] text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 hover:bg-slate-100 active:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white dark:hover:bg-white/[0.05] dark:active:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50"
           >
             <ChevronLeft className="h-4 w-4" strokeWidth={2.2} />
           </button>
@@ -187,8 +187,8 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
             disabled={!navigationEnabled}
             aria-disabled={!navigationEnabled}
             aria-busy={!navigationEnabled && session?.status === 'starting'}
-            title={navigationEnabled ? "Go forward" : "Forward navigation requires a running container"}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/[0.08] text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
+            title={!navigationEnabled && session?.status === 'starting' ? "Container starting..." : navigationEnabled ? "Go forward" : "Forward navigation requires a running container"}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/[0.08] text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 hover:bg-slate-100 active:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white dark:hover:bg-white/[0.05] dark:active:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50"
           >
             <ChevronRight className="h-4 w-4" strokeWidth={2.2} />
           </button>
@@ -198,8 +198,8 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
             disabled={!navigationEnabled}
             aria-disabled={!navigationEnabled}
             aria-busy={!navigationEnabled && session?.status === 'starting'}
-            title={navigationEnabled ? "Reload preview" : "Reload requires a running container"}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/[0.08] text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
+            title={!navigationEnabled && session?.status === 'starting' ? "Container starting..." : navigationEnabled ? "Reload preview" : "Reload requires a running container"}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/[0.08] text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 hover:bg-slate-100 active:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white dark:hover:bg-white/[0.05] dark:active:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50"
           >
             <RefreshCw className="h-4 w-4" strokeWidth={2.2} />
           </button>

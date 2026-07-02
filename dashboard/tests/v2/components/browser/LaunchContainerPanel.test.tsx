@@ -34,7 +34,7 @@ test("renders Unavailable state", () => {
       launchBusy={false}
     />
   );
-  expect(screen.getByRole("button")).toHaveTextContent("Disabled: No Project");
+  expect(screen.getByRole("button")).toHaveTextContent("Disabled: Unavailable");
   expect(screen.getByRole("button")).toBeDisabled();
 });
 
