@@ -322,7 +322,9 @@ export const ChatPage: FunctionComponent = () => {
                   }
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
-                    void handleSend();
+                    if (!sending && selectedProject && input.trim()) {
+                      void handleSend();
+                    }
                     return;
                   }
                   if (event.key === "ArrowUp" || event.key === "ArrowDown") {

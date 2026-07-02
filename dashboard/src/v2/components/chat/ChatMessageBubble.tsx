@@ -62,7 +62,7 @@ export const ChatMessageBubble: FunctionComponent<ChatMessageBubbleProps> = ({
   const displayDeliveryStatus = resolveDisplayDeliveryStatus(message, allMessages);
 
   const opacityClass = (fromDashboard && (displayDeliveryStatus === "pending" || displayDeliveryStatus === "failed"))
-    ? "opacity-60"
+    ? "opacity-60 grayscale-[0.5]"
     : "opacity-100";
 
   return (

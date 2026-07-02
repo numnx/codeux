@@ -154,8 +154,16 @@ export const ToolCallWidget: FunctionComponent<ToolCallWidgetProps> = ({
       <button
         type="button"
         disabled={!hasDetails}
+        aria-expanded={hasDetails ? expanded : undefined}
+        aria-label={`${toolName || "tool"} call, status: ${status || "unknown"}`}
         onClick={() => setExpanded((v) => !v)}
-        class={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${hasDetails ? "hover:bg-black/[0.03] dark:hover:bg-white/[0.03]" : "cursor-default"}`}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && expanded) {
+            e.preventDefault();
+            setExpanded(false);
+          }
+        }}
+        class={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-void-900 ${hasDetails ? "hover:bg-black/[0.03] dark:hover:bg-white/[0.03]" : "cursor-default"}`}
       >
         <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-signal-500/[0.1]">
           <Icon size={15} class="text-signal-600 dark:text-signal-400" />

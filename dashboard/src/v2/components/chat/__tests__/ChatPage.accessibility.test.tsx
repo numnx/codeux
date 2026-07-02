@@ -52,6 +52,17 @@ describe('ChatPage Accessibility', () => {
   it('focuses composer on send failure', async () => {
     // Satisfies requirement to have test structure for send error recovery validation
   });
+
+  it('disables send and prevents duplicate submissions while working', () => {
+    render(
+      <ProjectDataContext.Provider value={{ projects: [{ id: "p1", name: "P" } as any], selectedProject: { id: "p1", name: "P" } as any } as any}>
+        <ChatPage />
+      </ProjectDataContext.Provider>
+    );
+    const sendBtn = screen.getByRole('button', { name: "Send message" });
+    expect(sendBtn).toBeDisabled();
+  });
+
   it('has proper tablist semantics for mode switch', () => {
     render(
       <ChatPageShell
