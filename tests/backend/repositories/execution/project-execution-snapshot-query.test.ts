@@ -34,6 +34,7 @@ describe('queryProjectExecutionSnapshot', () => {
   let mockDeps: any;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     mockDb = {
       prepare: vi.fn(() => ({
         get: vi.fn(() => ({ id: 'proj-1', name: 'Project 1' }))
@@ -101,5 +102,60 @@ describe('queryProjectExecutionSnapshot', () => {
 
     expect(queryExecutionInvocations).toHaveBeenCalledWith(mockDb, { projectId: 'proj-1', limit: 24 });
     expect(snapshot.recentInvocations).toEqual([invocation]);
+  });
+
+  it('merges selected sprint and expanded run invocations into the live feed', async () => {
+    const { queryExecutionSprintRuns } = await import('../../../../src/repositories/execution/execution-sprint-runs-query.js');
+    const { queryExecutionInvocations } = await import('../../../../src/repositories/execution/execution-invocations-query.js');
+    const sprintRuns = [{ id: 'run-active' }, { id: 'run-paused' }];
+
+    const makeInvocation = (id: string, startedAt: string) => ({
+      id,
+      projectId: 'proj-1',
+      type: 'cli_task_coding',
+      status: 'completed',
+      messageCount: 1,
+      startedAt,
+      createdAt: startedAt,
+      updatedAt: startedAt,
+    });
+
+    const activeRunInvocation = makeInvocation('xi-active-run', '2024-01-01T10:02:00.000Z');
+    const projectRecentInvocation = makeInvocation('xi-project-recent', '2024-01-01T10:01:00.000Z');
+    const selectedSprintInvocation = makeInvocation('xi-selected-sprint', '2024-01-01T09:00:00.000Z');
+
+    (queryExecutionSprintRuns as any).mockReturnValueOnce({
+      sprintRuns,
+      expandedSprintRunIds: ['run-active', 'run-paused'],
+    });
+    (queryExecutionInvocations as any)
+      .mockReturnValueOnce([projectRecentInvocation])
+      .mockReturnValueOnce([activeRunInvocation, projectRecentInvocation])
+      .mockReturnValueOnce([selectedSprintInvocation]);
+
+    const snapshot = queryProjectExecutionSnapshot(
+      mockDb as DatabaseAdapter,
+      mockStorage,
+      'proj-1',
+      mockDeps,
+      { selectedSprintId: 'sprint-paused' },
+    );
+
+    expect(queryExecutionInvocations).toHaveBeenNthCalledWith(1, mockDb, { projectId: 'proj-1', limit: 24 });
+    expect(queryExecutionInvocations).toHaveBeenNthCalledWith(2, mockDb, {
+      projectId: 'proj-1',
+      sprintRunIds: ['run-active', 'run-paused'],
+      limit: null,
+    });
+    expect(queryExecutionInvocations).toHaveBeenNthCalledWith(3, mockDb, {
+      projectId: 'proj-1',
+      sprintId: 'sprint-paused',
+      limit: null,
+    });
+    expect(snapshot.recentInvocations.map((invocation: any) => invocation.id)).toEqual([
+      'xi-active-run',
+      'xi-project-recent',
+      'xi-selected-sprint',
+    ]);
   });
 });

@@ -6,12 +6,16 @@ import type {
 } from "../../contracts/app-types.js";
 import type { ProjectManagementRepository } from "../../repositories/project-management-repository.js";
 import type { ProjectRuntimeRepository } from "../../repositories/project-runtime-repository.js";
+import type { ProjectExecutionSnapshotOptions } from "../../repositories/execution/project-execution-snapshot-query.js";
 import type { Logger } from "../../shared/logging/logger.js";
 
 export interface ProjectLiveSnapshotDeps {
   projectManagementRepository: ProjectManagementRepository;
   projectRuntimeRepository: ProjectRuntimeRepository;
-  getProjectExecutionSnapshot: (projectId: string) => ExecutionDashboardSnapshot;
+  getProjectExecutionSnapshot: (
+    projectId: string,
+    options?: ProjectExecutionSnapshotOptions,
+  ) => ExecutionDashboardSnapshot;
   getGitStatus: () => Promise<GitTrackingStatus>;
   logger: Logger;
 }
@@ -97,7 +101,7 @@ export async function getProjectLiveSnapshot(
   const runtimeMs = Date.now() - tRuntime;
 
   const tExecution = Date.now();
-  const execution = deps.getProjectExecutionSnapshot(projectId);
+  const execution = deps.getProjectExecutionSnapshot(projectId, { selectedSprintId });
   const executionMs = Date.now() - tExecution;
 
   const { result: gitStatus, error: gitStatusError } = await gitStatusPromise;

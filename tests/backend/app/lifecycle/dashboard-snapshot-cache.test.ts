@@ -114,6 +114,20 @@ describe("DashboardSnapshotCache", () => {
       expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledTimes(1);
     });
 
+    it("caches selected sprint execution snapshots separately", () => {
+      const defaultSnap = cache.getProjectExecutionSnapshot("p1");
+      const selectedSnap = cache.getProjectExecutionSnapshot("p1", { selectedSprintId: "sprint-1" });
+      const selectedSnapAgain = cache.getProjectExecutionSnapshot("p1", { selectedSprintId: "sprint-1" });
+
+      expect(selectedSnapAgain).toBe(selectedSnap);
+      expect(selectedSnap).not.toBe(defaultSnap);
+      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledTimes(2);
+      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenNthCalledWith(1, "p1", {});
+      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenNthCalledWith(2, "p1", {
+        selectedSprintId: "sprint-1",
+      });
+    });
+
 
     it("caches project stats snapshots", () => {
       const snap1 = cache.getProjectStatsSnapshot("p1");
@@ -126,9 +140,11 @@ describe("DashboardSnapshotCache", () => {
   describe("invalidation", () => {
     it("invalidates project execution", () => {
       cache.getProjectExecutionSnapshot("p1");
+      cache.getProjectExecutionSnapshot("p1", { selectedSprintId: "sprint-1" });
       cache.invalidateProjectExecution("p1");
       cache.getProjectExecutionSnapshot("p1");
-      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledTimes(2);
+      cache.getProjectExecutionSnapshot("p1", { selectedSprintId: "sprint-1" });
+      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledTimes(4);
     });
 
     it("invalidates project stats", () => {

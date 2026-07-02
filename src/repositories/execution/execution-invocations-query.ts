@@ -45,18 +45,30 @@ export function queryExecutionInvocations(
   db: Database,
   params: {
     projectId: string;
+    sprintId?: string;
     sprintRunId?: string;
+    sprintRunIds?: string[];
     taskRunId?: string;
-    limit?: number;
+    limit?: number | null;
     offset?: number;
   }
 ): ExecutionInvocationRecord[] {
   const conditions = ["execution_invocations.project_id = ?"];
   const values: any[] = [params.projectId];
 
+  if (params.sprintId) {
+    conditions.push("execution_invocations.sprint_id = ?");
+    values.push(params.sprintId);
+  }
+
   if (params.sprintRunId) {
     conditions.push("execution_invocations.sprint_run_id = ?");
     values.push(params.sprintRunId);
+  }
+
+  if (params.sprintRunIds && params.sprintRunIds.length > 0) {
+    conditions.push(`execution_invocations.sprint_run_id IN (${params.sprintRunIds.map(() => "?").join(", ")})`);
+    values.push(...params.sprintRunIds);
   }
 
   if (params.taskRunId) {
@@ -66,16 +78,18 @@ export function queryExecutionInvocations(
 
   const limit = params.limit ?? 100;
   const offset = params.offset ?? 0;
+  const limitClause = params.limit === null ? "LIMIT -1 OFFSET ?" : "LIMIT ? OFFSET ?";
+  const paginationValues = params.limit === null ? [offset] : [limit, offset];
 
   const sql = `
     SELECT${INVOCATION_SELECT}
     FROM execution_invocations${INVOCATION_JOINS}
     WHERE ${conditions.join(" AND ")}
-    ORDER BY execution_invocations.started_at DESC
-    LIMIT ? OFFSET ?
+    ORDER BY execution_invocations.started_at DESC, execution_invocations.rowid DESC
+    ${limitClause}
   `;
 
-  const rows = db.prepare(sql).all(...values, limit, offset) as ExecutionInvocationRow[];
+  const rows = db.prepare(sql).all(...values, ...paginationValues) as ExecutionInvocationRow[];
   return rows.map(mapExecutionInvocationRow);
 }
 

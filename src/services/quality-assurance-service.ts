@@ -1561,6 +1561,16 @@ export class QualityAssuranceService {
       state: "COMPLETED",
       prUrl: prUrl || undefined,
     });
+    args.task.worker_branch = workerBranch;
+    args.task.pr_url = prUrl || undefined;
+    if (args.taskRun?.id) {
+      args.taskRun.workerBranch = workerBranch;
+      args.taskRun.prUrl = prUrl;
+      this.deps.executionRepository.updateTaskRun(args.taskRun.id, {
+        workerBranch,
+        prUrl,
+      });
+    }
     this.deps.projectManagementRepository.updateTask(args.task.record_id!, {
       status: "coding_completed",
     });

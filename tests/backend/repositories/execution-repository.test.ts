@@ -123,6 +123,53 @@ describe("ExecutionRepository", () => {
     expect(wallTimeSprintRunSpy).not.toHaveBeenCalled();
   });
 
+  it("keeps every active sprint run expanded for live invocation feeds", async () => {
+    const { projectRepository, executionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Many Active Sprints Project",
+      sourceType: "local",
+      sourceRef: "/workspace/many-active-sprints",
+    });
+
+    let oldestActiveInvocationId = "";
+    for (let index = 0; index < 15; index += 1) {
+      const sprint = projectRepository.createSprint(project.id, {
+        name: `Active Sprint ${index}`,
+        number: index + 1,
+      });
+      const sprintRun = executionRepository.createSprintRun({
+        projectId: project.id,
+        sprintId: sprint.id,
+        status: "running",
+      });
+      if (index === 0) {
+        const invocation = executionRepository.createExecutionInvocation({
+          projectId: project.id,
+          sprintId: sprint.id,
+          sprintRunId: sprintRun.id,
+          type: "cli_task_coding",
+          status: "running",
+          startedAt: "2026-01-01T00:00:00.000Z",
+        });
+        oldestActiveInvocationId = invocation.id;
+      }
+    }
+
+    for (let index = 0; index < 30; index += 1) {
+      executionRepository.createExecutionInvocation({
+        projectId: project.id,
+        type: "planning",
+        status: "completed",
+        startedAt: `2026-02-01T00:${String(index).padStart(2, "0")}:00.000Z`,
+      });
+    }
+
+    const snapshot = executionRepository.getProjectExecutionSnapshot(project.id);
+
+    expect(snapshot.sprintRuns.filter((run) => run.status === "running")).toHaveLength(15);
+    expect(snapshot.recentInvocations?.some((invocation) => invocation.id === oldestActiveInvocationId)).toBe(true);
+  });
+
   it("falls back to unscoped task runs when listing latest runs for a sprint run", async () => {
     const { projectRepository, executionRepository } = await createRepositories();
     const project = projectRepository.createProject({

@@ -34,7 +34,7 @@ describe("getProjectLiveSnapshot", () => {
     expect(deps.projectManagementRepository.getSelectedProjectId).toHaveBeenCalled();
     expect(deps.projectManagementRepository.listSprints).toHaveBeenCalledWith("proj-1");
     expect(deps.projectRuntimeRepository.getProjectStatus).toHaveBeenCalledWith("proj-1", "sprint-1");
-    expect(deps.getProjectExecutionSnapshot).toHaveBeenCalledWith("proj-1");
+    expect(deps.getProjectExecutionSnapshot).toHaveBeenCalledWith("proj-1", { selectedSprintId: "sprint-1" });
     expect(deps.getGitStatus).toHaveBeenCalled();
 
     expect(deps.logger.info).toHaveBeenCalledWith(
@@ -83,7 +83,7 @@ describe("getProjectLiveSnapshot", () => {
     expect(deps.projectManagementRepository.getSelectedProjectId).not.toHaveBeenCalled();
     expect(deps.projectManagementRepository.listSprints).toHaveBeenCalledWith("proj-hint");
     expect(deps.projectRuntimeRepository.getProjectStatus).toHaveBeenCalledWith("proj-hint", "sprint-1");
-    expect(deps.getProjectExecutionSnapshot).toHaveBeenCalledWith("proj-hint");
+    expect(deps.getProjectExecutionSnapshot).toHaveBeenCalledWith("proj-hint", { selectedSprintId: "sprint-1" });
   });
 
   it("uses generic error message if gitStatus promise rejection is not an Error instance", async () => {
