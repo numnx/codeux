@@ -46,6 +46,45 @@ export interface DashboardRealtimePublishSchedulerDependencies {
   }): void;
 }
 
+export class BoundedFingerprintCache {
+  private readonly map = new Map<string, string>();
+
+  constructor(private readonly maxSize: number) {}
+
+  get(key: string): string | undefined {
+    if (!this.map.has(key)) {
+      return undefined;
+    }
+    const value = this.map.get(key)!;
+    // Move to end (most recently used)
+    this.map.delete(key);
+    this.map.set(key, value);
+    return value;
+  }
+
+  set(key: string, value: string): void {
+    if (this.map.has(key)) {
+      this.map.delete(key);
+    }
+    this.map.set(key, value);
+    if (this.map.size > this.maxSize) {
+      // Delete oldest entry (front of Map iteration)
+      const oldestKey = this.map.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.map.delete(oldestKey);
+      }
+    }
+  }
+
+  clear(): void {
+    this.map.clear();
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+}
+
 export class DashboardRealtimePublishScheduler {
   static buildPublishTask<T>(
     options: DashboardRealtimePublishSchedulerOptions<T>,
