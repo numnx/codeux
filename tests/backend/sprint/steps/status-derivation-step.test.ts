@@ -69,6 +69,15 @@ describe("runStatusDerivationStep", () => {
     expect(result[0].status).toBe("BLOCKED");
   });
 
+  it("preserves QA_REVIEW_FAILED tasks instead of requeueing them when dependencies are met", () => {
+    const subtasks: Subtask[] = [
+      { id: "task-1", title: "Task 1", prompt: "", depends_on: [], is_independent: true, is_merged: true, status: "COMPLETED" },
+      { id: "task-2", title: "Task 2", prompt: "", depends_on: ["task-1"], is_independent: false, is_merged: false, status: "QA_REVIEW_FAILED" },
+    ];
+    const result = runStatusDerivationStep(subtasks, { retryFailed: true, isActionRequiredState });
+    expect(result[1].status).toBe("QA_REVIEW_FAILED");
+  });
+
   it("ignores running or completed or failed tasks if not retrying", () => {
     const subtasks: Subtask[] = [
       { id: "task-1", title: "Task 1", prompt: "", depends_on: [], is_independent: true, is_merged: false, status: "RUNNING" },

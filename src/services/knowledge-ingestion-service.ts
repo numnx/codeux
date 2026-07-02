@@ -85,7 +85,14 @@ export class KnowledgeIngestionService {
     try {
       const { PDFParse } = await import("pdf-parse");
       parser = new PDFParse({ data: new Uint8Array(buffer) }) as unknown as PdfTextParser;
-      const result = await parser.getText();
+      let timer: NodeJS.Timeout | undefined;
+      const result = await Promise.race([
+        parser.getText(),
+        new Promise<{ text: string }>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("PDF extraction timed out")), 30000);
+        }),
+      ]);
+      if (timer) clearTimeout(timer);
       return result.text ?? "";
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Unknown error";
@@ -102,7 +109,14 @@ export class KnowledgeIngestionService {
       const specifier = "mammoth";
       const mod = (await import(specifier)) as { default?: unknown } & Record<string, unknown>;
       const mammoth = (mod.default ?? mod) as { extractRawText: (opts: { buffer: Buffer }) => Promise<{ value: string }> };
-      const result = await mammoth.extractRawText({ buffer });
+      let timer: NodeJS.Timeout | undefined;
+      const result = await Promise.race([
+        mammoth.extractRawText({ buffer }),
+        new Promise<{ value: string }>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("DOCX extraction timed out")), 30000);
+        }),
+      ]);
+      if (timer) clearTimeout(timer);
       return result.value ?? "";
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Unknown error";

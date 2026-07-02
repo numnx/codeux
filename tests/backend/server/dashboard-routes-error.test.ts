@@ -57,6 +57,7 @@ describe("dashboard route handlers", () => {
   it("covers sprint route errors, success branches, and validation", async () => {
     const sprintDeps = {
       listSprints: () => ({ sprints: [] }),
+      getSprint: () => ({ projectId: "project-1" }),
       createSprint: () => { throw new Error("sprint create"); },
       importSprintFromMarkdown: () => ({ id: "sprint-1" }),
       exportSprintToMarkdown: () => ({ markdown: "# sprint" }),
@@ -127,7 +128,11 @@ describe("dashboard route handlers", () => {
     expect((await request(app).get("/api/telemetry/overview")).status).toBe(200);
     expect((await request(app).get("/api/projects/project-1/execution")).status).toBe(200);
     expect((await request(app).get("/api/projects/project-1/stats?window=24h")).status).toBe(200);
-    expect((await request(app).get("/api/projects/project-1/stats?window=custom")).status).toBe(500);
+    expect((await request(app).get("/api/projects/project-1/stats?window=custom")).status).toBe(400);
+    expect((await request(app).get("/api/projects/project-1/stats?window=custom&from=invalid&to=2024-01-01")).status).toBe(400);
+    expect((await request(app).get("/api/projects/project-1/stats?window=custom&from=2024-01-02&to=2024-01-01")).status).toBe(400);
+    expect((await request(app).get("/api/projects/project-1/stats?window=custom&from=1999-01-01&to=2024-01-01")).status).toBe(400);
+    expect((await request(app).get("/api/projects/project-1/stats?window=custom&from=2024-01-01&to=2050-01-01")).status).toBe(400);
     expect((await request(app).put("/api/projects/project-1/preferred-worker").send({ workerEndpointId: "worker-1" })).status).toBe(200);
     expect((await request(app).post("/api/projects/project-1/attention-items/item-1/claim").send({ claimReason: "test" })).status).toBe(200);
     expect((await request(app).post("/api/projects/project-1/attention-items/item-1/resolve").send({ status: "resolved" })).status).toBe(200);

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import type { DashboardDependencies } from "./dashboard-server.js";
 import { toErrorResponse, syncRoute } from "./route-utils.js";
-import { requireTrimmedString, parseTrimmedString } from "./request-parsers.js";
+import { requireTrimmedString, parseTrimmedString , parseCreateTaskInput , parseUpdateTaskInput } from "./request-parsers.js";
 import type { CreateTaskInput, UpdateTaskInput } from "../contracts/project-management-types.js";
 
 export function registerTaskRoutes(router: Express, deps: DashboardDependencies): void {
@@ -16,7 +16,7 @@ export function registerTaskRoutes(router: Express, deps: DashboardDependencies)
 
   router.post("/api/projects/:projectId/tasks", syncRoute((req, res) => {
     try {
-      res.status(201).json(deps.createTask(requireTrimmedString(req.params.projectId, "projectId"), req.body as CreateTaskInput));
+      res.status(201).json(deps.createTask(requireTrimmedString(req.params.projectId, "projectId"), parseCreateTaskInput(req.body)));
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to create task"));
     }
@@ -24,7 +24,18 @@ export function registerTaskRoutes(router: Express, deps: DashboardDependencies)
 
   router.patch("/api/tasks/:taskId", syncRoute((req, res) => {
     try {
-      res.json(deps.updateTask(requireTrimmedString(req.params.taskId, "taskId"), req.body as UpdateTaskInput));
+      const taskId = requireTrimmedString(req.params.taskId, "taskId");
+      const task = deps.getTask(taskId);
+      if (!task) {
+        res.status(404).json({ error: `Task not found: ${taskId}` });
+        return;
+      }
+      const projectId = parseTrimmedString(req.body?.projectId) || parseTrimmedString(req.query.projectId);
+      if (projectId && task.projectId !== projectId) {
+        res.status(400).json({ error: `Task ${taskId} does not belong to project ${projectId}` });
+        return;
+      }
+      res.json(deps.updateTask(taskId, parseUpdateTaskInput(req.body)));
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to update task"));
     }
@@ -32,7 +43,18 @@ export function registerTaskRoutes(router: Express, deps: DashboardDependencies)
 
   router.delete("/api/tasks/:taskId", syncRoute((req, res) => {
     try {
-      deps.deleteTask(requireTrimmedString(req.params.taskId, "taskId"));
+      const taskId = requireTrimmedString(req.params.taskId, "taskId");
+      const task = deps.getTask(taskId);
+      if (!task) {
+        res.status(404).json({ error: `Task not found: ${taskId}` });
+        return;
+      }
+      const projectId = parseTrimmedString(req.body?.projectId) || parseTrimmedString(req.query.projectId);
+      if (projectId && task.projectId !== projectId) {
+        res.status(400).json({ error: `Task ${taskId} does not belong to project ${projectId}` });
+        return;
+      }
+      deps.deleteTask(taskId);
       res.json({ ok: true });
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to delete task"));

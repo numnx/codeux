@@ -53,15 +53,18 @@ const getRunCommandFactory = (packageManager: SprintPreviewPackageManager) => {
 export const normalizePreviewPath = (value: string | null | undefined): string => {
   const trimmed = String(value || "").trim();
   if (!trimmed) return "/";
-  if (/^https?:\/\//i.test(trimmed)) {
-    try {
-      const url = new URL(trimmed);
-      return `${url.pathname || "/"}${url.search}${url.hash}` || "/";
-    } catch {
-      return "/";
-    }
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("//")) {
+    throw new Error("Absolute and protocol-relative URLs are not allowed.");
   }
-  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  if (/[\x00-\x1F\x7F]/.test(trimmed)) {
+    throw new Error("Control characters are not allowed in preview paths.");
+  }
+  try {
+    const url = new URL(trimmed, "http://localhost");
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    throw new Error("Malformed preview path.");
+  }
 };
 
 export async function detectSprintPreviewCommands(repoPath: string): Promise<SprintPreviewCommandDetection> {
