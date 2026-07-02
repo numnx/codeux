@@ -8,7 +8,7 @@ import type {
 } from "../contracts/app-types.js";
 import type { ProjectCollectionResponse } from "../contracts/project-management-types.js";
 import type { Logger } from "../shared/logging/logger.js";
-import { DashboardRealtimePublishScheduler } from "./dashboard-realtime-publish-scheduler.js";
+import { DashboardRealtimePublishScheduler, BoundedFingerprintCache } from "./dashboard-realtime-publish-scheduler.js";
 import {
   DashboardRealtimeEventRepository,
   type AppendDashboardRealtimeEventInput,
@@ -121,7 +121,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
   private readonly projectExecutionPublishedAt = new Map<string, number>();
   private readonly projectRuntimeStatusPublishedAt = new Map<string, number>();
   private readonly projectStructurePublishedAt = new Map<string, number>();
-  private readonly lastPayloadFingerprints = new Map<string, string>();
+  private readonly lastPayloadFingerprints = new BoundedFingerprintCache(500);
   private pendingProjects = false;
   private pendingOverview = false;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;

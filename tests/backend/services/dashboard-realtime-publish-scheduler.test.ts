@@ -169,4 +169,43 @@ describe("DashboardRealtimePublishScheduler", () => {
       );
     });
   });
+
+  describe("BoundedFingerprintCache", () => {
+    it("reuses fingerprints for unchanged payloads", async () => {
+      const { BoundedFingerprintCache } = await import("../../../src/services/dashboard-realtime-publish-scheduler.js");
+      const cache = new BoundedFingerprintCache(3);
+      cache.set("k1", "v1");
+      expect(cache.get("k1")).toBe("v1");
+    });
+
+    it("evicts stale keys deterministically when capacity is exceeded", async () => {
+      const { BoundedFingerprintCache } = await import("../../../src/services/dashboard-realtime-publish-scheduler.js");
+      const cache = new BoundedFingerprintCache(2);
+      cache.set("k1", "v1");
+      cache.set("k2", "v2");
+      cache.set("k3", "v3");
+
+      expect(cache.get("k1")).toBeUndefined(); // Evicted
+      expect(cache.get("k2")).toBe("v2");
+      expect(cache.get("k3")).toBe("v3");
+      expect(cache.size).toBe(2);
+    });
+
+    it("preserves active hot keys during eviction", async () => {
+      const { BoundedFingerprintCache } = await import("../../../src/services/dashboard-realtime-publish-scheduler.js");
+      const cache = new BoundedFingerprintCache(2);
+      cache.set("k1", "v1");
+      cache.set("k2", "v2");
+
+      // Access k1 to make it newest
+      expect(cache.get("k1")).toBe("v1");
+
+      // Push k3, evicting k2 instead of k1
+      cache.set("k3", "v3");
+
+      expect(cache.get("k2")).toBeUndefined(); // Evicted
+      expect(cache.get("k1")).toBe("v1");
+      expect(cache.get("k3")).toBe("v3");
+    });
+  });
 });

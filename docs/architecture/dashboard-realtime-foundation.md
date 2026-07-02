@@ -54,6 +54,7 @@ The current publisher schedules:
 - `overview.telemetry.updated`
 
 This avoids emitting one websocket message for every low-level DB mutation while still keeping the dashboard near realtime.
+Duplicate suppression for these snapshot updates uses a bounded, per-channel LRU fingerprint cache to prevent indefinite memory growth over long-lived dashboard sessions.
 
 Production refinement shipped on March 15, 2026:
 
