@@ -55,10 +55,10 @@ export const WorkingBubble: FunctionComponent<WorkingBubbleProps> = ({ displayNa
                     {phase === "starting" ? "Starting" : "Working"}
                   </span>
                 </span>
-                <span className="flex items-center gap-1 ml-1">
-                  <span className={`h-1.5 w-4 rounded-full bg-signal-500/80 ${!prefersReducedMotion && phase !== "starting" ? "animate-pulse" : ""}`} />
-                  <span className={`h-1.5 w-4 rounded-full bg-signal-500/80 [animation-delay:120ms] ${!prefersReducedMotion && phase !== "starting" ? "animate-pulse" : ""}`} />
-                  <span className={`h-1.5 w-4 rounded-full bg-signal-500/80 [animation-delay:240ms] ${!prefersReducedMotion && phase !== "starting" ? "animate-pulse" : ""}`} />
+              <span className="flex items-center gap-1 ml-1" aria-hidden="true">
+                <span className={`h-1.5 w-4 rounded-full bg-signal-500/80 ${!prefersReducedMotion && phase !== "starting" ? "animate-pulse" : prefersReducedMotion ? "opacity-50" : ""}`} />
+                <span className={`h-1.5 w-4 rounded-full bg-signal-500/80 [animation-delay:120ms] ${!prefersReducedMotion && phase !== "starting" ? "animate-pulse" : prefersReducedMotion ? "opacity-75" : ""}`} />
+                <span className={`h-1.5 w-4 rounded-full bg-signal-500/80 [animation-delay:240ms] ${!prefersReducedMotion && phase !== "starting" ? "animate-pulse" : prefersReducedMotion ? "opacity-100" : ""}`} />
                 </span>
               </div>
             </div>

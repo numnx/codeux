@@ -99,9 +99,9 @@ export const ChatThreadHeader: FunctionComponent<ChatThreadHeaderProps> = ({
             )}
             <div className="inline-flex items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Worker:</span>
-              <span className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 transition-colors duration-300">
+              <button type="button" aria-haspopup="menu" aria-expanded="false" className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 transition-colors duration-300 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2">
                 {assignedLabel}
-              </span>
+              </button>
             </div>
           </div>
         </div>

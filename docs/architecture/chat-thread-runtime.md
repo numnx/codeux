@@ -102,3 +102,8 @@ The dashboard invocation rail now inserts an optimistic `dashboard_reply` invoca
 After the send request resolves, the client refreshes project invocations and reconciles/removes the optimistic record by its temporary ID. Failed sends remove the optimistic entry to avoid stale phantom records.
 
 To keep long-running invocation statuses current even when realtime events are delayed, the chat page also runs a bounded polling loop (3s interval) while active/pending invocations exist. The loop is cleaned up on unmount and merges refreshed statuses through the existing invocation snapshot pipeline.
+
+### Accessibility and Interaction Expectations
+- **Assignment**: Assignment controls in the thread header should act as focusable buttons with ARIA expanded states when applicable.
+- **Message Status**: Pending, failed, and completed states must provide distinct visual opacities and borders, and must be announced via 'sr-only' labels.
+- **Widgets**: Tool invocations must carry descriptive 'aria-label' attributes that announce their status (e.g. 'search tool call, status: failed'). Expanding widgets should support 'Escape' to collapse and must return focus properly.
