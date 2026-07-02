@@ -178,12 +178,19 @@ export function queryActiveExecutionInvocationsByTypes(
   return rows.map(mapExecutionInvocationRow);
 }
 
-export function queryProjectInvocations(
-  db: import("../db/database-adapter.js").DatabaseAdapter,
+export interface InvocationQueryPlan {
+  readonly conditions: readonly string[];
+  readonly values: readonly any[];
+  readonly orderBy: string;
+  readonly limit: number;
+  readonly offset: number;
+}
+
+export function buildInvocationQueryPlan(
   params: import("../../contracts/invocation-types.js").ProjectInvocationsQuery & { projectId: string }
-): import("../../contracts/invocation-types.js").ProjectInvocationsQueryResult {
-  const conditions = ["execution_invocations.project_id = ?"];
-  const values = [params.projectId];
+): InvocationQueryPlan {
+  const conditions: string[] = ["execution_invocations.project_id = ?"];
+  const values: any[] = [params.projectId];
 
   if (params.status) {
     conditions.push("execution_invocations.status = ?");
@@ -233,20 +240,52 @@ export function queryProjectInvocations(
     orderBy = `ORDER BY ${sortKeyMap[params.sortKey]} ${dir}, execution_invocations.rowid DESC`;
   }
 
+  return {
+    conditions,
+    values,
+    orderBy,
+    limit: params.limit ?? 100,
+    offset: params.offset ?? 0,
+  };
+}
+
+export function computeTotalCount(db: Database, plan: InvocationQueryPlan): number {
   const countSql = `
     SELECT COUNT(*) as count
     FROM execution_invocations${INVOCATION_JOINS}
-    WHERE ${conditions.join(" AND ")}
+    WHERE ${plan.conditions.join(" AND ")}
   `;
-  const totalCount = (db.prepare(countSql).get(...values) as any).count;
+  const result = db.prepare(countSql).get(...plan.values) as { count: number };
+  return result.count;
+}
 
-  const summaryRow = computeBasicSummary(db, conditions, values, INVOCATION_JOINS);
-  const p95DurationMs = computeP95Duration(db, conditions, values, INVOCATION_JOINS);
-  const sprintStateSummary = computeSprintStateSummary(db, conditions, values, INVOCATION_JOINS);
-  const externalApiMetrics = computeExternalApiMetrics(db, conditions, values, INVOCATION_JOINS);
-  const errorsByCategory = computeErrorsByCategory(db, conditions, values, INVOCATION_JOINS);
-  const availablePurposes = computeAvailablePurposes(db, conditions, values, INVOCATION_JOINS);
-  const availableProviders = computeAvailableProviders(db, conditions, values, INVOCATION_JOINS);
+export function computePageItems(db: Database, plan: InvocationQueryPlan): ExecutionInvocationRecord[] {
+  const sql = `
+    SELECT${INVOCATION_SELECT}
+    FROM execution_invocations${INVOCATION_JOINS}
+    WHERE ${plan.conditions.join(" AND ")}
+    ${plan.orderBy}
+    LIMIT ? OFFSET ?
+  `;
+  const rows = db.prepare(sql).all(...plan.values, plan.limit, plan.offset) as ExecutionInvocationRow[];
+  return rows.map(mapExecutionInvocationRow);
+}
+
+export function queryProjectInvocations(
+  db: import("../db/database-adapter.js").DatabaseAdapter,
+  params: import("../../contracts/invocation-types.js").ProjectInvocationsQuery & { projectId: string }
+): import("../../contracts/invocation-types.js").ProjectInvocationsQueryResult {
+  const plan = buildInvocationQueryPlan(params);
+
+  const totalCount = computeTotalCount(db, plan);
+
+  const summaryRow = computeBasicSummary(db, plan.conditions, plan.values, INVOCATION_JOINS);
+  const p95DurationMs = computeP95Duration(db, plan.conditions, plan.values, INVOCATION_JOINS);
+  const sprintStateSummary = computeSprintStateSummary(db, plan.conditions, plan.values, INVOCATION_JOINS);
+  const externalApiMetrics = computeExternalApiMetrics(db, plan.conditions, plan.values, INVOCATION_JOINS);
+  const errorsByCategory = computeErrorsByCategory(db, plan.conditions, plan.values, INVOCATION_JOINS);
+  const availablePurposes = computeAvailablePurposes(db, plan.conditions, plan.values, INVOCATION_JOINS);
+  const availableProviders = computeAvailableProviders(db, plan.conditions, plan.values, INVOCATION_JOINS);
 
   const summary = {
     totalInvocations: Number(summaryRow.totalInvocations) || 0,
@@ -266,18 +305,7 @@ export function queryProjectInvocations(
     errorsByCategory
   };
 
-  const limit = params.limit ?? 100;
-  const offset = params.offset ?? 0;
-  const sql = `
-    SELECT${INVOCATION_SELECT}
-    FROM execution_invocations${INVOCATION_JOINS}
-    WHERE ${conditions.join(" AND ")}
-    ${orderBy}
-    LIMIT ? OFFSET ?
-  `;
-
-  const rows = db.prepare(sql).all(...values, limit, offset) as import("./execution-repository-types.js").ExecutionInvocationRow[];
-  const items = rows.map(mapExecutionInvocationRow);
+  const items = computePageItems(db, plan);
 
   return { items, totalCount, summary, availablePurposes, availableProviders };
 }
