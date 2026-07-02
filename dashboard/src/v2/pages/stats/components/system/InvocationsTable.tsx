@@ -1,5 +1,5 @@
-import type { FunctionComponent } from "preact";
-import { useState, useMemo } from "preact/hooks";
+import { Fragment, type FunctionComponent } from "preact";
+import { useState, useMemo, useEffect } from "preact/hooks";
 import {
   ChevronRight,
   ChevronDown,
@@ -40,6 +40,10 @@ export function useInvocationsWindow(
 ) {
   const initialCount = typeof initialWindow === "number" ? initialWindow : resolveListWindow(initialWindow, invocations.length);
   const [visibleCount, setVisibleCount] = useState(initialCount);
+
+  useEffect(() => {
+    setVisibleCount(initialCount);
+  }, [invocations, initialCount]);
 
   const visibleInvocations = useMemo(() => {
     let visible = invocations.slice(0, visibleCount);
@@ -231,8 +235,8 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
               : "running";
 
             return (
-              <>
-                <tr key={invocation.id} className="block lg:table-row">
+              <Fragment key={invocation.id}>
+                <tr className="block lg:table-row">
                   <td colSpan={11} className="p-0 block lg:table-cell">
                     <div className={`${LEDGER_ROW_MODERN_CLASS} flex items-center p-4 lg:p-6 ${invocation.status === "running" ? "border-l-2 border-l-blue-400 bg-blue-500/[0.02]" : invocation.status === "failed" ? "border-l-2 border-l-red-400 bg-red-500/[0.02]" : ""}`}>
                       <div className="flex flex-col gap-3 lg:grid lg:w-full lg:grid-cols-[1.2fr_1fr_1fr_1.4fr_0.6fr_0.6fr_0.6fr_0.8fr_0.8fr_1fr_0.4fr] lg:items-center lg:gap-2">
@@ -400,7 +404,7 @@ export const InvocationsTable: FunctionComponent<InvocationsTableProps> = ({
                     </td>
                   </tr>
                 ) : null}
-              </>
+              </Fragment>
             );
           })}
         </tbody>
