@@ -59,7 +59,7 @@
     "test:backend:coverage": "vitest run tests/backend --coverage",
     "lint": "tsc --noEmit --incremental --tsBuildInfoFile .cache/tsc/root.tsbuildinfo",
     "typecheck": "tsc --noEmit --incremental --tsBuildInfoFile .cache/tsc/root.tsbuildinfo",
-    "ci": "pnpm run lint && pnpm run test:backend:coverage && pnpm run test:dashboard && pnpm run build",
+    "ci": "pnpm run audit && pnpm run lint && pnpm run test:backend:coverage && pnpm run test:dashboard && pnpm run build",
     "audit": "pnpm audit --audit-level=high",
     "smoke-test": "node dist/index.js --help",
     "build:server": "tsc --incremental --tsBuildInfoFile .cache/tsc/server-build.tsbuildinfo",
