@@ -29,6 +29,45 @@ interface TerminalSession {
   targetPort?: number;
 }
 
+export function parseAndValidateLoginUrl(urlStr: string): { isValid: true; url: string; randomPort?: number } | { isValid: false } {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return { isValid: false };
+    }
+
+    let randomPort: number | undefined;
+    const decodedUrl = decodeURIComponent(urlStr);
+    const match = decodedUrl.match(/redirect_uri=([^&]+)/);
+
+    if (match) {
+      const redirectUrlStr = match[1];
+
+      try {
+        const redirectUrl = new URL(redirectUrlStr);
+        if (redirectUrl.protocol === "http:" || redirectUrl.protocol === "https:") {
+          if (redirectUrl.hostname === "localhost" || redirectUrl.hostname === "127.0.0.1") {
+            const portStr = redirectUrl.port;
+            if (portStr) {
+              const port = parseInt(portStr, 10);
+              if (!Number.isNaN(port) && port >= 1024 && port <= 65535) {
+                randomPort = port;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        // Invalid redirect_uri, but overall URL might still be safe to pass to browser,
+        // we just won't create a local proxy for it.
+      }
+    }
+
+    return { isValid: true, url: parsed.toString(), randomPort };
+  } catch (err) {
+    return { isValid: false };
+  }
+}
+
 async function getFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -700,39 +739,44 @@ export function registerTerminalRoutes(app: Express, options: DashboardDependenc
         }
         try {
           const content = await fs.readFile(urlFilePath, "utf8");
-          const url = content.trim();
-          if (url && url.startsWith("http")) {
-            const decodedUrl = decodeURIComponent(url);
-            const match = decodedUrl.match(/redirect_uri=https?:\/\/(?:localhost|127\.0\.0\.1):(\d+)/);
-            if (match && match[1]) {
-              const randomPort = parseInt(match[1], 10);
-              const targetPort = session.targetPort || (providerId === "claude-code" ? 36573 : 1455);
-              if (targetPort !== randomPort) {
-                try {
-                  if (session.hostProxyServer) {
-                    try { session.hostProxyServer.close(); } catch (_) {}
-                  }
-                  session.hostProxyServer = net.createServer((clientSocket) => {
-                    const serverSocket = net.connect(targetPort, "127.0.0.1", () => {
-                      clientSocket.pipe(serverSocket).pipe(clientSocket);
+          const rawUrl = content.trim();
+          if (rawUrl) {
+            const validationResult = parseAndValidateLoginUrl(rawUrl);
+
+            if (validationResult.isValid) {
+              const { url, randomPort } = validationResult;
+
+              if (randomPort) {
+                const targetPort = session.targetPort || (providerId === "claude-code" ? 36573 : 1455);
+                if (targetPort !== randomPort) {
+                  try {
+                    if (session.hostProxyServer) {
+                      try { session.hostProxyServer.close(); } catch (_) {}
+                    }
+                    session.hostProxyServer = net.createServer((clientSocket) => {
+                      const serverSocket = net.connect(targetPort, "127.0.0.1", () => {
+                        clientSocket.pipe(serverSocket).pipe(clientSocket);
+                      });
+                      clientSocket.on("error", () => serverSocket.destroy());
+                      serverSocket.on("error", () => clientSocket.destroy());
                     });
-                    clientSocket.on("error", () => serverSocket.destroy());
-                    serverSocket.on("error", () => clientSocket.destroy());
-                  });
-                  session.hostProxyServer.listen(randomPort, "127.0.0.1", () => {
-                    options.logger?.info(`[DEBUG] Host Proxy listening on 127.0.0.1:${randomPort} -> 127.0.0.1:${targetPort}`);
-                  });
-                  if (typeof session.hostProxyServer.unref === "function") {
-                    session.hostProxyServer.unref();
+                    session.hostProxyServer.listen(randomPort, "127.0.0.1", () => {
+                      options.logger?.info(`[DEBUG] Host Proxy listening on 127.0.0.1:${randomPort} -> 127.0.0.1:${targetPort}`);
+                    });
+                    if (typeof session.hostProxyServer.unref === "function") {
+                      session.hostProxyServer.unref();
+                    }
+                  } catch (err) {
+                    options.logger?.error(`[DEBUG] Failed to start host proxy on port ${randomPort}: ${String(err)}`);
                   }
-                } catch (err) {
-                  options.logger?.error(`[DEBUG] Failed to start host proxy on port ${randomPort}: ${String(err)}`);
                 }
               }
-            }
 
-            for (const client of session.clients) {
-              sendJson(client, { type: "login_url", url });
+              for (const client of session.clients) {
+                sendJson(client, { type: "login_url", url });
+              }
+            } else {
+              options.logger?.warn("[DEBUG] Rejected malformed or privileged provider login URL");
             }
             await fs.rm(urlFilePath, { force: true }).catch(() => {});
           }

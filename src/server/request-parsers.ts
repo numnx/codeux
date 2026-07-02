@@ -41,19 +41,31 @@ function parseOptionalString(value: unknown): string | undefined {
   return value.trim();
 }
 
-function parseOptionalNumber(value: unknown): number | undefined {
+export function parseOptionalInteger(value: unknown, min: number = -1000000, max: number = 1000000, fieldName: string = "field"): number | undefined {
   if (value === undefined || value === null) return undefined;
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed)) return parsed;
+  let parsed: number;
+  if (typeof value === "number") {
+    parsed = value;
+  } else if (typeof value === "string") {
+    if (value.trim() === "") throw new Error(`Invalid value for ${fieldName}. Must be a valid integer.`);
+    parsed = Number(value);
+  } else {
+    throw new Error(`Invalid value for ${fieldName}. Must be a valid integer.`);
   }
-  return undefined;
+  if (!Number.isFinite(parsed)) throw new Error(`Invalid value for ${fieldName}. Must be a valid integer.`);
+  parsed = Math.floor(parsed);
+  if (parsed < min || parsed > max) {
+    throw new Error(`Invalid value for ${fieldName}. Must be between ${min} and ${max}.`);
+  }
+  return parsed;
 }
 
-function parseOptionalBoolean(value: unknown): boolean | undefined {
+export function parseOptionalBoolean(value: unknown, fieldName: string = "field"): boolean | undefined {
   if (value === undefined || value === null) return undefined;
-  return Boolean(value);
+  if (typeof value === "boolean") return value;
+  if (value === 1 || value === "1" || value === "true") return true;
+  if (value === 0 || value === "0" || value === "false") return false;
+  throw new Error(`Invalid boolean value for ${fieldName}.`);
 }
 
 // Project Parsers
@@ -81,7 +93,7 @@ export function parseCreateProjectInput(body: unknown): CreateProjectInput {
     featureBranchPrefix: parseOptionalString(input.featureBranchPrefix),
     status: parseEnum(input.status, ["running", "failed", "intervention", "idle"], "status"),
     initMode: parseEnum(input.initMode, ["existing", "new-local", "new-remote"], "initMode"),
-    isPrivate: parseOptionalBoolean(input.isPrivate),
+    isPrivate: parseOptionalBoolean(input.isPrivate, "isPrivate"),
     remoteProvider: parseEnum(input.remoteProvider, ["github", "gitlab"], "remoteProvider"),
   };
 }
@@ -115,10 +127,10 @@ export function parseCreateSprintInput(body: unknown): CreateSprintInput {
     originalPrompt: parseOptionalString(input.originalPrompt) ?? (input.originalPrompt === null ? null : undefined),
     goal: parseOptionalString(input.goal),
     linkedIssues: input.linkedIssues as SprintLinkedIssueInput[] | undefined,
-    number: parseOptionalNumber(input.number) ?? (input.number === null ? null : undefined),
+    number: parseOptionalInteger(input.number, -1000000, 1000000, "number") ?? (input.number === null ? null : undefined),
     slug: parseOptionalString(input.slug),
     status: parseEnum(input.status, ["running", "paused", "completed", "failed", "cancelled", "idle"], "status"),
-    showcasePinned: parseOptionalBoolean(input.showcasePinned),
+    showcasePinned: parseOptionalBoolean(input.showcasePinned, "showcasePinned"),
     startDate: parseOptionalString(input.startDate) ?? (input.startDate === null ? null : undefined),
     endDate: parseOptionalString(input.endDate) ?? (input.endDate === null ? null : undefined),
     featureBranch: parseOptionalString(input.featureBranch) ?? (input.featureBranch === null ? null : undefined),
@@ -135,10 +147,10 @@ export function parseUpdateSprintInput(body: unknown): UpdateSprintInput {
     originalPrompt: parseOptionalString(input.originalPrompt) ?? (input.originalPrompt === null ? null : undefined),
     goal: parseOptionalString(input.goal),
     linkedIssues: input.linkedIssues as SprintLinkedIssueInput[] | undefined,
-    number: parseOptionalNumber(input.number) ?? (input.number === null ? null : undefined),
+    number: parseOptionalInteger(input.number, -1000000, 1000000, "number") ?? (input.number === null ? null : undefined),
     slug: parseOptionalString(input.slug),
     status: parseEnum(input.status, ["running", "paused", "completed", "failed", "cancelled", "idle"], "status"),
-    showcasePinned: parseOptionalBoolean(input.showcasePinned),
+    showcasePinned: parseOptionalBoolean(input.showcasePinned, "showcasePinned"),
     startDate: parseOptionalString(input.startDate) ?? (input.startDate === null ? null : undefined),
     endDate: parseOptionalString(input.endDate) ?? (input.endDate === null ? null : undefined),
     featureBranch: parseOptionalString(input.featureBranch) ?? (input.featureBranch === null ? null : undefined),
@@ -168,10 +180,15 @@ export function parseCreateTaskInput(body: unknown): CreateTaskInput {
     priority: parseEnum(input.priority, ["critical", "high", "medium", "low"], "priority"),
     executorType: parseEnum(input.executorType, ["auto", "docker_cli", "jules"], "executorType"),
     agentPresetId: parseOptionalString(input.agentPresetId) ?? (input.agentPresetId === null ? null : undefined),
-    sortOrder: parseOptionalNumber(input.sortOrder),
-    dependsOnTaskIds: Array.isArray(input.dependsOnTaskIds) ? input.dependsOnTaskIds.map(String) : undefined,
-    isIndependent: parseOptionalBoolean(input.isIndependent),
-    isMerged: parseOptionalBoolean(input.isMerged),
+    sortOrder: parseOptionalInteger(input.sortOrder, -1000000, 1000000, "sortOrder"),
+    dependsOnTaskIds: Array.isArray(input.dependsOnTaskIds)
+      ? input.dependsOnTaskIds.map(id => {
+          if (typeof id !== "string") throw new Error("Invalid dependency array: elements must be strings");
+          return id;
+        })
+      : undefined,
+    isIndependent: parseOptionalBoolean(input.isIndependent, "isIndependent"),
+    isMerged: parseOptionalBoolean(input.isMerged, "isMerged"),
     mergeIndicator: parseOptionalString(input.mergeIndicator) ?? (input.mergeIndicator === null ? null : undefined),
     sourceType: parseOptionalString(input.sourceType) ?? (input.sourceType === null ? null : undefined),
     sourcePath: parseOptionalString(input.sourcePath) ?? (input.sourcePath === null ? null : undefined),
@@ -192,10 +209,15 @@ export function parseUpdateTaskInput(body: unknown): UpdateTaskInput {
     executorType: parseEnum(input.executorType, ["auto", "docker_cli", "jules"], "executorType"),
     agentPresetId: parseOptionalString(input.agentPresetId) ?? (input.agentPresetId === null ? null : undefined),
     model: parseOptionalString(input.model) ?? (input.model === null ? null : undefined),
-    sortOrder: parseOptionalNumber(input.sortOrder),
-    dependsOnTaskIds: Array.isArray(input.dependsOnTaskIds) ? input.dependsOnTaskIds.map(String) : undefined,
-    isIndependent: parseOptionalBoolean(input.isIndependent),
-    isMerged: parseOptionalBoolean(input.isMerged),
+    sortOrder: parseOptionalInteger(input.sortOrder, -1000000, 1000000, "sortOrder"),
+    dependsOnTaskIds: Array.isArray(input.dependsOnTaskIds)
+      ? input.dependsOnTaskIds.map(id => {
+          if (typeof id !== "string") throw new Error("Invalid dependency array: elements must be strings");
+          return id;
+        })
+      : undefined,
+    isIndependent: parseOptionalBoolean(input.isIndependent, "isIndependent"),
+    isMerged: parseOptionalBoolean(input.isMerged, "isMerged"),
     mergeIndicator: parseOptionalString(input.mergeIndicator) ?? (input.mergeIndicator === null ? null : undefined),
     sourceType: parseOptionalString(input.sourceType) ?? (input.sourceType === null ? null : undefined),
     sourcePath: parseOptionalString(input.sourcePath) ?? (input.sourcePath === null ? null : undefined),
@@ -230,7 +252,7 @@ export function parseCreateQuicksprintTemplateInput(body: unknown): CreateQuicks
     category,
     categoryColor: parseOptionalString(input.categoryColor),
     agentInstructionMarkdown,
-    defaultTaskCount: parseOptionalNumber(input.defaultTaskCount),
+    defaultTaskCount: parseOptionalInteger(input.defaultTaskCount, 1, 100, "defaultTaskCount"),
     agentPresetId: parseOptionalString(input.agentPresetId),
   };
 }
@@ -246,7 +268,7 @@ export function parseUpdateQuicksprintTemplateInput(body: unknown): UpdateQuicks
     category: parseOptionalString(input.category),
     categoryColor: parseOptionalString(input.categoryColor),
     agentInstructionMarkdown: parseOptionalString(input.agentInstructionMarkdown),
-    defaultTaskCount: parseOptionalNumber(input.defaultTaskCount),
+    defaultTaskCount: parseOptionalInteger(input.defaultTaskCount, 1, 100, "defaultTaskCount"),
     agentPresetId: parseOptionalString(input.agentPresetId),
   };
 }
@@ -258,10 +280,8 @@ export function parseQuicksprintExecutionInput(body: unknown): QuicksprintExecut
   const templateId = typeof input.templateId === "string" ? input.templateId.trim() : "";
   if (!templateId) throw new Error("Missing or empty required field: templateId");
 
-  const taskCount = typeof input.taskCount === "number" && Number.isFinite(input.taskCount)
-    ? Math.floor(input.taskCount)
-    : undefined;
-  if (taskCount === undefined || taskCount <= 0) {
+  const taskCount = parseOptionalInteger(input.taskCount, 1, 1000, "taskCount");
+  if (taskCount === undefined) {
     throw new Error("Missing or invalid required field: taskCount");
   }
 
@@ -373,8 +393,8 @@ export function parsePlanSprintOptions(body: unknown): PlanSprintOptions {
   }
   const typedBody = body as Record<string, unknown>;
   return {
-    autoStart: Boolean(typedBody.autoStart),
-    replan: Boolean(typedBody.replan),
+    autoStart: parseOptionalBoolean(typedBody.autoStart, "autoStart") ?? false,
+    replan: parseOptionalBoolean(typedBody.replan, "replan") ?? false,
     clientRequestId: typeof typedBody.clientRequestId === "string" ? typedBody.clientRequestId.trim() : undefined,
     planningAgentPresetId: typeof typedBody.planningAgentPresetId === "string" ? typedBody.planningAgentPresetId.trim() : undefined,
     overrides: parsePlanningOverrides(typedBody.overrides),
@@ -390,9 +410,9 @@ export function parseRerunTaskOptions(body: unknown): { provider?: string; provi
     provider: typeof typedBody.provider === "string" ? typedBody.provider : undefined,
     providerConfigId: typeof typedBody.providerConfigId === "string" ? typedBody.providerConfigId : undefined,
     model: typeof typedBody.model === "string" ? typedBody.model : undefined,
-    clearWorktree: Boolean(typedBody.clearWorktree),
-    resetDependents: Boolean(typedBody.resetDependents),
-    undoMerge: Boolean(typedBody.undoMerge),
+    clearWorktree: parseOptionalBoolean(typedBody.clearWorktree, "clearWorktree") ?? false,
+    resetDependents: parseOptionalBoolean(typedBody.resetDependents, "resetDependents") ?? false,
+    undoMerge: parseOptionalBoolean(typedBody.undoMerge, "undoMerge") ?? false,
   };
 }
 
@@ -524,6 +544,7 @@ export function parseProjectStatsQuery(query: Record<string, unknown>): ProjectS
 
   let from = typeof query.from === "string" && query.from.trim().length > 0 ? query.from.trim() : undefined;
   let to = typeof query.to === "string" && query.to.trim().length > 0 ? query.to.trim() : undefined;
+  const limit = parseOptionalInteger(query.limit, 1, 1000, "limit");
 
   if (window === "custom") {
     const fromDate = parseStatsDateInput(from, "start");
@@ -550,5 +571,5 @@ export function parseProjectStatsQuery(query: Record<string, unknown>): ProjectS
     to = toDate.toISOString();
   }
 
-  return { window, from, to };
+  return { window, from, to, limit };
 }

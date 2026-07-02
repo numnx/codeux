@@ -607,6 +607,8 @@ describe("SprintPreviewService unit tests", () => {
         headers: {
           "authorization": "token",
           "cookie": "val",
+          "set-cookie": "val",
+          "x-code-ux-test": "test",
           "connection": "close",
           "x-custom": "allowed",
         },
@@ -615,8 +617,20 @@ describe("SprintPreviewService unit tests", () => {
       const calledOptions = fetchMock.mock.calls[0][1];
       expect(calledOptions.headers).not.toHaveProperty("authorization");
       expect(calledOptions.headers).not.toHaveProperty("cookie");
+      expect(calledOptions.headers).not.toHaveProperty("set-cookie");
+      expect(calledOptions.headers).not.toHaveProperty("x-code-ux-test");
       expect(calledOptions.headers).not.toHaveProperty("connection");
       expect(calledOptions.headers).toHaveProperty("x-custom", "allowed");
+    });
+
+    it("throws error when proxied request body exceeds maximum allowed size", async () => {
+      const service = new SprintPreviewService(deps as any);
+      await expect(service.proxyRequest({
+        sessionId: "session-1",
+        method: "POST",
+        path: "/",
+        body: Buffer.alloc(5 * 1024 * 1024 + 10),
+      })).rejects.toThrow("Request body exceeds maximum allowed size for proxied preview");
     });
 
     it("throws error when proxied response exceeds maximum allowed size", async () => {

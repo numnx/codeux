@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import type { DashboardDependencies } from "./dashboard-server.js";
 import { asyncRoute, toErrorResponse, syncRoute } from "./route-utils.js";
-import { requireTrimmedString, parseTrimmedString } from "./request-parsers.js";
+import { requireTrimmedString, parseTrimmedString , parseCreateSprintInput , parseUpdateSprintInput } from "./request-parsers.js";
 import type {
   CreateSprintInput,
   IssuePromptContextInput,
@@ -55,7 +55,16 @@ export function registerSprintRoutes(router: Express, deps: DashboardDependencie
   router.put("/api/sprints/:sprintId/linked-issues", syncRoute((req, res) => {
     try {
       const sprintId = requireTrimmedString(req.params.sprintId, "sprintId");
+      const sprint = deps.getSprint(sprintId);
+      if (!sprint) {
+        res.status(404).json({ error: `Sprint not found: ${sprintId}` });
+        return;
+      }
       const projectId = requireTrimmedString(req.body.projectId, "projectId");
+      if (sprint.projectId !== projectId) {
+        res.status(400).json({ error: `Sprint ${sprintId} does not belong to project ${projectId}` });
+        return;
+      }
       const issues = Array.isArray(req.body.issues) ? req.body.issues as SprintLinkedIssueInput[] : [];
       res.status(201).json(deps.replaceSprintLinkedIssues(sprintId, projectId, issues));
     } catch (error) {
@@ -108,7 +117,7 @@ export function registerSprintRoutes(router: Express, deps: DashboardDependencie
 
   router.post("/api/projects/:projectId/sprints", syncRoute((req, res) => {
     try {
-      const payload = req.body as CreateSprintInput;
+      const payload = parseCreateSprintInput(req.body);
       if (payload.showcasePinned === undefined) {
         payload.showcasePinned = true;
       }
@@ -138,7 +147,18 @@ export function registerSprintRoutes(router: Express, deps: DashboardDependencie
 
   router.patch("/api/sprints/:sprintId", syncRoute((req, res) => {
     try {
-      res.json(deps.updateSprint(requireTrimmedString(req.params.sprintId, "sprintId"), req.body as UpdateSprintInput));
+      const sprintId = requireTrimmedString(req.params.sprintId, "sprintId");
+      const sprint = deps.getSprint(sprintId);
+      if (!sprint) {
+        res.status(404).json({ error: `Sprint not found: ${sprintId}` });
+        return;
+      }
+      const projectId = parseTrimmedString(req.body?.projectId) || parseTrimmedString(req.query.projectId);
+      if (projectId && sprint.projectId !== projectId) {
+        res.status(400).json({ error: `Sprint ${sprintId} does not belong to project ${projectId}` });
+        return;
+      }
+      res.json(deps.updateSprint(sprintId, parseUpdateSprintInput(req.body)));
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to update sprint"));
     }
@@ -161,6 +181,15 @@ export function registerSprintRoutes(router: Express, deps: DashboardDependencie
 
     try {
       const sprintId = requireTrimmedString(req.params.sprintId, "sprintId");
+      const sprint = deps.getSprint(sprintId);
+      if (!sprint) {
+        res.status(404).json({ error: `Sprint not found: ${sprintId}` });
+        return;
+      }
+      if (sprint.projectId !== projectId) {
+        res.status(400).json({ error: `Sprint ${sprintId} does not belong to project ${projectId}` });
+        return;
+      }
       const payload = { ...(req.body as Record<string, unknown>) };
       delete payload.projectId;
       res.json(deps.saveSprintSettings(projectId, sprintId, payload as SprintSettingsOverride));
@@ -191,7 +220,18 @@ export function registerSprintRoutes(router: Express, deps: DashboardDependencie
 
   router.delete("/api/sprints/:sprintId", syncRoute((req, res) => {
     try {
-      deps.deleteSprint(requireTrimmedString(req.params.sprintId, "sprintId"));
+      const sprintId = requireTrimmedString(req.params.sprintId, "sprintId");
+      const sprint = deps.getSprint(sprintId);
+      if (!sprint) {
+        res.status(404).json({ error: `Sprint not found: ${sprintId}` });
+        return;
+      }
+      const projectId = parseTrimmedString(req.body?.projectId) || parseTrimmedString(req.query.projectId);
+      if (projectId && sprint.projectId !== projectId) {
+        res.status(400).json({ error: `Sprint ${sprintId} does not belong to project ${projectId}` });
+        return;
+      }
+      deps.deleteSprint(sprintId);
       res.json({ ok: true });
     } catch (error) {
       res.status(400).json(toErrorResponse(error, "Failed to delete sprint"));
