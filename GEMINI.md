@@ -5,11 +5,6 @@ agentic coding runtime**. It turns a feature/refactor/migration/QA/CI-repair goa
 **sprint**: planned into a dependency-aware DAG, routed to a provider, executed in isolated Docker
 workspaces, gated through Git/CI, and surfaced in a live Preact dashboard.
 
-> Historical note: this began as a Jules MCP server. **Jules is now just one (hosted) provider** among
-> several local CLI providers. Don't treat the codebase as Jules-specific.
-
----
-
 ## 🚀 1. Project Mission & Identity
 Transform high-level natural-language goals into atomic, test-validated PRs by coordinating the
 provider CLIs developers already use (Gemini, Codex, Claude Code, Qwen, OpenCode, Antigravity) plus
@@ -129,6 +124,7 @@ Before a task is complete, all of these MUST pass (`ci` = lint → backend cover
 3. `pnpm run test:dashboard`.
 4. `pnpm run build` (server `tsc` + dashboard typecheck + `vite build`).
 
+- Do not validate changes visually with Browser automation Tools unless explicitly told to
 ---
 
 ## 🌿 7. Git Workflow & Local Dev Access

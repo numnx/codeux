@@ -1,6 +1,6 @@
 {
   "name": "@codeuxai/codeux",
-  "version": "0.8.7",
+  "version": "0.8.8",
   "description": "Containerized environment for running and managing AI sub-agents",
   "author": "Pierre Voss <p.voss@codeux.ai>",
   "license": "MIT",
@@ -38,7 +38,8 @@
     "build": "node scripts/build.mjs",
     "prepack": "pnpm run build",
     "start": "node dist/index.js",
-    "dev": "node --import ./scripts/tsnode-register.mjs src/index.ts",
+    "dev": "node scripts/dev.mjs",
+    "dev:server-only": "node --import ./scripts/tsnode-register.mjs src/index.ts",
     "electron:generate-icons": "node scripts/generate-electron-icons.mjs",
     "electron:prepare-deps": "node scripts/prepare-electron-runtime-deps.mjs && pnpm run electron:generate-icons",
     "electron:dev": "pnpm run build && electron dist/electron/main.js",
