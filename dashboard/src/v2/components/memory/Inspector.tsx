@@ -27,6 +27,7 @@ export const Inspector: FunctionComponent<{
     onDelete: (id: string) => void;
 }> = ({ node, allNodes, edges, lobotomize, onClose, onDelete }) => {
     const { isOpen, options, requestConfirm, handleConfirm, handleCancel, triggerRef } = useConfirmDialog();
+    const returnFocusRef = useRef<HTMLElement | null>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const reducedMotion = useReducedMotion();
 
@@ -64,6 +65,23 @@ export const Inspector: FunctionComponent<{
 
     const cat = node ? (CAT[node.category] || CAT.context) : CAT.architecture;
     const nodeIdx = node ? allNodes.findIndex(n => n.id === node.id) : -1;
+
+    useLayoutEffect(() => {
+        if (node && !returnFocusRef.current && document.activeElement) {
+            returnFocusRef.current = document.activeElement as HTMLElement;
+        } else if (!node && returnFocusRef.current) {
+            if (document.body.contains(returnFocusRef.current)) {
+                returnFocusRef.current.focus();
+            } else {
+                // Fallback to memory panel or search
+                const fallback = document.getElementById('memory-panel') || document.querySelector('input[type="text"]');
+                if (fallback) {
+                    (fallback as HTMLElement).focus();
+                }
+            }
+            returnFocusRef.current = null;
+        }
+    }, [node]);
     const connected = node ? edges
         .filter(e => e.a === nodeIdx || e.b === nodeIdx)
         .map(e => ({
