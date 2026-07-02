@@ -46,6 +46,7 @@ import {
   type ParsedConversationTurn,
 } from "./provider-usage.js";
 import { buildQwenRuntimeConfig, buildOpenCodeRuntimeConfig, type QwenRuntimeSettings, type OpenCodeRuntimeSettings } from "./provider-runtime-config.js";
+import { prepareProviderRuntime, shouldRewriteDockerLoopbackUrls, rewriteLoopbackUrlForDocker } from "./provider-runtime-preparation.js";
 
 export interface ProviderRunResult extends CommandResult {
   usageTelemetry: ProviderUsageTelemetry;
@@ -182,28 +183,8 @@ export class ProviderRunner implements IProviderRunner {
   }): Promise<ProviderRunResult> {
     const { provider, prompt, cwd, model, apiKey, providerMountAuth, providerAuthPath, sessionId, workflowSettings, repoPath, githubToken, gitlabToken, signal, onActivity, onTelemetry } = input;
     const startedMs = Date.now();
-    const runModel = model;
-    // Resolve where qwen-code should write its OpenAI request/response logs, as seen
-    // by the qwen process. Kept outside the committed worktree in both execution modes.
-    const qwenProcessLogDir = provider === "qwen-code"
-      ? (workflowSettings.executionMode === "DOCKER"
-        ? CONTAINER_QWEN_OPENAI_LOG_DIR
-        : resolveQwenHostLogDir(sessionId))
-      : undefined;
-    // Antigravity's `agy` CLI writes its real diagnostics (quota/auth/executor errors)
-    // only to a glog log file — never to stdout/stderr — and exits 0 regardless. Point
-    // it at a controlled path we can read back so those failures aren't lost.
-    const antigravityLogPath = provider === "antigravity"
-      ? (workflowSettings.executionMode === "DOCKER"
-        ? resolveAntigravityContainerLogPath(sessionId)
-        : resolveAntigravityHostLogPath(sessionId))
-      : null;
-    const providerEnv = this.withProviderEnv(provider, runModel, apiKey, workflowSettings, githubToken, providerMountAuth, input, qwenProcessLogDir, gitlabToken);
-    const nativeSessionId = provider === "opencode"
-      ? isOpenCodeNativeSessionId(input.continueSessionId) ? input.continueSessionId! : null
-      : provider === "qwen-code"
-        ? null
-      : input.continueSessionId || (provider === "claude-code" ? randomUUID() : null);
+
+    const { runModel, qwenProcessLogDir, antigravityLogPath, providerEnv, nativeSessionId } = prepareProviderRuntime(input);
 
     const applicableCustomServers = enabledCustomServersFor(input.customMcpServers, provider);
     const hasMcpConfig = !!input.mcpConnection || applicableCustomServers.length > 0;
@@ -717,9 +698,9 @@ export class ProviderRunner implements IProviderRunner {
       return [];
     }
     const providerId = "custom_gateway";
-    const baseUrl = this.rewriteLoopbackUrlForDocker(
+    const baseUrl = rewriteLoopbackUrlForDocker(
       config.customBaseUrl.trim(),
-      this.shouldRewriteDockerLoopbackUrls(workflowSettings),
+      shouldRewriteDockerLoopbackUrls(workflowSettings),
     );
     return [
       "-c", `model_provider="${providerId}"`,
@@ -841,205 +822,6 @@ export class ProviderRunner implements IProviderRunner {
     }
     return spec;
   }
-
-  private withProviderEnv(
-    provider: ProviderId,
-    model: string,
-    apiKey: string,
-    workflowSettings: CliWorkflowSettings,
-    githubToken?: string,
-    providerMountAuth?: boolean,
-    providerConfig?: Pick<ProviderRunInput, "qwenAuthMode" | "qwenRegion" | "qwenBaseUrl" | "qwenEnvKey" | "qwenModelId" | "qwenProtocol" | "qwenAdditionalModelProviders" | "openCodeAuthMode" | "openCodeProviderId" | "openCodeModelId" | "openCodeBaseUrl" | "openCodeEnvKey" | "openCodePackage" | "mcpConnection" | "customBaseUrl" | "customModel" | "customMcpServers">,
-    qwenProcessLogDir?: string,
-    gitlabToken?: string,
-  ): NodeJS.ProcessEnv {
-    const env: NodeJS.ProcessEnv = { ...process.env };
-    const useContainerMounts = workflowSettings.executionMode === "DOCKER";
-    const useGithubMount = useContainerMounts && workflowSettings.containerMountGithubAuth;
-    const useProviderMount = useContainerMounts && Boolean(providerMountAuth);
-    const isApiKeyMode = !providerMountAuth;
-
-    if (githubToken && !useGithubMount) {
-      env.GH_TOKEN = githubToken;
-      env.GITHUB_TOKEN = githubToken;
-    }
-    if (gitlabToken) {
-      env.GITLAB_TOKEN = gitlabToken;
-      env.GLAB_TOKEN = gitlabToken;
-    }
-    if (provider === "gemini") {
-      if (model && model !== "default") env.GEMINI_MODEL = model;
-      if (isApiKeyMode && apiKey && !useProviderMount) env.GEMINI_API_KEY = apiKey;
-      env.GEMINI_CLI_TRUST_WORKSPACE = "true";
-    } else if (provider === "claude-code") {
-      if (isApiKeyMode && providerConfig?.customBaseUrl) {
-        // Claude Code speaks the Anthropic Messages API and always appends `/v1/messages`
-        // to ANTHROPIC_BASE_URL. A base ending in `/v1` (e.g. the OpenAI-format URL used by
-        // Codex/Qwen, https://openrouter.ai/api/v1) would produce `/v1/v1/messages` and fail
-        // auth, so normalize it off — the Anthropic-compatible base is e.g. .../api.
-        const normalizedBaseUrl = providerConfig.customBaseUrl.trim().replace(/\/v1\/?$/, "");
-        env.ANTHROPIC_BASE_URL = this.rewriteLoopbackUrlForDocker(
-          normalizedBaseUrl,
-          this.shouldRewriteDockerLoopbackUrls(workflowSettings),
-        );
-        // Gateways (OpenRouter, LiteLLM, etc.) authenticate with `Authorization: Bearer`,
-        // which Claude Code only sends via ANTHROPIC_AUTH_TOKEN. ANTHROPIC_API_KEY would be
-        // sent as an `x-api-key` header the gateway rejects, so route the key to the Bearer
-        // token and clear the api key to avoid credential conflicts. Mirrors the OpenRouter
-        // Claude Code integration guidance.
-        if (apiKey && !useProviderMount) {
-          env.ANTHROPIC_AUTH_TOKEN = apiKey;
-          env.ANTHROPIC_API_KEY = "";
-        }
-      } else if (isApiKeyMode && apiKey && !useProviderMount) {
-        env.ANTHROPIC_API_KEY = apiKey;
-      }
-
-      // If a custom model is provided (and thus passed in `model`), point every Claude
-      // Code model tier at it — including the background "small/fast" tier that would
-      // otherwise request a Haiku model the gateway does not serve.
-      if (isApiKeyMode && model && model !== "default") {
-        env.ANTHROPIC_MODEL = model;
-        env.ANTHROPIC_SMALL_FAST_MODEL = model;
-        env.ANTHROPIC_DEFAULT_OPUS_MODEL = model;
-        env.ANTHROPIC_DEFAULT_SONNET_MODEL = model;
-        env.ANTHROPIC_DEFAULT_HAIKU_MODEL = model;
-      }
-    } else if (provider === "codex") {
-      if (model && model !== "default") env.CODEX_MODEL = model;
-      if (isApiKeyMode && apiKey && !useProviderMount) env.OPENAI_API_KEY = apiKey;
-      if (isApiKeyMode && providerConfig?.customBaseUrl) {
-        env.OPENAI_BASE_URL = this.rewriteLoopbackUrlForDocker(
-          providerConfig.customBaseUrl,
-          this.shouldRewriteDockerLoopbackUrls(workflowSettings),
-        );
-      }
-    } else if (provider === "qwen-code") {
-      const qwenEnvKeys = new Set<string>();
-      const primaryEnvKey = !isApiKeyMode
-        ? "OLLAMA_API_KEY"
-        : providerConfig?.qwenAuthMode === "ALIBABA_CODING_PLAN"
-          ? "BAILIAN_CODING_PLAN_API_KEY"
-          : providerConfig?.qwenEnvKey || "OLLAMA_API_KEY";
-      qwenEnvKeys.add(primaryEnvKey);
-      qwenEnvKeys.add("QWEN_CODE_SUPPRESS_YOLO_WARNING");
-      env.QWEN_CODE_SUPPRESS_YOLO_WARNING = "1";
-      if (isApiKeyMode && apiKey && !useProviderMount) {
-        env[primaryEnvKey] = apiKey;
-        env.DASHSCOPE_API_KEY ||= apiKey;
-        env.BAILIAN_CODING_PLAN_API_KEY ||= apiKey;
-        env.QWEN_API_KEY ||= apiKey;
-        if ((providerConfig?.qwenProtocol || "openai") === "openai") {
-          env.OPENAI_API_KEY ||= apiKey;
-        }
-      }
-      const baseUrl = isApiKeyMode && providerConfig?.qwenAuthMode === "ALIBABA_CODING_PLAN"
-        ? providerConfig.qwenRegion === "china"
-          ? "https://coding.dashscope.aliyuncs.com/v1"
-          : "https://coding-intl.dashscope.aliyuncs.com/v1"
-        : isApiKeyMode && providerConfig?.qwenAuthMode === "MODEL_PROVIDER"
-          ? providerConfig.qwenBaseUrl || "http://127.0.0.1:11434/v1"
-          : undefined;
-      if (baseUrl) {
-        env.OPENAI_BASE_URL = this.rewriteLoopbackUrlForDocker(baseUrl, this.shouldRewriteDockerLoopbackUrls(workflowSettings));
-      }
-      if (isApiKeyMode) {
-        for (const entry of providerConfig?.qwenAdditionalModelProviders || []) {
-          if (entry.envKey) {
-            qwenEnvKeys.add(entry.envKey);
-            if (entry.apiKey && !useProviderMount) {
-              env[entry.envKey] = entry.apiKey;
-            }
-          }
-        }
-      }
-      if (qwenEnvKeys.size > 0) {
-        env.CODE_UX_PROVIDER_ENV_KEYS = [...qwenEnvKeys].join(",");
-      }
-      env.QWEN_SETTINGS_CONTENT = buildQwenRuntimeConfig(
-        model,
-        {
-          ...providerConfig,
-          qwenAuthMode: !isApiKeyMode ? "LOCAL_AUTH" : providerConfig?.qwenAuthMode,
-        },
-        providerConfig?.mcpConnection || null,
-        this.shouldRewriteDockerLoopbackUrls(workflowSettings),
-        (url, enabled) => this.rewriteLoopbackUrlForDocker(url, enabled),
-        qwenProcessLogDir,
-      );
-    } else if (provider === "opencode") {
-      const envKey = isApiKeyMode
-        ? (providerConfig?.openCodeEnvKey || (providerConfig?.openCodeAuthMode === "CUSTOM_PROVIDER" ? "OLLAMA_API_KEY" : "ANTHROPIC_API_KEY"))
-        : "ANTHROPIC_API_KEY";
-      const resolvedApiKey = isApiKeyMode ? (apiKey || process.env[envKey] || "") : "";
-      if (resolvedApiKey && !useProviderMount) {
-        env[envKey] = resolvedApiKey;
-        env.OPENCODE_API_KEY = resolvedApiKey;
-        if ((providerConfig?.openCodeProviderId || model.split("/")[0]) === "anthropic") {
-          env.ANTHROPIC_API_KEY ||= resolvedApiKey;
-        }
-        if ((providerConfig?.openCodeProviderId || model.split("/")[0]) === "openai") {
-          env.OPENAI_API_KEY ||= resolvedApiKey;
-        }
-        if ((providerConfig?.openCodeProviderId || model.split("/")[0]) === "github-copilot") {
-          env.GITHUB_TOKEN ||= resolvedApiKey;
-        }
-      }
-      env.OPENCODE_CONFIG_CONTENT = buildOpenCodeRuntimeConfig(
-        model,
-        {
-          ...providerConfig,
-          openCodeAuthMode: !isApiKeyMode ? "LOCAL_AUTH" : providerConfig?.openCodeAuthMode,
-        },
-        providerConfig?.mcpConnection || null,
-        this.shouldRewriteDockerLoopbackUrls(workflowSettings),
-        (url, enabled) => this.rewriteLoopbackUrlForDocker(url, enabled),
-      );
-    } else if (provider === "antigravity") {
-      if (isApiKeyMode && apiKey && !useProviderMount) {
-        env.ANTIGRAVITY_API_KEY = apiKey;
-      }
-      if (model && model !== "default") {
-        env.ANTIGRAVITY_MODEL = model;
-        env.AGY_MODEL = model;
-      }
-    }
-    return env;
-  }
-
-  private shouldRewriteDockerLoopbackUrls(workflowSettings: CliWorkflowSettings): boolean {
-    if (workflowSettings.executionMode !== "DOCKER") {
-      return false;
-    }
-    const override = process.env.CODE_UX_DOCKER_REWRITE_LOCALHOST;
-    if (override === "0" || override === "false") {
-      return false;
-    }
-    if (override === "1" || override === "true") {
-      return true;
-    }
-    return process.platform === "darwin"
-      || process.platform === "win32"
-      || os.release().toLowerCase().includes("microsoft");
-  }
-
-  private rewriteLoopbackUrlForDocker(rawUrl: string, enabled: boolean): string {
-    if (!enabled) {
-      return rawUrl;
-    }
-    try {
-      const url = new URL(rawUrl);
-      if (url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1") {
-        url.hostname = "host.docker.internal";
-        return url.toString();
-      }
-    } catch {
-      return rawUrl;
-    }
-    return rawUrl;
-  }
-
-
 
   private shouldSuppressStructuredStdout(provider: CliProviderId, line: string): boolean {
     if (provider !== "gemini" && provider !== "codex" && provider !== "opencode") {
