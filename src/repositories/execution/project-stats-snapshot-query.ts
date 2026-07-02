@@ -20,7 +20,7 @@ import {
   accumulateBucketUsage,
   mapEntityUsage,
 } from "./project-stats-aggregation.js";
-import { createSnapshotPricingResolver } from "./project-stats-costing.js";
+import { createSnapshotPricingResolver, applyPricingToUsage } from "./project-stats-costs.js";
 import { buildProjectStatsChartSeries } from "./project-stats-chart-series.js";
 import { DurationSampleRow, DurationAggregateRow, computeAggregatesFromSamples, computeAggregatesFromAggregations, ComputedDurationAggregates } from "./project-stats-duration.js";
 
@@ -143,7 +143,8 @@ export function queryProjectStatsSnapshot(
   `).all(...bucketParams, projectId, rangeStartIso, rangeEndIso) as MainAggregateRow[];
 
   for (const row of mainAggs) {
-    const u = mapAggregatedUsage(row, pricingResolver, row.provider, row.model);
+    const u = mapAggregatedUsage(row);
+    applyPricingToUsage(u, pricingResolver, row.provider, row.model);
     mergeAggregatedUsage(usage, u);
 
     // Task aggregations

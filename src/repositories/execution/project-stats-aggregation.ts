@@ -2,7 +2,6 @@ import { ExecutionUsageTotals } from "../../contracts/app-types.js";
 import { InternalStatsBucket } from "./stats-buckets.js";
 import { toNumber } from "./execution-utils.js";
 import { StatsEntityMetadata } from "./execution-stats-types.js";
-import { SnapshotPricingResolver, applyPricingToUsage } from "./project-stats-costing.js";
 
 export const usageFields = `
     COUNT(*) as invocationCount,
@@ -34,7 +33,7 @@ export interface UsageAggregationRow {
   unavailableInvocationCount: number | string | null;
 }
 
-export function mapAggregatedUsage(row: UsageAggregationRow, pricingResolver?: SnapshotPricingResolver, provider?: string | null, model?: string | null): ExecutionUsageTotals {
+export function mapAggregatedUsage(row: UsageAggregationRow): ExecutionUsageTotals {
   const u: ExecutionUsageTotals = {
     invocationCount: toNumber(row.invocationCount),
     activeTimeMs: toNumber(row.activeTimeMs),
@@ -54,8 +53,6 @@ export function mapAggregatedUsage(row: UsageAggregationRow, pricingResolver?: S
     unsupportedInvocationCount: toNumber(row.unsupportedInvocationCount),
     unavailableInvocationCount: toNumber(row.unavailableInvocationCount),
   };
-
-  applyPricingToUsage(u, pricingResolver, provider, model);
 
   return u;
 }
