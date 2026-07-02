@@ -15,7 +15,7 @@ export class DashboardSnapshotCachePolicy {
   static readonly MAX_PROJECT_STATS_SNAPSHOTS = 50;
 
   static getProjectExecutionCacheKey(projectId: string, options: ProjectExecutionSnapshotOptions = {}): string {
-    return `${projectId}:${options.selectedSprintId || ""}`;
+    return `${projectId}:${options.selectedSprintId || ""}:feed=${options.includeFeeds !== false}`;
   }
 
   static isProjectExecutionCacheKeyMatch(key: string, projectId: string): boolean {

@@ -36,11 +36,15 @@ describe("DashboardSnapshotCache", () => {
       const key1 = DashboardSnapshotCachePolicy.getProjectExecutionCacheKey("p1");
       const key2 = DashboardSnapshotCachePolicy.getProjectExecutionCacheKey("p1");
       expect(key1).toBe(key2);
-      expect(key1).toBe("p1:");
+      expect(key1).toBe("p1::feed=true");
 
       const key3 = DashboardSnapshotCachePolicy.getProjectExecutionCacheKey("p1", { selectedSprintId: "s1" });
       expect(key1).not.toBe(key3);
-      expect(key3).toBe("p1:s1");
+      expect(key3).toBe("p1:s1:feed=true");
+
+      const key4 = DashboardSnapshotCachePolicy.getProjectExecutionCacheKey("p1", { includeFeeds: false });
+      expect(key1).not.toBe(key4);
+      expect(key4).toBe("p1::feed=false");
     });
 
     it("matches execution cache keys correctly for invalidation", () => {
@@ -77,50 +81,15 @@ describe("DashboardSnapshotCache", () => {
       recentInvocations: [{ id: "i1" }],
     });
 
-    it("strips the activity feed from the lean view while the full view keeps it", () => {
-      mockDeps.executionRepository.getProjectExecutionSnapshot.mockReturnValue(baseSnapshot());
-
-      const full = cache.getProjectExecutionSnapshot("p1");
-      const lean = cache.getProjectExecutionSnapshotLean("p1");
-
-      expect(full.recentEvents).toHaveLength(2);
-      expect(full.recentInvocations).toHaveLength(1);
-      expect(lean.recentEvents).toEqual([]);
-      expect(lean.recentInvocations).toEqual([]);
-      // The ledger-relevant data is preserved.
-      expect(lean.sprintRuns).toEqual(full.sprintRuns);
-    });
-
-    it("returns a referentially stable lean view for an unchanged snapshot", () => {
-      mockDeps.executionRepository.getProjectExecutionSnapshot.mockReturnValue(baseSnapshot());
-      const lean1 = cache.getProjectExecutionSnapshotLean("p1");
-      const lean2 = cache.getProjectExecutionSnapshotLean("p1");
-      expect(lean1).toBe(lean2);
-    });
-
-
-    it("regenerates lean snapshot when full snapshot instance changes (e.g. after invalidation)", () => {
-      mockDeps.executionRepository.getProjectExecutionSnapshot.mockReturnValueOnce(baseSnapshot());
-      const lean1 = cache.getProjectExecutionSnapshotLean("p1");
-
-      cache.invalidateProjectExecution("p1");
-
-      mockDeps.executionRepository.getProjectExecutionSnapshot.mockReturnValueOnce(baseSnapshot());
-      const lean2 = cache.getProjectExecutionSnapshotLean("p1");
-
-      expect(lean1).not.toBe(lean2);
-    });
-
-    it("returns the snapshot as-is when there is no feed to strip", () => {
+    it("requests a lean snapshot with includeFeeds: false from the repository", () => {
       mockDeps.executionRepository.getProjectExecutionSnapshot.mockReturnValue({
         projectId: "p1",
         sprintRuns: [],
         recentEvents: [],
         recentInvocations: [],
       });
-      const full = cache.getProjectExecutionSnapshot("p1");
       const lean = cache.getProjectExecutionSnapshotLean("p1");
-      expect(lean).toBe(full);
+      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledWith("p1", { includeFeeds: false });
     });
   });
 
