@@ -10,12 +10,12 @@ export function registerExecutionInvocationRoutes(router: Express, deps: Dashboa
     const projectId = requireTrimmedString(req.params.projectId, "projectId");
 
     if (Object.keys(req.query).length > 0 && deps.executionRepository) {
-      const query: ProjectInvocationsQuery = {
+            const query: ProjectInvocationsQuery = {
         limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
         offset: req.query.offset ? parseInt(req.query.offset as string, 10) : undefined,
-        status: req.query.status as any,
-        purpose: req.query.purpose as any,
-        provider: req.query.provider as string,
+        status: Array.isArray(req.query.status) ? (req.query.status as any) : req.query.status as any,
+        purpose: Array.isArray(req.query.purpose) ? (req.query.purpose as any) : req.query.purpose as any,
+        provider: Array.isArray(req.query.provider) ? (req.query.provider as any) : req.query.provider as string,
         search: req.query.search as string,
         sortKey: req.query.sortKey as any,
         sortDir: req.query.sortDir as any,

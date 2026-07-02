@@ -5,9 +5,9 @@ export type ExecutionInvocationStatus = "running" | "completed" | "failed" | "ca
 export interface ProjectInvocationsQuery {
   limit?: number;
   offset?: number;
-  status?: ExecutionInvocationStatus;
-  purpose?: string;
-  provider?: string;
+  status?: ExecutionInvocationStatus | ExecutionInvocationStatus[];
+  purpose?: string | string[];
+  provider?: string | string[];
   search?: string;
   errorCategories?: string[];
   sortKey?: "startedAt" | "durationMs" | "totalTokens" | "costCents";
