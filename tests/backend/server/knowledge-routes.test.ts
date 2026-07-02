@@ -85,15 +85,44 @@ describe("knowledge routes", () => {
         .post("/api/projects/project-1/knowledge/documents/upload")
         .attach("files", Buffer.from("test"), { filename: "../../secret.txt", contentType: "text/plain" })
         .attach("files", Buffer.from("test2"), { filename: "good.md", contentType: "text/markdown" })
-        .attach("files", Buffer.from("bad"), { filename: "bad.exe", contentType: "application/x-msdownload" });
+        .attach("files", Buffer.from("bad"), { filename: "bad.exe", contentType: "application/x-msdownload" })
+        .attach("files", Buffer.from("fake-pdf"), { filename: "fake.pdf", contentType: "text/plain" })
+        .attach("files", Buffer.from("fake-txt"), { filename: "fake.txt", contentType: "application/pdf" });
 
       expect(res.status).toBe(201);
       expect(ingestDocument).toHaveBeenCalledTimes(2);
       expect(ingestDocument.mock.calls[0][1].title).toBe("secret.txt"); // sanitized name without path separators
+      expect(res.body.errors).toBeDefined();
+      expect(res.body.errors.some((e: any) => e.fileName === "bad.exe")).toBe(true);
+      expect(res.body.errors.some((e: any) => e.fileName === "fake.pdf")).toBe(true);
+      expect(res.body.errors.some((e: any) => e.fileName === "fake.txt")).toBe(true);
     });
   });
 
   describe("ingestRepoPath", () => {
+
+    it("skips symlinked files inside directory", async () => {
+      const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-kb-route-dir-"));
+      tempDirs.push(dir);
+      await fs.writeFile(path.join(dir, "valid.txt"), "valid content");
+
+      const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-kb-route-outside-"));
+      tempDirs.push(outsideDir);
+      const outsideFile = path.join(outsideDir, "outside.txt");
+      await fs.writeFile(outsideFile, "secret");
+
+      await fs.symlink(outsideFile, path.join(dir, "link.txt"));
+
+      const { app, ingestDocument } = createKnowledgeApp({ baseDir: dir });
+      const res = await request(app)
+        .post("/api/projects/project-1/knowledge/documents")
+        .send({ path: "." });
+
+      expect(res.status).toBe(201);
+      expect(ingestDocument).toHaveBeenCalledTimes(1);
+      expect(ingestDocument.mock.calls[0][1].title).toBe("valid.txt");
+    });
+
     it("rejects symlink path escape", async () => {
       const baseDir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-kb-route-base-"));
       tempDirs.push(baseDir);
@@ -119,7 +148,7 @@ describe("knowledge routes", () => {
       tempDirs.push(dir);
 
       for (let i = 0; i < 105; i++) {
-        await fs.writeFile(path.join(dir, `file-\${i}.txt`), "test");
+        await fs.writeFile(path.join(dir, `file-${i}.txt`), "test");
       }
 
       const { app, ingestDocument } = createKnowledgeApp({ baseDir: dir });
@@ -130,6 +159,8 @@ describe("knowledge routes", () => {
       expect(res.status).toBe(201);
       // Because we limit MAX_DIRECTORY_FILES to 100
       expect(ingestDocument.mock.calls.length).toBeLessThanOrEqual(100);
+      expect(res.body.errors).toBeDefined();
+      expect(res.body.errors.some((e: any) => e.error.includes("truncated"))).toBe(true);
     });
 
     it("ingests valid text upload", async () => {

@@ -3,14 +3,60 @@ import { marked } from "marked";
 const renderer = new marked.Renderer();
 renderer.html = () => "";
 
-const isUrlSafe = (url: string): boolean => {
+const isUrlSafe = (url: string, isImage: boolean = false): boolean => {
   try {
-    const trimmed = url.trim();
-    if (trimmed.startsWith("/") || trimmed.startsWith("#") || trimmed.startsWith("?")) {
+    // Decode HTML entities to handle obfuscated protocols like javascript&#00058;alert(1)
+    const decodedUrl = url.replace(/&#[xX]?[0-9a-fA-F]+;?/g, (match) => {
+      let code;
+      if (match.startsWith("&#x") || match.startsWith("&#X")) {
+        code = parseInt(match.replace(/&#[xX]/, "").replace(";", ""), 16);
+      } else {
+        code = parseInt(match.replace("&#", "").replace(";", ""), 10);
+      }
+      return String.fromCharCode(code);
+    });
+
+    const cleanUrl = decodedUrl.replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim();
+
+    if (cleanUrl.startsWith("//") || cleanUrl.startsWith("\\\\")) {
+      return false;
+    }
+
+    if (cleanUrl.startsWith("/") || cleanUrl.startsWith("#") || cleanUrl.startsWith("?")) {
       return true;
     }
-    const parsed = new URL(trimmed, "http://dummy.com");
-    return ["http:", "https:", "mailto:"].includes(parsed.protocol);
+
+    let parsedAbsolute: URL | null = null;
+    try {
+      parsedAbsolute = new URL(cleanUrl);
+    } catch {
+      // Not a valid absolute URL, fall through to relative check
+    }
+
+    if (parsedAbsolute) {
+      if (isImage) {
+        return ["http:", "https:"].includes(parsedAbsolute.protocol);
+      }
+      return ["http:", "https:", "mailto:"].includes(parsedAbsolute.protocol);
+    }
+
+    const colonIndex = cleanUrl.indexOf(":");
+    if (colonIndex !== -1) {
+      const slashIndex = cleanUrl.indexOf("/");
+      const hashIndex = cleanUrl.indexOf("#");
+      const queryIndex = cleanUrl.indexOf("?");
+
+      let firstPathChar = -1;
+      if (slashIndex !== -1) firstPathChar = slashIndex;
+      if (hashIndex !== -1 && (firstPathChar === -1 || hashIndex < firstPathChar)) firstPathChar = hashIndex;
+      if (queryIndex !== -1 && (firstPathChar === -1 || queryIndex < firstPathChar)) firstPathChar = queryIndex;
+
+      if (firstPathChar === -1 || colonIndex < firstPathChar) {
+        return false;
+      }
+    }
+
+    return true;
   } catch {
     return false;
   }
@@ -48,7 +94,7 @@ renderer.link = function (token) {
 
 renderer.image = function (token) {
   const { href, title, text } = token;
-  if (!isUrlSafe(href)) {
+  if (!isUrlSafe(href, true)) {
     return escapeHtml(text);
   }
 

@@ -110,8 +110,10 @@ Recovery guarantees:
 - task QA no longer depends only on catching a single in-cycle transition edge; if a task is already code-complete and still has no successful QA run, Code UX will enqueue the missing review on the next orchestration cycle instead of leaving the task parked in `QA_PENDING`
 - if a QA run row is left behind in `running` state after its backing execution invocation has already finished, Code UX now automatically converts that stale row into a retryable failed run so the gate can recover instead of blocking indefinitely
 - before task QA starts, Code UX polls feature PR status with any task-level PR URLs already recorded by Jules. This lets orchestration recover the PR head branch even when the Jules PR base branch has drifted from the currently configured sprint feature branch.
-- if a prior QA run requested changes and a later Jules or CLI task run completed after that QA result, Code UX treats the later completion as meaningful work and reruns task QA on the next orchestration cycle even when the task was already persisted as `coding_completed`.
+- if a prior task QA run requested changes, Code UX sends fix instructions back to the same task session when possible and tracks that work as same-session follow-up instead of creating a new task branch.
 - CLI QA follow-up work is tracked through `cli_task_followup` execution invocations. If that follow-up finishes inside the same task run after a `changes_requested` QA result, the next orchestration cycle now treats it as fresh work and queues the verification QA run instead of leaving the task parked at the CI/QA merge gate.
+- when a task has already reached the QA retry cap, only a completed same-session `cli_task_followup` spawned by task QA gets one final verification review before the exhaustion policy is applied. A new full task run is not treated as task-QA follow-up work and should come from an explicit rerun/reset path.
+- once a task is parked in `QA_REVIEW_FAILED`, status derivation treats it as a stable human-owned state rather than requeueing it just because dependencies are satisfied. Only an explicit rerun/reset should move it back to pending work.
 - each sprint cycle reconciles running task QA reviews against their backing provider runtime. If a running QA invocation never links to provider runtime, or if a Docker-backed QA provider invocation no longer has a running `code-ux.session-id` container, Code UX marks the stale QA run failed so the next cycle can retry it instead of leaving the task at `QA_PENDING`.
 - provider concurrency slot waits and claims also reconcile stale Docker-backed provider invocations before counting or creating active slots. This releases orphaned `qwen-code`/CLI QA slots when their containers disappeared before the invocation reached a terminal state, including providers configured with unlimited concurrency, but only after linked execution activity has been idle long enough to avoid racing normal container startup.
 - startup recovery also reconciles stale `running` QA review rows and stale QA invocation audit rows globally. If the backing QA execution invocation already ended, never linked to provider runtime, or points at a Docker-backed provider invocation whose container is gone, startup marks the QA run and backing invocation failed so the sprint can retry instead of keeping a historical `QA review running` badge indefinitely.
@@ -131,8 +133,10 @@ Note: The run budget and retry limit rules are explicitly implemented in a dedic
 - recovered stale QA rows do not consume the task's final retry opportunity. If Code UX marks a running QA row failed because its provider runtime disappeared, the next cycle treats that as a retryable infrastructure recovery rather than a semantic QA failure.
 - `maxTaskReviewRuns = 2` means the initial task review plus one QA re-check after fixes
 - `maxTaskReviewRuns = N` means the initial task review plus up to `N - 1` QA re-checks for later fix iterations
+- `maxTaskReviewRuns = 5` is the default task QA budget
 - if QA has failed at the cap without an explicit `changes_requested` verdict, Code UX treats the retry budget as exhausted
 - if the latest QA verdict is `changes_requested`, Code UX keeps the merge blocked at the retry cap unless a completed Code UX-applied QA continuation is waiting for verification
+- if the latest QA verdict is `changes_requested` and a same-session CLI QA follow-up completes after that verdict, Code UX schedules verification before applying `FINISH_TASK`, `FAIL_TASK`, or `ESCALATE_TO_HUMAN`
 - a passing task QA result is final for that completion state and is not retriggered just because orchestration loops again
 - task-level QA runs are now surfaced in task list records and live runtime snapshots. The Tasks page and Live page both show a compact QA badge, including a spinner state while the latest task QA run is still `running`.
 
@@ -150,10 +154,11 @@ Behavior:
 - sprint QA runs once for the finished sprint, then only runs again after a prior `changes_requested` or failed result and meaningful sprint task state changes have occurred
 - a passing sprint QA result is final for that sprint state and is not retriggered by another orchestration cycle with no real work changes
 - sprint task state changes are detected purely by serializing all current subtasks into a `SprintQaSnapshot` (including status, prompt, and merge indicators) and comparing it with the payload of the latest QA run; if a historical QA run lacks a saved snapshot, Code UX falls back to comparing the newest task modification timestamp against the QA run's finish timestamp
-- sprint QA uses the same `maxTaskReviewRuns` budget semantics as task QA:
+- sprint QA uses the same budget semantics as task QA, but with its own `maxSprintReviewRuns` setting:
   - run `1` is the initial finished-sprint review
   - later runs are only used to check QA-requested fixes or follow-up work
-  - `maxTaskReviewRuns = 1` means sprint fixes are not re-checked by QA
+  - `maxSprintReviewRuns = 5` is the default sprint QA budget
+  - `maxSprintReviewRuns = 1` means sprint fixes are not re-checked by QA
 - if sprint QA passes, Code UX proceeds to main-merge evaluation and eventual completion
 - if sprint QA is still running, failed, or waiting on follow-up work, the main merge stays blocked
 - while a sprint QA review is running, Code UX now refreshes the parent sprint-run heartbeat and lease so long reviews are not mistaken for stalled orchestration and failed by runtime cleanup

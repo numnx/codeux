@@ -4,7 +4,7 @@ import * as path from "path";
 import type { IncomingMessage } from "http";
 import type { Logger } from "../shared/logging/logger.js";
 import { correlationIdMiddleware } from "../shared/logging/correlation-id.js";
-import { applyDashboardSecurityHeaders, isHostileBrowserOrigin } from "./dashboard-security.js";
+import { applyDashboardSecurityHeaders, isHostileBrowserOrigin, isTrustedDashboardHost } from "./dashboard-security.js";
 import { createPreviewHostMiddleware } from "./preview-host-middleware.js";
 import { parsePreviewSessionIdFromHost } from "./preview-host-utils.js";
 import { createHttpRateLimiter } from "../shared/http/rate-limit.js";
@@ -62,6 +62,17 @@ export const applyDashboardPreRouteMiddleware = (
     const isRuntimeDataPath = req.path.startsWith("/api/")
       || req.path === "/health"
       || req.path === "/ready";
+
+    if (isRuntimeDataPath && !isTrustedDashboardHost(req.headers.host)) {
+      dashboardLogger.warn("Blocked runtime request with untrusted Host header", {
+        logPurpose: "security",
+        method: req.method,
+        path: req.originalUrl,
+        reason: "untrusted_host",
+      });
+      res.status(403).json({ error: "Forbidden: Untrusted host." });
+      return;
+    }
 
     if (isRuntimeDataPath && isHostileBrowserOrigin(req)) {
       dashboardLogger.warn("Blocked hostile cross-site browser request", {

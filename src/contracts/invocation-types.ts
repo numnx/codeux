@@ -134,6 +134,12 @@ export interface CreateExecutionInvocationInput {
 
 export interface UpdateExecutionInvocationInput {
   status?: ExecutionInvocationStatus;
+  sprintId?: string | null;
+  taskId?: string | null;
+  sprintRunId?: string | null;
+  dispatchId?: string | null;
+  taskRunId?: string | null;
+  attentionItemId?: string | null;
   providerInvocationId?: string | null;
   provider?: string | null;
   model?: string | null;

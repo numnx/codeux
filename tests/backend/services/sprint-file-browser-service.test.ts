@@ -107,6 +107,61 @@ afterEach(async () => {
 });
 
 describe("SprintFileBrowserService", () => {
+  it("sanitizes volume and container names with hostile characters", async () => {
+    const { service, fileBrowserRepository, project } = await createHarness();
+    const hostileId = "hostile/sprint id!@#;$|\\n";
+    const actualHostileId = hostileId;
+
+    // Stub requireSprint because SQLite will reject the ID
+    const originalRequireSprint = (service as any).requireSprint.bind(service);
+    (service as any).resolveSprintFeatureBranch = (pid: string, sid: string) => { return "feature/test"; };
+    (service as any).requireSprint = (pid: string, sid: string) => {
+        if (sid === hostileId) {
+            return { id: hostileId, projectId: pid, name: "Hostile Sprint", status: "running" };
+        }
+        return originalRequireSprint(pid, sid);
+    };
+
+    runCommandStrict.mockResolvedValue(ok());
+    commandRun.mockResolvedValue(ok("deadbeef\n"));
+    vi.spyOn(service as any, "runGit").mockResolvedValue({ ok: true, stdout: "deadbeef\n" });
+
+
+    try { (service.deps as any).db.exec(`INSERT INTO sprints (id, project_id, name, status) VALUES (\'hostile/sprint id!@#;$|\\n\', \'${project.id}\', \'Hostile Sprint\', \'running\')`); } catch(e) {}
+
+    // Mock fileBrowserRepository instead of actual SQLite db
+    vi.spyOn(fileBrowserRepository, "createSession").mockReturnValue({
+      id: "test-sess",
+      projectId: project.id,
+      sprintId: hostileId,
+      status: "running",
+      workspacePath: "/runtime-root/file-browser/x/workspace",
+    } as any);
+    vi.spyOn(fileBrowserRepository, "updateSession").mockReturnValue(undefined as any);
+    const session = fileBrowserRepository.createSession({
+      projectId: project.id,
+      sprintId: hostileId,
+      status: "running",
+      featureBranch: "feature/test",
+      defaultBranch: "main",
+      workspacePath: "/runtime-root/file-browser/x/workspace",
+    });
+
+    fileBrowserRepository.updateSession(session.id, { status: "running", containerId: "cid123", containerName: "cid-123" });
+
+    // We only call removeSprintVolume
+    await (service as any).removeSprintVolume(actualHostileId);
+
+    const rmVolumeCalls = runCommandStrict.mock.calls.filter(([cmd, args]) => cmd === "docker" && args[0] === "volume" && args[1] === "rm");
+    expect(rmVolumeCalls.length).toBeGreaterThan(0);
+    const rmArgs = rmVolumeCalls[0][1];
+    expect(rmArgs[rmArgs.length - 1]).toMatch(/^code-ux-file-browser-volume-hostile-sprint-id-n-[a-f0-9]{8}$/);
+
+    // verify containerName in buildContainerName
+    const containerName = (service as any).buildContainerName(project.id, hostileId);
+    expect(containerName).toMatch(/^code-ux-filebrowser-[a-z0-9_-]+-hostile-sprint--[a-f0-9]{8}$/);
+  });
+
   it("starts a single containerized snapshot and reports it running", async () => {
     const { service, project, sprint } = await createHarness();
     const containerTsv = `cid123\tcode-ux-filebrowser-x-y\tUp 2 seconds\t${project.id}\t${sprint.id}\tsess`;
@@ -147,7 +202,7 @@ describe("SprintFileBrowserService", () => {
         "code-ux.file-browser-volume=true",
         "--label",
         "code-ux.managed=true",
-        `code-ux-file-browser-volume-${sprint.id}`,
+        expect.stringContaining(`code-ux-file-browser-volume-${sprint.id.slice(0, 32)}`),
       ]),
       project.baseDir,
     );

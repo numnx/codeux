@@ -397,7 +397,7 @@ describe("dashboard-lifecycle-service", () => {
       setupArgs.getStatus();
       expect(mockDeps.projectRuntimeRepository.getSelectedProjectLiveStatus).toHaveBeenCalled();
       expect(setupArgs.getExecutionSnapshot()).toMatchObject({ projectId: "project-1" });
-      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledWith("project-1");
+      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledWith("project-1", {});
       expect(setupArgs.getExecutionSnapshot().connections[0]).toMatchObject({
         machineName: "builder-01",
         platform: "linux",

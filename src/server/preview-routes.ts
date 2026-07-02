@@ -2,6 +2,7 @@ import type { Express } from "express";
 import type { DashboardDependencies } from "./dashboard-server.js";
 import { asyncRoute } from "./route-utils.js";
 import { requireTrimmedString } from "./request-parsers.js";
+import { HttpRouteError } from "./http-errors.js";
 
 export function registerPreviewRoutes(app: Express, deps: DashboardDependencies): void {
   app.get("/api/projects/:projectId/preview/sessions", asyncRoute(async (req, res) => {
@@ -87,6 +88,9 @@ export function registerPreviewRoutes(app: Express, deps: DashboardDependencies)
         ? req.body
         : Buffer.from(JSON.stringify(req.body))
       : undefined;
+    if (body && body.byteLength > 5 * 1024 * 1024) {
+      throw new HttpRouteError(413, "Request body exceeds maximum allowed size for proxied preview");
+    }
     const proxied = await deps.proxySprintPreviewRequest({
       sessionId,
       method: req.method,

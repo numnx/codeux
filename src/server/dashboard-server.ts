@@ -192,12 +192,14 @@ export interface DashboardServerOptions {
   selectProject: (projectId: string | null) => string | null;
   selectSprint: (projectId: string, sprintId: string | null) => string | null;
   listSprints: (projectId: string) => SprintCollectionResponse;
+  getSprint: (sprintId: string) => SprintRecord | null;
   createSprint: (projectId: string, input: CreateSprintInput) => SprintRecord;
   updateSprint: (sprintId: string, input: UpdateSprintInput) => SprintRecord;
   deleteSprint: (sprintId: string) => void;
   importSprintFromMarkdown: (projectId: string, input: SprintMarkdownImportInput) => SprintRecord;
   exportSprintToMarkdown: (projectId: string, sprintId: string) => SprintMarkdownExportBundle;
   listTasks: (projectId: string, sprintId?: string) => TaskRecord[];
+  getTask: (taskId: string) => TaskRecord | null;
   createTask: (projectId: string, input: CreateTaskInput) => TaskRecord;
   updateTask: (taskId: string, input: UpdateTaskInput) => TaskRecord;
   deleteTask: (taskId: string) => void;

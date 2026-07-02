@@ -2191,6 +2191,7 @@ describe("QualityAssuranceService", () => {
     const taskRunShape = {
       id: "task-run-123",
       workerBranch: null,
+      prUrl: null,
     };
 
     await (service as any).continueCliTaskSession({
@@ -2322,6 +2323,7 @@ describe("QualityAssuranceService", () => {
     const taskRunShape = {
       id: "task-run-123",
       workerBranch: null,
+      prUrl: null,
     };
 
     await (service as any).continueCliTaskSession({
@@ -2340,6 +2342,13 @@ describe("QualityAssuranceService", () => {
 
     expect(prepareWorktreeSpy).toHaveBeenCalledWith("/repo", "docker-volume://session-1", "task/feature-sprint-1-T1-gemini-pr-recovered", "feature/sprint-1", undefined, expect.any(Object));
     expect(updateTaskRunMock).toHaveBeenCalledWith("task-run-123", { workerBranch: "task/feature-sprint-1-T1-gemini-pr-recovered" });
+    expect(updateTaskRunMock).toHaveBeenLastCalledWith("task-run-123", {
+      workerBranch: "task/feature-sprint-1-T1-gemini-pr-recovered",
+      prUrl: "https://github.com/org/repo/pull/1",
+    });
+    expect(taskShape.worker_branch).toBe("task/feature-sprint-1-T1-gemini-pr-recovered");
+    expect(taskRunShape.workerBranch).toBe("task/feature-sprint-1-T1-gemini-pr-recovered");
+    expect(taskRunShape.prUrl).toBe("https://github.com/org/repo/pull/1");
   });
 
   it("reuses an existing CLI QA follow-up workspace and syncs it with worker branch before running the fix", async () => {
