@@ -685,4 +685,10 @@ CREATE INDEX IF NOT EXISTS idx_task_dispatches_project_executor_status_priority 
 CREATE INDEX IF NOT EXISTS idx_task_runs_task_sprint_session ON task_runs (task_id, sprint_run_id, session_id);
 CREATE INDEX IF NOT EXISTS idx_project_attention_items_project_owner_status ON project_attention_items (project_id, owner_type, status);
 CREATE INDEX IF NOT EXISTS idx_execution_invocations_provider_invocation ON execution_invocations (provider_invocation_id);
+
+CREATE INDEX IF NOT EXISTS idx_execution_invocations_project_status ON execution_invocations (project_id, status, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_execution_invocations_project_provider ON execution_invocations (project_id, provider, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_execution_invocations_project_type ON execution_invocations (project_id, type, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_provider_invocations_project_provider_model ON provider_invocations (project_id, provider, model, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_provider_invocations_project_purpose ON provider_invocations (project_id, purpose, started_at DESC);
 `;

@@ -217,6 +217,11 @@ export function runMigrations(db: DatabaseAdapter): void {
   ensureIndex(db, "idx_execution_invocations_task_started", "execution_invocations", "task_id, started_at DESC");
   ensureIndex(db, "idx_execution_invocations_sprint_run_started", "execution_invocations", "sprint_run_id, started_at DESC");
   ensureIndex(db, "idx_execution_invocations_task_run_started", "execution_invocations", "task_run_id, started_at DESC");
+  ensureIndex(db, "idx_execution_invocations_project_status", "execution_invocations", "project_id, status, started_at DESC");
+  ensureIndex(db, "idx_execution_invocations_project_provider", "execution_invocations", "project_id, provider, started_at DESC");
+  ensureIndex(db, "idx_execution_invocations_project_type", "execution_invocations", "project_id, type, started_at DESC");
+  ensureIndex(db, "idx_provider_invocations_project_provider_model", "provider_invocations", "project_id, provider, model, started_at DESC");
+  ensureIndex(db, "idx_provider_invocations_project_purpose", "provider_invocations", "project_id, purpose, started_at DESC");
   ensureIndex(db, "idx_execution_invocation_messages_invocation_created", "execution_invocation_messages", "invocation_id, created_at ASC");
   ensureIndex(db, "idx_dashboard_realtime_events_scope_sequence", "dashboard_realtime_events", "scope_type, scope_id, is_replayable, sequence DESC");
   // Non-replayable snapshot events are no longer persisted (their watermark is tracked in
