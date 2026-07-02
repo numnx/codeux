@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DashboardSnapshotCachePolicy } from "../../../../src/app/lifecycle/dashboard-snapshot-cache-policy.js";
 import { DashboardSnapshotCache, mapExecutionConnections, mapAssignedWorkers, mapAttentionItems } from "../../../../src/app/lifecycle/dashboard-snapshot-cache.js";
 
@@ -31,6 +31,25 @@ describe("DashboardSnapshotCache", () => {
 
 
   describe("DashboardSnapshotCachePolicy", () => {
+
+    it("generates stable cache keys for project execution queries", () => {
+      const key1 = DashboardSnapshotCachePolicy.getProjectExecutionCacheKey("p1");
+      const key2 = DashboardSnapshotCachePolicy.getProjectExecutionCacheKey("p1");
+      expect(key1).toBe(key2);
+      expect(key1).toBe("p1:");
+
+      const key3 = DashboardSnapshotCachePolicy.getProjectExecutionCacheKey("p1", { selectedSprintId: "s1" });
+      expect(key1).not.toBe(key3);
+      expect(key3).toBe("p1:s1");
+    });
+
+    it("matches execution cache keys correctly for invalidation", () => {
+      expect(DashboardSnapshotCachePolicy.isProjectExecutionCacheKeyMatch("p1:", "p1")).toBe(true);
+      expect(DashboardSnapshotCachePolicy.isProjectExecutionCacheKeyMatch("p1:s1", "p1")).toBe(true);
+      expect(DashboardSnapshotCachePolicy.isProjectExecutionCacheKeyMatch("p2:", "p1")).toBe(false);
+      expect(DashboardSnapshotCachePolicy.isProjectExecutionCacheKeyMatch("p12:", "p1")).toBe(false);
+    });
+
     it("generates stable cache keys for project stats queries", () => {
       const key1 = DashboardSnapshotCachePolicy.getProjectStatsCacheKey("p1", { window: "7d" });
       const key2 = DashboardSnapshotCachePolicy.getProjectStatsCacheKey("p1", { window: "7d" });
@@ -79,6 +98,19 @@ describe("DashboardSnapshotCache", () => {
       expect(lean1).toBe(lean2);
     });
 
+
+    it("regenerates lean snapshot when full snapshot instance changes (e.g. after invalidation)", () => {
+      mockDeps.executionRepository.getProjectExecutionSnapshot.mockReturnValueOnce(baseSnapshot());
+      const lean1 = cache.getProjectExecutionSnapshotLean("p1");
+
+      cache.invalidateProjectExecution("p1");
+
+      mockDeps.executionRepository.getProjectExecutionSnapshot.mockReturnValueOnce(baseSnapshot());
+      const lean2 = cache.getProjectExecutionSnapshotLean("p1");
+
+      expect(lean1).not.toBe(lean2);
+    });
+
     it("returns the snapshot as-is when there is no feed to strip", () => {
       mockDeps.executionRepository.getProjectExecutionSnapshot.mockReturnValue({
         projectId: "p1",
@@ -93,6 +125,48 @@ describe("DashboardSnapshotCache", () => {
   });
 
   describe("snapshots caching", () => {
+
+    describe("TTL expiry", () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it("expires project snapshots", () => {
+        cache.getProjectsSnapshot();
+        expect(mockDeps.projectManagementRepository.listProjects).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(DashboardSnapshotCachePolicy.PROJECTS_CACHE_TTL_MS + 1);
+        cache.getProjectsSnapshot();
+        expect(mockDeps.projectManagementRepository.listProjects).toHaveBeenCalledTimes(2);
+      });
+
+      it("expires overview telemetry snapshots", () => {
+        cache.getOverviewTelemetrySnapshot();
+        expect(mockDeps.executionRepository.getOverviewTelemetrySnapshot).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(DashboardSnapshotCachePolicy.OVERVIEW_CACHE_TTL_MS + 1);
+        cache.getOverviewTelemetrySnapshot();
+        expect(mockDeps.executionRepository.getOverviewTelemetrySnapshot).toHaveBeenCalledTimes(2);
+      });
+
+      it("expires project execution snapshots", () => {
+        cache.getProjectExecutionSnapshot("p1");
+        expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(DashboardSnapshotCachePolicy.PROJECT_EXECUTION_CACHE_TTL_MS + 1);
+        cache.getProjectExecutionSnapshot("p1");
+        expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledTimes(2);
+      });
+
+      it("expires project stats snapshots", () => {
+        cache.getProjectStatsSnapshot("p1");
+        expect(mockDeps.executionRepository.getProjectStatsSnapshot).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(DashboardSnapshotCachePolicy.PROJECT_STATS_CACHE_TTL_MS + 1);
+        cache.getProjectStatsSnapshot("p1");
+        expect(mockDeps.executionRepository.getProjectStatsSnapshot).toHaveBeenCalledTimes(2);
+      });
+    });
+
     it("caches project snapshots", () => {
       const snap1 = cache.getProjectsSnapshot();
       const snap2 = cache.getProjectsSnapshot();
@@ -195,6 +269,32 @@ describe("DashboardSnapshotCache", () => {
       const snap2 = cache.getProjectExecutionSnapshot("p1");
       expect(snap1).toBe(snap2);
       expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+
+    it("invalidates project execution scoped by project", () => {
+      cache.getProjectExecutionSnapshot("p1");
+      cache.getProjectExecutionSnapshot("p2");
+      cache.invalidateProjectExecution("p1");
+
+      cache.getProjectExecutionSnapshot("p1"); // Should hit DB
+      cache.getProjectExecutionSnapshot("p2"); // Should hit Cache
+
+      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledTimes(3);
+      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenNthCalledWith(1, "p1", {});
+      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenNthCalledWith(2, "p2", {});
+      expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenNthCalledWith(3, "p1", {});
+    });
+
+    it("invalidates project stats scoped by project", () => {
+      cache.getProjectStatsSnapshot("p1");
+      cache.getProjectStatsSnapshot("p2");
+      cache.invalidateProjectStats("p1");
+
+      cache.getProjectStatsSnapshot("p1"); // Should hit DB
+      cache.getProjectStatsSnapshot("p2"); // Should hit Cache
+
+      expect(mockDeps.executionRepository.getProjectStatsSnapshot).toHaveBeenCalledTimes(3);
     });
 
     it("invalidates project execution snapshot after mutation event via invalidator", () => {
