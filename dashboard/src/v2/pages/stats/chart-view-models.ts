@@ -1,3 +1,5 @@
+import { useMemo } from 'preact/hooks';
+import type { ChartZoomRange } from './components/StatsShared.js';
 import type {
   ExecutionUsageBucketSummary,
   ProjectExecutionStatsChartSeries,
@@ -153,5 +155,89 @@ export function getTooltipState(
     activeBucket,
     tooltipLeft,
     xPositions,
+  };
+}
+
+
+export interface ChartViewModelParams {
+  stats: ProjectExecutionStatsSnapshot;
+  zoomRange: ChartZoomRange | null;
+  enabledSeries: Record<string, boolean>;
+  dimensions: { width: number; height: number };
+  hoveredIndex: number | null;
+  padding: number;
+}
+
+export interface ChartViewModel {
+  visibleBuckets: ExecutionUsageBucketSummary[];
+  chartData: NormalizedChartSeries[];
+  visibleSeries: NormalizedChartSeries[];
+  seriesGroups: Record<string, ProjectExecutionStatsChartSeries[]>;
+  activeSeriesCount: number;
+  visibleSeriesKey: string;
+  tooltipState: TooltipState;
+  metrics: ChartMetrics;
+  viewStart: number;
+  viewEnd: number;
+}
+
+export function useChartViewModel({
+  stats,
+  zoomRange,
+  enabledSeries,
+  dimensions,
+  hoveredIndex,
+  padding,
+}: ChartViewModelParams): ChartViewModel {
+  const viewStart = zoomRange?.start ?? 0;
+  const viewEnd = zoomRange?.end ?? Math.max(0, stats.buckets.length - 1);
+
+  const visibleBuckets = useMemo(
+    () => getVisibleBuckets(stats.buckets, viewStart, viewEnd),
+    [stats.buckets, viewStart, viewEnd]
+  );
+
+  const chartData = useMemo(() => {
+    return normalizeChartSeries(
+      stats.chartSeries,
+      visibleBuckets,
+      viewStart,
+      dimensions.width,
+      dimensions.height,
+      padding
+    );
+  }, [stats.chartSeries, visibleBuckets, viewStart, dimensions.width, dimensions.height, padding]);
+
+  const seriesGroups = useMemo(() => groupChartSeries(stats.chartSeries), [stats.chartSeries]);
+
+  const visibleSeries = useMemo(() => {
+    return chartData.filter((series) => enabledSeries[series.id]);
+  }, [chartData, enabledSeries]);
+
+  const activeSeriesCount = useMemo(() => {
+    return Object.values(enabledSeries).filter(Boolean).length;
+  }, [enabledSeries]);
+
+  const visibleSeriesKey = useMemo(() => {
+    return Object.keys(enabledSeries).filter(k => enabledSeries[k]).sort().join(',');
+  }, [enabledSeries]);
+
+  const tooltipState = useMemo(() => getTooltipState(
+    visibleBuckets, chartData, hoveredIndex, padding, dimensions.width
+  ), [visibleBuckets, chartData, hoveredIndex, padding, dimensions.width]);
+
+  const metrics = useMemo(() => calculateChartMetrics(visibleBuckets), [visibleBuckets]);
+
+  return {
+    visibleBuckets,
+    chartData,
+    visibleSeries,
+    seriesGroups,
+    activeSeriesCount,
+    visibleSeriesKey,
+    tooltipState,
+    metrics,
+    viewStart,
+    viewEnd,
   };
 }
