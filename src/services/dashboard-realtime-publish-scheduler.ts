@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import type { DashboardRealtimeScopeType } from "../contracts/app-types.js";
 
 export interface DashboardRealtimePublishSchedulerOptions<T> {
@@ -106,8 +107,8 @@ export class DashboardRealtimePublishScheduler {
         let payloadSizeBytes: number | undefined;
 
         if (options.cacheKey && options.skipDuplicate) {
-          const fingerprint = this.getFingerprint(payload);
-          if (deps.fingerprints.get(options.cacheKey) === fingerprint) {
+          const { hash, sizeBytes } = this.getFingerprint(payload);
+          if (deps.fingerprints.get(options.cacheKey) === hash) {
             deps.logger.debug("skipping_duplicate_realtime_snapshot", {
               type: options.eventType,
               ...(options.projectId ? { projectId: options.projectId } : {}),
@@ -116,13 +117,13 @@ export class DashboardRealtimePublishScheduler {
             options.onPublished(options.now);
             return;
           }
-          deps.fingerprints.set(options.cacheKey, fingerprint);
+          deps.fingerprints.set(options.cacheKey, hash);
           if (options.logPayloadSize) {
-            payloadSizeBytes = Buffer.byteLength(fingerprint, "utf8");
+            payloadSizeBytes = sizeBytes;
           }
         } else if (options.logPayloadSize) {
-          const fingerprint = this.getFingerprint(payload);
-          payloadSizeBytes = Buffer.byteLength(fingerprint, "utf8");
+          const { sizeBytes } = this.getFingerprint(payload);
+          payloadSizeBytes = sizeBytes;
         }
 
         deps.publishRawEvent({
@@ -178,12 +179,17 @@ export class DashboardRealtimePublishScheduler {
     return Math.min(currentDelayMs, candidateDelayMs);
   }
 
-  static getFingerprint(payload: unknown): string {
-    return JSON.stringify(payload, (key, value) => {
+  static getFingerprint(payload: unknown): { hash: string; sizeBytes: number } {
+    const str = JSON.stringify(payload, (key, value) => {
       if (key === "updatedAt" || key === "timestamp") {
         return undefined;
       }
       return value;
     });
+
+    return {
+      hash: crypto.createHash("sha256").update(str).digest("hex").substring(0, 16),
+      sizeBytes: Buffer.byteLength(str, "utf8"),
+    };
   }
 }

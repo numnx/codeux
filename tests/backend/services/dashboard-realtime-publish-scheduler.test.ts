@@ -19,8 +19,9 @@ describe("DashboardRealtimePublishScheduler", () => {
     const p2 = { id: 1, updatedAt: "later", nested: { a: 1, timestamp: 456 } };
     const p3 = { id: 2, updatedAt: "now", nested: { a: 1, timestamp: 123 } };
 
-    expect(DashboardRealtimePublishScheduler.getFingerprint(p1)).toBe(DashboardRealtimePublishScheduler.getFingerprint(p2));
-    expect(DashboardRealtimePublishScheduler.getFingerprint(p1)).not.toBe(DashboardRealtimePublishScheduler.getFingerprint(p3));
+    expect(DashboardRealtimePublishScheduler.getFingerprint(p1).hash).toBe(DashboardRealtimePublishScheduler.getFingerprint(p2).hash);
+    expect(DashboardRealtimePublishScheduler.getFingerprint(p1).hash).not.toBe(DashboardRealtimePublishScheduler.getFingerprint(p3).hash);
+    expect(DashboardRealtimePublishScheduler.getFingerprint(p1).sizeBytes).toBeGreaterThan(0);
   });
 
   describe("buildPublishTask", () => {
@@ -90,7 +91,7 @@ describe("DashboardRealtimePublishScheduler", () => {
     it("skips duplicates and updates metrics", async () => {
       const deps = createDeps();
       const payload = { same: true };
-      deps.fingerprints.get.mockReturnValue(DashboardRealtimePublishScheduler.getFingerprint(payload));
+      deps.fingerprints.get.mockReturnValue(DashboardRealtimePublishScheduler.getFingerprint(payload).hash);
 
       const result = DashboardRealtimePublishScheduler.buildPublishTask(
         {
