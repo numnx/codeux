@@ -25,7 +25,32 @@ import {
 // Shared projection: invocation columns + provider usage + the sprint key /
 // task key context the dashboard renders (and links) on each invocation card.
 const INVOCATION_SELECT = `
-      execution_invocations.*,
+      execution_invocations.id,
+      execution_invocations.project_id,
+      COALESCE(execution_invocations.sprint_id, provider_invocations.sprint_id) AS sprint_id,
+      COALESCE(execution_invocations.task_id, provider_invocations.task_id) AS task_id,
+      COALESCE(execution_invocations.sprint_run_id, provider_invocations.sprint_run_id) AS sprint_run_id,
+      COALESCE(execution_invocations.dispatch_id, provider_invocations.dispatch_id) AS dispatch_id,
+      COALESCE(execution_invocations.task_run_id, provider_invocations.task_run_id) AS task_run_id,
+      COALESCE(execution_invocations.attention_item_id, provider_invocations.attention_item_id) AS attention_item_id,
+      execution_invocations.provider_invocation_id,
+      execution_invocations.type,
+      execution_invocations.status,
+      execution_invocations.provider,
+      execution_invocations.model,
+      execution_invocations.system_prompt,
+      execution_invocations.started_at,
+      execution_invocations.finished_at,
+      execution_invocations.error_message,
+      execution_invocations.last_error_category,
+      execution_invocations.last_error_message,
+      execution_invocations.last_retry_after_iso,
+      execution_invocations.message_count,
+      execution_invocations.last_message_at,
+      execution_invocations.invocation_source,
+      execution_invocations.agent_preset_id,
+      execution_invocations.created_at,
+      execution_invocations.updated_at,
       provider_invocations.input_tokens AS input_tokens,
       provider_invocations.cached_input_tokens AS cached_input_tokens,
       provider_invocations.output_tokens AS output_tokens,
@@ -38,8 +63,8 @@ const INVOCATION_SELECT = `
 
 const INVOCATION_JOINS = `
     LEFT JOIN provider_invocations ON execution_invocations.provider_invocation_id = provider_invocations.id
-    LEFT JOIN sprints ON execution_invocations.sprint_id = sprints.id
-    LEFT JOIN tasks ON execution_invocations.task_id = tasks.id`;
+    LEFT JOIN sprints ON COALESCE(execution_invocations.sprint_id, provider_invocations.sprint_id) = sprints.id
+    LEFT JOIN tasks ON COALESCE(execution_invocations.task_id, provider_invocations.task_id) = tasks.id`;
 
 export function queryExecutionInvocations(
   db: Database,
@@ -57,22 +82,22 @@ export function queryExecutionInvocations(
   const values: any[] = [params.projectId];
 
   if (params.sprintId) {
-    conditions.push("execution_invocations.sprint_id = ?");
+    conditions.push("COALESCE(execution_invocations.sprint_id, provider_invocations.sprint_id) = ?");
     values.push(params.sprintId);
   }
 
   if (params.sprintRunId) {
-    conditions.push("execution_invocations.sprint_run_id = ?");
+    conditions.push("COALESCE(execution_invocations.sprint_run_id, provider_invocations.sprint_run_id) = ?");
     values.push(params.sprintRunId);
   }
 
   if (params.sprintRunIds && params.sprintRunIds.length > 0) {
-    conditions.push(`execution_invocations.sprint_run_id IN (${params.sprintRunIds.map(() => "?").join(", ")})`);
+    conditions.push(`COALESCE(execution_invocations.sprint_run_id, provider_invocations.sprint_run_id) IN (${params.sprintRunIds.map(() => "?").join(", ")})`);
     values.push(...params.sprintRunIds);
   }
 
   if (params.taskRunId) {
-    conditions.push("execution_invocations.task_run_id = ?");
+    conditions.push("COALESCE(execution_invocations.task_run_id, provider_invocations.task_run_id) = ?");
     values.push(params.taskRunId);
   }
 
