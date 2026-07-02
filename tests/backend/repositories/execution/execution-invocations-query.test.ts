@@ -187,6 +187,22 @@ describe("queryProjectInvocations", () => {
     expect(result.summary.totalInvocations).toBe(2);
     expect(result.availableProviders).toContain("jules");
 
+    // Query 2b: Filter by multiple Providers
+    result = executionRepository.queryProjectInvocations({ projectId: project.id, provider: ["jules", "jira"] });
+    expect(result.totalCount).toBe(3);
+
+    // Query 2c: Filter by multiple Statuses
+    result = executionRepository.queryProjectInvocations({ projectId: project.id, status: ["running", "paused"] });
+    expect(result.totalCount).toBe(2);
+
+    // Query 2d: Filter by multiple Purposes
+    result = executionRepository.queryProjectInvocations({ projectId: project.id, purpose: ["task_coding", "planning"] });
+    expect(result.totalCount).toBe(2);
+
+    // Query 2e: Filter by search
+    result = executionRepository.queryProjectInvocations({ projectId: project.id, search: "Sprint 1" });
+    expect(result.totalCount).toBe(2);
+
     // Query 3: Filter by errorCategory
     result = executionRepository.queryProjectInvocations({ projectId: project.id, errorCategories: ["timeout", "cancelled"] });
     expect(result.totalCount).toBe(2);
@@ -199,6 +215,15 @@ describe("queryProjectInvocations", () => {
     // Because some don't have duration set (like the running one), it will sort those later.
     // The main point is checking no crash and returns items
     expect(result.items.length).toBe(5);
+
+    // Query 5: Invalid sort key should fallback
+    result = executionRepository.queryProjectInvocations({ projectId: project.id, sortKey: "costCents" as any, sortDir: "asc" });
+    expect(result.totalCount).toBe(5);
+
+    // Query 6: Pagination limit and offset
+    result = executionRepository.queryProjectInvocations({ projectId: project.id, limit: 2, offset: 1 });
+    expect(result.items.length).toBe(2);
+    expect(result.totalCount).toBe(5); // Should still reflect total matched without limit
 
   });
 });
