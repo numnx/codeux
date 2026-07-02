@@ -79,6 +79,26 @@ describe("AppDbStorage", () => {
     expect(() => storage.getDatabase().prepare("SELECT 1").get()).toThrow();
   });
 
+  it("does not leak prepared statements when executing many chunked queries", async () => {
+    const dbPath = await createTempDbPath();
+    const storage = new AppDbStorage(dbPath);
+
+    storage.getDatabase().exec("CREATE TABLE dummy_test_table (id TEXT)");
+
+    // Generate > 500 explicitly different chunk queries to trigger eviction
+    for (let i = 1; i <= 600; i++) {
+        storage.executeChunkedInQuery({
+            sqlPrefix: `SELECT * FROM dummy_test_table WHERE id != 'prefix-${i}' AND id`,
+            items: ["1", "2", "3"],
+        });
+    }
+
+    const adapterCache = (storage.getDatabase() as any).cachedStatements as Map<string, any>;
+
+    // The bounded cache in the adapter should prevent runaway growth.
+    expect(adapterCache.size).toBeLessThanOrEqual(500);
+  });
+
   it("backfills estimated Docker CLI usage from persisted character counts", async () => {
     const dbPath = await createTempDbPath();
     const storage = new AppDbStorage(dbPath);
