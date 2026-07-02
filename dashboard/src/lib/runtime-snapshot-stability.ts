@@ -113,6 +113,7 @@ type Connection = ExecutionDashboardSnapshot["connections"][number];
 type AttentionItem = ExecutionDashboardSnapshot["attentionItems"][number];
 type RecentEvent = ExecutionDashboardSnapshot["recentEvents"][number];
 type RecentInvocation = NonNullable<ExecutionDashboardSnapshot["recentInvocations"]>[number];
+type AssignedWorker = NonNullable<ExecutionDashboardSnapshot["primaryAssignedWorker"]>;
 
 const isSprintRunEquivalent = (left: SprintRun, right: SprintRun): boolean => (
   leftDefined(left, right)
@@ -153,6 +154,25 @@ const isAttentionItemEquivalent = (left: AttentionItem, right: AttentionItem): b
   && left.id === right.id
   && left.status === right.status
   && left.updatedAt === right.updatedAt
+);
+
+const isAssignedWorkerEquivalent = (left: AssignedWorker, right: AssignedWorker): boolean => (
+  leftDefined(left, right)
+  && left.assignmentId === right.assignmentId
+  && left.workerEndpointId === right.workerEndpointId
+  && left.workerEndpointKey === right.workerEndpointKey
+  && left.workerEndpointType === right.workerEndpointType
+  && left.workerDisplayName === right.workerDisplayName
+  && left.connectionId === right.connectionId
+  && left.connectionKey === right.connectionKey
+  && left.transport === right.transport
+  && left.assignmentRole === right.assignmentRole
+  && left.status === right.status
+  && left.assignedAt === right.assignedAt
+  && left.lastAffinityAt === right.lastAffinityAt
+  && left.workerStatus === right.workerStatus
+  && left.canSuperviseProjects === right.canSuperviseProjects
+  && left.canExecuteTasks === right.canExecuteTasks
 );
 
 const isRecentEventEquivalent = (left: RecentEvent, right: RecentEvent): boolean => (
@@ -219,8 +239,8 @@ export function areExecutionSnapshotsEquivalent(
     && areListsEquivalent(left.attentionItems, right.attentionItems, isAttentionItemEquivalent)
     && areListsEquivalent(left.recentEvents, right.recentEvents, isRecentEventEquivalent)
     && areListsEquivalent(left.recentInvocations ?? [], right.recentInvocations ?? [], isRecentInvocationEquivalent)
-    && left.primaryAssignedWorker?.workerEndpointId === right.primaryAssignedWorker?.workerEndpointId
-    && left.overflowAssignedWorkers.length === right.overflowAssignedWorkers.length
+    && ((!left.primaryAssignedWorker && !right.primaryAssignedWorker) || (left.primaryAssignedWorker && right.primaryAssignedWorker && isAssignedWorkerEquivalent(left.primaryAssignedWorker, right.primaryAssignedWorker)) || false)
+    && areListsEquivalent(left.overflowAssignedWorkers, right.overflowAssignedWorkers, isAssignedWorkerEquivalent)
   );
 }
 
@@ -265,6 +285,12 @@ export function stabilizeExecutionSnapshot(
   reuse("connections", stabilizeList(previous.connections, next.connections, isConnectionEquivalent));
   reuse("attentionItems", stabilizeList(previous.attentionItems, next.attentionItems, isAttentionItemEquivalent));
   reuse("recentEvents", stabilizeList(previous.recentEvents, next.recentEvents, isRecentEventEquivalent));
+
+  if (previous.primaryAssignedWorker && next.primaryAssignedWorker && isAssignedWorkerEquivalent(previous.primaryAssignedWorker, next.primaryAssignedWorker)) {
+    reuse("primaryAssignedWorker", previous.primaryAssignedWorker);
+  }
+
+  reuse("overflowAssignedWorkers", stabilizeList(previous.overflowAssignedWorkers, next.overflowAssignedWorkers, isAssignedWorkerEquivalent));
   if (next.recentInvocations) {
     reuse(
       "recentInvocations",
