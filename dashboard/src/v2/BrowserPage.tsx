@@ -490,10 +490,14 @@ export const BrowserPage: FunctionComponent = () => {
           {visibleSelectedSession && frameSrc ? (
             <div className="relative h-full w-full">
               {!navigationEnabled && (
-                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-center p-4">
-                  <div className="flex items-center gap-3 rounded-full border border-black/[0.08] bg-white/90 px-4 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur-md dark:border-white/[0.08] dark:bg-void-900/90 dark:shadow-[0_8px_32px_rgba(0,0,0,0.24)]">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-signal-500 border-t-transparent" />
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300" aria-hidden="true">
+                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-slate-100/50 dark:bg-void-950/50 backdrop-blur-sm transition-opacity duration-300 motion-reduce:transition-none">
+                  <div className="flex items-center gap-3 rounded-full border border-black/[0.08] bg-white/95 px-5 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.12)] backdrop-blur-md dark:border-white/[0.08] dark:bg-void-900/95 dark:shadow-[0_12px_40px_rgba(0,0,0,0.3)]">
+                    {visibleSelectedSession.status === "error" ? (
+                       <div className="h-4 w-4 rounded-full bg-status-red" />
+                    ) : (
+                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-signal-500 border-t-transparent motion-reduce:animate-none" />
+                    )}
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300" aria-hidden="true">
                       {visibleSelectedSession.status === "starting" ? "Container starting..." : visibleSelectedSession.status === "error" ? "Container failed" : "Waiting for connection..."}
                     </span>
                   </div>

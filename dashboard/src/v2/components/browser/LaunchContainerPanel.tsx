@@ -55,9 +55,10 @@ export const LaunchContainerPanel: FunctionComponent<LaunchContainerPanelProps> 
           disabled={!launchEnabled || launchBusy || sprints.length === 0 || !launchSprintId}
           aria-disabled={!launchEnabled || launchBusy || sprints.length === 0 || !launchSprintId}
           aria-busy={launchBusy}
+          title={launchBusy ? "Container is launching..." : !launchEnabled ? "Preview runtime is disabled or unavailable" : sprints.length === 0 ? "No sprint available to launch" : !launchSprintId ? "Select a sprint first" : "Launch selected sprint container"}
           className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold text-void-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 ${
             (!launchEnabled || launchBusy || sprints.length === 0 || !launchSprintId)
-              ? "bg-signal-500 cursor-not-allowed opacity-50"
+              ? "bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed opacity-70"
               : "bg-signal-500 hover:bg-signal-400"
           }`}
         >
@@ -66,7 +67,7 @@ export const LaunchContainerPanel: FunctionComponent<LaunchContainerPanelProps> 
           ) : (
             <Play className="h-4 w-4" strokeWidth={2.2} />
           )}
-          {launchBusy ? "Launching..." : !launchEnabled ? "Disabled: No Project" : sprints.length === 0 ? "Disabled: No Sprint" : "Launch Container"}
+          {launchBusy ? "Launching..." : !launchEnabled ? "Disabled: Unavailable" : sprints.length === 0 ? "Disabled: No Sprint" : "Launch Container"}
         </button>
       </div>
     </div>

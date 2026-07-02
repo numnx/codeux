@@ -99,10 +99,12 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
           return (
             <div
               key={session.id}
-              className={`relative w-[280px] flex-none snap-start rounded-[1.25rem] border p-4 transition-all lg:w-[calc(20%-0.6rem)] ${
+              className={`relative w-[280px] flex-none snap-start rounded-[1.25rem] border p-4 transition-all lg:w-[calc(20%-0.6rem)] focus-within:ring-2 focus-within:ring-signal-500/50 ${
                 active
-                  ? "border-signal-500/35 bg-signal-500/[0.08] shadow-[0_10px_28px_rgba(0,224,160,0.1)] ring-1 ring-signal-500/25 dark:bg-signal-500/[0.1]"
-                  : "border-black/[0.08] bg-white/68 backdrop-blur-xl hover:border-black/[0.14] hover:bg-white/80 dark:border-white/[0.08] dark:bg-void-900/35 dark:hover:border-white/[0.14] dark:hover:bg-void-900/50"
+                  ? "border-signal-500/35 bg-signal-500/[0.08] shadow-[0_10px_28px_rgba(0,224,160,0.1)] ring-1 ring-signal-500/25 dark:bg-signal-500/[0.1] opacity-100"
+                  : session.status === "stopped" || session.status === "error"
+                  ? "border-black/[0.08] bg-white/40 backdrop-blur-xl hover:bg-white/60 dark:border-white/[0.08] dark:bg-void-900/20 dark:hover:bg-void-900/40 opacity-70 hover:opacity-100"
+                  : "border-black/[0.08] bg-white/68 backdrop-blur-xl hover:border-black/[0.14] hover:bg-white/80 dark:border-white/[0.08] dark:bg-void-900/35 dark:hover:border-white/[0.14] dark:hover:bg-void-900/50 opacity-100"
               }`}
             >
               {active && (

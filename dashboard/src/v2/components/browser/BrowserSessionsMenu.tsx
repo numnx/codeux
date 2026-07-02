@@ -193,7 +193,7 @@ export const BrowserSessionsMenu: FunctionComponent<{ enabled?: boolean }> = ({ 
                                     rel="noopener noreferrer"
                                     role="menuitem"
                                     tabIndex={index === 0 ? 0 : -1}
-                                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex flex-col gap-1.5 px-3 py-3 text-left transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04] group border-b border-black/[0.04] dark:border-white/[0.04] last:border-0"
+                                    className={`focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 w-full flex flex-col gap-1.5 px-3 py-3 text-left transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04] group border-b border-black/[0.04] dark:border-white/[0.04] last:border-0 ${session.status === 'stopped' || session.status === 'error' ? 'opacity-70 hover:opacity-100' : 'opacity-100'}`}
                                 >
                                     <div className="flex flex-wrap items-center justify-between min-w-0 w-full gap-2">
                                         <div className="flex items-center gap-2 min-w-0">
