@@ -23,12 +23,8 @@ import { UsageSeriesSidebar } from './UsageSeriesSidebar.js';
 import { UsageChartMinimap } from './UsageChartMinimap.js';
 import type { UsageChartState } from '../use-usage-chart-state.js';
 import {
-  getVisibleBuckets,
-  normalizeChartSeries,
-  calculateChartMetrics,
-  getTooltipState,
-  groupChartSeries,
   calculateHoverRect,
+  useChartViewModel,
 } from '../chart-view-models.js';
 import { UsageGraphHeader } from './UsageGraphHeader.js';
 import { UsageFilterMenu } from './UsageFilterMenu.js';
@@ -87,29 +83,41 @@ export const InteractiveUsageChart: FunctionComponent<{
   const buckets = stats.buckets;
 
   const [dimensions, setDimensions] = useState({ width: 1200, height: 256 });
+  const padding = 34;
   const statsRef = useRef(stats);
   const viewStartRef = useRef(zoomRange?.start ?? 0);
-  const viewEndRef = useRef(zoomRange?.end ?? Math.max(0, buckets.length - 1));
+  const viewEndRef = useRef(zoomRange?.end ?? Math.max(0, stats.buckets.length - 1));
   const hoveredIndexRef = useRef(hoveredIndex);
 
   // Update refs to latest render values
   statsRef.current = stats;
   viewStartRef.current = zoomRange?.start ?? 0;
-  viewEndRef.current = zoomRange?.end ?? Math.max(0, buckets.length - 1);
+  viewEndRef.current = zoomRange?.end ?? Math.max(0, stats.buckets.length - 1);
   hoveredIndexRef.current = hoveredIndex;
 
-  const padding = 34;
-  const viewStart = viewStartRef.current;
-  const viewEnd = viewEndRef.current;
-  const visibleBuckets = useMemo(() => getVisibleBuckets(buckets, viewStart, viewEnd), [buckets, viewStart, viewEnd]);
 
-  // Keep the visibleBucketsRef updated
-  const visibleBucketsRef = useRef(visibleBuckets);
-  visibleBucketsRef.current = visibleBuckets;
+  const {
+    visibleBuckets,
+    chartData,
+    visibleSeries,
+    activeSeriesCount,
+    visibleSeriesKey,
+    seriesGroups,
+    tooltipState,
+    metrics,
+    viewStart,
+    viewEnd,
+  } = useChartViewModel({
+    stats,
+    zoomRange,
+    enabledSeries,
+    dimensions,
+    hoveredIndex,
+    padding,
+  });
 
-  const chartData = useMemo(() => {
-    return normalizeChartSeries(stats.chartSeries, visibleBuckets, viewStart, dimensions.width, dimensions.height, padding);
-  }, [stats.chartSeries, visibleBuckets, viewStart, dimensions.width, dimensions.height, padding]);
+  const { activeIndex, activeBucket, tooltipLeft, xPositions } = tooltipState;
+  const { peakTokens, peakTime, peakInvocations, averageTokens } = metrics;
 
   useLayoutEffect(() => {
     if (!svgContainerRef.current || typeof ResizeObserver === 'undefined') return;
@@ -145,15 +153,6 @@ export const InteractiveUsageChart: FunctionComponent<{
 
   const { width, height } = dimensions;
 
-  const seriesGroups = useMemo(() => groupChartSeries(stats.chartSeries), [stats.chartSeries]);
-  const activeSeriesCount = Object.values(enabledSeries).filter(Boolean).length;
-
-  const visibleSeries = chartData.filter((series) => enabledSeries[series.id]);
-
-  const { activeIndex, activeBucket, tooltipLeft, xPositions } = useMemo(() => getTooltipState(
-    visibleBuckets, chartData, hoveredIndex, padding, width
-  ), [visibleBuckets, chartData, hoveredIndex, padding, width]);
-
   const selectionBounds = dragStartIndex !== null && dragCurrentIndex !== null
     ? {
       start: Math.min(dragStartIndex, dragCurrentIndex),
@@ -164,8 +163,6 @@ export const InteractiveUsageChart: FunctionComponent<{
     ? `${formatDateTime(buckets[zoomRange.start]?.bucketStart || null)} to ${formatDateTime(buckets[zoomRange.end]?.bucketEnd || null)}`
     : stats.range.label;
   const axisLabelStep = getAxisLabelStep(stats.range);
-
-  const { peakTokens, peakTime, peakInvocations, averageTokens } = useMemo(() => calculateChartMetrics(visibleBuckets), [visibleBuckets]);
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -231,7 +228,7 @@ export const InteractiveUsageChart: FunctionComponent<{
     });
 
     return () => ctx.revert();
-  }, [enabledSeries, visibleBuckets.length, stats.range.from, stats.range.to]);
+  }, [visibleSeriesKey, viewStart, viewEnd, stats.range.from, stats.range.to]);
 
   const onToggleSeries = (id: string) => {
     if (activeSeriesCount === 1 && enabledSeries[id]) return;
