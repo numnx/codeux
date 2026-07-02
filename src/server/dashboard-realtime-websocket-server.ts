@@ -58,6 +58,7 @@ function closeSocket(socket: Socket): void {
 
 const MAX_WS_BUFFER_SIZE = 1024 * 1024; // 1MB
 const MAX_WS_FRAME_SIZE = 512 * 1024; // 512KB
+const MAX_WS_BACKPRESSURE_BYTES = 5 * 1024 * 1024; // 5MB
 
 function parseClientFrames(buffer: Buffer): {
   messages: string[];
@@ -173,6 +174,15 @@ export function bootDashboardRealtimeWebSocketServer(args: {
     let frame: Buffer | null = null;
     for (const client of clients.values()) {
       if (!client.subscriptions.has(event.scope)) {
+        continue;
+      }
+      if (client.socket.writableLength !== undefined && client.socket.writableLength > MAX_WS_BACKPRESSURE_BYTES) {
+        args.logger.warn("websocket_client_dropped_backpressure", {
+          clientId: client.socket.remoteAddress || "unknown",
+          scope: event.scope,
+        });
+        client.socket.destroy();
+        clients.delete(client.socket);
         continue;
       }
       if (frame === null) {

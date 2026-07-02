@@ -63,6 +63,8 @@ describe("DashboardRealtimeWebSocketServer", () => {
     socket.write = vi.fn();
     socket.end = vi.fn();
     socket.destroy = vi.fn();
+    (socket as any).writableLength = 0;
+    (socket as any).remoteAddress = "127.0.0.1";
 
     const req = {
       url: "/api/realtime",
@@ -133,6 +135,8 @@ describe("DashboardRealtimeWebSocketServer", () => {
     socket.write = vi.fn();
     socket.end = vi.fn();
     socket.destroy = vi.fn();
+    (socket as any).writableLength = 0;
+    (socket as any).remoteAddress = "127.0.0.1";
 
     const req = {
       url: "/api/realtime",
@@ -426,6 +430,74 @@ describe("DashboardRealtimeWebSocketServer", () => {
       scopes: ["project:p1"],
       lastSequence: 100,
     });
+  });
+
+  it("drops a client when its buffered writableLength exceeds the backpressure threshold", () => {
+    const { sendClientMessage, socket } = setupClient();
+
+    sendClientMessage({
+      type: "set_subscriptions",
+      scopes: ["project:p1"],
+      lastSequence: 0,
+    });
+
+    (socket.write as any).mockClear(); // clear the 'subscribed' response
+
+    // Fake a slow client with a large buffer
+    (socket as any).writableLength = 6 * 1024 * 1024; // 6MB > 5MB
+
+    const subscribeCb = realtimeService.subscribe.mock.calls[0][0];
+    subscribeCb({
+      sequence: 1,
+      scope: "project:p1",
+      type: "event",
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith("websocket_client_dropped_backpressure", expect.objectContaining({
+      scope: "project:p1",
+      clientId: "127.0.0.1",
+    }));
+    expect(socket.destroy).toHaveBeenCalled();
+    expect(socket.write).not.toHaveBeenCalled();
+  });
+
+  it("delivers frames normally to multiple clients below the backpressure threshold", () => {
+    const { sendClientMessage, socket: socket1 } = setupClient();
+    sendClientMessage({
+      type: "set_subscriptions",
+      scopes: ["project:p1"],
+      lastSequence: 0,
+    });
+
+    const { sendClientMessage: sendClientMessage2, socket: socket2 } = setupClient();
+    sendClientMessage2({
+      type: "set_subscriptions",
+      scopes: ["project:p1"],
+      lastSequence: 0,
+    });
+
+    (socket1 as any).writableLength = 1024; // 1KB
+    (socket2 as any).writableLength = 2048; // 2KB
+
+    (socket1.write as any).mockClear();
+    (socket2.write as any).mockClear();
+
+    const subscribeCb = realtimeService.subscribe.mock.calls[0][0];
+    subscribeCb({
+      sequence: 2,
+      scope: "project:p1",
+      type: "event",
+    });
+
+    expect(socket1.destroy).not.toHaveBeenCalled();
+    expect(socket2.destroy).not.toHaveBeenCalled();
+    expect(socket1.write).toHaveBeenCalledTimes(1);
+    expect(socket2.write).toHaveBeenCalledTimes(1);
+
+    // Ensure same buffer is sent
+    const bufferSentTo1 = (socket1.write as any).mock.calls[0][0];
+    const bufferSentTo2 = (socket2.write as any).mock.calls[0][0];
+    expect(bufferSentTo1).toBe(bufferSentTo2);
   });
 });
 
