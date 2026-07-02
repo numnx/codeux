@@ -205,3 +205,5 @@ QA agent responses are processed using the shared structured response helper (`S
 ## Gemini Workspace Trust
 
 Gemini CLI can reject headless automation in untrusted folders before the QA prompt executes. Code UX sets `GEMINI_CLI_TRUST_WORKSPACE=true` for Gemini provider runs and passes it through Docker execution so task and sprint QA reviews can run in isolated snapshot containers without requiring an interactive trust prompt.
+
+Note: Workspace recovery for task-level QA reviews is explicitly implemented in `src/domain/qa-review/qa-review-workspace-recovery.ts`.
