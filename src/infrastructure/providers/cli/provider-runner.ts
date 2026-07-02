@@ -16,6 +16,7 @@ import * as pathPosix from "path/posix";
 import { randomUUID } from "crypto";
 import { getRepoCodeUxPath } from "../../../shared/config/code-ux-paths.js";
 import { runProviderExecutionLoop } from "./provider-execution-loop.js";
+import { executeWithWorkspace, shouldPreserveSessionWorkspace } from "./provider-workspace-lifecycle.js";
 import {
   isClaudeConversationNotFoundError,
   isOpenCodeSessionNotFoundError,
@@ -114,37 +115,8 @@ export class ProviderRunner implements IProviderRunner {
     this.logger = logger ?? createLogger({ bindings: { component: "ProviderRunner" } });
   }
 
-  private async executeWithWorkspace<T>(
-    input: ProviderRunInput,
-    callback: (prepared: { cwd: string; cleanup: () => Promise<void> }, outputPath: string | null) => Promise<T>
-  ): Promise<T> {
-    const preserveSessionWorkspace = this.shouldPreserveSessionWorkspace(input);
-    const prepared = input.workflowSettings.executionMode === "DOCKER"
-      ? await this.dockerRunner.ensureWorkspace({
-        cwd: input.cwd,
-        repoPath: input.repoPath,
-        sessionId: input.workspaceSessionId || input.sessionId,
-        preserve: preserveSessionWorkspace,
-        reuseExisting: preserveSessionWorkspace,
-      })
-      : { cwd: input.cwd, cleanup: async () => undefined };
-
-    const outputPath = resolveCodexOutputPath(input);
-
-    if (outputPath && !outputPath.startsWith("/workspace/")) {
-      await fs.mkdir(path.dirname(outputPath), { recursive: true });
-    }
-
-    try {
-      return await callback(prepared, outputPath);
-    } finally {
-      await prepared.cleanup();
-      await cleanupCodexOutputPath(outputPath, input.workflowSettings.executionMode, prepared.cwd, this.dockerRunner.removeWorkspaceDir ? this.dockerRunner.removeWorkspaceDir.bind(this.dockerRunner) : undefined);
-    }
-  }
-
   async runProvider(input: ProviderRunInput): Promise<ProviderRunResult> {
-    return this.executeWithWorkspace(input, async (prepared, outputPath) => {
+    return executeWithWorkspace(this.dockerRunner, input, async (prepared, outputPath) => {
       return await this.runProviderInternal({
         ...input,
         cwd: prepared.cwd,
@@ -154,7 +126,7 @@ export class ProviderRunner implements IProviderRunner {
   }
 
   async runProviderForText(input: ProviderRunInput): Promise<ProviderRunResult & { text: string }> {
-    return this.executeWithWorkspace(input, async (prepared, outputPath) => {
+    return executeWithWorkspace(this.dockerRunner, input, async (prepared, outputPath) => {
       const result = await this.runProviderInternal({
         ...input,
         cwd: prepared.cwd,
@@ -170,11 +142,6 @@ export class ProviderRunner implements IProviderRunner {
         text: sanitizeInvocationOutputText(capturedText || result.usageTelemetry.transcriptText || result.stdout || result.stderr),
       };
     });
-  }
-
-  private shouldPreserveSessionWorkspace(input: ProviderRunInput): boolean {
-    return input.workflowSettings.executionMode === "DOCKER"
-      && !input.cwd.startsWith("docker-volume://");
   }
 
   private async runProviderInternal(input: {
