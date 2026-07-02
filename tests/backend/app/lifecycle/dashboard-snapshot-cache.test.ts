@@ -211,6 +211,49 @@ describe("DashboardSnapshotCache", () => {
     });
   });
 
+
+    describe("eviction", () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it("evicts oldest project execution snapshots when limit is exceeded", () => {
+        for (let i = 0; i < 55; i++) {
+          cache.getProjectExecutionSnapshot(`p${i}`);
+        }
+
+        expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledTimes(55);
+
+        // p0..p4 were evicted.
+        cache.getProjectExecutionSnapshot("p0");
+        expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledTimes(56);
+
+        // When p0 was inserted, p5 was evicted!
+        // p54 is still in the cache.
+        cache.getProjectExecutionSnapshot("p54");
+        expect(mockDeps.executionRepository.getProjectExecutionSnapshot).toHaveBeenCalledTimes(56);
+      });
+
+      it("evicts oldest project stats snapshots when limit is exceeded", () => {
+        for (let i = 0; i < 55; i++) {
+          cache.getProjectStatsSnapshot(`p${i}`);
+        }
+
+        expect(mockDeps.executionRepository.getProjectStatsSnapshot).toHaveBeenCalledTimes(55);
+
+        // p0..p4 were evicted.
+        cache.getProjectStatsSnapshot("p0");
+        expect(mockDeps.executionRepository.getProjectStatsSnapshot).toHaveBeenCalledTimes(56);
+
+        // p54 is still in the cache.
+        cache.getProjectStatsSnapshot("p54");
+        expect(mockDeps.executionRepository.getProjectStatsSnapshot).toHaveBeenCalledTimes(56);
+      });
+    });
+
   describe("invalidation", () => {
     it("invalidates project execution", () => {
       cache.getProjectExecutionSnapshot("p1");
