@@ -3,7 +3,7 @@ import type { PlanningRouteOption } from "../../lib/sprint-composer-state.js";
 import { getProviderModelOptions } from "../../lib/settings-view-models.js";
 import { useExecutionTimeline } from "../../../hooks/ExecutionTimelineContext.js";
 import type { ProviderId, AgentPreset } from "../../types.js";
-import { getCombinedPrompt } from "../../lib/quicksprint-panel-state.js";
+import { getCombinedPrompt } from "../../lib/quicksprint-panel-view-models.js";
 import type { QuicksprintTemplateRecord } from "../../../../../src/contracts/quicksprint-types.js";
 
 interface VirtualProviderOption {

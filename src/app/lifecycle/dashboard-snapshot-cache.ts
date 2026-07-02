@@ -100,6 +100,30 @@ export type DashboardSnapshotCacheDeps = Pick<BootDashboardDeps,
   | 'projectAttentionRepository'
 >;
 
+
+function deleteMatchingKeys<K, V>(map: Map<K, V>, predicate: (key: K) => boolean): void {
+  const keysToDelete = Array.from(map.keys()).filter(predicate);
+  for (const key of keysToDelete) {
+    map.delete(key);
+  }
+}
+
+function getOrCreateLeanSnapshot(
+  leanMap: WeakMap<ExecutionDashboardSnapshot, ExecutionDashboardSnapshot>,
+  full: ExecutionDashboardSnapshot
+): ExecutionDashboardSnapshot {
+  if (full.recentEvents.length === 0 && (full.recentInvocations?.length ?? 0) === 0) {
+    return full;
+  }
+  const cached = leanMap.get(full);
+  if (cached) {
+    return cached;
+  }
+  const lean: ExecutionDashboardSnapshot = { ...full, recentEvents: [], recentInvocations: [] };
+  leanMap.set(full, lean);
+  return lean;
+}
+
 export class DashboardSnapshotCache {
   private deps: DashboardSnapshotCacheDeps;
 
@@ -117,9 +141,7 @@ export class DashboardSnapshotCache {
     this.deps = deps;
   }
 
-  private getProjectExecutionCacheKey(projectId: string, options: ProjectExecutionSnapshotOptions = {}): string {
-    return `${projectId}:${options.selectedSprintId || ""}`;
-  }
+
 
   getProjectsSnapshot = () => {
     const now = Date.now();
@@ -149,7 +171,7 @@ export class DashboardSnapshotCache {
 
   getProjectExecutionSnapshot = (projectId: string, options: ProjectExecutionSnapshotOptions = {}) => {
     const now = Date.now();
-    const cacheKey = this.getProjectExecutionCacheKey(projectId, options);
+    const cacheKey = DashboardSnapshotCachePolicy.getProjectExecutionCacheKey(projectId, options);
     const cached = this.projectExecutionSnapshotCache.get(cacheKey);
     if (cached && cached.expiresAt > now) {
       return cached.snapshot;
@@ -192,16 +214,7 @@ export class DashboardSnapshotCache {
    */
   getProjectExecutionSnapshotLean = (projectId: string): ExecutionDashboardSnapshot => {
     const full = this.getProjectExecutionSnapshot(projectId);
-    if (full.recentEvents.length === 0 && (full.recentInvocations?.length ?? 0) === 0) {
-      return full;
-    }
-    const cached = this.leanExecutionBySnapshot.get(full);
-    if (cached) {
-      return cached;
-    }
-    const lean: ExecutionDashboardSnapshot = { ...full, recentEvents: [], recentInvocations: [] };
-    this.leanExecutionBySnapshot.set(full, lean);
-    return lean;
+    return getOrCreateLeanSnapshot(this.leanExecutionBySnapshot, full);
   };
 
   getProjectStatsSnapshot = (projectId: string, query: ProjectStatsQuery = { window: "7d" }) => {
@@ -220,18 +233,15 @@ export class DashboardSnapshotCache {
   };
 
   invalidateProjectExecution(projectId: string): void {
-    for (const key of Array.from(this.projectExecutionSnapshotCache.keys())) {
-      if (key === projectId || key.startsWith(`${projectId}:`)) {
-        this.projectExecutionSnapshotCache.delete(key);
-      }
-    }
+    deleteMatchingKeys(this.projectExecutionSnapshotCache, (key) =>
+      DashboardSnapshotCachePolicy.isProjectExecutionCacheKeyMatch(key, projectId)
+    );
   }
 
   invalidateProjectStats(projectId: string): void {
-    const keysToDelete = Array.from(this.projectStatsSnapshotCache.keys()).filter((k) => DashboardSnapshotCachePolicy.isProjectStatsCacheKeyMatch(k, projectId));
-    for (const key of keysToDelete) {
-      this.projectStatsSnapshotCache.delete(key);
-    }
+    deleteMatchingKeys(this.projectStatsSnapshotCache, (key) =>
+      DashboardSnapshotCachePolicy.isProjectStatsCacheKeyMatch(key, projectId)
+    );
   }
 
   invalidateOverview(): void {

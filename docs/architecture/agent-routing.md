@@ -10,6 +10,8 @@ Agent routing lets a project choose which agent preset supplies execution instru
 This sits above provider routing:
 
 - provider routing chooses the runtime/provider instance
+- provider runtime preparation computes environment variables, paths, and native session ids before execution
+- provider workspace lifecycle is separated from provider execution, managing setup and teardown logic explicitly
 - agent routing chooses the instruction preset used by that runtime
 
 ## Data Model

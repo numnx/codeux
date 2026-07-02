@@ -8,6 +8,7 @@ import type {
 } from "../contracts/app-types.js";
 import type { ProjectCollectionResponse } from "../contracts/project-management-types.js";
 import type { Logger } from "../shared/logging/logger.js";
+import { DashboardRealtimePublishScheduler, BoundedFingerprintCache } from "./dashboard-realtime-publish-scheduler.js";
 import {
   DashboardRealtimeEventRepository,
   type AppendDashboardRealtimeEventInput,
@@ -120,7 +121,7 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
   private readonly projectExecutionPublishedAt = new Map<string, number>();
   private readonly projectRuntimeStatusPublishedAt = new Map<string, number>();
   private readonly projectStructurePublishedAt = new Map<string, number>();
-  private readonly lastPayloadFingerprints = new Map<string, string>();
+  private readonly lastPayloadFingerprints = new BoundedFingerprintCache(500);
   private pendingProjects = false;
   private pendingOverview = false;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -338,98 +339,6 @@ export class DashboardRealtimeService implements DashboardRealtimeMutationNotifi
     }, Math.max(0, dueAt - Date.now()));
   }
 
-  private buildPublishTask<T>(options: {
-    now: number;
-    lastPublishedAt: number;
-    minIntervalMs: number;
-    scopeType: DashboardRealtimeScopeType;
-    scopeId: string;
-    eventType: string;
-    entityType: string;
-    entityId: string;
-    projectId?: string;
-    loader: () => Promise<T> | T;
-    cacheKey?: string;
-    skipDuplicate?: boolean;
-    sprintIdExtractor?: (payload: T) => string | undefined;
-    logType?: "realtime_snapshot_published" | "realtime_background_refresh";
-    logPayloadSize?: boolean;
-    onPublished: (now: number) => void;
-  }): { task: Promise<void> | null; waitMs: number } {
-    const waitMs = this.getThrottleDelay(options.lastPublishedAt, options.minIntervalMs, options.now);
-    if (waitMs > 0) {
-      this.incrementMetric(options.eventType, "throttled");
-      return { task: null, waitMs };
-    }
-const task = (async () => {
-      try {
-        const payload = await Promise.resolve(options.loader());
-        let sprintId: string | undefined;
-        if (options.sprintIdExtractor) {
-          sprintId = options.sprintIdExtractor(payload);
-        }
-
-        let payloadSizeBytes: number | undefined;
-
-        if (options.cacheKey && options.skipDuplicate) {
-          const fingerprint = this.getFingerprint(payload);
-          if (this.lastPayloadFingerprints.get(options.cacheKey) === fingerprint) {
-            this.logger.debug("skipping_duplicate_realtime_snapshot", {
-              type: options.eventType,
-              ...(options.projectId ? { projectId: options.projectId } : {}),
-            });
-            this.incrementMetric(options.eventType, "unchanged");
-            options.onPublished(options.now);
-            return;
-          }
-          this.lastPayloadFingerprints.set(options.cacheKey, fingerprint);
-          if (options.logPayloadSize) {
-            payloadSizeBytes = Buffer.byteLength(fingerprint, "utf8");
-          }
-        } else if (options.logPayloadSize) {
-          const fingerprint = this.getFingerprint(payload);
-          payloadSizeBytes = Buffer.byteLength(fingerprint, "utf8");
-        }
-
-        this.publishRawEvent({
-          scopeType: options.scopeType,
-          scopeId: options.scopeId,
-          eventType: options.eventType,
-          entityType: options.entityType,
-          entityId: options.entityId,
-          ...(options.projectId ? { projectId: options.projectId } : {}),
-          ...(sprintId ? { sprintId } : {}),
-          payload,
-          replayable: false,
-        });
-        this.incrementMetric(options.eventType, "published");
-
-        if (options.logType) {
-          if (options.logType === "realtime_snapshot_published") {
-            this.logger.info(options.logType, {
-              type: options.eventType,
-              ...(payloadSizeBytes !== undefined ? { sizeBytes: payloadSizeBytes } : {}),
-              ...(options.projectId ? { projectId: options.projectId } : {}),
-              publishFrequencyMs: options.lastPublishedAt > 0 ? options.now - options.lastPublishedAt : 0,
-            });
-          } else {
-            this.logger.info(options.logType, { type: options.entityId });
-          }
-        }
-
-        options.onPublished(options.now);
-      } catch (error) {
-        this.incrementMetric(options.eventType, "failures");
-        this.logger.error(`Failed to publish ${options.eventType.replace(/\./g, " ")} realtime snapshot`, {
-          ...(options.projectId ? { projectId: options.projectId } : {}),
-          error,
-        });
-      }
-    })();
-
-    return { task, waitMs: 0 };
-  }
-
   private async flushScheduledSnapshots(): Promise<void> {
     const loaders = this.snapshotLoaders;
     if (!loaders) {
@@ -592,28 +501,38 @@ const task = (async () => {
 
     for (const scope of scopes) {
       for (const id of scope.ids) {
-        const result = this.buildPublishTask({
-          now,
-          lastPublishedAt: scope.lastPublishedAt(id),
-          minIntervalMs: scope.minIntervalMs,
-          scopeType: scope.scopeType,
-          scopeId: scope.scopeId(id),
-          eventType: scope.eventType,
-          entityType: scope.entityType,
-          entityId: scope.entityId(id),
-          ...(scope.projectId ? { projectId: scope.projectId(id) } : {}),
-          loader: () => scope.loader(id),
-          ...(scope.cacheKey ? { cacheKey: scope.cacheKey(id) } : {}),
-          skipDuplicate: scope.skipDuplicate,
-          sprintIdExtractor: scope.sprintIdExtractor,
-          logType: scope.logType,
-          logPayloadSize: scope.logPayloadSize,
-          onPublished: (publishedAt) => scope.onPublished(id, publishedAt),
-        });
+        const result = DashboardRealtimePublishScheduler.buildPublishTask(
+          {
+            now,
+            lastPublishedAt: scope.lastPublishedAt(id),
+            minIntervalMs: scope.minIntervalMs,
+            scopeType: scope.scopeType,
+            scopeId: scope.scopeId(id),
+            eventType: scope.eventType,
+            entityType: scope.entityType,
+            entityId: scope.entityId(id),
+            ...(scope.projectId ? { projectId: scope.projectId(id) } : {}),
+            loader: () => scope.loader(id),
+            ...(scope.cacheKey ? { cacheKey: scope.cacheKey(id) } : {}),
+            skipDuplicate: scope.skipDuplicate,
+            sprintIdExtractor: scope.sprintIdExtractor,
+            logType: scope.logType,
+            logPayloadSize: scope.logPayloadSize,
+            onPublished: (publishedAt) => scope.onPublished(id, publishedAt),
+          },
+          {
+            logger: this.logger,
+            metrics: {
+              increment: (eventType, metric) => this.incrementMetric(eventType, metric),
+            },
+            fingerprints: this.lastPayloadFingerprints,
+            publishRawEvent: (input) => this.publishRawEvent(input),
+          }
+        );
 
         if (result.waitMs > 0) {
           scope.onPending(id);
-          nextDelayMs = this.getNextDelay(nextDelayMs, result.waitMs);
+          nextDelayMs = DashboardRealtimePublishScheduler.getNextDelay(nextDelayMs, result.waitMs);
         } else if (result.task) {
           publishTasks.push(result.task);
         }
@@ -621,27 +540,37 @@ const task = (async () => {
     }
 
     if (shouldPublishOverview) {
-      const result = this.buildPublishTask({
-        now,
-        lastPublishedAt: this.overviewPublishedAt,
-        minIntervalMs: OVERVIEW_MIN_INTERVAL_MS,
-        scopeType: "overview",
-        scopeId: "overview",
-        eventType: "overview.telemetry.updated",
-        entityType: "overview",
-        entityId: "overview",
-        loader: () => loaders.getOverviewTelemetrySnapshot(),
-        cacheKey: `overview:overview:overview.telemetry.updated`,
-        skipDuplicate: true,
-        logType: "realtime_background_refresh",
-        onPublished: (publishedAt) => {
-          this.overviewPublishedAt = publishedAt;
+      const result = DashboardRealtimePublishScheduler.buildPublishTask(
+        {
+          now,
+          lastPublishedAt: this.overviewPublishedAt,
+          minIntervalMs: OVERVIEW_MIN_INTERVAL_MS,
+          scopeType: "overview",
+          scopeId: "overview",
+          eventType: "overview.telemetry.updated",
+          entityType: "overview",
+          entityId: "overview",
+          loader: () => loaders.getOverviewTelemetrySnapshot(),
+          cacheKey: `overview:overview:overview.telemetry.updated`,
+          skipDuplicate: true,
+          logType: "realtime_background_refresh",
+          onPublished: (publishedAt) => {
+            this.overviewPublishedAt = publishedAt;
+          },
         },
-      });
+        {
+          logger: this.logger,
+          metrics: {
+            increment: (eventType, metric) => this.incrementMetric(eventType, metric),
+          },
+          fingerprints: this.lastPayloadFingerprints,
+          publishRawEvent: (input) => this.publishRawEvent(input),
+        }
+      );
 
       if (result.waitMs > 0) {
         this.pendingOverview = this.trackCoalesceFlag(this.pendingOverview, "overview.telemetry.updated");
-        nextDelayMs = this.getNextDelay(nextDelayMs, result.waitMs);
+        nextDelayMs = DashboardRealtimePublishScheduler.getNextDelay(nextDelayMs, result.waitMs);
       } else if (result.task) {
         publishTasks.push(result.task);
       }
@@ -652,29 +581,6 @@ const task = (async () => {
     if (nextDelayMs !== null) {
       this.scheduleFlush(nextDelayMs);
     }
-  }
-
-  private getThrottleDelay(lastPublishedAt: number, minIntervalMs: number, now: number): number {
-    if (lastPublishedAt <= 0) {
-      return 0;
-    }
-    return Math.max(0, minIntervalMs - (now - lastPublishedAt));
-  }
-
-  private getNextDelay(currentDelayMs: number | null, candidateDelayMs: number): number {
-    if (currentDelayMs === null) {
-      return candidateDelayMs;
-    }
-    return Math.min(currentDelayMs, candidateDelayMs);
-  }
-
-  private getFingerprint(payload: unknown): string {
-    return JSON.stringify(payload, (key, value) => {
-      if (key === "updatedAt" || key === "timestamp") {
-        return undefined;
-      }
-      return value;
-    });
   }
 
   private broadcast(event: DashboardRealtimeEvent): void {

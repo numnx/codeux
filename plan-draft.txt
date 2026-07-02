@@ -1,0 +1,5 @@
+1. Update `src/app/lifecycle/dashboard-snapshot-cache-policy.ts` to include `getProjectExecutionCacheKey` and `isProjectExecutionCacheKeyMatch`.
+2. Update `src/app/lifecycle/dashboard-snapshot-cache.ts` to use a helper function for iterating and deleting cache keys, use the policy for keys, and keep `leanExecutionBySnapshot` as a WeakMap.
+3. Update `tests/backend/app/lifecycle/dashboard-snapshot-cache.test.ts` to include TTL expiry tests for all 4 snapshot types, and ensure all invalidation boundaries are tested.
+4. Update `docs/architecture/dashboard-realtime-foundation.md` with an "Expected Invalidation Matrix" section.
+5. Run tests.

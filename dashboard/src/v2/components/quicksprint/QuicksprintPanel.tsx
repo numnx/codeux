@@ -18,7 +18,7 @@ import {
   getBuiltinPurposeOptions,
   getActiveBuiltinPurpose,
   getVisibleBuiltinTemplates,
-} from "../../lib/quicksprint-panel-state.js";
+} from "../../lib/quicksprint-panel-view-models.js";
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
 type Phase = "browse" | "configure" | "editor";
