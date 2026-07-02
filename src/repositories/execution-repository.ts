@@ -27,7 +27,7 @@ import { ConcurrencyConflictError, EntityNotFoundError, RepositoryError, Validat
 import { DatabaseAdapter } from "./db/database-adapter.js";
 import { AppDbStorage } from "./app-db-storage.js";
 import { toNumber, parsePayloadJson } from "./repository-utils.js";
-import { queryProjectExecutionSnapshot } from "./execution/project-execution-snapshot-query.js";
+import { queryProjectExecutionSnapshot, type ProjectExecutionSnapshotOptions } from "./execution/project-execution-snapshot-query.js";
 import {
   mapProviderInvocationUsageRow,
   mapExecutionSprintRunSummaryRow,
@@ -1040,14 +1040,17 @@ export class ExecutionRepository {
     return row ? this.mapTaskRunRow(row) : null;
   }
 
-  getProjectExecutionSnapshot(projectId: string): ExecutionDashboardSnapshot {
+  getProjectExecutionSnapshot(
+    projectId: string,
+    options: ProjectExecutionSnapshotOptions = {},
+  ): ExecutionDashboardSnapshot {
     requireProject(this.db, projectId);
     return queryProjectExecutionSnapshot(this.db, this.storage, projectId, {
       getUsageTotalsByTaskIds: (pId, tIds) => this.getUsageTotalsByTaskIds(pId, tIds),
       getUsageTotalsBySprintRunIds: (pId, sIds) => this.getUsageTotalsBySprintRunIds(pId, sIds),
       getWallTimeTotalsByTaskIds: (pId, tIds, now) => this.wallTimeQuery.getWallTimeTotalsByTaskIds(pId, tIds, now),
       getWallTimeTotalsBySprintRunIds: (pId, sIds, now) => this.wallTimeQuery.getWallTimeTotalsBySprintRunIds(pId, sIds, now),
-    });
+    }, options);
   }
 
   getProjectStatsSnapshot(

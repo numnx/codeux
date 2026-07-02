@@ -8,6 +8,7 @@ import type {
 import type { McpConnectionRecord } from "../../contracts/connection-chat-types.js";
 import type { ProjectWorkerAssignmentRepository } from "../../repositories/project-worker-assignment-repository.js";
 import type { ProjectAttentionRepository } from "../../repositories/project-attention-repository.js";
+import type { ProjectExecutionSnapshotOptions } from "../../repositories/execution/project-execution-snapshot-query.js";
 import { DashboardSnapshotCachePolicy } from "./dashboard-snapshot-cache-policy.js";
 
 export function mapExecutionConnections(connections: McpConnectionRecord[]): ExecutionConnectionSummary[] {
@@ -116,6 +117,10 @@ export class DashboardSnapshotCache {
     this.deps = deps;
   }
 
+  private getProjectExecutionCacheKey(projectId: string, options: ProjectExecutionSnapshotOptions = {}): string {
+    return `${projectId}:${options.selectedSprintId || ""}`;
+  }
+
   getProjectsSnapshot = () => {
     const now = Date.now();
     if (this.projectsSnapshotCache && this.projectsSnapshotCache.expiresAt > now) {
@@ -142,9 +147,10 @@ export class DashboardSnapshotCache {
     return snapshot;
   };
 
-  getProjectExecutionSnapshot = (projectId: string) => {
+  getProjectExecutionSnapshot = (projectId: string, options: ProjectExecutionSnapshotOptions = {}) => {
     const now = Date.now();
-    const cached = this.projectExecutionSnapshotCache.get(projectId);
+    const cacheKey = this.getProjectExecutionCacheKey(projectId, options);
+    const cached = this.projectExecutionSnapshotCache.get(cacheKey);
     if (cached && cached.expiresAt > now) {
       return cached.snapshot;
     }
@@ -153,7 +159,7 @@ export class DashboardSnapshotCache {
       this.deps.projectWorkerAssignmentRepository.listAssignmentsForProject(projectId, { activeOnly: true }),
     );
 
-    const baseSnapshot = this.deps.executionRepository.getProjectExecutionSnapshot(projectId);
+    const baseSnapshot = this.deps.executionRepository.getProjectExecutionSnapshot(projectId, options);
     const snapshot = {
       ...baseSnapshot,
       connections: mapExecutionConnections(
@@ -168,7 +174,7 @@ export class DashboardSnapshotCache {
       ),
     };
 
-    this.projectExecutionSnapshotCache.set(projectId, {
+    this.projectExecutionSnapshotCache.set(cacheKey, {
       snapshot,
       expiresAt: now + DashboardSnapshotCachePolicy.PROJECT_EXECUTION_CACHE_TTL_MS,
     });
@@ -214,7 +220,11 @@ export class DashboardSnapshotCache {
   };
 
   invalidateProjectExecution(projectId: string): void {
-    this.projectExecutionSnapshotCache.delete(projectId);
+    for (const key of Array.from(this.projectExecutionSnapshotCache.keys())) {
+      if (key === projectId || key.startsWith(`${projectId}:`)) {
+        this.projectExecutionSnapshotCache.delete(key);
+      }
+    }
   }
 
   invalidateProjectStats(projectId: string): void {

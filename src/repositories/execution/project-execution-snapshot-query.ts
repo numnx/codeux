@@ -8,12 +8,35 @@ import { buildHumanInterventionSummaryBySprintRun, listActiveAttentionRowsForPro
 import { withWallTime } from "./execution-usage-query.js";
 
 import { ExecutionDashboardSnapshot, ExecutionUsageTotals } from "../../contracts/app-types.js";
+import { ExecutionInvocationRecord } from "../../contracts/invocation-types.js";
 import {
   mapProviderInvocationUsageRow,
   mapExecutionSprintRunSummaryRow,
   mapExecutionTaskDispatchSummaryRow,
   mapExecutionRuntimeEventSummaryRow,
 } from "./execution-read-model-mappers.js";
+
+export interface ProjectExecutionSnapshotOptions {
+  selectedSprintId?: string | null;
+}
+
+function invocationTime(record: ExecutionInvocationRecord): number {
+  const primary = Date.parse(record.startedAt || record.createdAt || record.updatedAt || "");
+  return Number.isFinite(primary) ? primary : 0;
+}
+
+function mergeInvocations(invocationGroups: ExecutionInvocationRecord[][]): ExecutionInvocationRecord[] {
+  const merged = new Map<string, ExecutionInvocationRecord>();
+  for (const group of invocationGroups) {
+    for (const invocation of group) {
+      merged.set(invocation.id, invocation);
+    }
+  }
+  return Array.from(merged.values()).sort((left, right) => {
+    const timeDelta = invocationTime(right) - invocationTime(left);
+    return timeDelta !== 0 ? timeDelta : right.id.localeCompare(left.id);
+  });
+}
 
 export function queryProjectExecutionSnapshot(
   db: Database,
@@ -24,7 +47,8 @@ export function queryProjectExecutionSnapshot(
     getWallTimeTotalsBySprintRunIds: (projectId: string, sprintRunIds: string[], nowIso: string) => Map<string, number>,
     getUsageTotalsByTaskIds: (projectId: string, taskIds: string[]) => Map<string, ExecutionUsageTotals>,
     getUsageTotalsBySprintRunIds: (projectId: string, sprintRunIds: string[]) => Map<string, ExecutionUsageTotals>
-  }
+  },
+  options: ProjectExecutionSnapshotOptions = {},
 ): ExecutionDashboardSnapshot {
   const projectRow = db.prepare(`
     SELECT id, name
@@ -35,7 +59,15 @@ export function queryProjectExecutionSnapshot(
   const { sprintRuns, expandedSprintRunIds } = queryExecutionSprintRuns(db, projectId);
   const taskDispatches = queryExecutionTaskDispatches(db, storage, projectId, expandedSprintRunIds);
   const runtimeEvents = queryExecutionRuntimeEvents(db, storage, projectId, expandedSprintRunIds);
-  const recentInvocations = queryExecutionInvocations(db, { projectId, limit: 24 });
+  const recentInvocations = mergeInvocations([
+    queryExecutionInvocations(db, { projectId, limit: 24 }),
+    expandedSprintRunIds.length > 0
+      ? queryExecutionInvocations(db, { projectId, sprintRunIds: expandedSprintRunIds, limit: null })
+      : [],
+    options.selectedSprintId
+      ? queryExecutionInvocations(db, { projectId, sprintId: options.selectedSprintId, limit: null })
+      : [],
+  ]);
 
   const activeAttentionItems = listActiveAttentionRowsForProject(db, projectId);
   const humanInterventionBySprintRunId = buildHumanInterventionSummaryBySprintRun(

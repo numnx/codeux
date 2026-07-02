@@ -248,7 +248,12 @@ export class JulesUsageService {
     if (!execInvocation) {
       execInvocation = this.executionRepository.createExecutionInvocation({
         projectId,
-        taskId,
+        sprintId: record.sprintId,
+        taskId: record.taskId || taskId,
+        sprintRunId: record.sprintRunId,
+        dispatchId: record.dispatchId,
+        taskRunId: record.taskRunId,
+        attentionItemId: record.attentionItemId,
         providerInvocationId: record.id,
         type: "task_coding",
         status,
@@ -260,6 +265,12 @@ export class JulesUsageService {
     } else {
       this.executionRepository.updateExecutionInvocation(execInvocation.id, {
         status,
+        sprintId: execInvocation.sprintId || record.sprintId,
+        taskId: execInvocation.taskId || record.taskId || taskId,
+        sprintRunId: execInvocation.sprintRunId || record.sprintRunId,
+        dispatchId: execInvocation.dispatchId || record.dispatchId,
+        taskRunId: execInvocation.taskRunId || record.taskRunId,
+        attentionItemId: execInvocation.attentionItemId || record.attentionItemId,
         finishedAt: final ? new Date().toISOString() : null,
       });
     }
