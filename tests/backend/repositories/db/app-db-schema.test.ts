@@ -27,6 +27,11 @@ describe("AppDbSchema", () => {
     expect(getIndex("idx_execution_invocations_project_type")).toBeDefined();
     expect(getIndex("idx_provider_invocations_project_provider_model")).toBeDefined();
     expect(getIndex("idx_provider_invocations_project_purpose")).toBeDefined();
+    expect(getIndex("idx_provider_invocations_project_started_stats")).toBeDefined();
+    expect(getIndex("idx_execution_invocations_ledger")).toBeDefined();
+    expect(getIndex("idx_task_runs_project_finished")).toBeDefined();
+    expect(getIndex("idx_task_run_events_project_created_event")).toBeDefined();
+    expect(getIndex("idx_project_attention_items_project_attention_type_opened")).toBeDefined();
 
     adapter.close();
   });
