@@ -88,4 +88,12 @@ describe("fetchJson", () => {
     await fetchJson("/api/cache", { cache: "reload" });
     expect(fetch).toHaveBeenCalledWith("/api/cache", { cache: "reload" });
   });
+  it("should preserve AbortSignal and throw on abort", async () => {
+    const controller = new AbortController();
+    vi.mocked(fetch).mockRejectedValueOnce(new DOMException("Aborted", "AbortError"));
+
+    controller.abort();
+    await expect(fetchJson("/api/abort", { signal: controller.signal })).rejects.toThrow("Aborted");
+    expect(fetch).toHaveBeenCalledWith("/api/abort", { signal: controller.signal, cache: "no-store" });
+  });
 });
