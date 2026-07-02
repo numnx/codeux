@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { useState } from "preact/hooks";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/preact";
+import { cleanup, fireEvent, render, waitFor, screen } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchInvocationMessages } from "../../../lib/invocation-api.js";
 import { InvocationsTable } from "../components/system/InvocationsTable.js";
@@ -102,6 +102,7 @@ function LongHarness() {
   );
 }
 
+
 describe("InvocationsTable", () => {
   it("renders invocations correctly", () => {
     const { getByText, getAllByText } = render(<Harness />);
@@ -178,7 +179,8 @@ describe("InvocationsTable", () => {
     const { queryAllByText, getByRole } = render(
       <InvocationsTable invocations={longInvocations} sort={{ key: "startedAt", dir: "desc" }} onSortChange={vi.fn()} expandedId="inv-long-39" onRowExpand={vi.fn()} />
     );
-    expect(queryAllByText("gemini-1.5-pro").length).toBeGreaterThan(20);
+    // Should render 21 items (20 from initial window + 1 expanded)
+    expect(queryAllByText("gemini-1.5-pro").length).toBe(21);
   });
 
   it("renders loading skeleton", () => {
@@ -190,4 +192,42 @@ describe("InvocationsTable", () => {
     const { getByText } = render(<Harness invocations={[]} />);
     expect(getByText("No invocations match the current filters")).toBeTruthy();
   });
+
+  it("resets visibleCount when invocations identity changes", () => {
+    const { rerender, queryAllByText } = render(<LongHarness />);
+    expect(queryAllByText("gemini-1.5-pro").length).toBe(20);
+
+    const revealBtn = screen.getByRole("button", { name: "Show more invocations" });
+    fireEvent.click(revealBtn);
+    expect(queryAllByText("gemini-1.5-pro").length).toBe(40);
+
+    // change identity
+    const newInvocations = longInvocations.slice(0, 30);
+    rerender(
+      <InvocationsTable
+        invocations={newInvocations}
+        sort={{ key: "startedAt", dir: "desc" }}
+        onSortChange={vi.fn()}
+        expandedId={null}
+        onRowExpand={vi.fn()}
+      />
+    );
+    // Should reset to 20
+    expect(queryAllByText("gemini-1.5-pro").length).toBe(20);
+  });
+
+  it("does not duplicate expanded row if it is already in the visible slice", () => {
+    const { queryAllByText } = render(
+      <InvocationsTable
+        invocations={longInvocations}
+        sort={{ key: "startedAt", dir: "desc" }}
+        onSortChange={vi.fn()}
+        expandedId="inv-long-0" // The first item is definitely in the first 20
+        onRowExpand={vi.fn()}
+      />
+    );
+
+    expect(queryAllByText("gemini-1.5-pro").length).toBe(20);
+  });
+
 });
