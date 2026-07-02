@@ -20,6 +20,7 @@ import { SprintFileBrowserRepository } from "../repositories/sprint-file-browser
 import { resolveDockerRuntimeRoot } from "../infrastructure/providers/cli/docker-runtime-paths.js";
 import { formatSprintBranch } from "../domain/sprint/branch-name-generator.js";
 import { commandRunner, runCommandStrict } from "./cli-process-runner.js";
+import { pruneOrphanedDockerVolumes, removeContainersByIds } from "./docker-orphan-cleanup-utils.js";
 import { getDockerUserSpec, mapPathPrefix, toDockerMountArg } from "./cli-docker-utils.js";
 import type { Logger } from "../shared/logging/logger.js";
 import { fetchOriginIfAvailable } from "./git-branch-sync-service.js";
@@ -46,10 +47,12 @@ interface GitRunResult {
 }
 
 export class SprintFileBrowserService {
-  private readonly lifecycle = new DockerSessionLifecycle();
+  private readonly lifecycle: DockerSessionLifecycle;
   private readonly treeCache = new Map<string, { tree: FileBrowserTree; containerId: string; lastBuildAt: string | null }>();
 
-  constructor(private readonly deps: SprintFileBrowserServiceDeps) {}
+  constructor(private readonly deps: SprintFileBrowserServiceDeps) {
+    this.lifecycle = new DockerSessionLifecycle(this.deps.logger);
+  }
 
   async listSessions(projectId?: string): Promise<FileBrowserSession[]> {
     const sessions = this.deps.sprintFileBrowserRepository.listSessions(projectId);
@@ -397,34 +400,23 @@ export class SprintFileBrowserService {
    * is dropped without its volume being cleaned (deleted sprints, crashed reconciles, pre-fix leaks).
    */
   private async pruneOrphanedVolumes(): Promise<number> {
-    const result = await runCommandStrict(
-      "docker",
-      ["volume", "ls", "-q", "--filter", "label=code-ux.file-browser-volume=true"],
-      process.cwd(),
-    ).catch(() => null);
-    if (!result?.ok) {
-      return 0;
-    }
-    const prefix = "code-ux-file-browser-volume-";
-    const liveVolumeNames = new Set(this.deps.sprintFileBrowserRepository.listSessions().map((session) => this.buildVolumeName(session.sprintId)));
-    const orphans = result.stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((name) => name.startsWith(prefix) && !liveVolumeNames.has(name));
-    if (orphans.length > 0) {
-      await runCommandStrict("docker", ["volume", "rm", "-f", ...orphans], process.cwd()).catch(() => undefined);
-    }
-    if (orphans.length > 0) {
-      this.deps.logger?.info("Pruned orphaned file browser volumes on startup", { prunedCount: orphans.length });
-    }
-    return orphans.length;
+    const liveVolumeSuffixes = new Set(
+      this.deps.sprintFileBrowserRepository.listSessions().map((session) => {
+        const fullName = this.buildVolumeName(session.sprintId);
+        return fullName.slice("code-ux-file-browser-volume-".length);
+      })
+    );
+    return pruneOrphanedDockerVolumes({
+      prefix: "code-ux-file-browser-volume-",
+      liveIds: liveVolumeSuffixes,
+      logger: this.deps.logger,
+      logLabel: "Pruned orphaned file browser volumes on startup",
+    });
   }
 
   async cleanupStaleContainersOnStartup(): Promise<void> {
     const containerIds = (await this.listFileBrowserContainers(process.cwd())).map((c) => c.id);
-    if (containerIds.length > 0) {
-      await runCommandStrict("docker", ["rm", "-f", "-v", ...containerIds], process.cwd()).catch(() => undefined);
-    }
+    await removeContainersByIds(containerIds);
 
     const sessions = this.deps.sprintFileBrowserRepository.listSessions();
     for (const session of sessions) {
