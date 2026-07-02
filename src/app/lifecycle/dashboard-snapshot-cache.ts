@@ -108,31 +108,10 @@ function deleteMatchingKeys<K, V>(map: Map<K, V>, predicate: (key: K) => boolean
   }
 }
 
-function getOrCreateLeanSnapshot(
-  leanMap: WeakMap<ExecutionDashboardSnapshot, ExecutionDashboardSnapshot>,
-  full: ExecutionDashboardSnapshot
-): ExecutionDashboardSnapshot {
-  if (full.recentEvents.length === 0 && (full.recentInvocations?.length ?? 0) === 0) {
-    return full;
-  }
-  const cached = leanMap.get(full);
-  if (cached) {
-    return cached;
-  }
-  const lean: ExecutionDashboardSnapshot = { ...full, recentEvents: [], recentInvocations: [] };
-  leanMap.set(full, lean);
-  return lean;
-}
-
 export class DashboardSnapshotCache {
   private deps: DashboardSnapshotCacheDeps;
 
   private projectExecutionSnapshotCache = new Map<string, { snapshot: ExecutionDashboardSnapshot; expiresAt: number }>();
-  // Memoizes the feed-less view of each cached execution snapshot, keyed by the
-  // snapshot instance so it is invalidated automatically when the snapshot is
-  // rebuilt. Lets the high-frequency `project.execution.updated` channel and the
-  // `/execution` endpoint ship a lean payload while the Live page keeps the feed.
-  private leanExecutionBySnapshot = new WeakMap<ExecutionDashboardSnapshot, ExecutionDashboardSnapshot>();
   private projectStatsSnapshotCache = new Map<string, { snapshot: ReturnType<DashboardSnapshotCacheDeps["executionRepository"]["getProjectStatsSnapshot"]>; expiresAt: number }>();
   private overviewTelemetryCache: { snapshot: ReturnType<DashboardSnapshotCacheDeps["executionRepository"]["getOverviewTelemetrySnapshot"]>; expiresAt: number } | null = null;
   private projectsSnapshotCache: { snapshot: ReturnType<DashboardSnapshotCacheDeps["projectManagementRepository"]["listProjects"]>; expiresAt: number } | null = null;
@@ -213,8 +192,7 @@ export class DashboardSnapshotCache {
    * lets the realtime publisher de-duplicate the vast majority of pushes.
    */
   getProjectExecutionSnapshotLean = (projectId: string): ExecutionDashboardSnapshot => {
-    const full = this.getProjectExecutionSnapshot(projectId);
-    return getOrCreateLeanSnapshot(this.leanExecutionBySnapshot, full);
+    return this.getProjectExecutionSnapshot(projectId, { includeFeeds: false });
   };
 
   getProjectStatsSnapshot = (projectId: string, query: ProjectStatsQuery = { window: "7d" }) => {

@@ -12,7 +12,7 @@ export class DashboardSnapshotCachePolicy {
   static readonly PROJECTS_CACHE_TTL_MS = 500;
 
   static getProjectExecutionCacheKey(projectId: string, options: ProjectExecutionSnapshotOptions = {}): string {
-    return `${projectId}:${options.selectedSprintId || ""}`;
+    return `${projectId}:${options.selectedSprintId || ""}:feed=${options.includeFeeds !== false}`;
   }
 
   static isProjectExecutionCacheKeyMatch(key: string, projectId: string): boolean {
