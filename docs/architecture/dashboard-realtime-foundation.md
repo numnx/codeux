@@ -43,7 +43,7 @@ Production refinement shipped on March 15, 2026:
 
 Code UX now coalesces runtime writes before broadcasting them.
 
-The internal architecture uses a single unified `buildPublishTask` helper for all these endpoints, which handles caching, deduplication, payload fingerprinting, logging, and throttle semantics.
+The internal architecture uses a `DashboardRealtimePublishScheduler` helper as the boundary for throttled publish work across these endpoints, which handles caching, deduplication, payload fingerprinting, logging, and throttle semantics.
 
 The current publisher schedules:
 
