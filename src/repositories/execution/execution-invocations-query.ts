@@ -120,8 +120,27 @@ export function queryExecutionInvocations(
 
 export function queryExecutionInvocationMessages(
   db: Database,
-  invocationId: string
-): ExecutionInvocationMessageRecord[] {
+  invocationId: string,
+  options?: { limit?: number; offset?: number }
+): ExecutionInvocationMessageRecord[] | { items: ExecutionInvocationMessageRecord[]; totalCount: number } {
+  if (options && (options.limit !== undefined || options.offset !== undefined)) {
+    const countRow = db.prepare(`SELECT count(*) as totalCount FROM execution_invocation_messages WHERE invocation_id = ?`).get(invocationId) as { totalCount: number };
+    const totalCount = countRow.totalCount;
+
+    const limit = options.limit ?? 100;
+    const offset = options.offset ?? 0;
+
+    const sql = `
+      SELECT *
+      FROM execution_invocation_messages
+      WHERE invocation_id = ?
+      ORDER BY created_at ASC
+      LIMIT ? OFFSET ?
+    `;
+    const rows = db.prepare(sql).all(invocationId, limit, offset) as ExecutionInvocationMessageRow[];
+    return { items: rows.map(mapExecutionInvocationMessageRow), totalCount };
+  }
+
   const sql = `
     SELECT *
     FROM execution_invocation_messages

@@ -10,6 +10,8 @@ import type {
   ExecutionInvocationMessageRecord,
   ProjectInvocationsQuery,
   ProjectInvocationsQueryResult,
+  ExecutionInvocationMessagesQueryResult,
+  InvocationMessagesQuery,
   ExecutionInvocationStatus,
 } from "../../../src/contracts/invocation-types.js";
 import type {
@@ -293,4 +295,4 @@ export type {
 
 export type { SprintReviewSummary };
 
-export type { ProjectInvocationsQuery, ProjectInvocationsQueryResult };
+export type { ProjectInvocationsQuery, ProjectInvocationsQueryResult, ExecutionInvocationMessagesQueryResult, InvocationMessagesQuery };

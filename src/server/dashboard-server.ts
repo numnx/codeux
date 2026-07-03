@@ -227,7 +227,7 @@ export interface DashboardServerOptions {
   postConversationMessage: (projectId: string, input: CreateDashboardConversationMessageInput) => Promise<ConversationMessageRecord> | ConversationMessageRecord;
 
   listProjectInvocations: (projectId: string) => ExecutionInvocationRecord[];
-  listInvocationMessages: (invocationId: string) => ExecutionInvocationMessageRecord[];
+  listInvocationMessages: (invocationId: string, options?: { limit?: number; offset?: number }) => ExecutionInvocationMessageRecord[] | { items: ExecutionInvocationMessageRecord[]; totalCount: number };
 
   rerunTask: (taskId: string, options?: { provider?: string; providerConfigId?: string; model?: string; clearWorktree?: boolean; resetDependents?: boolean; undoMerge?: boolean }) => Promise<unknown>;
   orchestrateSprint: (projectId: string, sprintId: string) => Promise<unknown>;

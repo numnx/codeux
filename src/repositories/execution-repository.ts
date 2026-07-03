@@ -309,8 +309,8 @@ export class ExecutionRepository {
     return queryActiveExecutionInvocationsByTypes(this.db, types);
   }
 
-  listExecutionInvocationMessages(invocationId: string): ExecutionInvocationMessageRecord[] {
-    return queryExecutionInvocationMessages(this.db, invocationId);
+  listExecutionInvocationMessages(invocationId: string, options?: { limit?: number; offset?: number }): ExecutionInvocationMessageRecord[] | { items: ExecutionInvocationMessageRecord[]; totalCount: number } {
+    return queryExecutionInvocationMessages(this.db, invocationId, options);
   }
 
   clearExecutionInvocationMessages(invocationId: string): void {

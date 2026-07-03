@@ -38,6 +38,18 @@ export const fetchProjectInvocationsQuery = async (
   return fetchProjectInvocations(projectId, query, init) as Promise<ProjectInvocationsQueryResult>;
 };
 
-export const fetchInvocationMessages = async (invocationId: string): Promise<ExecutionInvocationMessageRecord[]> => {
+export function fetchInvocationMessages(invocationId: string): Promise<ExecutionInvocationMessageRecord[]>;
+export function fetchInvocationMessages(invocationId: string, query: InvocationMessagesQuery): Promise<ExecutionInvocationMessagesQueryResult>;
+export async function fetchInvocationMessages(invocationId: string, query?: InvocationMessagesQuery): Promise<ExecutionInvocationMessageRecord[] | ExecutionInvocationMessagesQueryResult> {
+  if (query) {
+    const searchParams = new URLSearchParams();
+    if (query.limit !== undefined) {
+      searchParams.set("limit", String(query.limit));
+    }
+    if (query.offset !== undefined) {
+      searchParams.set("offset", String(query.offset));
+    }
+    return fetchJson<ExecutionInvocationMessagesQueryResult>(`/api/execution/invocations/${encodeURIComponent(invocationId)}/messages?${searchParams.toString()}`);
+  }
   return fetchJson<ExecutionInvocationMessageRecord[]>(`/api/execution/invocations/${encodeURIComponent(invocationId)}/messages`);
-};
+}
