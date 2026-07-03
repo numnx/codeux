@@ -39,7 +39,9 @@ By adhering to these rules, the Live page remains a focused, professional worksp
 - Attention item resolve confirmations use the success tone; dismiss confirmations use the neutral tone so operators can distinguish completion from clearing noise.
 - Popover triggers should let the shared `Popover` own open/close toggling; child trigger handlers must not toggle the same state a second time.
 - Dropdown menu content may wrap menu items in layout containers; nested `role="menuitem"` descendants are still enhanced for keyboard behavior and staggered entrance animation.
-- Animations for spinners must be `motion-safe`.
+- Animations for spinners and active state indicators (like pulses) must include reduced-motion fallbacks, such as `motion-reduce:animate-none`.
+- Motion must never be the only indication of active or failed state.
+- Avoid opacity animations for list item entrances that can make live rows invisible during rapid data refreshes.
 
 ## Sidebar Row Rails
 - The left rail is the primary distinction marker for dense sidebar feeds. Use `border-l-2` on compact rows rather than large icons, tall cards, or heavy colored backgrounds.

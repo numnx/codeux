@@ -501,7 +501,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                                                         {...getLiveActionDisplayProps(getPendingActionState(pendingActionIds, `sprint-pause:${run.id}`) === "pending", false)}
                                                         className="inline-flex items-center gap-1.5 rounded-md border border-status-amber/20 bg-status-amber/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-status-amber transition-colors hover:bg-status-amber/15 aria-disabled:opacity-50"
                                                     >
-                                                        <PauseCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, `sprint-pause:${run.id}`) === "pending" ? "motion-safe:animate-spin" : ""}`} strokeWidth={2} />
+                                                        <PauseCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, `sprint-pause:${run.id}`) === "pending" ? "animate-spin motion-reduce:animate-none" : ""}`} strokeWidth={2} />
                                                         {getPendingActionState(pendingActionIds, `sprint-pause:${run.id}`) === "pending" ? "Pausing" : "Pause"}
                                                         {getPendingActionState(pendingActionIds, `sprint-pause:${run.id}`) === "pending" && <span className="sr-only">Pausing...</span>}
                                                     </button>
@@ -513,7 +513,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                                                         {...getLiveActionDisplayProps(getPendingActionState(pendingActionIds, `sprint-cancel:${run.id}`) === "pending", false)}
                                                         className="inline-flex items-center gap-1.5 rounded-md border border-status-red/20 bg-status-red/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-status-red transition-colors hover:bg-status-red/15 aria-disabled:opacity-50"
                                                         >
-                                                        <XCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, `sprint-cancel:${run.id}`) === "pending" ? "motion-safe:animate-spin" : ""}`} strokeWidth={2} />
+                                                        <XCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, `sprint-cancel:${run.id}`) === "pending" ? "animate-spin motion-reduce:animate-none" : ""}`} strokeWidth={2} />
                                                         {getPendingActionState(pendingActionIds, `sprint-cancel:${run.id}`) === "pending" ? "Cancelling" : "Cancel"}
                                                         {getPendingActionState(pendingActionIds, `sprint-cancel:${run.id}`) === "pending" && <span className="sr-only">Cancelling...</span>}
                                                     </button>
@@ -530,7 +530,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                                                             {...getLiveActionDisplayProps(getPendingActionState(pendingActionIds, `sprint-force-cancel:${run.id}`) === "pending", false)}
                                                             className="inline-flex items-center gap-1.5 rounded-md border border-status-red/20 bg-status-red/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-status-red transition-colors hover:bg-status-red/15 aria-disabled:opacity-50"
                                                             >
-                                                            <XCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, `sprint-force-cancel:${run.id}`) === "pending" ? "motion-safe:animate-spin" : ""}`} strokeWidth={2} />
+                                                            <XCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, `sprint-force-cancel:${run.id}`) === "pending" ? "animate-spin motion-reduce:animate-none" : ""}`} strokeWidth={2} />
                                                             {getPendingActionState(pendingActionIds, `sprint-force-cancel:${run.id}`) === "pending" ? "Force Cancelling" : "Force Cancel"}
                                                             {getPendingActionState(pendingActionIds, `sprint-force-cancel:${run.id}`) === "pending" && <span className="sr-only">Force Cancelling...</span>}
                                                         </button>
@@ -647,7 +647,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                                                         {...getLiveActionDisplayProps(getPendingActionState(pendingActionIds, `dispatch-cancel:${dispatch.id}`) === "pending", false)}
                                                         className="inline-flex items-center gap-1.5 rounded-md border border-status-red/20 bg-status-red/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-status-red transition-colors hover:bg-status-red/15 aria-disabled:opacity-50"
                                                         >
-                                                        <XCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, `dispatch-cancel:${dispatch.id}`) === "pending" ? "motion-safe:animate-spin" : ""}`} strokeWidth={2} />
+                                                        <XCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, `dispatch-cancel:${dispatch.id}`) === "pending" ? "animate-spin motion-reduce:animate-none" : ""}`} strokeWidth={2} />
                                                         {getPendingActionState(pendingActionIds, `dispatch-cancel:${dispatch.id}`) === "pending" ? "Cancelling" : "Cancel"}
                                                         {getPendingActionState(pendingActionIds, `dispatch-cancel:${dispatch.id}`) === "pending" && <span className="sr-only">Cancelling...</span>}
                                                     </button>
@@ -665,7 +665,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                                                             {...getLiveActionDisplayProps(getPendingActionState(pendingActionIds, `dispatch-force-cancel:${dispatch.id}`) === "pending", false)}
                                                             className="inline-flex items-center gap-1.5 rounded-md border border-status-red/20 bg-status-red/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-status-red transition-colors hover:bg-status-red/15 aria-disabled:opacity-50"
                                                             >
-                                                            <XCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, `dispatch-force-cancel:${dispatch.id}`) === "pending" ? "motion-safe:animate-spin" : ""}`} strokeWidth={2} />
+                                                            <XCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, `dispatch-force-cancel:${dispatch.id}`) === "pending" ? "animate-spin motion-reduce:animate-none" : ""}`} strokeWidth={2} />
                                                             {getPendingActionState(pendingActionIds, `dispatch-force-cancel:${dispatch.id}`) === "pending" ? "Force Cancelling" : "Force Cancel"}
                                                             {getPendingActionState(pendingActionIds, `dispatch-force-cancel:${dispatch.id}`) === "pending" && <span className="sr-only">Force Cancelling...</span>}
                                                         </button>
@@ -679,7 +679,7 @@ export const ExecutionRuntimePanel: FunctionComponent<{
                                                         {...getLiveActionDisplayProps(getPendingActionState(pendingActionIds, `dispatch-retry:${dispatch.id}`) === "pending", false)}
                                                         className="inline-flex items-center gap-1.5 rounded-md border border-signal-500/20 bg-signal-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-signal-600 transition-colors hover:bg-signal-500/15 aria-disabled:opacity-50 dark:text-signal-400"
                                                         >
-                                                        <RotateCcw className={`h-3 w-3 ${getPendingActionState(pendingActionIds, `dispatch-retry:${dispatch.id}`) === "pending" ? "motion-safe:animate-spin" : ""}`} strokeWidth={2} />
+                                                        <RotateCcw className={`h-3 w-3 ${getPendingActionState(pendingActionIds, `dispatch-retry:${dispatch.id}`) === "pending" ? "animate-spin motion-reduce:animate-none" : ""}`} strokeWidth={2} />
                                                         {getPendingActionState(pendingActionIds, `dispatch-retry:${dispatch.id}`) === "pending" ? "Retrying" : "Retry"}
                                                         {getPendingActionState(pendingActionIds, `dispatch-retry:${dispatch.id}`) === "pending" && <span className="sr-only">Retrying...</span>}
                                                     </button>
