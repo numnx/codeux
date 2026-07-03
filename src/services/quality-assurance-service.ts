@@ -48,6 +48,7 @@ import type { NormalizedQaReviewResult } from "../domain/qa-review/qa-review-typ
 
 
 import { resolveReviewBranch } from "../domain/qa-review/qa-review-branch-resolution.js";
+import { buildQaReviewStartedEventPayload, determineTaskQaReviewStateTransition } from "../domain/qa-review/qa-review-state-transitions.js";
 import { determineTaskReviewIntent } from "../domain/qa-review/task-review-outcome.js";
 import { resolveStaleRunningQaInvocationReason, QA_RUN_START_TIMEOUT_MS as STALE_QA_RUN_START_TIMEOUT_MS } from "../domain/qa-review/qa-review-stale-run.js";
 import { clearMergeProjectionForRerun, MERGE_PROJECTION_RESET } from "../domain/sprint/task-reset-state.js";
@@ -234,11 +235,11 @@ export class QualityAssuranceService {
     // (the review itself can take minutes). Persisting the QA_PENDING indicator
     // makes the stage tag, boat race and stats reflect QA for the whole review,
     // not just the event-derived stage timeline.
-    this.appendTaskEvent(taskRun, "qa_review_started", {
-      triggerType,
-      qaReviewRunId: run.id,
-      runIndex: existingRuns + 1,
-    });
+    this.appendTaskEvent(
+      taskRun,
+      "qa_review_started",
+      buildQaReviewStartedEventPayload({ triggerType, runId: run.id, runIndex: existingRuns + 1 })
+    );
     this.setTaskQaPending(args.task, true);
 
     const project = this.deps.projectManagementRepository.getProject(args.projectId);
@@ -320,15 +321,16 @@ export class QualityAssuranceService {
           payload: resolvedReview!.raw,
           finishedAt: new Date().toISOString(),
         });
-        this.appendTaskEvent(taskRun, "qa_review_passed", {
+        const transition = determineTaskQaReviewStateTransition({
+          intentOutcome,
           triggerType,
-          summary: intentOutcome.summary,
+          runId: run.id,
           findings: resolvedReview!.findings,
-          qaReviewRunId: run.id,
         });
+        this.appendTaskEvent(taskRun, transition.eventName, transition.eventPayload);
         // QA cleared — drop the QA_PENDING indicator so the merge gate can
         // recompute the task's resting stage (CI / automerge / completed).
-        this.setTaskQaPending(args.task, false);
+        this.setTaskQaPending(args.task, transition.qaPending);
         await this.cleanupCliWorkspaceIfNeeded(args.task, args.repoPath, scope);
         return {
           reviewed: true,
@@ -379,15 +381,17 @@ export class QualityAssuranceService {
         // Re-entering the coding stage: drop any stale CI / QA / MERGED indicator.
         clearMergeProjectionForRerun(args.task);
 
-        this.appendTaskEvent(taskRun, "qa_review_changes_requested", {
+        const transition = determineTaskQaReviewStateTransition({
+          intentOutcome,
           triggerType,
-          summary: intentOutcome.summary,
+          runId: run.id,
           findings: resolvedReview!.findings,
-          fixInstructions: intentOutcome.fixInstructions,
-          qaReviewRunId: run.id,
           continued: continued.applied,
           continuationMode: continued.mode,
         });
+        this.appendTaskEvent(taskRun, transition.eventName, transition.eventPayload);
+        // We do not set taskQaPending here directly because the task has re-entered the coding stage
+        // and clearMergeProjectionForRerun has dropped any stale indicator, though the intent maps to qaPending: true.
 
         return {
           reviewed: true,
@@ -407,15 +411,15 @@ export class QualityAssuranceService {
         },
         finishedAt: new Date().toISOString(),
       });
-      this.appendTaskEvent(taskRun, "qa_review_failed", {
+      const transition = determineTaskQaReviewStateTransition({
+        intentOutcome,
         triggerType,
-        error: qaError.message,
-        error_code: qaError.code,
-        qaReviewRunId: run.id,
+        runId: run.id,
       });
+      this.appendTaskEvent(taskRun, transition.eventName, transition.eventPayload);
       // Drop the QA_PENDING indicator; the merge gate re-derives the blocked
       // state from the failed run on the next cycle.
-      this.setTaskQaPending(args.task, false);
+      this.setTaskQaPending(args.task, transition.qaPending);
       this.deps.logger?.warn("Task QA review failed", {
         projectId: args.projectId,
         sprintId: args.sprintId,

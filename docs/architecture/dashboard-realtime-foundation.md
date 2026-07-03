@@ -43,7 +43,7 @@ Production refinement shipped on March 15, 2026:
 
 Code UX now coalesces runtime writes before broadcasting them.
 
-The internal architecture uses a single unified `buildPublishTask` helper for all these endpoints, which handles caching, deduplication, payload fingerprinting, logging, and throttle semantics.
+The internal architecture uses a `DashboardRealtimePublishScheduler` helper as the boundary for throttled publish work across these endpoints, which handles caching, deduplication, payload fingerprinting, logging, and throttle semantics. Duplicate suppression for these snapshot updates uses a bounded, per-channel LRU fingerprint cache (`BoundedFingerprintCache`) to prevent indefinite memory growth over long-lived dashboard sessions.
 
 The current publisher schedules:
 
@@ -54,6 +54,7 @@ The current publisher schedules:
 - `overview.telemetry.updated`
 
 This avoids emitting one websocket message for every low-level DB mutation while still keeping the dashboard near realtime.
+Duplicate suppression for these snapshot updates uses a bounded, per-channel LRU fingerprint cache to prevent indefinite memory growth over long-lived dashboard sessions.
 
 Production refinement shipped on March 15, 2026:
 
@@ -67,6 +68,10 @@ Production refinement shipped on March 15, 2026:
 The dashboard server now exposes:
 
 - `GET /api/realtime`
+
+The websocket implementation handles backpressure by terminating sockets whose send buffers exceed `MAX_WS_BACKPRESSURE_BYTES` (5MB), preventing memory exhaustion from slow consumers.
+
+To further reduce overhead, certain real-time events push lean snapshots. Rebuilding the full snapshot instance intrinsically busts its weak-mapped lean representation (e.g., `getProjectExecutionSnapshotLean`), keeping the execution channel lean and enabling the publisher to deduplicate updates efficiently.
 
 The protocol is intentionally small:
 
@@ -115,6 +120,18 @@ Behavior:
 - git status is now folded into that same `/api/live` contract and refreshed server-side so the browser no longer polls git independently on the Live page
 - reconnect recovery for the Live page now means re-fetching `/api/live` on `snapshot_required`, not running parallel status/execution repair logic in the browser
 - polling remains a recovery tool for other websocket-backed dashboard surfaces, but the Live page no longer keeps its own steady-state poll loop
+
+
+
+## Expected Invalidation Matrix
+
+Cache boundaries exist to ensure active channels stay synchronized without over-flushing untouched views:
+
+- `invalidateProjectExecution(projectId)`: Clears only execution snapshot keys (both default and sprint-scoped) matching `projectId`. Does not touch overview, projects, stats, or sibling execution caches. Rebuilding the full snapshot instance intrinsically busts its weak-mapped lean representation.
+- `invalidateProjectStats(projectId)`: Clears only stats keys starting with `projectId:`. Does not touch unrelated stats or execution boundaries.
+- `invalidateOverview()`: Clears the global telemetry cache.
+- `invalidateProjects()`: Clears the global projects snapshot cache.
+- `invalidateAll()`: Forcibly clears all execution, stats, telemetry, and project caches. Intended strictly for global hard-resets.
 
 ## Current Backend Integration Points
 
@@ -234,3 +251,10 @@ This harness tracks:
 - Realtime background publisher publish cadence
 
 Any future optimization work involving `/api/live` should test regressions or improvements against this harness first.
+
+## Verification
+
+To verify these real-time behaviors during development:
+```bash
+pnpm run test:backend
+```

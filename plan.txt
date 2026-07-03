@@ -1,0 +1,2 @@
+1. Verify `tests/backend/app/lifecycle/dashboard-snapshot-cache.test.ts` update using git diff
+2. Complete pre commit steps

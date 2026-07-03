@@ -1,7 +1,7 @@
 import { ExecutionInvocationsSummaryRow, ExecutionInvocationsSprintRow, ExecutionInvocationsApiRow, ExecutionInvocationsErrorRow } from "./execution-repository-types.js";
 import { DatabaseAdapter as Database } from "../db/database-adapter.js";
 
-export function computeBasicSummary(db: Database, conditions: string[], values: any[], INVOCATION_JOINS: string) {
+export function computeBasicSummary(db: Database, conditions: readonly string[], values: readonly any[], INVOCATION_JOINS: string) {
 
 
 
@@ -24,7 +24,7 @@ export function computeBasicSummary(db: Database, conditions: string[], values: 
   return db.prepare(summarySql).get(...values) as ExecutionInvocationsSummaryRow;
 }
 
-export function computeP95Duration(db: Database, conditions: string[], values: any[], INVOCATION_JOINS: string) {
+export function computeP95Duration(db: Database, conditions: readonly string[], values: readonly any[], INVOCATION_JOINS: string) {
   interface CountRow { count: number; }
   interface DurationRow { duration_ms: number; }
   let p95DurationMs = 0;
@@ -52,7 +52,7 @@ export function computeP95Duration(db: Database, conditions: string[], values: a
   return p95DurationMs;
 }
 
-export function computeSprintStateSummary(db: Database, conditions: string[], values: any[], INVOCATION_JOINS: string) {
+export function computeSprintStateSummary(db: Database, conditions: readonly string[], values: readonly any[], INVOCATION_JOINS: string) {
   interface ExecutionInvocationsSprintRow { sprintId: string; status: string; count: number; }
   const sprintsSql = `
     SELECT
@@ -102,7 +102,7 @@ export function computeSprintStateSummary(db: Database, conditions: string[], va
   };
 }
 
-export function computeExternalApiMetrics(db: Database, conditions: string[], values: any[], INVOCATION_JOINS: string) {
+export function computeExternalApiMetrics(db: Database, conditions: readonly string[], values: readonly any[], INVOCATION_JOINS: string) {
   interface ExecutionInvocationsApiRow { type: string; purpose: string; provider: string; finishedAt: string | null; duration_ms: number | null; count: number; }
   const apiSql = `
     SELECT
@@ -151,7 +151,7 @@ export function computeExternalApiMetrics(db: Database, conditions: string[], va
   return externalApiMetrics;
 }
 
-export function computeErrorsByCategory(db: Database, conditions: string[], values: any[], INVOCATION_JOINS: string) {
+export function computeErrorsByCategory(db: Database, conditions: readonly string[], values: readonly any[], INVOCATION_JOINS: string) {
   interface ExecutionInvocationsErrorRow { msg: string; status: string; count: number; }
   const errorsSql = `
     SELECT LOWER(COALESCE(execution_invocations.last_error_message, '')) as msg, execution_invocations.status as status, COUNT(*) as count
@@ -173,13 +173,13 @@ export function computeErrorsByCategory(db: Database, conditions: string[], valu
   return errorsByCategory;
 }
 
-export function computeAvailablePurposes(db: Database, conditions: string[], values: any[], INVOCATION_JOINS: string) {
+export function computeAvailablePurposes(db: Database, conditions: readonly string[], values: readonly any[], INVOCATION_JOINS: string) {
   interface PurposeRow { purpose: string; }
   const purposesRows = db.prepare(`SELECT DISTINCT TRIM(execution_invocations.type) as purpose FROM execution_invocations${INVOCATION_JOINS} WHERE ${conditions.join(" AND ")} AND TRIM(execution_invocations.type) != '' ORDER BY purpose ASC`).all(...values) as PurposeRow[];
   return purposesRows.map(r => r.purpose);
 }
 
-export function computeAvailableProviders(db: Database, conditions: string[], values: any[], INVOCATION_JOINS: string) {
+export function computeAvailableProviders(db: Database, conditions: readonly string[], values: readonly any[], INVOCATION_JOINS: string) {
   interface ProviderRow { provider: string; }
   const providersRows = db.prepare(`SELECT DISTINCT TRIM(execution_invocations.provider) as provider FROM execution_invocations${INVOCATION_JOINS} WHERE ${conditions.join(" AND ")} AND TRIM(execution_invocations.provider) != '' ORDER BY provider ASC`).all(...values) as ProviderRow[];
   return providersRows.map(r => r.provider);

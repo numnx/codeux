@@ -7,7 +7,8 @@ import { formatTokens, formatStatsDuration, createSeries } from "../../pages/sta
 import { StatsMetricCard } from "./StatsMetricCard.js";
 import { STATS_COLORS } from "../../lib/stats/color-tokens.js";
 import type { StatsVisualMode } from "../../pages/stats/components/stats-ui-primitives.js";
-import { buildMetricSeries, extractProviderSeries, extractModelSeries } from "../../lib/stats/series-builders.js";
+import { buildMetricSeries, extractProviderSeries, extractModelSeries, buildChartSeriesIndex } from "../../lib/stats/series-builders.js";
+import { useMemo } from "preact/hooks";
 import { buildModelHighlights, formatSuccessRate } from "../../pages/stats/model-insights.js";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import gsap from "gsap";
@@ -59,7 +60,8 @@ export const TopCardsModeRenderer: FunctionComponent<TopCardsModeRendererProps> 
 
   if (!stats) return null;
 
-  const metricSeries = buildMetricSeries(stats);
+  const seriesIndex = useMemo(() => buildChartSeriesIndex(stats), [stats]);
+  const metricSeries = useMemo(() => buildMetricSeries(stats, seriesIndex), [stats, seriesIndex]);
 
   const renderTrendMode = () => {
     const taskCodingTokens = stats.purposes.find((p) => p.id === "task_coding")?.usage.totalTokens || 0;
@@ -178,7 +180,7 @@ export const TopCardsModeRenderer: FunctionComponent<TopCardsModeRendererProps> 
               value={formatTokens(provider.usage?.totalTokens || 0)}
               detail={`Total tokens processed by ${provider.label || provider.id}`}
               accentHex={colors[index % colors.length]!}
-              sparkline={extractProviderSeries(stats, provider.id)}
+              sparkline={extractProviderSeries(stats, provider.id, seriesIndex)}
               signalLabel="Providers"
             />
           );
@@ -211,7 +213,7 @@ export const TopCardsModeRenderer: FunctionComponent<TopCardsModeRendererProps> 
           value={topModel ? topModel.label : "None"}
           detail={topModel ? `Leading model by volume: ${formatTokens(topModel.usage.totalTokens)} tokens` : "No model telemetry yet"}
           accentHex="#00E0A0"
-          sparkline={topModel ? extractModelSeries(stats, topModel.id) : []}
+          sparkline={topModel ? extractModelSeries(stats, topModel.id, seriesIndex) : []}
           signalLabel="Models"
         />
         <StatsMetricCard

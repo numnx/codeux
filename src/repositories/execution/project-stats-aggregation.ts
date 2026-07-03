@@ -1,21 +1,7 @@
-import { ExecutionUsageTotals, TokenPricing } from "../../contracts/app-types.js";
+import { ExecutionUsageTotals } from "../../contracts/app-types.js";
 import { InternalStatsBucket } from "./stats-buckets.js";
 import { toNumber } from "./execution-utils.js";
 import { StatsEntityMetadata } from "./execution-stats-types.js";
-
-export type SnapshotPricingResolver = (provider: string | null | undefined, model: string | null | undefined) => TokenPricing | undefined;
-
-export function createSnapshotPricingResolver(getModelPricing?: (providerId: string, model: string | null) => TokenPricing | undefined): SnapshotPricingResolver {
-  const cache = new Map<string, TokenPricing | undefined>();
-  return (provider, model) => {
-    if (!provider || !getModelPricing) return undefined;
-    const key = `${provider}::${model || ""}`;
-    if (cache.has(key)) return cache.get(key);
-    const pricing = getModelPricing(provider, model || null);
-    cache.set(key, pricing);
-    return pricing;
-  };
-}
 
 export const usageFields = `
     COUNT(*) as invocationCount,
@@ -47,7 +33,7 @@ export interface UsageAggregationRow {
   unavailableInvocationCount: number | string | null;
 }
 
-export function mapAggregatedUsage(row: UsageAggregationRow, pricingResolver?: SnapshotPricingResolver, provider?: string | null, model?: string | null): ExecutionUsageTotals {
+export function mapAggregatedUsage(row: UsageAggregationRow): ExecutionUsageTotals {
   const u: ExecutionUsageTotals = {
     invocationCount: toNumber(row.invocationCount),
     activeTimeMs: toNumber(row.activeTimeMs),
@@ -67,16 +53,6 @@ export function mapAggregatedUsage(row: UsageAggregationRow, pricingResolver?: S
     unsupportedInvocationCount: toNumber(row.unsupportedInvocationCount),
     unavailableInvocationCount: toNumber(row.unavailableInvocationCount),
   };
-
-  if (pricingResolver && provider) {
-    const pricing = pricingResolver(provider, model);
-    if (pricing) {
-      u.inputCostUsd = (u.inputTokens / 1_000_000) * (pricing.inputTokens || 0);
-      u.outputCostUsd = (u.outputTokens / 1_000_000) * (pricing.outputTokens || 0);
-      u.cachedInputCostUsd = (u.cachedInputTokens / 1_000_000) * (pricing.cachedInputTokens || 0);
-      u.totalCostUsd = u.inputCostUsd + u.outputCostUsd + u.cachedInputCostUsd;
-    }
-  }
 
   return u;
 }

@@ -93,9 +93,10 @@ export class StructuredAgentRequestService {
     }
 
     if (invocationId && args.systemRoutingMessage) {
-      const existingMessages = this.deps.executionRepository?.listExecutionInvocationMessages(invocationId) || [];
+      const existingMessagesResult = this.deps.executionRepository?.listExecutionInvocationMessages(invocationId) || [];
+      const existingMessages = Array.isArray(existingMessagesResult) ? existingMessagesResult : existingMessagesResult.items;
       const hasRouteMessage = existingMessages.some(
-        msg => msg.role === "system" &&
+        (msg: any) => msg.role === "system" &&
                msg.contentMarkdown === args.systemRoutingMessage &&
                msg.metadata?.routeKind === "virtual"
       );

@@ -28,7 +28,6 @@ export function resolveAppDbPath(dbPath?: string): string {
 export class AppDbStorage {
   private readonly db: SqliteDatabaseAdapter;
   private readonly dbPath: string;
-  private readonly cachedStatements = new Map<string, StatementSync>();
 
   constructor(dbPath?: string) {
     this.dbPath = resolveAppDbPath(dbPath);
@@ -49,15 +48,6 @@ export class AppDbStorage {
   }
 
 
-  getCachedStatement(sql: string): StatementSync {
-    let stmt = this.cachedStatements.get(sql);
-    if (!stmt) {
-      stmt = this.db.getRawDatabase().prepare(sql);
-      this.cachedStatements.set(sql, stmt);
-    }
-    return stmt;
-  }
-
   executeChunkedInQuery<T>(params: {
     sqlPrefix: string;
     sqlSuffix?: string;
@@ -65,7 +55,7 @@ export class AppDbStorage {
     bindParamsBefore?: SQLiteParam[];
     bindParamsAfter?: SQLiteParam[];
   }): T[] {
-    return executeChunkedInQuery<T>((sql) => this.getCachedStatement(sql), params);
+    return executeChunkedInQuery<T>((sql) => this.db.prepare(sql) as unknown as { all: (...params: SQLiteParam[]) => any[] }, params);
   }
 
   hasTable(name: string): boolean {
@@ -106,7 +96,6 @@ export class AppDbStorage {
   }
 
   close(): void {
-    this.cachedStatements.clear();
     this.db.close();
   }
 

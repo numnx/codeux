@@ -84,6 +84,18 @@ describe('queryProjectExecutionSnapshot', () => {
     expect(mockDeps.getWallTimeTotalsByTaskIds).not.toHaveBeenCalled();
   });
 
+  it('should omit feeds and skip feed queries when includeFeeds is false', async () => {
+    const { queryExecutionRuntimeEvents } = await import('../../../../src/repositories/execution/execution-runtime-events-query.js');
+    const { queryExecutionInvocations } = await import('../../../../src/repositories/execution/execution-invocations-query.js');
+
+    const snapshot = queryProjectExecutionSnapshot(mockDb as DatabaseAdapter, mockStorage, 'proj-1', mockDeps, { includeFeeds: false });
+
+    expect(queryExecutionRuntimeEvents).not.toHaveBeenCalled();
+    expect(queryExecutionInvocations).not.toHaveBeenCalled();
+    expect(snapshot.recentEvents).toEqual([]);
+    expect(snapshot.recentInvocations).toEqual([]);
+  });
+
   it('should include bounded recent invocations in the execution snapshot', async () => {
     const { queryExecutionInvocations } = await import('../../../../src/repositories/execution/execution-invocations-query.js');
     const invocation = {

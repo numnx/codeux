@@ -61,6 +61,17 @@ import {
   getProviderTypeLabel,
   sortProviderConfigEntries,
 } from "../../lib/settings-view-models.js";
+import {
+  ONBOARDING_STEPS,
+  getCanGoNext,
+  getNextStepIndex,
+  getPreviousStepIndex,
+  isLastStep,
+  getReadinessByProvider,
+  getClusterReady,
+  type StepId,
+} from "../../lib/onboarding-flow-state.js";
+
 
 const CODEUX_REPO_URL = "https://github.com/codeux-ai/codeux";
 
@@ -90,20 +101,6 @@ const DeepOceanBackground = lazy(async () => {
   const mod = await import("../chat/DeepOceanBackground.js");
   return { default: mod.DeepOceanBackground as FunctionComponent<{ forceDark?: boolean; className?: string }> };
 });
-
-type StepId = "installation" | "introduction" | "providers" | "provider-setup" | "git" | "jira" | "defaults" | "automation" | "appearance";
-
-const steps: Array<{ id: StepId; label: string; icon: typeof Settings }> = [
-  { id: "installation", label: "Installation", icon: Box },
-  { id: "introduction", label: "Introduction", icon: ShieldCheck },
-  { id: "providers", label: "Select Providers", icon: Cpu },
-  { id: "provider-setup", label: "Providers", icon: Settings },
-  { id: "git", label: "Git", icon: GitBranch },
-  { id: "jira", label: "Jira", icon: ClipboardList },
-  { id: "defaults", label: "Default providers", icon: Layers },
-  { id: "automation", label: "Automation", icon: Sparkles },
-  { id: "appearance", label: "Appearance", icon: Monitor },
-];
 
 const DEFAULT_JIRA_SETTINGS: SystemSettings["integrations"]["jira"] = {
   host: "",
@@ -348,11 +345,12 @@ export const OnboardingExperience: FunctionComponent = () => {
     return () => ctx.revert();
   }, [activeStep, selectedProviders.length, settings, reducedMotion]);
 
-  const active = steps[activeStep] ?? steps[0]!;
-  const readinessByProvider = useMemo(
-    () => Object.fromEntries(readiness.providers.map((provider) => [provider.provider, provider])) as Partial<Record<ProviderId, OnboardingProviderCredentialStatus>>,
-    [readiness.providers],
-  );
+    const activeStepConfig = ONBOARDING_STEPS[activeStep] ?? ONBOARDING_STEPS[0]!;
+  const active = {
+    ...activeStepConfig,
+    icon: [Box, ShieldCheck, Cpu, Settings, GitBranch, ClipboardList, Layers, Sparkles, Monitor][activeStep] as typeof Settings || Settings,
+  };
+  const readinessByProvider = useMemo(() => getReadinessByProvider(readiness) as Partial<Record<ProviderId, OnboardingProviderCredentialStatus>>, [readiness.providers]);
   const selectedProviderTypes = useMemo(
     () => PROVIDER_TYPES.filter((provider) => selectedProviders.includes(provider)),
     [readiness.providers, selectedProviders],
@@ -625,9 +623,8 @@ export const OnboardingExperience: FunctionComponent = () => {
     return null;
   }
 
-  const stepNeedsSettings: StepId[] = ["provider-setup", "git", "jira", "automation", "appearance", "defaults"];
-  const canGoNext = !stepNeedsSettings.includes(active.id) || Boolean(settings);
-  const clusterReady = readiness.cluster.status === "ready";
+  const canGoNext = getCanGoNext(active.id, settings);
+  const clusterReady = getClusterReady(readiness);
   const dockerExecutionEnabled = settings?.defaults.cliWorkflow.executionMode === "DOCKER";
   const jiraSettings = settings?.integrations.jira || DEFAULT_JIRA_SETTINGS;
   const enabledProviderInstances = settings
@@ -1470,7 +1467,7 @@ export const OnboardingExperience: FunctionComponent = () => {
             <button
               type="button"
               disabled={activeStep === 0}
-              onClick={() => setActiveStep((step) => Math.max(0, step - 1))}
+              onClick={() => setActiveStep(getPreviousStepIndex)}
               className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold text-slate-500 transition-colors hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.06]"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -1494,7 +1491,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                 />
               ))}
             </div>
-            {activeStep === steps.length - 1 ? (
+            {isLastStep(activeStep) ? (
               <button
                 type="button"
                 onClick={() => void applyAndClose()}
@@ -1508,7 +1505,7 @@ export const OnboardingExperience: FunctionComponent = () => {
               <button
                 type="button"
                 disabled={!canGoNext}
-                onClick={() => setActiveStep((step) => Math.min(steps.length - 1, step + 1))}
+                onClick={() => setActiveStep(getNextStepIndex)}
                 className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] transition-colors hover:bg-slate-700 disabled:opacity-60 dark:bg-white dark:text-void-900"
               >
                 Next

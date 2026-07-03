@@ -18,6 +18,7 @@ import {
 
 export interface ProjectExecutionSnapshotOptions {
   selectedSprintId?: string | null;
+  includeFeeds?: boolean;
 }
 
 function invocationTime(record: ExecutionInvocationRecord): number {
@@ -58,16 +59,22 @@ export function queryProjectExecutionSnapshot(
 
   const { sprintRuns, expandedSprintRunIds } = queryExecutionSprintRuns(db, projectId);
   const taskDispatches = queryExecutionTaskDispatches(db, storage, projectId, expandedSprintRunIds);
-  const runtimeEvents = queryExecutionRuntimeEvents(db, storage, projectId, expandedSprintRunIds);
-  const recentInvocations = mergeInvocations([
-    queryExecutionInvocations(db, { projectId, limit: 24 }),
-    expandedSprintRunIds.length > 0
-      ? queryExecutionInvocations(db, { projectId, sprintRunIds: expandedSprintRunIds, limit: null })
-      : [],
-    options.selectedSprintId
-      ? queryExecutionInvocations(db, { projectId, sprintId: options.selectedSprintId, limit: null })
-      : [],
-  ]);
+
+  const runtimeEvents = options.includeFeeds !== false
+    ? queryExecutionRuntimeEvents(db, storage, projectId, expandedSprintRunIds)
+    : [];
+
+  const recentInvocations = options.includeFeeds !== false
+    ? mergeInvocations([
+        queryExecutionInvocations(db, { projectId, limit: 24 }),
+        expandedSprintRunIds.length > 0
+          ? queryExecutionInvocations(db, { projectId, sprintRunIds: expandedSprintRunIds, limit: null })
+          : [],
+        options.selectedSprintId
+          ? queryExecutionInvocations(db, { projectId, sprintId: options.selectedSprintId, limit: null })
+          : [],
+      ])
+    : [];
 
   const activeAttentionItems = listActiveAttentionRowsForProject(db, projectId);
   const humanInterventionBySprintRunId = buildHumanInterventionSummaryBySprintRun(

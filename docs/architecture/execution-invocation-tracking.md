@@ -45,9 +45,11 @@ Older Jules rows may have task/sprint/run metadata only on their linked `provide
 ## Analytics Projection
 The `queryProjectInvocations` query powers paginated dashboard analytics, returning matching invocations alongside a computed summary.
 Instead of loading all matching invocation rows into memory to compute metrics (which becomes a bottleneck for large projects),
-Code UX computes basic summaries, P95 durations, sprint state aggregations, external API metrics, and errors directly through
-bounded SQL queries with typed helpers inside `execution-invocations-query-analytics.ts`. This SQL-side projection ensures high
-scalability without compromising filter integrity.
+Code UX relies on a shared `InvocationQueryPlan` constructed by `buildInvocationQueryPlan`.
+Rather than a single mixed-responsibility function handling everything, bounded SQL helpers inside `execution-invocations-query.ts`
+and `execution-invocations-query-analytics.ts` consume this shared, immutable plan. These focused, typed helpers
+independently build the queries for total counts, page items, basic summaries, P95 durations, sprint state aggregations,
+external API metrics, and error facet lists. This SQL-side projection ensures high scalability and modularity without compromising filter integrity.
 
 ## Startup Recovery
 

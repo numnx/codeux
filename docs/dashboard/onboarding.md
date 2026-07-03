@@ -76,6 +76,11 @@ The flow currently contains six steps:
    - Configures system defaults for theme, motion, and navigation mode.
    - Explains primary dashboard controls such as project selection, sprint scope, worker routing, and Settings.
 
+
+## Onboarding Flow State
+
+To simplify the `OnboardingExperience` component, the step sequencing, readiness-derived display decisions, and can-go-next validation have been extracted into `dashboard/src/v2/lib/onboarding-flow-state.ts`. This acts as a pure view-model boundary that can be tested independently of React rendering and network side effects.
+
 ## Settings Persistence
 
 Onboarding saves to system settings through the same `PUT /api/system-settings` path used by the Settings page.

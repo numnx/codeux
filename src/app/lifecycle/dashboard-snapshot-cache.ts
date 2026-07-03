@@ -100,15 +100,18 @@ export type DashboardSnapshotCacheDeps = Pick<BootDashboardDeps,
   | 'projectAttentionRepository'
 >;
 
+
+function deleteMatchingKeys<K, V>(map: Map<K, V>, predicate: (key: K) => boolean): void {
+  const keysToDelete = Array.from(map.keys()).filter(predicate);
+  for (const key of keysToDelete) {
+    map.delete(key);
+  }
+}
+
 export class DashboardSnapshotCache {
   private deps: DashboardSnapshotCacheDeps;
 
   private projectExecutionSnapshotCache = new Map<string, { snapshot: ExecutionDashboardSnapshot; expiresAt: number }>();
-  // Memoizes the feed-less view of each cached execution snapshot, keyed by the
-  // snapshot instance so it is invalidated automatically when the snapshot is
-  // rebuilt. Lets the high-frequency `project.execution.updated` channel and the
-  // `/execution` endpoint ship a lean payload while the Live page keeps the feed.
-  private leanExecutionBySnapshot = new WeakMap<ExecutionDashboardSnapshot, ExecutionDashboardSnapshot>();
   private projectStatsSnapshotCache = new Map<string, { snapshot: ReturnType<DashboardSnapshotCacheDeps["executionRepository"]["getProjectStatsSnapshot"]>; expiresAt: number }>();
   private overviewTelemetryCache: { snapshot: ReturnType<DashboardSnapshotCacheDeps["executionRepository"]["getOverviewTelemetrySnapshot"]>; expiresAt: number } | null = null;
   private projectsSnapshotCache: { snapshot: ReturnType<DashboardSnapshotCacheDeps["projectManagementRepository"]["listProjects"]>; expiresAt: number } | null = null;
@@ -117,9 +120,7 @@ export class DashboardSnapshotCache {
     this.deps = deps;
   }
 
-  private getProjectExecutionCacheKey(projectId: string, options: ProjectExecutionSnapshotOptions = {}): string {
-    return `${projectId}:${options.selectedSprintId || ""}`;
-  }
+
 
   getProjectsSnapshot = () => {
     const now = Date.now();
@@ -149,9 +150,11 @@ export class DashboardSnapshotCache {
 
   getProjectExecutionSnapshot = (projectId: string, options: ProjectExecutionSnapshotOptions = {}) => {
     const now = Date.now();
-    const cacheKey = this.getProjectExecutionCacheKey(projectId, options);
+    const cacheKey = DashboardSnapshotCachePolicy.getProjectExecutionCacheKey(projectId, options);
     const cached = this.projectExecutionSnapshotCache.get(cacheKey);
     if (cached && cached.expiresAt > now) {
+      this.projectExecutionSnapshotCache.delete(cacheKey);
+      this.projectExecutionSnapshotCache.set(cacheKey, cached);
       return cached.snapshot;
     }
 
@@ -174,10 +177,19 @@ export class DashboardSnapshotCache {
       ),
     };
 
+    this.projectExecutionSnapshotCache.delete(cacheKey);
     this.projectExecutionSnapshotCache.set(cacheKey, {
       snapshot,
       expiresAt: now + DashboardSnapshotCachePolicy.PROJECT_EXECUTION_CACHE_TTL_MS,
     });
+
+    if (this.projectExecutionSnapshotCache.size > DashboardSnapshotCachePolicy.MAX_PROJECT_EXECUTION_SNAPSHOTS) {
+      const oldestKey = this.projectExecutionSnapshotCache.keys().next().value;
+      if (oldestKey) {
+        this.projectExecutionSnapshotCache.delete(oldestKey);
+      }
+    }
+
     return snapshot;
   };
 
@@ -191,17 +203,7 @@ export class DashboardSnapshotCache {
    * lets the realtime publisher de-duplicate the vast majority of pushes.
    */
   getProjectExecutionSnapshotLean = (projectId: string): ExecutionDashboardSnapshot => {
-    const full = this.getProjectExecutionSnapshot(projectId);
-    if (full.recentEvents.length === 0 && (full.recentInvocations?.length ?? 0) === 0) {
-      return full;
-    }
-    const cached = this.leanExecutionBySnapshot.get(full);
-    if (cached) {
-      return cached;
-    }
-    const lean: ExecutionDashboardSnapshot = { ...full, recentEvents: [], recentInvocations: [] };
-    this.leanExecutionBySnapshot.set(full, lean);
-    return lean;
+    return this.getProjectExecutionSnapshot(projectId, { includeFeeds: false });
   };
 
   getProjectStatsSnapshot = (projectId: string, query: ProjectStatsQuery = { window: "7d" }) => {
@@ -209,29 +211,37 @@ export class DashboardSnapshotCache {
     const cacheKey = DashboardSnapshotCachePolicy.getProjectStatsCacheKey(projectId, query);
     const cached = this.projectStatsSnapshotCache.get(cacheKey);
     if (cached && cached.expiresAt > now) {
+      this.projectStatsSnapshotCache.delete(cacheKey);
+      this.projectStatsSnapshotCache.set(cacheKey, cached);
       return cached.snapshot;
     }
     const snapshot = this.deps.executionRepository.getProjectStatsSnapshot(projectId, query);
+    this.projectStatsSnapshotCache.delete(cacheKey);
     this.projectStatsSnapshotCache.set(cacheKey, {
       snapshot,
       expiresAt: now + DashboardSnapshotCachePolicy.PROJECT_STATS_CACHE_TTL_MS,
     });
+
+    if (this.projectStatsSnapshotCache.size > DashboardSnapshotCachePolicy.MAX_PROJECT_STATS_SNAPSHOTS) {
+      const oldestKey = this.projectStatsSnapshotCache.keys().next().value;
+      if (oldestKey) {
+        this.projectStatsSnapshotCache.delete(oldestKey);
+      }
+    }
+
     return snapshot;
   };
 
   invalidateProjectExecution(projectId: string): void {
-    for (const key of Array.from(this.projectExecutionSnapshotCache.keys())) {
-      if (key === projectId || key.startsWith(`${projectId}:`)) {
-        this.projectExecutionSnapshotCache.delete(key);
-      }
-    }
+    deleteMatchingKeys(this.projectExecutionSnapshotCache, (key) =>
+      DashboardSnapshotCachePolicy.isProjectExecutionCacheKeyMatch(key, projectId)
+    );
   }
 
   invalidateProjectStats(projectId: string): void {
-    const keysToDelete = Array.from(this.projectStatsSnapshotCache.keys()).filter((k) => DashboardSnapshotCachePolicy.isProjectStatsCacheKeyMatch(k, projectId));
-    for (const key of keysToDelete) {
-      this.projectStatsSnapshotCache.delete(key);
-    }
+    deleteMatchingKeys(this.projectStatsSnapshotCache, (key) =>
+      DashboardSnapshotCachePolicy.isProjectStatsCacheKeyMatch(key, projectId)
+    );
   }
 
   invalidateOverview(): void {
