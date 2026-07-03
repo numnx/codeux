@@ -14,6 +14,16 @@ export interface ProjectInvocationsQuery {
   sortDir?: "asc" | "desc";
 }
 
+export interface InvocationMessagesQuery {
+  limit?: number;
+  offset?: number;
+}
+
+export interface ExecutionInvocationMessagesQueryResult {
+  items: ExecutionInvocationMessageRecord[];
+  totalCount: number;
+}
+
 export interface ProjectInvocationsQueryResult {
   items: ExecutionInvocationRecord[];
   totalCount: number;

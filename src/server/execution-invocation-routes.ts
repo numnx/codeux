@@ -33,6 +33,18 @@ export function registerExecutionInvocationRoutes(router: Express, deps: Dashboa
   }));
 
   router.get("/api/execution/invocations/:invocationId/messages", syncRoute((req, res) => {
-    res.json(deps.listInvocationMessages(requireTrimmedString(req.params.invocationId, "invocationId")));
+    const invocationId = requireTrimmedString(req.params.invocationId, "invocationId");
+
+    if (req.query.limit !== undefined || req.query.offset !== undefined) {
+      const parsedLimit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+      const parsedOffset = req.query.offset ? parseInt(req.query.offset as string, 10) : undefined;
+      const limit = parsedLimit !== undefined && !isNaN(parsedLimit) ? Math.min(parsedLimit, 1000) : undefined;
+      const offset = parsedOffset !== undefined && !isNaN(parsedOffset) ? Math.max(0, parsedOffset) : undefined;
+
+      res.json(deps.listInvocationMessages(invocationId, { limit, offset }));
+      return;
+    }
+
+    res.json(deps.listInvocationMessages(invocationId));
   }));
 }

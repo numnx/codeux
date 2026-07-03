@@ -213,6 +213,22 @@ describe("Dashboard Execution Invocation API", () => {
       expect(mockOptions.listInvocationMessages).toHaveBeenCalledWith("inv-1");
     });
 
+    it("handles paginated queries when query strings are present for messages", async () => {
+      const mockResult = {
+        items: [
+          { id: "msg-1", invocationId: "inv-1", role: "user", contentMarkdown: "hello" }
+        ],
+        totalCount: 2
+      };
+      vi.mocked(mockOptions.listInvocationMessages!).mockReturnValue(mockResult as any);
+
+      const response = await request(app).get("/api/execution/invocations/inv-1/messages?limit=10&offset=5");
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(mockResult);
+      expect(mockOptions.listInvocationMessages).toHaveBeenCalledWith("inv-1", { limit: 10, offset: 5 });
+    });
+
     it("handles errors when listing invocation messages", async () => {
       vi.mocked(mockOptions.listInvocationMessages!).mockImplementation(() => {
         throw new Error("DB Error");
