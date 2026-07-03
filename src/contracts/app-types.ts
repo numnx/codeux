@@ -472,6 +472,7 @@ export interface ProjectStatsQuery {
   window: ProjectStatsWindow;
   from?: string | null;
   to?: string | null;
+  limit?: number;
 }
 
 export interface ProjectStatsRangeSummary {

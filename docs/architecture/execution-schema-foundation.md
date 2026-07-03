@@ -77,6 +77,10 @@ Current fields include:
 - lease token
 - acquire / expiry / heartbeat timestamps
 
+## Prepared Statement Caching
+
+The DB-native execution path consolidates SQLite statement caching into a single, bounded LRU cache maintained in `SqliteDatabaseAdapter`. This ensures that dynamically generated queries—such as bucketed `IN` clauses from `executeChunkedInQuery`—do not cause memory leaks from unbounded statement retention.
+
 ## Repository Surface
 
 `ExecutionRepository` currently supports:
@@ -114,3 +118,8 @@ To optimize for the real query shapes used by the DB-native orchestrator and liv
 - **`idx_task_runs_task_sprint_session`**: Speeds up finding task runs by task, sprint run, and session.
 - **`idx_project_attention_items_project_owner_status`**: Optimizes querying active attention items by project, owner type, and status.
 - **`idx_execution_invocations_provider_invocation`**: Speeds up looking up execution invocations by provider invocation id.
+- **`idx_execution_invocations_project_status`**: Optimizes filtering project invocations by status.
+- **`idx_execution_invocations_project_provider`**: Optimizes filtering project invocations by provider.
+- **`idx_execution_invocations_project_type`**: Optimizes filtering active project invocations by type.
+- **`idx_provider_invocations_project_provider_model`**: Optimizes project stats queries grouping by provider and model.
+- **`idx_provider_invocations_project_purpose`**: Optimizes project stats queries grouping by purpose.

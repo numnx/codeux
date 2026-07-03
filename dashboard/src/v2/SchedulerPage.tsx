@@ -577,7 +577,7 @@ export const SchedulerPage: FunctionComponent = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2">
             {TARGET_OPTIONS.map((option) => (
               <button
                 key={option.value}

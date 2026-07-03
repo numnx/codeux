@@ -25,10 +25,46 @@ const MAX_DIRECTORY_BYTES = 50 * 1024 * 1024; // 50MB
 function isSupportedUpload(fileName: string, mimeType?: string): boolean {
   const ext = path.extname(fileName).toLowerCase();
   const mime = (mimeType || "").toLowerCase();
-  if (ext === ".pdf" || mime === "application/pdf") return true;
-  if (ext === ".docx" || mime.includes("officedocument.wordprocessingml")) return true;
-  if (HTML_EXTENSIONS.has(ext) || mime.includes("text/html")) return true;
-  if (TEXT_EXTENSIONS.has(ext) || mime.startsWith("text/")) return true;
+
+  const isPdfExt = ext === ".pdf";
+  const isPdfMime = mime === "application/pdf";
+  if (isPdfExt || isPdfMime) return isPdfExt && isPdfMime;
+
+  const isDocxExt = ext === ".docx";
+  const isDocxMime = mime.includes("officedocument.wordprocessingml");
+  if (isDocxExt || isDocxMime) return isDocxExt && isDocxMime;
+
+  const isHtmlExt = HTML_EXTENSIONS.has(ext);
+  const isHtmlMime = mime.includes("text/html");
+  if (isHtmlExt || isHtmlMime) {
+    if (isHtmlExt) {
+      return mime === "" || mime === "application/octet-stream" || mime.includes("text/html") || mime.startsWith("text/");
+    }
+    return isHtmlExt;
+  }
+
+  const isTextExt = TEXT_EXTENSIONS.has(ext);
+  const isTextMime = mime.startsWith("text/");
+  if (isTextExt || isTextMime) {
+    if (isTextExt) {
+      return mime === "" ||
+        mime === "application/octet-stream" ||
+        mime.startsWith("text/") ||
+        mime.includes("json") ||
+        mime.includes("csv") ||
+        mime.includes("xml") ||
+        mime.includes("yaml") ||
+        mime.includes("javascript") ||
+        mime.includes("typescript") ||
+        mime.includes("sql") ||
+        mime.includes("graphql") ||
+        mime.includes("x-sh");
+    }
+    if (isTextMime) {
+      return isTextExt || ext === "";
+    }
+  }
+
   return false;
 }
 
@@ -304,9 +340,25 @@ async function ingestRepoPath(
     throw new Error("Path not found");
   }
 
-  const files = stat.isDirectory() ? await collectDirectoryFiles(realTarget) : [realTarget];
+  let files: string[];
+  let isTruncated = false;
+  if (stat.isDirectory()) {
+    const result = await collectDirectoryFiles(realTarget);
+    files = result.collected;
+    isTruncated = result.truncated;
+  } else {
+    files = [realTarget];
+  }
+
   const documents: KnowledgeDocumentSummary[] = [];
   const errors: Array<{ fileName: string; error: string }> = [];
+
+  if (isTruncated) {
+    errors.push({
+      fileName: relativePath,
+      error: `Directory traversal truncated at ${MAX_DIRECTORY_FILES} files or ${MAX_DIRECTORY_BYTES / 1024 / 1024}MB limit`,
+    });
+  }
 
   for (const filePath of files) {
     const rel = path.relative(realBase, filePath);
@@ -327,15 +379,23 @@ async function ingestRepoPath(
   return { documents, errors };
 }
 
-async function collectDirectoryFiles(dir: string): Promise<string[]> {
+async function collectDirectoryFiles(dir: string): Promise<{ collected: string[]; truncated: boolean }> {
   const collected: string[] = [];
   let totalBytes = 0;
+  let truncated = false;
 
   const walk = async (current: string): Promise<void> => {
-    if (collected.length >= MAX_DIRECTORY_FILES || totalBytes >= MAX_DIRECTORY_BYTES) return;
+    if (collected.length >= MAX_DIRECTORY_FILES || totalBytes >= MAX_DIRECTORY_BYTES) {
+      truncated = true;
+      return;
+    }
     const entries = await fs.readdir(current, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
-      if (collected.length >= MAX_DIRECTORY_FILES || totalBytes >= MAX_DIRECTORY_BYTES) return;
+      if (collected.length >= MAX_DIRECTORY_FILES || totalBytes >= MAX_DIRECTORY_BYTES) {
+        truncated = true;
+        return;
+      }
+      if (entry.isSymbolicLink()) continue;
       if (entry.name.startsWith(".") && entry.isDirectory()) continue;
       if (entry.isDirectory()) {
         if (IGNORED_DIRECTORIES.has(entry.name)) continue;
@@ -344,7 +404,10 @@ async function collectDirectoryFiles(dir: string): Promise<string[]> {
         const filePath = path.join(current, entry.name);
         const st = await fs.stat(filePath).catch(() => null);
         if (st) {
-          if (totalBytes + st.size > MAX_DIRECTORY_BYTES) continue;
+          if (totalBytes + st.size > MAX_DIRECTORY_BYTES) {
+            truncated = true;
+            continue;
+          }
           totalBytes += st.size;
           collected.push(filePath);
         }
@@ -353,5 +416,5 @@ async function collectDirectoryFiles(dir: string): Promise<string[]> {
   };
 
   await walk(dir);
-  return collected;
+  return { collected, truncated };
 }

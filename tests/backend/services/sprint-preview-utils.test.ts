@@ -31,10 +31,21 @@ describe("sprint-preview-utils", () => {
     await expect(resolvePreviewScriptPath(repoPath, "../outside.sh")).resolves.toBe(path.join(repoPath, ".code-ux/browser/start-preview.sh"));
     await expect(resolvePreviewScriptPath(repoPath, "/tmp/start.sh")).resolves.toBe(path.join(repoPath, ".code-ux/browser/start-preview.sh"));
   });
-  it("normalizes browser paths and strips host prefixes", () => {
+  it("normalizes browser paths", () => {
     expect(normalizePreviewPath("dashboard")).toBe("/dashboard");
-    expect(normalizePreviewPath("https://example.com/foo?bar=1#hash")).toBe("/foo?bar=1#hash");
+    expect(normalizePreviewPath("/dashboard")).toBe("/dashboard");
     expect(normalizePreviewPath("")).toBe("/");
+  });
+
+  it("rejects absolute and protocol-relative URLs", () => {
+    expect(() => normalizePreviewPath("https://example.com/foo?bar=1#hash")).toThrow("Absolute and protocol-relative URLs are not allowed.");
+    expect(() => normalizePreviewPath("http://example.com/foo")).toThrow("Absolute and protocol-relative URLs are not allowed.");
+    expect(() => normalizePreviewPath("//example.com/foo")).toThrow("Absolute and protocol-relative URLs are not allowed.");
+  });
+
+  it("rejects control characters in paths", () => {
+    expect(() => normalizePreviewPath("/foo\x00bar")).toThrow("Control characters are not allowed in preview paths.");
+    expect(() => normalizePreviewPath("/foo\nbar")).toThrow("Control characters are not allowed in preview paths.");
   });
 
   it("detects package manager from lockfiles", async () => {

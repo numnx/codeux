@@ -172,13 +172,13 @@ Usage data now appears in two read models:
 - `GET /api/projects/:projectId/execution`
   - task and sprint execution summaries now include usage rollups
 - `GET /api/projects/:projectId/stats?window=24h|7d|30d|all|custom&from=YYYY-MM-DD&to=YYYY-MM-DD`
-  - project-scoped statistics snapshot for the Stats page. Custom ranges must be parseable dates, where from <= to, and are capped to historical (e.g. Jan 1 2000) and future limits.
+  - project-scoped statistics snapshot for the Stats page. Custom ranges must be parseable dates, where from <= to, and must remain within documented historical (e.g. Jan 1 2000) and future limits. Invalid, incomplete, inverted, or out-of-bounds custom ranges will fail consistently with validation errors.
 
 Historical Docker-backed CLI invocations that were persisted as `unavailable` before container telemetry fallback support are backfilled at startup when they have prompt or transcript character counts. The backfill marks them as `estimated` using the same conservative character heuristic, preserving rows that already have provider-reported or provider-specific estimated usage.
 
 The stats snapshot includes:
 
-- project totals (including dynamic cost rollups based on typed token-pricing configurations which calculate input, output, and cached input costs in USD based on per-million token rates, defaulting to zero if unset or unconfigured)
+- project totals (including dynamic cost rollups based on typed token-pricing configurations which calculate input, output, and cached input costs in USD based on per-million token rates, defaulting to zero if unset or unconfigured. This relies on a per-snapshot pricing cache to prevent redundant provider/model lookups)
 - total provider cost totals (e.g. `providerCost` map)
 - total model cost totals (e.g. `modelCost` map)
 - usage cost chart series for historical visualization (e.g. `core_total_cost`, `provider_cost_*`)
@@ -232,9 +232,9 @@ It focuses on:
 - the system invocation table exposes sortable per-invocation token columns, sticky header controls, status color-coding, sprint/task context chips, loading skeletons, empty states, and expandable detail placeholders for future message panels
 - expanded invocation rows now lazy-load a dedicated transcript panel that renders role-specific message cards, preserves long system messages with an inline expand toggle, and falls back to an empty-state message when no transcript exists
 - animated donut charts now expose slice-level hover focus with center-detail readouts instead of only static composition rings
-- the System stats view now uses a dedicated client-side invocation hook that fetches the project invocation ledger, applies local search/filter/sort state, and derives summary metrics from the filtered result set
-- Heavy stats ledger views are backed by a page-scoped progressive list strategy (`useProgressiveList`) that renders items in batches to optimize performance. The Sprints page ledger instead keeps the full sprint collection in its table state and uses its own `Show` selector for deterministic row windowing, so sprint/task totals remain accurate before rows are limited.
-- Backend read-model optimizations efficiently supply data to these page-scoped modules, ensuring fast telemetry rendering while **API contracts and routes remain completely unchanged**.
+- the System stats view uses a dedicated invocation hook that fetches the server-side projected project invocation ledger and trusts the server summary and paginated items for rendering, keeping the frontend main-thread free from large-array processing
+- Heavy stats ledger views are backed by a page-scoped progressive list strategy (`useProgressiveList`) that renders items in batches to optimize performance. The Sprints page ledger instead keeps the full sprint collection in its table state and uses its own `Show` selector for deterministic row windowing, so sprint/task totals remain accurate before rows are limited. Frontend stats performance also relies on pure derivations for view models (`system-view-models.ts`), indexed series lookups, bounded transcript loading (via `InvocationMessagesPanel`), and stable invocation table windowing (`useInvocationsWindow`).
+- Backend read-model optimizations efficiently supply data to these page-scoped modules, ensuring fast telemetry rendering while **API contracts and routes remain completely unchanged**. The extracted stats cost (`project-stats-costs.ts`) and chart-series helpers (`project-stats-chart-series.ts`) maintain this strict public stats API shape contract.
 - The Stats page header owns the time-window chips and custom range inputs so the window selector stays visible across all analysis tabs and the shared trend-chart flyout can focus exclusively on metric-series toggles.
 - The Live Sprint Clock card now surfaces sprint token totals inline, using compact token formatting for input, output, and cached input values so the live orchestration view can show usage rollups without leaving the sprint surface.
 
@@ -264,9 +264,27 @@ The telemetry model is designed for future exact reporting across:
 
 Because the canonical source is per invocation, additional reporting surfaces can be added later without changing how usage is recorded.
 
+### Query and Index Expectations
+
+Project invocation analytics and paginated dashboard results are computed via bounded SQL helpers consuming a shared, immutable `InvocationQueryPlan` rather than in-memory array aggregation. Project execution statistics snapshots are modularized into independent pure boundaries for usage costing, duration distributions, and chart-series construction.
+
 
 ### ProviderTelemetryWatcher
 
 Live provider telemetry polling is extracted into `ProviderTelemetryWatcher`. This helper is responsible for the periodic read of provider log artifacts during an active session (e.g. while `provider-runner` waits for the CLI to complete). It handles the polling loop, background error swallowing, and temporary database cleanup without affecting the core completion result. Note that telemetry emitted by `ProviderTelemetryWatcher` is best-effort for live dashboarding; the final usage data collected by `ProviderRunner` after process exit remains authoritative.
 
-Client-side chart state persistence (such as enabled chart series) is scoped per project id to prevent visual regressions when switching between projects.
+Client-side chart state persistence (such as enabled chart series) is sanitized and reconciled client-side and is scoped per project id to prevent visual regressions when switching between projects.
+
+Note: Stats snapshot components are modularized into independent pure boundaries for usage costing (`project-stats-costs.ts`), duration distributions (`project-stats-duration`), and chart-series construction (`project-stats-chart-series`).
+
+## Verification
+
+When modifying these surfaces, verify the query and serialization logic using:
+```bash
+pnpm run test:backend
+```
+
+And for the frontend components:
+```bash
+pnpm run test:dashboard
+```

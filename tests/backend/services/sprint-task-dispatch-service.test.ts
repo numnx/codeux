@@ -125,6 +125,160 @@ describe("SprintTaskDispatchService", () => {
     });
   });
 
+  it("creates a running Jules execution invocation as soon as the task is dispatched", async () => {
+    const { projectManagementRepository, executionRepository, taskService, service } = await createFixture();
+    const project = projectManagementRepository.createProject({
+      name: "Jules Dispatch Project",
+      sourceType: "local",
+      sourceRef: "/workspace/jules-dispatch-project",
+    });
+    const sprint = projectManagementRepository.createSprint(project.id, {
+      name: "Jules Dispatch Sprint",
+      number: 9,
+    });
+    const taskRecord = projectManagementRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Run in Jules",
+      promptMarkdown: "Run this task in Jules.",
+      executorType: "jules",
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+      executorMode: "mixed",
+    });
+
+    taskService.resolveTaskProvider.mockReturnValue("jules");
+    taskService.startSprintTask.mockResolvedValue({
+      id: "jules-session-1",
+      name: "sessions/jules-session-1",
+      provider: "jules",
+    });
+
+    await service.startTask({
+      task: {
+        id: taskRecord.taskKey,
+        record_id: taskRecord.id,
+        title: taskRecord.title,
+        prompt: taskRecord.promptMarkdown,
+        depends_on: [],
+        is_independent: true,
+        status: "PENDING",
+      },
+      projectId: project.id,
+      sprintId: sprint.id,
+      sprintRunId: sprintRun.id,
+      featureBranch: "feature/sprint-9",
+      repoPath: "/workspace/jules-dispatch-project",
+      sprintNumber: 9,
+    });
+
+    const invocations = executionRepository.listExecutionInvocations({
+      projectId: project.id,
+      sprintRunId: sprintRun.id,
+    });
+    const julesInvocation = invocations.find((invocation) => invocation.taskId === taskRecord.id);
+
+    expect(julesInvocation).toMatchObject({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: taskRecord.id,
+      sprintRunId: sprintRun.id,
+      type: "task_coding",
+      status: "running",
+      provider: "jules",
+      model: "jules-agent",
+      invocationSource: "EXTERNAL_API",
+    });
+    expect(julesInvocation?.dispatchId).toBeTruthy();
+    expect(julesInvocation?.taskRunId).toBeTruthy();
+    expect(julesInvocation?.providerInvocationId).toBeTruthy();
+
+    const providerUsage = executionRepository.getProviderInvocationUsage(julesInvocation!.providerInvocationId!);
+    expect(providerUsage).toMatchObject({
+      sessionId: "jules-session-1",
+      nativeSessionId: "jules-session-1",
+      provider: "jules",
+      purpose: "task_coding",
+      status: "running",
+      sprintRunId: sprintRun.id,
+      dispatchId: julesInvocation?.dispatchId,
+      taskRunId: julesInvocation?.taskRunId,
+    });
+
+    const messages = executionRepository.listExecutionInvocationMessages(julesInvocation!.id);
+    expect(messages[0]).toMatchObject({
+      role: "system",
+      contentMarkdown: "Jules task dispatched. Waiting for remote session transcript.",
+    });
+  });
+
+  it("marks the dispatch-created Jules invocation failed when session creation fails", async () => {
+    const { projectManagementRepository, executionRepository, taskService, service } = await createFixture();
+    const project = projectManagementRepository.createProject({
+      name: "Jules Failure Project",
+      sourceType: "local",
+      sourceRef: "/workspace/jules-failure-project",
+    });
+    const sprint = projectManagementRepository.createSprint(project.id, {
+      name: "Jules Failure Sprint",
+      number: 10,
+    });
+    const taskRecord = projectManagementRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      title: "Fail in Jules",
+      promptMarkdown: "This Jules dispatch fails.",
+      executorType: "jules",
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+      executorMode: "mixed",
+    });
+
+    taskService.resolveTaskProvider.mockReturnValue("jules");
+    taskService.startSprintTask.mockRejectedValue(new Error("Jules API unavailable"));
+
+    await expect(service.startTask({
+      task: {
+        id: taskRecord.taskKey,
+        record_id: taskRecord.id,
+        title: taskRecord.title,
+        prompt: taskRecord.promptMarkdown,
+        depends_on: [],
+        is_independent: true,
+        status: "PENDING",
+      },
+      projectId: project.id,
+      sprintId: sprint.id,
+      sprintRunId: sprintRun.id,
+      featureBranch: "feature/sprint-10",
+      repoPath: "/workspace/jules-failure-project",
+      sprintNumber: 10,
+    })).rejects.toThrow("Jules API unavailable");
+
+    const [julesInvocation] = executionRepository.listExecutionInvocations({
+      projectId: project.id,
+      sprintRunId: sprintRun.id,
+    });
+    expect(julesInvocation).toMatchObject({
+      taskId: taskRecord.id,
+      type: "task_coding",
+      status: "failed",
+      provider: "jules",
+      errorMessage: "Jules API unavailable",
+      lastErrorMessage: "Jules API unavailable",
+    });
+
+    const providerUsage = executionRepository.getProviderInvocationUsage(julesInvocation.providerInvocationId!);
+    expect(providerUsage?.status).toBe("failed");
+
+    const messages = executionRepository.listExecutionInvocationMessages(julesInvocation.id);
+    expect(messages.some((message) => message.contentMarkdown.includes("Jules dispatch failed: Jules API unavailable"))).toBe(true);
+  });
+
   it("defers task start and records wait event when concurrency cap is reached", async () => {
     const { projectManagementRepository, executionRepository, taskService, service } = await createFixture();
     const project = projectManagementRepository.createProject({

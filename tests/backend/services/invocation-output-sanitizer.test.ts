@@ -64,4 +64,14 @@ describe("sanitizeInvocationOutputText", () => {
     const input = 'gitlab token glpat-12345678901234567890';
     expect(sanitizeInvocationOutputText(input)).toBe('gitlab token [REDACTED]');
   });
+
+  it("redacts URL credentials", () => {
+    const input = 'connecting to https://user:pass@example.com/api';
+    expect(sanitizeInvocationOutputText(input)).toBe('connecting to https://[REDACTED]@example.com/api');
+  });
+
+  it("redacts Basic auth", () => {
+    const input = 'Authorization: Basic some-base64-string';
+    expect(sanitizeInvocationOutputText(input)).toBe('Authorization: Basic [REDACTED]');
+  });
 });

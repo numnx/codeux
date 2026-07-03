@@ -59,10 +59,10 @@ export const SprintImportMenu = ({ disabled, onImportMarkdown, onImportIssues, o
       <div
         role="menu"
         id={menuId}
-        className={`absolute bottom-[calc(100%+0.5rem)] right-0 z-[200] w-72 transform origin-bottom overflow-hidden rounded-[1.2rem] border border-black/[0.08] bg-white p-2 shadow-[0_18px_38px_rgba(15,23,42,0.18)] ring-1 ring-black/[0.03] transition-all duration-300 dark:border-white/[0.08] dark:bg-void-800 dark:ring-white/[0.03] ${
+        className={`absolute top-[calc(100%+0.5rem)] right-0 z-[200] w-72 transform origin-top overflow-hidden rounded-[1.2rem] border border-black/[0.08] bg-white p-2 shadow-[0_18px_38px_rgba(15,23,42,0.18)] ring-1 ring-black/[0.03] transition-all duration-300 dark:border-white/[0.08] dark:bg-void-800 dark:ring-white/[0.03] ${
           isOpen
             ? "translate-y-0 scale-100 opacity-100 pointer-events-auto"
-            : "translate-y-4 scale-95 opacity-0 pointer-events-none"
+            : "-translate-y-4 scale-95 opacity-0 pointer-events-none"
         }`}
       >
         <div className="flex flex-col gap-1">

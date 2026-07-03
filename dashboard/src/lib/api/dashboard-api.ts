@@ -11,6 +11,67 @@ import type {
 } from "../../types.js";
 import { fetchJson } from "./fetch-json.js";
 
+
+export class ApiCache<T> {
+  private cache = new Map<string, { value: T; timestamp: number }>();
+  private inflight = new Map<string, Promise<T>>();
+
+  constructor(private ttlMs: number, private maxSize: number = 1) {}
+
+  public get(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.timestamp > this.ttlMs) {
+      this.cache.delete(key);
+      return null;
+    }
+    // Update LRU position
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+    return entry.value;
+  }
+
+  public async fetch(key: string, fetcher: () => Promise<T>): Promise<T> {
+    const cached = this.get(key);
+    if (cached) return cached;
+
+    let request = this.inflight.get(key);
+    if (!request) {
+      request = fetcher()
+        .then((resolved) => {
+          this.set(key, resolved);
+          return resolved;
+        })
+        .finally(() => {
+          this.inflight.delete(key);
+        });
+      this.inflight.set(key, request);
+    }
+    return request;
+  }
+
+  public set(key: string, value: T): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
+    }
+    this.cache.set(key, { value, timestamp: Date.now() });
+  }
+
+  public delete(key: string): void {
+    this.cache.delete(key);
+  }
+
+  public clear(): void {
+    this.cache.clear();
+    this.inflight.clear();
+  }
+}
+
 export type RuntimeDashboardPayload = ProjectLiveDashboardSnapshot;
 
 export const fetchRuntimeStatus = async (): Promise<DashboardStatus> => {
@@ -21,27 +82,13 @@ export const fetchExecutionSnapshot = async (): Promise<ExecutionDashboardSnapsh
   return fetchJson<ExecutionDashboardSnapshot>("/api/execution");
 };
 
-const MAX_CACHE_SIZE = 5;
-const livePayloadCache = new Map<string, RuntimeDashboardPayload>();
-const livePayloadInflight = new Map<string, Promise<RuntimeDashboardPayload>>();
-
-const updateLruCache = (key: string, resolved: RuntimeDashboardPayload) => {
-  if (livePayloadCache.has(key)) {
-    livePayloadCache.delete(key);
-  } else if (livePayloadCache.size >= MAX_CACHE_SIZE) {
-    const firstKey = livePayloadCache.keys().next().value;
-    if (firstKey !== undefined) {
-      livePayloadCache.delete(firstKey);
-    }
-  }
-  livePayloadCache.set(key, resolved);
-};
+const livePayloadCache = new ApiCache<RuntimeDashboardPayload>(5000, 5);
 
 export const clearLivePayloadCacheForTests = (): void => {
   livePayloadCache.clear();
-  livePayloadInflight.clear();
-  overviewTelemetryInflight = null;
-  onboardingReadinessInflight = null;
+  overviewTelemetryCache.clear();
+  onboardingReadinessCache.clear();
+  externalSettingsHintsCacheInst.clear();
 };
 
 export const invalidateLivePayloadCache = (projectId?: string | null): void => {
@@ -51,12 +98,7 @@ export const invalidateLivePayloadCache = (projectId?: string | null): void => {
 
 export const getCachedLivePayload = (projectId?: string | null): RuntimeDashboardPayload | null => {
   const key = projectId?.trim() || "default";
-  if (!livePayloadCache.has(key)) return null;
-  const val = livePayloadCache.get(key)!;
-  // Update LRU position on access
-  livePayloadCache.delete(key);
-  livePayloadCache.set(key, val);
-  return val;
+  return livePayloadCache.get(key);
 };
 
 export const fetchRuntimeDashboardPayload = async (projectId?: string | null): Promise<RuntimeDashboardPayload> => {
@@ -66,68 +108,39 @@ export const fetchRuntimeDashboardPayload = async (projectId?: string | null): P
 /** Single HTTP call returning both status + execution — used for fast initial load. */
 export const fetchLivePayload = async (projectId?: string | null): Promise<RuntimeDashboardPayload> => {
   const key = projectId?.trim() || "default";
-  let request = livePayloadInflight.get(key);
-  if (!request) {
+  return livePayloadCache.fetch(key, () => {
     const query = typeof projectId === "string" && projectId.trim().length > 0
       ? `?projectId=${encodeURIComponent(projectId.trim())}`
       : "";
-    request = fetchJson<RuntimeDashboardPayload>(`/api/live${query}`).finally(() => {
-      livePayloadInflight.delete(key);
-    });
-    livePayloadInflight.set(key, request);
-  }
-  const resolved = await request;
-  updateLruCache(key, resolved);
-  return resolved;
+    return fetchJson<RuntimeDashboardPayload>(`/api/live${query}`);
+  });
 };
 
 export const fetchLiveActivities = async (): Promise<import("../../types.js").LiveActivitiesResponse> => {
   return fetchJson<import("../../types.js").LiveActivitiesResponse>("/api/live-activities");
 };
 
-let overviewTelemetryInflight: Promise<OverviewTelemetrySnapshot> | null = null;
+const overviewTelemetryCache = new ApiCache<OverviewTelemetrySnapshot>(5000, 1);
 
 export const fetchOverviewTelemetry = async (): Promise<OverviewTelemetrySnapshot> => {
-  if (!overviewTelemetryInflight) {
-    overviewTelemetryInflight = fetchJson<OverviewTelemetrySnapshot>("/api/telemetry/overview").finally(() => {
-      overviewTelemetryInflight = null;
-    });
-  }
-  return overviewTelemetryInflight;
+  return overviewTelemetryCache.fetch("default", () => fetchJson<OverviewTelemetrySnapshot>("/api/telemetry/overview"));
 };
 
 export const fetchGitTrackingStatus = async (): Promise<GitTrackingStatus> => {
   return fetchJson<GitTrackingStatus>("/api/git-status");
 };
 
-let onboardingReadinessInflight: Promise<OnboardingRuntimeReadiness> | null = null;
+const onboardingReadinessCache = new ApiCache<OnboardingRuntimeReadiness>(5000, 1);
 
 export const fetchOnboardingReadiness = async (): Promise<OnboardingRuntimeReadiness> => {
-  if (!onboardingReadinessInflight) {
-    onboardingReadinessInflight = fetchJson<OnboardingRuntimeReadiness>("/api/onboarding/readiness").finally(() => {
-      onboardingReadinessInflight = null;
-    });
-  }
-  return onboardingReadinessInflight;
+  return onboardingReadinessCache.fetch("default", () => fetchJson<OnboardingRuntimeReadiness>("/api/onboarding/readiness"));
 };
 
 
-let externalSettingsHintsCache: ExternalSettingsHints | null = null;
-let externalSettingsHintsInflightRequest: Promise<ExternalSettingsHints> | null = null;
+const externalSettingsHintsCacheInst = new ApiCache<ExternalSettingsHints>(300000, 1);
 
 export const fetchExternalSettingsHints = async (): Promise<ExternalSettingsHints> => {
-  if (externalSettingsHintsCache) {
-    return externalSettingsHintsCache;
-  }
-  if (!externalSettingsHintsInflightRequest) {
-    externalSettingsHintsInflightRequest = fetchJson<ExternalSettingsHints>("/api/settings/import-sources").then((hints) => {
-      externalSettingsHintsCache = hints;
-      return hints;
-    }).finally(() => {
-      externalSettingsHintsInflightRequest = null;
-    });
-  }
-  return externalSettingsHintsInflightRequest;
+  return externalSettingsHintsCacheInst.fetch("default", () => fetchJson<ExternalSettingsHints>("/api/settings/import-sources"));
 };
 
 export interface RerunTaskOptions {

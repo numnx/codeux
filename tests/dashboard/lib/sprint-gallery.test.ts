@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterShowcaseSprints, sortSprintsByRecency } from "../../../dashboard/src/v2/lib/sprint-gallery.js";
+import { MAX_SHOWCASE_SPRINTS, filterShowcaseSprints, sortSprintsByRecency } from "../../../dashboard/src/v2/lib/sprint-gallery.js";
 import type { Sprint } from "../../../dashboard/src/types.js";
 
 describe("sprint-gallery", () => {
@@ -17,6 +17,20 @@ describe("sprint-gallery", () => {
     expect(result.map(s => s.id)).toContain("3");
     expect(result.map(s => s.id)).toContain("4");
     expect(result.map(s => s.id)).not.toContain("2");
+  });
+
+  it("filterShowcaseSprints should cap the result at MAX_SHOWCASE_SPRINTS, keeping the first entries in input order", () => {
+    const manyPinned: Partial<Sprint>[] = Array.from({ length: MAX_SHOWCASE_SPRINTS + 10 }, (_, i) => ({
+      id: `pinned-${i}`,
+      name: `Pinned ${i}`,
+      showcasePinned: true,
+      status: "completed",
+      createdAt: `2024-02-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
+    }));
+
+    const result = filterShowcaseSprints(manyPinned as Sprint[]);
+    expect(result).toHaveLength(MAX_SHOWCASE_SPRINTS);
+    expect(result.map(s => s.id)).toEqual(manyPinned.slice(0, MAX_SHOWCASE_SPRINTS).map(s => s.id));
   });
 
   it("sortSprintsByRecency should sort by recency (createdAt then number)", () => {

@@ -94,7 +94,6 @@ const StatusDistributionBar: FunctionComponent<{ metrics: SystemSummaryMetrics }
 export const SystemStudio: FunctionComponent<{ projectId: string }> = ({ projectId }) => {
   const {
     invocations,
-    allInvocations,
     summaryMetrics,
     availablePurposes,
     availableProviders,

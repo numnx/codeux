@@ -153,4 +153,74 @@ describe("sanitizeCustomMcpServers", () => {
     ]);
     expect(result.map((s) => s.id)).toEqual(["c"]);
   });
+
+  it("drops HTTP servers with invalid URLs, credentials, or non-http schemes", () => {
+    const result = sanitizeCustomMcpServers([
+      { id: "a", name: "cred", url: "https://user:pass@example.com", transport: "http" },
+      { id: "b", name: "ftp", url: "ftp://example.com", transport: "http" },
+      { id: "c", name: "control", url: "https://example.com/mc\np", transport: "http" },
+      { id: "d", name: "ok", url: "http://localhost:3000/mcp", transport: "http" },
+    ]);
+    expect(result.map((s) => s.id)).toEqual(["d"]);
+  });
+
+  it("sanitizes headers to drop invalid names and control chars in values", () => {
+    const result = sanitizeCustomMcpServers([
+      {
+        id: "srv",
+        name: "test",
+        url: "https://example.com",
+        headers: {
+          "Valid-Header": "ok",
+          "Bad Header": "skip",
+          "Control": "val\n",
+          ["TooLongName".repeat(10)]: "skip",
+        },
+      },
+    ]);
+    expect(result[0].headers).toEqual({ "Valid-Header": "ok" });
+  });
+
+  it("sanitizes environment variables to drop invalid names and control chars", () => {
+    const result = sanitizeCustomMcpServers([
+      {
+        id: "srv",
+        name: "test",
+        command: "node",
+        env: {
+          "VALID_ENV": "ok",
+          "1_BAD": "skip",
+          "BAD-NAME": "skip",
+          "CONTROL": "val\r",
+          ["TOO_LONG".repeat(10)]: "skip",
+        },
+      },
+    ]);
+    expect(result[0].env).toEqual({ "VALID_ENV": "ok" });
+  });
+
+  it("drops stdio servers with shell metacharacters in command", () => {
+    const result = sanitizeCustomMcpServers([
+      { id: "a", name: "shell1", command: "node; rm -rf /" },
+      { id: "b", name: "shell2", command: "node & echo 1" },
+      { id: "c", name: "shell3", command: "node > out.txt" },
+      { id: "d", name: "shell4", command: "node `whoami`" },
+      { id: "e", name: "shell5", command: "node $(whoami)" },
+      { id: "f", name: "shell6", command: "no\nde" },
+      { id: "g", name: "ok", command: "/usr/bin/node" },
+    ]);
+    expect(result.map((s) => s.id)).toEqual(["g"]);
+  });
+
+  it("drops stdio args containing control characters", () => {
+    const result = sanitizeCustomMcpServers([
+      {
+        id: "srv",
+        name: "test",
+        command: "node",
+        args: ["valid", "invalid\n", "valid2\r", "valid3"],
+      },
+    ]);
+    expect(result[0].args).toEqual(["valid", "valid3"]);
+  });
 });

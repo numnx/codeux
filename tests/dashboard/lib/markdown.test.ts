@@ -72,4 +72,53 @@ describe("renderMarkdown", () => {
     const rendered = renderMarkdown("![safe image](https://example.com/image.png)");
     expect(rendered).toContain('<img src="https://example.com/image.png" alt="safe image">');
   });
+
+  it("strips obfuscated javascript URLs in links", () => {
+    const rendered = renderMarkdown("[unsafe](java\\nscript:alert(1))");
+    expect(rendered).not.toContain("href");
+    expect(rendered).toContain("unsafe");
+  });
+
+  it("strips protocol-relative URLs", () => {
+    const rendered1 = renderMarkdown("[unsafe](//google.com)");
+    expect(rendered1).not.toContain("href");
+    const rendered2 = renderMarkdown("[unsafe](\\\\\\google.com)");
+    expect(rendered2).not.toContain("href");
+  });
+
+  it("strips mailto in images", () => {
+    const rendered = renderMarkdown("![unsafe](mailto:test@test.com)");
+    expect(rendered).not.toContain("img");
+    expect(rendered).not.toContain("src");
+    expect(rendered).toContain("unsafe");
+  });
+
+  it("preserves relative links containing colons", () => {
+    const rendered1 = renderMarkdown("[safe](search?q=foo:bar)");
+    expect(rendered1).toContain('href="search?q=foo:bar"');
+    const rendered2 = renderMarkdown("[safe](page.html?time=12:30)");
+    expect(rendered2).toContain('href="page.html?time=12:30"');
+    const rendered3 = renderMarkdown("[safe](doc#section:1)");
+    expect(rendered3).toContain('href="doc#section:1"');
+  });
+
+  it("strips raw HTML tags", () => {
+    const rendered = renderMarkdown("plain <script>alert(1)</script> text <iframe src='http://bad'></iframe>");
+    expect(rendered).not.toContain("<script>");
+    expect(rendered).not.toContain("<iframe>");
+    expect(rendered).toContain("plain ");
+    expect(rendered).toContain(" text ");
+  });
+
+  it("adds rel=noopener noreferrer to http external links", () => {
+    const rendered = renderMarkdown("[external](http://example.com)");
+    expect(rendered).toContain('href="http://example.com"');
+    expect(rendered).toContain('rel="noopener noreferrer"');
+  });
+
+  it("preserves normal relative markdown links without slashes", () => {
+    const rendered = renderMarkdown("[internal](page.html)");
+    expect(rendered).toContain('href="page.html"');
+    expect(rendered).not.toContain('rel="noopener noreferrer"');
+  });
 });

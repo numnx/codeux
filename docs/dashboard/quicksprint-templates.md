@@ -23,7 +23,7 @@ The shared template record contract lives in:
 - `src/contracts/quicksprint-types.ts`
 
 The view-model state derivation logic for the Quicksprint panel, including template grouping, purpose filtering, and prompt composition, lives in:
-- `dashboard/src/v2/lib/quicksprint-panel-state.ts`
+- `dashboard/src/v2/lib/quicksprint-panel-view-models.ts`
 
 ## File Format
 

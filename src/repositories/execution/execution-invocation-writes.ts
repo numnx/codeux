@@ -166,6 +166,36 @@ export function writeExecutionInvocationUpdate(
       values.push(input.status);
       existing.status = input.status;
     }
+    if (input.sprintId !== undefined) {
+      updates.push("sprint_id = ?");
+      values.push(input.sprintId);
+      existing.sprintId = input.sprintId;
+    }
+    if (input.taskId !== undefined) {
+      updates.push("task_id = ?");
+      values.push(input.taskId);
+      existing.taskId = input.taskId;
+    }
+    if (input.sprintRunId !== undefined) {
+      updates.push("sprint_run_id = ?");
+      values.push(input.sprintRunId);
+      existing.sprintRunId = input.sprintRunId;
+    }
+    if (input.dispatchId !== undefined) {
+      updates.push("dispatch_id = ?");
+      values.push(input.dispatchId);
+      existing.dispatchId = input.dispatchId;
+    }
+    if (input.taskRunId !== undefined) {
+      updates.push("task_run_id = ?");
+      values.push(input.taskRunId);
+      existing.taskRunId = input.taskRunId;
+    }
+    if (input.attentionItemId !== undefined) {
+      updates.push("attention_item_id = ?");
+      values.push(input.attentionItemId);
+      existing.attentionItemId = input.attentionItemId;
+    }
     if (input.providerInvocationId !== undefined) {
       updates.push("provider_invocation_id = ?");
       values.push(input.providerInvocationId);

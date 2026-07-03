@@ -228,6 +228,7 @@ CREATE TABLE IF NOT EXISTS task_runs (
 CREATE TABLE IF NOT EXISTS task_run_events (
         id TEXT PRIMARY KEY,
         task_run_id TEXT NOT NULL,
+        project_id TEXT,
         event_type TEXT NOT NULL,
         originator TEXT,
         payload_json TEXT,
@@ -685,4 +686,15 @@ CREATE INDEX IF NOT EXISTS idx_task_dispatches_project_executor_status_priority 
 CREATE INDEX IF NOT EXISTS idx_task_runs_task_sprint_session ON task_runs (task_id, sprint_run_id, session_id);
 CREATE INDEX IF NOT EXISTS idx_project_attention_items_project_owner_status ON project_attention_items (project_id, owner_type, status);
 CREATE INDEX IF NOT EXISTS idx_execution_invocations_provider_invocation ON execution_invocations (provider_invocation_id);
+
+CREATE INDEX IF NOT EXISTS idx_execution_invocations_project_status ON execution_invocations (project_id, status, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_execution_invocations_project_provider ON execution_invocations (project_id, provider, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_execution_invocations_project_type ON execution_invocations (project_id, type, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_provider_invocations_project_provider_model ON provider_invocations (project_id, provider, model, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_provider_invocations_project_purpose ON provider_invocations (project_id, purpose, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_provider_invocations_project_started_stats ON provider_invocations (project_id, started_at DESC, provider, model, purpose, status, task_id, sprint_run_id, duration_ms);
+CREATE INDEX IF NOT EXISTS idx_execution_invocations_ledger ON execution_invocations (project_id, status, provider, started_at DESC, provider_invocation_id);
+CREATE INDEX IF NOT EXISTS idx_task_runs_project_finished ON task_runs (project_id, finished_at DESC, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_task_run_events_project_created_event ON task_run_events (project_id, created_at DESC, event_type);
+CREATE INDEX IF NOT EXISTS idx_project_attention_items_project_attention_type_opened ON project_attention_items (project_id, attention_type, opened_at DESC);
 `;

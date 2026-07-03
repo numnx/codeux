@@ -224,6 +224,32 @@ describe("JulesUsageService", () => {
       expect(updateUsageMock.mock.calls[0][1].status).toBe("running");
     });
 
+    it("updates the dispatch-created execution invocation instead of creating a duplicate", async () => {
+      getLatestMock.mockReturnValue({
+        id: "provider-record-1",
+        createdAt: "2026-05-21T07:29:52.209Z",
+      });
+      listExecMock.mockReturnValue([{ id: "exec-existing" }]);
+      getFullConversationMock.mockResolvedValue([
+        { id: "1", name: "1", createTime: "2026-06-01T00:00:00Z", agentMessaged: { agentMessage: "working" } },
+      ] as JulesActivity[]);
+
+      await service.syncLiveInvocation("proj-1", "task-1", "session-1", "Build it");
+
+      expect(createUsageMock).not.toHaveBeenCalled();
+      expect(createExecMock).not.toHaveBeenCalled();
+      expect(updateExecMock).toHaveBeenCalledWith("exec-existing", expect.objectContaining({
+        status: "running",
+        taskId: "task-1",
+        finishedAt: null,
+      }));
+      expect(clearMessagesMock).toHaveBeenCalledWith("exec-existing");
+      expect(appendMessageMock).toHaveBeenCalledWith("exec-existing", expect.objectContaining({
+        role: "user",
+        contentMarkdown: "Build it",
+      }));
+    });
+
     it("does not throttle distinct sessions", async () => {
       getFullConversationMock.mockResolvedValue([]);
       await service.syncLiveInvocation("proj-1", "task-1", "session-a", "x");

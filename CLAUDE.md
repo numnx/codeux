@@ -22,7 +22,8 @@ in Docker-backed workspaces; Jules is the one hosted provider.
 Package manager is **pnpm** (`pnpm@10.33.0`), Node **22+**. Use `pnpm`, not `npm`.
 
 ```bash
-pnpm run dev            # Run server from source (node --import tsnode-register.mjs src/index.ts)
+pnpm run dev            # Server from source + dashboard `vite build --watch` side by side (scripts/dev.mjs)
+pnpm run dev:server-only # Server from source only, no dashboard watcher
 pnpm run build          # tsc (server) + tsc dashboard typecheck + vite build
 pnpm start              # Run compiled dist/index.js
 pnpm test               # Vitest single run (all suites)
@@ -126,8 +127,11 @@ In this working environment you have broad latitude to operate the running syste
 
 - **Full access to the database and environment.** The runtime DB is `~/.code-ux/app.db` (SQLite,
   WAL) — read and write it as needed via `node:sqlite`. You may inspect/modify environment state.
-- **You may restart the dev server on port 4444 anytime.** The dashboard/backend runs there; restart
-  it whenever a change needs to take effect (e.g. `pnpm run dev`).
+- **You may restart the dev server on port 4444 anytime.** The dashboard/backend runs there.
+  `pnpm run dev` rebuilds the dashboard bundle automatically on every `dashboard/src` save (it's
+  served from the built `dashboard/dist`, not transpiled live — refresh the browser tab after a
+  rebuild finishes). Restart the process for backend/server (`src/`, non-dashboard) changes to take
+  effect.
 - **You may run test sprints in the project "Simple Test 2".** It is wired to a local model
   specifically for testing, so dispatching sprints/tasks there is safe and expected. Use it for
   end-to-end orchestration checks; don't run experimental sprints against real projects.

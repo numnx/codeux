@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { describe, expect, it } from "vitest";
 import { KnowledgeIngestionService, UnsupportedDocumentError } from "../../../src/services/knowledge-ingestion-service.js";
 
@@ -13,6 +14,9 @@ const service = new KnowledgeIngestionService(noopLogger);
 
 describe("KnowledgeIngestionService", () => {
   describe("extractText", () => {
+
+
+
     it("decodes plain text and markdown", async () => {
       const result = await service.extractText({
         fileName: "notes.md",

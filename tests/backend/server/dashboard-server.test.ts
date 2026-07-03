@@ -234,6 +234,92 @@ describe("setupDashboardServer", () => {
     expect(response.status).not.toBe(403);
   });
 
+  it("rejects API requests with an untrusted host header with a 403 status", async () => {
+    const app = express();
+    const handle = await setupDashboardServer({
+      app,
+      dashboardDir: "dashboard",
+      port: 0,
+      liveActivityCacheMs: 1000,
+      getStatus: () => ({ ok: true }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getLiveActivities: async () => ({}),
+      getGitStatus: async () => ({} as any),
+      getExternalSettingsHints: () => ({} as any),
+      ...buildSettingsServerOptions(),
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      forceCancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      forceCancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
+      improveSprintPrompt: async () => ({ ok: true }),
+      planSprint: async () => ({ ok: true }),
+    });
+    serversToClose.push(handle.server);
+
+    const response = await httpRequestMock(app)
+      .post("/api/settings")
+      .set("Host", "evil.com")
+      .set("Origin", "http://localhost:3000")
+      .send({ settings: {} });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "Forbidden: Untrusted host." });
+  });
+
+  it("rejects API requests with an untrusted host header with a 403 status", async () => {
+    const app = express();
+    const handle = await setupDashboardServer({
+      app,
+      dashboardDir: "dashboard",
+      port: 0,
+      liveActivityCacheMs: 1000,
+      getStatus: () => ({ ok: true }),
+      getExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getOverviewTelemetrySnapshot: () => ({ activeProjects: [], attentionProjects: [], recentEvents: [], updatedAt: null }),
+      getProjectLiveSnapshot: (projectId: string) => ({ projectId, selectedSprintId: null, status: { project_id: projectId, timestamp: null, subtasks: [] }, execution: { projectId, projectName: "Project 1", sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }, gitStatus: null, gitStatusError: null, updatedAt: null } as any),
+      getProjectExecutionSnapshot: () => ({ projectId: null, projectName: null, sprintRuns: [], taskDispatches: [], connections: [], primaryAssignedWorker: null, overflowAssignedWorkers: [], attentionItems: [], recentEvents: [], updatedAt: null }),
+      getLiveActivities: async () => ({}),
+      getGitStatus: async () => ({} as any),
+      getExternalSettingsHints: () => ({} as any),
+      ...buildSettingsServerOptions(),
+      listAgentPresets: () => [],
+      createAgentPreset: () => ({ id: "agent-1" } as any),
+      updateAgentPreset: () => ({ id: "agent-1" } as any),
+      deleteAgentPreset: () => {},
+      rerunTask: async () => ({ ok: true }),
+      orchestrateSprint: async () => ({ ok: true }),
+      pauseSprintRun: async () => ({ ok: true }),
+      cancelSprintRun: async () => ({ ok: true }),
+      forceCancelSprintRun: async () => ({ ok: true }),
+      cancelTaskDispatch: async () => ({ ok: true }),
+      forceCancelTaskDispatch: async () => ({ ok: true }),
+      retryTaskDispatch: async () => ({ ok: true }),
+      improveSprintPrompt: async () => ({ ok: true }),
+      planSprint: async () => ({ ok: true }),
+    });
+    serversToClose.push(handle.server);
+
+    const response = await httpRequestMock(app)
+      .post("/api/settings")
+      .set("Host", "evil.com")
+      .set("Origin", "http://localhost:3000")
+      .send({ settings: {} });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "Forbidden: Untrusted host." });
+  });
+
   it("allows missing-origin non-browser API requests", async () => {
     const app = express();
     const handle = await setupDashboardServer({

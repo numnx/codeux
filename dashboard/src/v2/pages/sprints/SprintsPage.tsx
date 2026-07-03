@@ -555,7 +555,7 @@ export const SprintsPage: FunctionComponent = () => {
                 className={`transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                   showCreateComposer || editingSprint || showQuicksprint || !showSprintGallery
                     ? "pointer-events-none max-h-0 overflow-hidden -translate-y-8 scale-[0.985] opacity-0 blur-[10px]"
-                    : "max-h-[240rem] overflow-visible translate-y-0 scale-100 opacity-100 blur-0"
+                    : "max-h-[460rem] overflow-visible translate-y-0 scale-100 opacity-100 blur-0"
                 }`}
               >
                 <div ref={bubblesRef} className="flex flex-wrap justify-center gap-10 py-6 xl:gap-12">

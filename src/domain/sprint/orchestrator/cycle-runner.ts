@@ -733,12 +733,14 @@ export class CycleRunner {
         task,
       });
       const taskIsCodeComplete = isTaskCodeComplete(task);
+      const hasSameSessionFollowUpAfterLatestQaRequest = taskIsCodeComplete
+        && this.hasCompletedTaskFollowUpAfterLatestQaRequest(task, qaGate, args.sprintRunId);
 
       // QA spent its budget without ever clearing this task (no pass — either
       // changes still outstanding at the cap or the reviewer kept failing for
       // infra reasons). Apply the configured exhaustion policy instead of letting
       // it quietly settle as completed or loop forever.
-      if (taskIsCodeComplete && qaGate.reason === "retries_exhausted") {
+      if (taskIsCodeComplete && qaGate.reason === "retries_exhausted" && !hasSameSessionFollowUpAfterLatestQaRequest) {
         if (this.applyQaExhaustionPolicy(task, qaGate, args, settings.agents.qualityAssurance.exhaustionPolicy)) {
           continue;
         }
@@ -749,10 +751,10 @@ export class CycleRunner {
         && (
           qaGate.reason === "pending_review"
           || qaGate.reason === "review_failed"
+          || (qaGate.reason === "retries_exhausted" && hasSameSessionFollowUpAfterLatestQaRequest)
           || (qaGate.reason === "changes_requested" && (
             newlyCodeComplete
-            || this.hasCompletedTaskRunAfterLatestQaRequest(task, qaGate, args.sprintRunId)
-            || this.hasCompletedTaskFollowUpAfterLatestQaRequest(task, qaGate, args.sprintRunId)
+            || hasSameSessionFollowUpAfterLatestQaRequest
           ))
         );
 
@@ -853,34 +855,12 @@ export class CycleRunner {
     }
   }
 
-  private hasCompletedTaskRunAfterLatestQaRequest(
-    task: Subtask,
-    qaGate: TaskQaMergeGateStatus,
-    sprintRunId?: string,
-  ): boolean {
-    if (qaGate.reason !== "changes_requested" || !qaGate.latestRun?.finishedAt || !task.record_id) {
-      return false;
-    }
-
-    const latestRun = this.deps.executionRepository.getLatestTaskRun(task.record_id, sprintRunId)
-      || (task.session_id ? this.deps.executionRepository.getLatestTaskRunBySessionId(task.session_id) : null);
-    if (latestRun?.state !== "COMPLETED" || !latestRun.finishedAt) {
-      return false;
-    }
-
-    const taskFinishedAt = Date.parse(latestRun.finishedAt);
-    const qaFinishedAt = Date.parse(qaGate.latestRun.finishedAt);
-    return Number.isFinite(taskFinishedAt)
-      && Number.isFinite(qaFinishedAt)
-      && taskFinishedAt > qaFinishedAt;
-  }
-
   private hasCompletedTaskFollowUpAfterLatestQaRequest(
     task: Subtask,
     qaGate: TaskQaMergeGateStatus,
     sprintRunId?: string,
   ): boolean {
-    if (qaGate.reason !== "changes_requested" || !qaGate.latestRun?.finishedAt || !task.record_id) {
+    if (!this.hasLatestChangesRequestedQaRun(qaGate) || !qaGate.latestRun?.finishedAt || !task.record_id) {
       return false;
     }
 
@@ -919,6 +899,11 @@ export class CycleRunner {
       }
       return followUpFinishedAt > qaFinishedAt;
     });
+  }
+
+  private hasLatestChangesRequestedQaRun(qaGate: TaskQaMergeGateStatus): boolean {
+    return qaGate.reason === "changes_requested"
+      || (qaGate.reason === "retries_exhausted" && qaGate.latestRun?.outcome === "changes_requested");
   }
 
 }

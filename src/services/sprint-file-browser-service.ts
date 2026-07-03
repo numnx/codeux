@@ -3,6 +3,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as pathPosix from "path/posix";
 import os from "os";
+import crypto from "crypto";
 import type {
   FileBrowserChange,
   FileBrowserChangeSet,
@@ -136,7 +137,7 @@ export class SprintFileBrowserService {
           },
         );
 
-        const volumeName = `code-ux-file-browser-volume-${sprintId}`;
+        const volumeName = this.buildVolumeName(sprintId);
         await runCommandStrict("docker", ["volume", "rm", "-f", volumeName], project.baseDir).catch(() => undefined);
         await this.ensureSprintVolume(volumeName, projectId, sprintId, session.id, project.baseDir);
 
@@ -378,7 +379,7 @@ export class SprintFileBrowserService {
    * until the next label-based startup prune.
    */
   private async removeSprintVolume(sprintId: string): Promise<void> {
-    await runCommandStrict("docker", ["volume", "rm", "-f", `code-ux-file-browser-volume-${sprintId}`], process.cwd()).catch(() => undefined);
+    await runCommandStrict("docker", ["volume", "rm", "-f", this.buildVolumeName(sprintId)], process.cwd()).catch(() => undefined);
   }
 
   private async ensureSprintVolume(volumeName: string, projectId: string, sprintId: string, sessionId: string, cwd: string): Promise<void> {
@@ -399,10 +400,15 @@ export class SprintFileBrowserService {
    * is dropped without its volume being cleaned (deleted sprints, crashed reconciles, pre-fix leaks).
    */
   private async pruneOrphanedVolumes(): Promise<number> {
-    const liveSprintIds = new Set(this.deps.sprintFileBrowserRepository.listSessions().map((session) => session.sprintId));
+    const liveVolumeSuffixes = new Set(
+      this.deps.sprintFileBrowserRepository.listSessions().map((session) => {
+        const fullName = this.buildVolumeName(session.sprintId);
+        return fullName.slice("code-ux-file-browser-volume-".length);
+      })
+    );
     return pruneOrphanedDockerVolumes({
       prefix: "code-ux-file-browser-volume-",
-      liveIds: liveSprintIds,
+      liveIds: liveVolumeSuffixes,
       logger: this.deps.logger,
       logLabel: "Pruned orphaned file browser volumes on startup",
     });
@@ -1012,8 +1018,17 @@ export class SprintFileBrowserService {
     return getDockerUserSpec();
   }
 
+  private buildVolumeName(sprintId: string): string {
+    const safeId = sanitizeContainerNameComponent(sprintId, 32);
+    const hash = crypto.createHash("sha256").update(sprintId).digest("hex").slice(0, 8);
+    return `code-ux-file-browser-volume-${safeId}-${hash}`;
+  }
+
   private buildContainerName(projectId: string, sprintId: string): string {
-    return `code-ux-filebrowser-${sanitizeContainerNameComponent(projectId, 22)}-${sanitizeContainerNameComponent(sprintId, 22)}`.slice(0, 63);
+    const safeProjectId = sanitizeContainerNameComponent(projectId, 15);
+    const safeSprintId = sanitizeContainerNameComponent(sprintId, 15);
+    const hash = crypto.createHash("sha256").update(sprintId).digest("hex").slice(0, 8);
+    return `code-ux-filebrowser-${safeProjectId}-${safeSprintId}-${hash}`.slice(0, 63);
   }
 
 }

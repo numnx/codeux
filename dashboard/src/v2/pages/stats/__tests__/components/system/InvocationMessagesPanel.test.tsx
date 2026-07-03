@@ -72,16 +72,26 @@ afterEach(() => {
 
 describe("InvocationMessagesPanel", () => {
   it("renders message metadata, truncates long transcripts, and expands the full list", async () => {
-    mockedFetchInvocationMessages.mockResolvedValue([
-      createMessage({ id: "msg-system", role: "system", contentMarkdown: "line 1\nline 2\nline 3\nline 4\nline 5\nline 6" }),
-      createMessage({ id: "msg-user", role: "user", contentMarkdown: "User request" }),
-      ...Array.from({ length: 19 }).map((_, index) => createMessage({
-        id: `msg-${index + 3}`,
-        role: index % 2 === 0 ? "assistant" : "tool",
-        contentMarkdown: `Message ${index + 3}`,
-        createdAt: `2026-06-01T10:00:${10 + index}.000Z`,
-      })),
-    ]);
+    mockedFetchInvocationMessages
+      .mockResolvedValueOnce({
+        items: [
+          createMessage({ id: "msg-system", role: "system", contentMarkdown: "line 1\nline 2\nline 3\nline 4\nline 5\nline 6" }),
+          createMessage({ id: "msg-user", role: "user", contentMarkdown: "User request" }),
+          ...Array.from({ length: 18 }).map((_, index) => createMessage({
+            id: `msg-${index + 3}`,
+            role: index % 2 === 0 ? "assistant" : "tool",
+            contentMarkdown: `Message ${index + 3}`,
+            createdAt: `2026-06-01T10:00:${10 + index}.000Z`,
+          })),
+        ],
+        totalCount: 21
+      } as any)
+      .mockResolvedValueOnce({
+        items: [
+          createMessage({ id: "msg-21", role: "assistant", contentMarkdown: "Message 21", createdAt: "2026-06-01T10:00:28.000Z" })
+        ],
+        totalCount: 21
+      } as any);
 
     render(<InvocationMessagesPanel invocation={createInvocation()} />);
 
@@ -99,7 +109,7 @@ describe("InvocationMessagesPanel", () => {
     expect(screen.getByText("USER")).toBeTruthy();
     expect(screen.queryByText("Message 21")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /Show all 21 messages/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Load more messages/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Message 21")).toBeTruthy();

@@ -63,4 +63,46 @@ describe("Dashboard API Cache", () => {
     clearLivePayloadCacheForTests();
     expect(getCachedLivePayload("p1")).toBeNull();
   });
+  it("should enforce TTL expiry", async () => {
+    vi.useFakeTimers();
+    await fetchLivePayload("p1");
+    expect(getCachedLivePayload("p1")).not.toBeNull();
+
+    vi.advanceTimersByTime(5001); // 5000ms TTL
+    expect(getCachedLivePayload("p1")).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("should not cache failed requests and should remove from inflight", async () => {
+    const errorFetcher = vi.fn().mockRejectedValueOnce(new Error("Network Error"));
+    vi.mocked(fetchJsonModule.fetchJson).mockImplementationOnce(errorFetcher);
+
+    const req1 = fetchLivePayload("p-error");
+    const req2 = fetchLivePayload("p-error"); // should deduplicate
+
+    await expect(req1).rejects.toThrow("Network Error");
+    await expect(req2).rejects.toThrow("Network Error");
+
+    expect(getCachedLivePayload("p-error")).toBeNull();
+
+    // next call should retry since inflight was cleared
+    vi.mocked(fetchJsonModule.fetchJson).mockImplementationOnce(async () => ({ projectId: "p-error-success" }) as any);
+    const successRes = await fetchLivePayload("p-error");
+    expect(successRes).toEqual({ projectId: "p-error-success" });
+  });
+  it("should evict oldest entry without recent access when bounded LRU limit is exceeded", async () => {
+    // Fill to limit
+    await fetchLivePayload("p1"); // oldest
+    await fetchLivePayload("p2");
+    await fetchLivePayload("p3");
+    await fetchLivePayload("p4");
+    await fetchLivePayload("p5"); // newest
+
+    // fetch a new one, this will evict p1 (the oldest with no recent access)
+    await fetchLivePayload("p6");
+
+    expect(getCachedLivePayload("p1")).toBeNull();
+    expect(getCachedLivePayload("p2")).not.toBeNull();
+    expect(getCachedLivePayload("p6")).not.toBeNull();
+  });
 });

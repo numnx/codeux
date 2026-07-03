@@ -4,6 +4,12 @@ This runbook covers day-to-day operation and incident handling for the MCP serve
 
 ## Normal Startup Procedure
 
+Database maintenance runs automatically during normal startup. Operators can expect:
+- `dbAutoVacuumOnStartup`: Triggers VACUUM on local databases. Can skip if set to false.
+- `dbPruningEnabled`: Prunes old data matching `dbRetentionDays`. Can skip if set to false.
+- `dbRetentionDays`: Bounded to a safe range (1-3650 days). Negative or zero values will be clamped.
+- Startup logs will show a structured result detailing counts of pruned elements, failed vacuums, and WAL checkpoint failures (`checkpointFailures`). WAL checkpoint failures are non-fatal, busy checkpoints are safe to retry later.
+
 1. Confirm API key source is available (recommended, but startup is allowed without key).
 2. Start server (`npm run dev` or `npm start`).
    - `npm run dev` runs the TypeScript entrypoint through Node's `ts-node` ESM register hook.
@@ -164,8 +170,9 @@ Checks:
   - Expected behavior: the task run moves to `BLOCKED`, the sprint pauses, and the watch loop stops consuming tokens until credentials are fixed and the task or sprint is resumed manually.
 - For tasks shown as `QUOTA`, inspect the dispatch error and retry-after metadata. Code UX preserves quota/rate-limit dispatch errors during session sync; if no active retry timestamp remains, the task is requeued instead of staying in `QUOTA`. If Code UX was offline while a provider invocation was waiting for a quota reset or rate-limit retry, startup recovery closes that stale running invocation and requeues task-backed work so the recovered sprint loop can start a fresh continuation. Repeated quota failures without a reset timer are still bounded by `cliWorkflow.maxQuotaRetriesWithoutTimer`.
 - For tasks stuck in a CI/QA gate after QA requested fixes, compare the latest `qa_review_runs` row with later `execution_invocations` for the same task run. A completed `cli_task_followup` after the latest `changes_requested` QA result should trigger a verification QA run on the next orchestration cycle; if no follow-up exists, the task is intentionally waiting on fix work or human intervention.
+- Do not treat a later full task run as task-QA follow-up work. Task QA fixes should continue the same task session and branch through `cli_task_followup`; sprint-review failures create follow-up tasks instead.
 - For tasks showing `QA_PENDING` with a `running` `qa_review_runs` row but no matching provider container, check the latest `qa_review` row in `execution_invocations`. Code UX now fails stale running QA rows automatically when the invocation never linked provider runtime or when its Docker-backed `provider_invocations.session_id` is absent from running `code-ux.session-id` container labels; the next cycle should enqueue a fresh QA review.
-- If provider concurrency repeatedly logs that the cap is reached but no provider containers are running, inspect `provider_invocations` for old `status = running` rows. Code UX now reconciles stale Docker-backed rows during provider slot waits so orphaned provider slots are failed and new work can claim the slot. Recovery waits for linked execution activity to go idle, so a newly claimed provider slot is not failed merely because its container has not appeared yet.
+- If provider concurrency repeatedly logs that the cap is reached but no provider containers are running, inspect `provider_invocations` for old `status = running` rows. Code UX now reconciles stale rows via a shared recovery helper during provider slot waits and startup so orphaned provider slots are failed and new work can claim the slot. Recovery waits for linked execution activity to go idle, so a newly claimed provider slot is not failed merely because its container has not appeared yet.
 
 ### 7. Tasks completed but pipeline not progressing
 Checks:
@@ -173,6 +180,8 @@ Checks:
 - Did the merge settle on the feature branch, or was this a no-output task that should auto-promote to final `completed`?
 - Are CI / review gates still intentionally holding the task before final completion?
 - If QA requested changes and the provider completed a same-session follow-up, Code UX should treat that `cli_task_followup` as fresh work even when the task run itself did not get a newer `finished_at` timestamp.
+- If task QA exhausted its review budget and no same-session follow-up is waiting for verification, the configured exhaustion policy applies. With the default `ESCALATE_TO_HUMAN` policy, the task is parked in `QA_REVIEW_FAILED`.
+- A task already parked in `QA_REVIEW_FAILED` should not start new automatic worker branches on later watch-loop cycles. If it does, inspect status derivation and task rerun/reset events; only explicit rerun/reset should move the task back to pending.
 - If QA still appears running but no QA container exists, the watch loop should reconcile the stale QA invocation and retry the review rather than leaving `merge_indicator = QA_PENDING`.
 - If the provider session actually ended `FAILED`, Code UX should now clear the stale session/PR runtime state and requeue the task instead of treating the task as completed just because a PR artifact exists.
 

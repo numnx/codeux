@@ -34,7 +34,7 @@ export interface UsageAggregationRow {
 }
 
 export function mapAggregatedUsage(row: UsageAggregationRow): ExecutionUsageTotals {
-  return {
+  const u: ExecutionUsageTotals = {
     invocationCount: toNumber(row.invocationCount),
     activeTimeMs: toNumber(row.activeTimeMs),
     wallTimeMs: 0,
@@ -53,6 +53,8 @@ export function mapAggregatedUsage(row: UsageAggregationRow): ExecutionUsageTota
     unsupportedInvocationCount: toNumber(row.unsupportedInvocationCount),
     unavailableInvocationCount: toNumber(row.unavailableInvocationCount),
   };
+
+  return u;
 }
 
 export function mergeAggregatedUsage(target: ExecutionUsageTotals, source: ExecutionUsageTotals): void {
@@ -86,6 +88,10 @@ export function accumulateBucketUsage(
   bucket.purposeTime.set(purpose as string, (bucket.purposeTime.get(purpose as string) || 0) + usage.activeTimeMs);
   bucket.purposeInvocations.set(purpose as string, (bucket.purposeInvocations.get(purpose as string) || 0) + usage.invocationCount);
   bucket.modelTokens.set(modelKey, (bucket.modelTokens.get(modelKey) || 0) + usage.totalTokens);
+  if (provider) {
+    bucket.providerCost.set(provider, (bucket.providerCost.get(provider) || 0) + usage.totalCostUsd);
+  }
+  bucket.modelCost.set(modelKey, (bucket.modelCost.get(modelKey) || 0) + usage.totalCostUsd);
 }
 
 export function mapEntityUsage(

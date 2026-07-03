@@ -3,7 +3,7 @@ import { Search, Compass, X, Sparkles, Plus, Zap } from "lucide-preact";
 import type { QuicksprintTemplateRecord } from "../../../../../src/contracts/quicksprint-types.js";
 import { TemplateCard } from "./quicksprint-shared.js";
 import { AvantgardeSelect } from "../ui/AvantgardeSelect.js";
-import type { BuiltinPurposeOption } from "../../lib/quicksprint-panel-state.js";
+import type { BuiltinPurposeOption } from "../../lib/quicksprint-panel-view-models.js";
 
 export const QuicksprintBrowseView: FunctionComponent<{
   templates: QuicksprintTemplateRecord[];

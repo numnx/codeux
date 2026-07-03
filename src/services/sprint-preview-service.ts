@@ -470,6 +470,9 @@ export class SprintPreviewService {
     headers?: Record<string, string | undefined>;
     body?: Buffer;
   }): Promise<SprintPreviewProxyResponse> {
+    if (args.body && args.body.length > 5 * 1024 * 1024) {
+      throw new Error("Request body exceeds maximum allowed size for proxied preview");
+    }
     const session = await this.requireSession(args.sessionId);
     const refreshed = await this.refreshRuntimeState(session);
     if (!refreshed.hostPort) {

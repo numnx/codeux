@@ -147,7 +147,7 @@ describe("InvocationsTable", () => {
 
   it("renders the expansion placeholder row", async () => {
     const onRowExpand = vi.fn();
-    mockedFetchInvocationMessages.mockResolvedValue([]);
+    mockedFetchInvocationMessages.mockResolvedValue({ items: [], totalCount: 0 });
 
     const { container } = render(
       <InvocationsTable

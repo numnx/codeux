@@ -68,8 +68,9 @@ function renderStatusChip(status: ExecutionInvocationRecord["status"]): JSX.Elem
 export const InvocationMessagesPanel: FunctionComponent<InvocationMessagesPanelProps> = ({ invocation }) => {
   const [messages, setMessages] = useState<ExecutionInvocationMessageRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAllMessages, setShowAllMessages] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [expandedSystemMessages, setExpandedSystemMessages] = useState<Record<string, boolean>>({});
   const messageCount = invocation.messageCount ?? 0;
 
@@ -79,15 +80,16 @@ export const InvocationMessagesPanel: FunctionComponent<InvocationMessagesPanelP
     setLoading(true);
     setError(null);
     setMessages([]);
-    setShowAllMessages(false);
+    setHasMore(false);
     setExpandedSystemMessages({});
 
-    void fetchInvocationMessages(invocation.id)
-      .then((nextMessages) => {
+    void fetchInvocationMessages(invocation.id, { limit: 20, offset: 0 })
+      .then((response) => {
         if (!active) {
           return;
         }
-        setMessages(nextMessages);
+        setMessages(response.items);
+        setHasMore(response.items.length < response.totalCount);
       })
       .catch((fetchError: unknown) => {
         if (!active) {
@@ -106,10 +108,25 @@ export const InvocationMessagesPanel: FunctionComponent<InvocationMessagesPanelP
     };
   }, [invocation.id]);
 
-  const visibleMessages = useMemo(
-    () => (showAllMessages ? messages : messages.slice(0, 20)),
-    [messages, showAllMessages],
-  );
+  const loadMore = () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+
+    void fetchInvocationMessages(invocation.id, { limit: 20, offset: messages.length })
+      .then((response) => {
+        setMessages((current) => {
+          const newItems = response.items.filter((newItem: ExecutionInvocationMessageRecord) => !current.some((existing: ExecutionInvocationMessageRecord) => existing.id === newItem.id));
+          return [...current, ...newItems];
+        });
+        setHasMore(messages.length + response.items.length < response.totalCount);
+      })
+      .catch((fetchError: unknown) => {
+        setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
+      })
+      .finally(() => {
+        setLoadingMore(false);
+      });
+  };
 
   const toggleSystemMessage = (messageId: string) => {
     setExpandedSystemMessages((current) => ({
@@ -189,7 +206,7 @@ export const InvocationMessagesPanel: FunctionComponent<InvocationMessagesPanelP
         </div>
       ) : (
         <div className="space-y-3">
-          {visibleMessages.map((message, index) => {
+          {messages.map((message, index) => {
             const isSystem = message.role === "system";
             const isExpanded = Boolean(expandedSystemMessages[message.id]);
             const contentStyle = isSystem && !isExpanded
@@ -238,14 +255,15 @@ export const InvocationMessagesPanel: FunctionComponent<InvocationMessagesPanelP
             );
           })}
 
-          {messages.length > 20 && !showAllMessages ? (
+          {hasMore ? (
             <button
               type="button"
-              onClick={() => setShowAllMessages(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500"
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Show all {messages.length} messages
+              {loadingMore ? <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+              {loadingMore ? "Loading more..." : "Load more messages"}
             </button>
           ) : null}
 

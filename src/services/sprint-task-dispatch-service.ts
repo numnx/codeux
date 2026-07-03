@@ -176,6 +176,32 @@ export class SprintTaskDispatchService {
       });
     }
 
+    const julesExecutionInvocation = julesClaim
+      ? this.executionRepository.createExecutionInvocation({
+          projectId: args.projectId,
+          sprintId: args.sprintId,
+          taskId: taskRecordId,
+          sprintRunId: args.sprintRunId,
+          dispatchId: dispatch.id,
+          taskRunId: taskRun.id,
+          providerInvocationId: julesClaim.id,
+          type: "task_coding",
+          status: "running",
+          provider: "jules",
+          model: "jules-agent",
+          startedAt: queuedAt,
+          invocationSource: "EXTERNAL_API",
+        })
+      : null;
+    if (julesExecutionInvocation) {
+      this.executionRepository.appendExecutionInvocationMessage(julesExecutionInvocation.id, {
+        role: "system",
+        contentMarkdown: "Jules task dispatched. Waiting for remote session transcript.",
+        metadata: { provider: "jules", model: "jules-agent", kind: "dispatch_started" },
+        createdAt: queuedAt,
+      });
+    }
+
     this.executionRepository.appendTaskRunEvent(taskRun.id, "dispatch_started", "system", {
       dispatchId: dispatch.id,
       executorType,
@@ -260,6 +286,20 @@ export class SprintTaskDispatchService {
         this.executionRepository.updateProviderInvocationUsage(julesClaim.id, {
           status: "failed",
           finishedAt,
+        });
+      }
+      if (julesExecutionInvocation) {
+        this.executionRepository.updateExecutionInvocation(julesExecutionInvocation.id, {
+          status: "failed",
+          finishedAt,
+          errorMessage: message,
+          lastErrorMessage: message,
+        });
+        this.executionRepository.appendExecutionInvocationMessage(julesExecutionInvocation.id, {
+          role: "system",
+          contentMarkdown: `Jules dispatch failed: ${message}`,
+          metadata: { provider: "jules", model: "jules-agent", kind: "dispatch_failed" },
+          createdAt: finishedAt,
         });
       }
       this.executionRepository.updateTaskRun(taskRun.id, {

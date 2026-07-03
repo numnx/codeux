@@ -291,4 +291,72 @@ describe("runtime snapshot stability", () => {
 
     expect(areExecutionSnapshotsEquivalent(previousExecution, nextExecution)).toBe(true);
   });
+
+  it("treats execution snapshots as not equivalent if assigned worker status changes", () => {
+    const worker1 = {
+      assignmentId: "assign-1",
+      workerEndpointId: "endpoint-1",
+      workerEndpointKey: "key-1",
+      workerEndpointType: "type-1",
+      workerDisplayName: "Worker 1",
+      connectionId: "conn-1",
+      connectionKey: "conn-key-1",
+      transport: "docker",
+      assignmentRole: "primary",
+      status: "online",
+      assignedAt: "2026-03-26T10:00:00.000Z",
+      lastAffinityAt: "2026-03-26T10:00:00.000Z",
+      workerStatus: "idle",
+      canSuperviseProjects: true,
+      canExecuteTasks: true,
+    };
+    const previousExecution = createExecution({
+      primaryAssignedWorker: worker1,
+    });
+
+    const nextExecution = createExecution({
+      primaryAssignedWorker: { ...worker1, workerStatus: "busy" },
+    });
+
+    expect(areExecutionSnapshotsEquivalent(previousExecution, nextExecution)).toBe(false);
+  });
+
+  it("reuses stable references for assigned workers when they are semantically unchanged", () => {
+    const worker1 = {
+      assignmentId: "assign-1",
+      workerEndpointId: "endpoint-1",
+      workerEndpointKey: "key-1",
+      workerEndpointType: "type-1",
+      workerDisplayName: "Worker 1",
+      connectionId: "conn-1",
+      connectionKey: "conn-key-1",
+      transport: "docker",
+      assignmentRole: "primary",
+      status: "online",
+      assignedAt: "2026-03-26T10:00:00.000Z",
+      lastAffinityAt: "2026-03-26T10:00:00.000Z",
+      workerStatus: "idle",
+      canSuperviseProjects: true,
+      canExecuteTasks: true,
+    };
+    const overflow1 = {
+      ...worker1,
+      assignmentId: "assign-2",
+      assignmentRole: "overflow",
+    };
+
+    const previousExecution = createExecution({
+      primaryAssignedWorker: worker1,
+      overflowAssignedWorkers: [overflow1],
+    });
+
+    const nextExecution = createExecution({
+      primaryAssignedWorker: { ...worker1 },
+      overflowAssignedWorkers: [{ ...overflow1 }],
+    });
+
+    const stabilized = stabilizeExecutionSnapshot(previousExecution, nextExecution);
+    expect(stabilized.primaryAssignedWorker).toBe(previousExecution.primaryAssignedWorker);
+    expect(stabilized.overflowAssignedWorkers).toBe(previousExecution.overflowAssignedWorkers);
+  });
 });

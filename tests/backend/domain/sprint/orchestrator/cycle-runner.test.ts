@@ -1593,6 +1593,174 @@ describe("CycleRunner attention sync", () => {
       expect(deps.projectAttentionService.openItems).not.toHaveBeenCalled();
       expect(deps.qualityAssuranceService.reviewCompletedTask).not.toHaveBeenCalled();
     });
+
+    it("does not treat a fresh full task run as same-session QA follow-up work after exhaustion", async () => {
+      const deps = buildDeps();
+      vi.mocked(deps.executionRepository.getLatestTaskRun).mockReturnValue({
+        id: "task-run-fresh",
+        state: "COMPLETED",
+        finishedAt: "2026-07-02T07:54:00.000Z",
+      } as any);
+      deps.qualityAssuranceService = {
+        getTaskMergeGateStatus: vi.fn().mockReturnValue({
+          mergeAllowed: false,
+          reason: "retries_exhausted",
+          summary: "QA could not clear this task.",
+          latestRun: {
+            id: "qa-run-5",
+            projectId: "project-1",
+            status: "completed",
+            outcome: "changes_requested",
+            startedAt: "2026-07-02T07:36:30.000Z",
+            finishedAt: "2026-07-02T07:40:16.000Z",
+          },
+          runsUsed: 5,
+          maxRuns: 5,
+        }),
+        reviewCompletedTask: vi.fn(),
+      } as any;
+      deps.getDashboardSettings = vi.fn().mockReturnValue({
+        ...DEFAULT_DASHBOARD_SETTINGS,
+        agents: {
+          ...DEFAULT_DASHBOARD_SETTINGS.agents,
+          qualityAssurance: {
+            ...DEFAULT_DASHBOARD_SETTINGS.agents.qualityAssurance,
+            enabled: true,
+            exhaustionPolicy: "ESCALATE_TO_HUMAN",
+          },
+        },
+      });
+
+      const runner = new CycleRunner(deps);
+      const task: any = {
+        id: "T09",
+        record_id: "task-9",
+        project_id: "project-1",
+        title: "Fresh full rerun",
+        prompt: "do work",
+        depends_on: [],
+        is_independent: true,
+        status: "CODING_COMPLETED",
+        provider: "qwen-code",
+      };
+
+      await (runner as any).reviewCompletedTasks(
+        [task],
+        new Map([["T09", "CODING_COMPLETED"]]),
+        {
+          executionContext: {
+            project: { id: "project-1", name: "Project 1" } as any,
+            sprint: { id: "sprint-1", name: "Sprint 1" } as any,
+            sprintNumber: 1,
+            repoPath: "/repo/project-1",
+            featureBranch: "feature/sprint-1",
+            defaultBranch: "main",
+          },
+          repoPath: "/repo/project-1",
+          sprintRunId: "run-1",
+        } as any,
+        deps.getDashboardSettings(),
+      );
+
+      expect(deps.qualityAssuranceService.reviewCompletedTask).not.toHaveBeenCalled();
+      expect(deps.projectManagementRepository.updateTask).toHaveBeenCalledWith(
+        "task-9",
+        expect.objectContaining({ status: "QA_REVIEW_FAILED" }),
+      );
+      expect(deps.projectAttentionService.openItems).toHaveBeenCalledWith(expect.arrayContaining([
+        expect.objectContaining({ attentionType: "human_escalation_required", taskId: "task-9" }),
+      ]));
+    });
+
+    it("runs verification instead of escalating when a same-session QA follow-up completed at the exhausted cap", async () => {
+      const deps = buildDeps();
+      vi.mocked(deps.executionRepository.getLatestTaskRun).mockReturnValue({
+        id: "task-run-followup",
+      } as any);
+      vi.mocked(deps.executionRepository.listExecutionInvocations).mockReturnValue([
+        {
+          id: "followup-1",
+          type: "cli_task_followup",
+          status: "completed",
+          startedAt: "2026-07-02T07:37:35.000Z",
+          finishedAt: "2026-07-02T07:40:09.000Z",
+        },
+      ] as any);
+      const reviewCompletedTask = vi.fn().mockResolvedValue({
+        reviewed: true,
+        reopenedTask: false,
+        mergeBlocked: false,
+        reportText: "",
+      });
+      deps.qualityAssuranceService = {
+        getTaskMergeGateStatus: vi.fn().mockReturnValue({
+          mergeAllowed: false,
+          reason: "retries_exhausted",
+          summary: "QA could not clear this task.",
+          latestRun: {
+            id: "qa-run-5",
+            projectId: "project-1",
+            status: "completed",
+            outcome: "changes_requested",
+            startedAt: "2026-07-02T07:36:30.000Z",
+            finishedAt: "2026-07-02T07:40:16.000Z",
+            payload: { continued: true },
+          },
+          runsUsed: 5,
+          maxRuns: 5,
+        }),
+        reviewCompletedTask,
+      } as any;
+      deps.getDashboardSettings = vi.fn().mockReturnValue({
+        ...DEFAULT_DASHBOARD_SETTINGS,
+        agents: {
+          ...DEFAULT_DASHBOARD_SETTINGS.agents,
+          qualityAssurance: {
+            ...DEFAULT_DASHBOARD_SETTINGS.agents.qualityAssurance,
+            enabled: true,
+            exhaustionPolicy: "ESCALATE_TO_HUMAN",
+          },
+        },
+      });
+
+      const runner = new CycleRunner(deps);
+      const task: any = {
+        id: "T09",
+        record_id: "task-9",
+        project_id: "project-1",
+        title: "Fresh post-QA work",
+        prompt: "do work",
+        depends_on: [],
+        is_independent: true,
+        status: "CODING_COMPLETED",
+        provider: "qwen-code",
+      };
+
+      await (runner as any).reviewCompletedTasks(
+        [task],
+        new Map([["T09", "CODING_COMPLETED"]]),
+        {
+          executionContext: {
+            project: { id: "project-1", name: "Project 1" } as any,
+            sprint: { id: "sprint-1", name: "Sprint 1" } as any,
+            sprintNumber: 1,
+            repoPath: "/repo/project-1",
+            featureBranch: "feature/sprint-1",
+            defaultBranch: "main",
+          },
+          repoPath: "/repo/project-1",
+          sprintRunId: "run-1",
+        } as any,
+        deps.getDashboardSettings(),
+      );
+
+      expect(reviewCompletedTask).toHaveBeenCalledTimes(1);
+      expect(deps.projectManagementRepository.updateTask).not.toHaveBeenCalledWith(
+        "task-9",
+        expect.objectContaining({ status: "QA_REVIEW_FAILED" }),
+      );
+      expect(deps.projectAttentionService.openItems).not.toHaveBeenCalled();
+    });
   });
 
   it("does not rerun task QA after a passing review even if the task becomes code-complete again", async () => {
@@ -1935,7 +2103,7 @@ describe("CycleRunner attention sync", () => {
     }));
   });
 
-  it("reruns QA after a changes-requested review when a later Jules task run completed", async () => {
+  it("does not rerun task QA after changes-requested just because a later full task run completed", async () => {
     const deps = buildDeps();
     vi.mocked(deps.executionRepository.getLatestTaskRun).mockReturnValue({
       id: "task-run-later",
@@ -2029,7 +2197,7 @@ describe("CycleRunner attention sync", () => {
       sprintRunId: "run-1",
     });
 
-    expect(reviewCompletedTask).toHaveBeenCalledTimes(1);
+    expect(reviewCompletedTask).not.toHaveBeenCalled();
   });
 
   it("reruns QA after a changes-requested review when QA continued a completed CLI follow-up in the same task run", async () => {

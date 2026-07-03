@@ -169,6 +169,35 @@ describe("Dashboard Execution Invocation API", () => {
       expect(mockOptions.listProjectInvocations).not.toHaveBeenCalled();
     });
 
+  it("handles array-based queries when query strings are present", async () => {
+      const mockResult = {
+        items: [
+          { id: "inv-1", projectId: "proj-1", status: "completed" }
+        ],
+        totalCount: 1
+      };
+
+      // Setup mock repository for this test
+      mockOptions.executionRepository = { queryProjectInvocations: vi.fn().mockReturnValue(mockResult) } as any;
+
+      const response = await request(app).get("/api/projects/proj-1/execution/invocations?limit=10&offset=0&status=completed&status=running&sortKey=startedAt&sortDir=desc&search=foo&provider=jules&provider=git&purpose=task_coding&purpose=planning");
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(mockResult);
+      expect(mockOptions.executionRepository!.queryProjectInvocations).toHaveBeenCalledWith({
+        projectId: "proj-1",
+        limit: 10,
+        offset: 0,
+        status: ["completed", "running"],
+        purpose: ["task_coding", "planning"],
+        provider: ["jules", "git"],
+        search: "foo",
+        sortKey: "startedAt",
+        sortDir: "desc"
+      });
+      // Should not call the fallback
+      expect(mockOptions.listProjectInvocations).not.toHaveBeenCalled();
+    });
   describe("GET /api/execution/invocations/:invocationId/messages", () => {
     it("returns list of messages for an invocation", async () => {
       const mockMessages = [
@@ -182,6 +211,22 @@ describe("Dashboard Execution Invocation API", () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual(mockMessages);
       expect(mockOptions.listInvocationMessages).toHaveBeenCalledWith("inv-1");
+    });
+
+    it("handles paginated queries when query strings are present for messages", async () => {
+      const mockResult = {
+        items: [
+          { id: "msg-1", invocationId: "inv-1", role: "user", contentMarkdown: "hello" }
+        ],
+        totalCount: 2
+      };
+      vi.mocked(mockOptions.listInvocationMessages!).mockReturnValue(mockResult as any);
+
+      const response = await request(app).get("/api/execution/invocations/inv-1/messages?limit=10&offset=5");
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(mockResult);
+      expect(mockOptions.listInvocationMessages).toHaveBeenCalledWith("inv-1", { limit: 10, offset: 5 });
     });
 
     it("handles errors when listing invocation messages", async () => {

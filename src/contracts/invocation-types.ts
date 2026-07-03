@@ -5,13 +5,23 @@ export type ExecutionInvocationStatus = "running" | "completed" | "failed" | "ca
 export interface ProjectInvocationsQuery {
   limit?: number;
   offset?: number;
-  status?: ExecutionInvocationStatus;
-  purpose?: string;
-  provider?: string;
+  status?: ExecutionInvocationStatus | ExecutionInvocationStatus[];
+  purpose?: string | string[];
+  provider?: string | string[];
   search?: string;
   errorCategories?: string[];
   sortKey?: "startedAt" | "durationMs" | "totalTokens" | "costCents";
   sortDir?: "asc" | "desc";
+}
+
+export interface InvocationMessagesQuery {
+  limit?: number;
+  offset?: number;
+}
+
+export interface ExecutionInvocationMessagesQueryResult {
+  items: ExecutionInvocationMessageRecord[];
+  totalCount: number;
 }
 
 export interface ProjectInvocationsQueryResult {
@@ -134,6 +144,12 @@ export interface CreateExecutionInvocationInput {
 
 export interface UpdateExecutionInvocationInput {
   status?: ExecutionInvocationStatus;
+  sprintId?: string | null;
+  taskId?: string | null;
+  sprintRunId?: string | null;
+  dispatchId?: string | null;
+  taskRunId?: string | null;
+  attentionItemId?: string | null;
   providerInvocationId?: string | null;
   provider?: string | null;
   model?: string | null;

@@ -122,7 +122,8 @@ export const handleTelemetryActions = async (
         if (!invocationId) {
           throw new Error("Missing required 'invocationId' for list_execution_invocation_messages");
         }
-        const messages = await executionRepository.listExecutionInvocationMessages(invocationId);
+        const messagesResult = await executionRepository.listExecutionInvocationMessages(invocationId);
+        const messages = Array.isArray(messagesResult) ? messagesResult : messagesResult.items;
         const compactMessages = messages.map((m) => ({
           id: m.id,
           invocationId: m.invocationId,
