@@ -126,7 +126,7 @@ const AttentionLedgerRow = memo(({ item, snapshot, onClaimAttentionItem, onResol
                         className="inline-flex items-center gap-1.5 rounded-md border border-signal-500/20 bg-signal-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-signal-600 transition-colors hover:bg-signal-500/15 aria-disabled:opacity-50 dark:text-signal-400"
                         aria-label={"Claim attention item: " + item.title}
                     >
-                        <Bot className={`h-3 w-3 ${getPendingActionState(pendingActionIds, claimActionId) === "pending" ? "motion-safe:animate-pulse" : ""}`} strokeWidth={2} />
+                        <Bot className={`h-3 w-3 ${getPendingActionState(pendingActionIds, claimActionId) === "pending" ? "animate-pulse motion-reduce:animate-none" : ""}`} strokeWidth={2} />
                         {getPendingActionState(pendingActionIds, claimActionId) === "pending" ? "Claiming" : "Claim"}
                         {getPendingActionState(pendingActionIds, claimActionId) === "pending" && <span className="sr-only">Claiming...</span>}
                     </button>
@@ -139,7 +139,7 @@ const AttentionLedgerRow = memo(({ item, snapshot, onClaimAttentionItem, onResol
                         className="inline-flex items-center gap-1.5 rounded-md border border-status-green/20 bg-status-green/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-status-green transition-colors hover:bg-status-green/15 aria-disabled:opacity-50"
                         aria-label={"Resolve attention item: " + item.title}
                     >
-                        <CheckCircle2 className={`h-3 w-3 ${getPendingActionState(pendingActionIds, resolveActionId) === "pending" ? "motion-safe:animate-spin" : ""}`} strokeWidth={2} />
+                        <CheckCircle2 className={`h-3 w-3 ${getPendingActionState(pendingActionIds, resolveActionId) === "pending" ? "animate-spin motion-reduce:animate-none" : ""}`} strokeWidth={2} />
                         {getPendingActionState(pendingActionIds, resolveActionId) === "pending" ? "Resolving" : "Resolve"}
                         {getPendingActionState(pendingActionIds, resolveActionId) === "pending" && <span className="sr-only">Resolving...</span>}
                     </button>
@@ -152,7 +152,7 @@ const AttentionLedgerRow = memo(({ item, snapshot, onClaimAttentionItem, onResol
                         className="inline-flex items-center gap-1.5 rounded-md border border-black/[0.05] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:bg-black/[0.035] aria-disabled:opacity-50 dark:border-white/[0.06] dark:text-slate-400 dark:hover:bg-white/[0.04]"
                         aria-label={"Dismiss attention item: " + item.title}
                     >
-                        <XCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, dismissActionId) === "pending" ? "motion-safe:animate-spin" : ""}`} strokeWidth={2} />
+                        <XCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, dismissActionId) === "pending" ? "animate-spin motion-reduce:animate-none" : ""}`} strokeWidth={2} />
                         {getPendingActionState(pendingActionIds, dismissActionId) === "pending" ? "Dismissing" : "Dismiss"}
                         {getPendingActionState(pendingActionIds, dismissActionId) === "pending" && <span className="sr-only">Dismissing...</span>}
                     </button>
@@ -217,7 +217,7 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
 
             if (newElements.length > 0) {
                 ctx = gsap.context(() => {
-                    gsap.fromTo(newElements, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: duration, stagger: 0.04, ease: INTERACTION_TOKENS.enterExit.ease, overwrite: "auto" });
+                    gsap.fromTo(newElements, { x: -10 }, { x: 0, duration: duration, stagger: 0.04, ease: INTERACTION_TOKENS.enterExit.ease, overwrite: "auto" });
                 });
                 newElements.forEach(el => el.setAttribute('data-entered', 'true'));
             }
@@ -405,7 +405,7 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                                                         className="inline-flex items-center gap-1.5 rounded-md border border-signal-500/20 bg-signal-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-signal-600 transition-colors hover:bg-signal-500/15 aria-disabled:opacity-50 dark:text-signal-400"
                                                         aria-label={"Claim attention item: " + item.title}
                                                     >
-                                                        <Bot className={`h-3 w-3 ${getPendingActionState(pendingActionIds, claimActionId) === "pending" ? "motion-safe:animate-pulse" : ""}`} strokeWidth={2} />
+                                                        <Bot className={`h-3 w-3 ${getPendingActionState(pendingActionIds, claimActionId) === "pending" ? "animate-pulse motion-reduce:animate-none" : ""}`} strokeWidth={2} />
                                                         {getPendingActionState(pendingActionIds, claimActionId) === "pending" ? "Claiming" : "Claim"}
                                                         {getPendingActionState(pendingActionIds, claimActionId) === "pending" && <span className="sr-only">Claiming...</span>}
                                                     </button>
@@ -418,7 +418,7 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                                                         className="inline-flex items-center gap-1.5 rounded-md border border-status-green/20 bg-status-green/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-status-green transition-colors hover:bg-status-green/15 aria-disabled:opacity-50"
                                                         aria-label={"Resolve attention item: " + item.title}
                                                     >
-                                                        <CheckCircle2 className={`h-3 w-3 ${getPendingActionState(pendingActionIds, resolveActionId) === "pending" ? "motion-safe:animate-spin" : ""}`} strokeWidth={2} />
+                                                        <CheckCircle2 className={`h-3 w-3 ${getPendingActionState(pendingActionIds, resolveActionId) === "pending" ? "animate-spin motion-reduce:animate-none" : ""}`} strokeWidth={2} />
                                                         {getPendingActionState(pendingActionIds, resolveActionId) === "pending" ? "Resolving" : "Resolve"}
                                                         {getPendingActionState(pendingActionIds, resolveActionId) === "pending" && <span className="sr-only">Resolving...</span>}
                                                     </button>
@@ -431,7 +431,7 @@ export const AttentionLedger: FunctionComponent<AttentionLedgerProps> = memo(({
                                                         className="inline-flex items-center gap-1.5 rounded-md border border-black/[0.05] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:bg-black/[0.035] aria-disabled:opacity-50 dark:border-white/[0.06] dark:text-slate-400 dark:hover:bg-white/[0.04]"
                                                         aria-label={"Dismiss attention item: " + item.title}
                                                     >
-                                                        <XCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, dismissActionId) === "pending" ? "motion-safe:animate-spin" : ""}`} strokeWidth={2} />
+                                                        <XCircle className={`h-3 w-3 ${getPendingActionState(pendingActionIds, dismissActionId) === "pending" ? "animate-spin motion-reduce:animate-none" : ""}`} strokeWidth={2} />
                                                         {getPendingActionState(pendingActionIds, dismissActionId) === "pending" ? "Dismissing" : "Dismiss"}
                                                         {getPendingActionState(pendingActionIds, dismissActionId) === "pending" && <span className="sr-only">Dismissing...</span>}
                                                     </button>
