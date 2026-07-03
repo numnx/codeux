@@ -64,7 +64,7 @@ function createInvocation(overrides: Partial<ExecutionInvocationRecord>): Execut
 
 describe("SystemStudio", () => {
   it("renders telemetry, responds to filtering, and toggles row expansion", async () => {
-    mockedFetchInvocationMessages.mockResolvedValue([]);
+    mockedFetchInvocationMessages.mockResolvedValue({ items: [], totalCount: 0 });
     (mockedFetchProjectInvocations as any).mockResolvedValue([
       createInvocation({
         id: "inv-failed",

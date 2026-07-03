@@ -1,4 +1,4 @@
-import type { ExecutionInvocationRecord, ExecutionInvocationMessageRecord, ProjectInvocationsQuery, ProjectInvocationsQueryResult } from "../types.js";
+import type { ExecutionInvocationRecord, ExecutionInvocationMessageRecord, ProjectInvocationsQuery, ProjectInvocationsQueryResult, ExecutionInvocationMessagesQueryResult, InvocationMessagesQuery } from "../types.js";
 import { fetchJson } from "../../lib/api/fetch-json.js";
 
 export function fetchProjectInvocations(projectId: string, query?: undefined, init?: RequestInit): Promise<ExecutionInvocationRecord[]>;

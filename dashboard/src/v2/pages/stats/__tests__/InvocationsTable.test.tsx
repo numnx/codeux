@@ -144,7 +144,7 @@ describe("InvocationsTable", () => {
   });
 
   it("handles row expansion", async () => {
-    mockedFetchInvocationMessages.mockResolvedValue([]);
+    mockedFetchInvocationMessages.mockResolvedValue({ items: [], totalCount: 0 });
     const { getByText, queryByText, getAllByRole } = render(<Harness />);
 
     // The first 5 buttons are sort headers in the thead
@@ -174,7 +174,7 @@ describe("InvocationsTable", () => {
   });
 
   it("preserves expanded invocation even if outside initial window", () => {
-    mockedFetchInvocationMessages.mockResolvedValue([]);
+    mockedFetchInvocationMessages.mockResolvedValue({ items: [], totalCount: 0 });
     // Pass an expanded ID that is at the very end of the list (index 39)
     const { queryAllByText, getByRole } = render(
       <InvocationsTable invocations={longInvocations} sort={{ key: "startedAt", dir: "desc" }} onSortChange={vi.fn()} expandedId="inv-long-39" onRowExpand={vi.fn()} />

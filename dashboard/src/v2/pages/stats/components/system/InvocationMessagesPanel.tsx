@@ -115,7 +115,7 @@ export const InvocationMessagesPanel: FunctionComponent<InvocationMessagesPanelP
     void fetchInvocationMessages(invocation.id, { limit: 20, offset: messages.length })
       .then((response) => {
         setMessages((current) => {
-          const newItems = response.items.filter(newItem => !current.some(existing => existing.id === newItem.id));
+          const newItems = response.items.filter((newItem: ExecutionInvocationMessageRecord) => !current.some((existing: ExecutionInvocationMessageRecord) => existing.id === newItem.id));
           return [...current, ...newItems];
         });
         setHasMore(messages.length + response.items.length < response.totalCount);
