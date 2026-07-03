@@ -76,6 +76,8 @@ pnpm run typecheck:dashboard
 ### Backend
 - Sprint orchestration behavior
 - Settings repository defaults and persistence
+- Stats read-model aggregations and pricing (`tests/backend/repositories/execution/project-stats-*.test.ts`)
+- Real-time snapshot deduplication, caching boundaries, and WebSocket lifecycle (`tests/backend/services/dashboard-realtime-service.test.ts`)
 - Git status service parsing
 - Task service prompt construction
 - Instruction template rendering and fallback behavior
@@ -87,6 +89,7 @@ pnpm run typecheck:dashboard
 ### Dashboard
 - Settings default cloning
 - Onboarding/settings default-state regressions: `tests/dashboard/v2/onboarding-defaults.test.tsx` verifies onboarding automation defaults and editability, while `tests/dashboard/v2/settings-page-state.test.tsx` verifies those defaults map into editable settings/view-model state
+- Stats pure view-model transformations (`system-view-models.ts`) and ledger table windowing performance patterns
 - Activity helpers
 - Status helpers
 - UI tests that only need DOM events and markup assertions should use `@vitest-environment happy-dom` to reduce environment startup cost

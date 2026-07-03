@@ -43,7 +43,7 @@ Production refinement shipped on March 15, 2026:
 
 Code UX now coalesces runtime writes before broadcasting them.
 
-The internal architecture uses a `DashboardRealtimePublishScheduler` helper as the boundary for throttled publish work across these endpoints, which handles caching, deduplication, payload fingerprinting, logging, and throttle semantics.
+The internal architecture uses a `DashboardRealtimePublishScheduler` helper as the boundary for throttled publish work across these endpoints, which handles caching, deduplication, payload fingerprinting, logging, and throttle semantics. Duplicate suppression for these snapshot updates uses a bounded, per-channel LRU fingerprint cache (`BoundedFingerprintCache`) to prevent indefinite memory growth over long-lived dashboard sessions.
 
 The current publisher schedules:
 
@@ -68,6 +68,10 @@ Production refinement shipped on March 15, 2026:
 The dashboard server now exposes:
 
 - `GET /api/realtime`
+
+The websocket implementation handles backpressure by terminating sockets whose send buffers exceed `MAX_WS_BACKPRESSURE_BYTES` (5MB), preventing memory exhaustion from slow consumers.
+
+To further reduce overhead, certain real-time events push lean snapshots. Rebuilding the full snapshot instance intrinsically busts its weak-mapped lean representation (e.g., `getProjectExecutionSnapshotLean`), keeping the execution channel lean and enabling the publisher to deduplicate updates efficiently.
 
 The protocol is intentionally small:
 
@@ -247,3 +251,10 @@ This harness tracks:
 - Realtime background publisher publish cadence
 
 Any future optimization work involving `/api/live` should test regressions or improvements against this harness first.
+
+## Verification
+
+To verify these real-time behaviors during development:
+```bash
+pnpm run test:backend
+```
