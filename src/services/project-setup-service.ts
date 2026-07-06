@@ -31,6 +31,8 @@ import { readDefaultContainerSetupScript } from "./code-ux-default-assets-servic
 import type { AgentPresetRecord } from "../contracts/agent-preset-types.js";
 import type { QuicksprintTemplateRecord } from "../contracts/quicksprint-types.js";
 import type { DashboardRealtimeMutationNotifier } from "./dashboard-realtime-service.js";
+import { resolveAgentAvatarConfig } from "../contracts/agent-avatar-style.js";
+import { defaultCodingAgentMcpAccess } from "./agent-mcp-access.js";
 
 export const PROJECT_SETUP_AGENT_NAME = "Project Setup Agent";
 
@@ -56,6 +58,12 @@ interface ProjectSetupServiceDeps {
 }
 
 type ProjectSetupProviderConfig = ReturnType<ProjectSetupService["resolveProvider"]>;
+
+const resolveEffectiveDefaultBranch = (project: ProjectSummary, settings: DashboardSettings): string => (
+  project.defaultBranch?.trim()
+  || settings.git.defaultBranch?.trim()
+  || "main"
+);
 
 interface PreparedProjectSetupRun {
   project: ProjectSummary;
@@ -237,6 +245,11 @@ export class ProjectSetupService {
     try {
       signal?.throwIfAborted();
       const sessionId = `project-setup-${providerConfig.provider}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
+      const workflowSettings = {
+        ...DEFAULT_CLI_WORKFLOW_SETTINGS,
+        ...settings.cliWorkflow,
+      };
+      const defaultBranch = resolveEffectiveDefaultBranch(project, settings);
       const result = await this.providerExecutionService.executeProvider({
         projectId,
         purpose: "planning",
@@ -268,10 +281,10 @@ export class ProjectSetupService {
         customModel: providerConfig.customModel,
         sessionId,
         workspaceSessionId: `${projectId}-project-setup`,
-        workflowSettings: {
-          ...DEFAULT_CLI_WORKFLOW_SETTINGS,
-          ...settings.cliWorkflow,
-        },
+        workflowSettings,
+        snapshotCheckout: workflowSettings.executionMode === "DOCKER"
+          ? { branch: defaultBranch }
+          : undefined,
         githubToken: settings.git.githubToken,
         signal,
         expectTextOutput: true,
@@ -336,7 +349,17 @@ export class ProjectSetupService {
     const presets = await this.deps.agentPresetSyncService.listAgentPresets(projectId);
     const existing = presets.find((preset) => preset.name.trim().toLowerCase() === PROJECT_SETUP_AGENT_NAME.toLowerCase());
     if (existing) {
-      return existing;
+      if (existing.avatarConfig && Object.keys(existing.avatarConfig).length > 0) {
+        return existing;
+      }
+      return await this.deps.agentPresetSyncService.updateAgentPreset(existing.id, {
+        avatarConfig: resolveAgentAvatarConfig({
+          projectId,
+          id: existing.id,
+          name: existing.name,
+          labels: existing.labels,
+        }),
+      });
     }
     return await this.deps.agentPresetSyncService.createAgentPreset(projectId, {
       id: "5",
@@ -344,6 +367,12 @@ export class ProjectSetupService {
       description: "Initializes Code UX agents, routing, quicksprints, preview startup, and basic CI from repository evidence.",
       labels: ["planning", "setup"],
       instructionMarkdown: buildDefaultProjectSetupAgentInstructions(),
+      avatarConfig: resolveAgentAvatarConfig({
+        projectId,
+        id: "5",
+        name: PROJECT_SETUP_AGENT_NAME,
+        labels: ["planning", "setup"],
+      }),
     });
   }
 
@@ -489,15 +518,42 @@ export class ProjectSetupService {
   ): Promise<AgentPresetRecord> {
     const presets = await this.deps.agentPresetSyncService.listAgentPresets(projectId);
     const existing = presets.find((preset) => preset.name.trim().toLowerCase() === agent.name.trim().toLowerCase());
+    const labels = agent.labels?.map((label) => label.trim()).filter(Boolean) ?? [];
+    const avatarConfig = existing?.avatarConfig && Object.keys(existing.avatarConfig).length > 0
+      ? existing.avatarConfig
+      : resolveAgentAvatarConfig({
+        projectId,
+        id: existing?.id,
+        name: agent.name.trim(),
+        labels,
+      });
     const input = {
       name: agent.name.trim(),
       description: agent.description?.trim() || "",
-      labels: agent.labels?.map((label) => label.trim()).filter(Boolean),
+      labels,
       instructionMarkdown: agent.instructionMarkdown.trim(),
+      avatarConfig,
     };
     return existing
       ? await this.deps.agentPresetSyncService.updateAgentPreset(existing.id, input)
-      : await this.deps.agentPresetSyncService.createAgentPreset(projectId, input);
+      : await this.deps.agentPresetSyncService.createAgentPreset(projectId, {
+        ...input,
+        ...(this.isGeneratedCodingAgent(agent.name, labels) ? { mcpAccess: defaultCodingAgentMcpAccess() } : {}),
+      });
+  }
+
+  private isGeneratedCodingAgent(name: string, labels: string[]): boolean {
+    const normalizedName = name.trim().toLowerCase();
+    if (
+      normalizedName === PROJECT_SETUP_AGENT_NAME.toLowerCase()
+      || normalizedName === "planning agent"
+      || normalizedName === "project manager"
+      || normalizedName === "quality assurance agent"
+      || normalizedName === "worker"
+    ) {
+      return false;
+    }
+    return labels.includes("worker") || !labels.includes("planning");
   }
 
   private async configureAgentRouting(projectId: string): Promise<void> {

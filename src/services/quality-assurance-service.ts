@@ -37,38 +37,23 @@ import { buildTaskPrComposerInput } from "../domain/sprint/composer/task-pr-inpu
 import { composeTaskPrBody, composeTaskPrTitle } from "../domain/sprint/composer/pr-description-composer.js";
 import type { MemoryService } from "./memory-service.js";
 import { syncRemoteBranchIfAvailable } from "./git-branch-sync-service.js";
-import {
-  QA_INFRA_FAILURE_GRACE,
-  RECOVERED_STALE_QA_SUMMARY_PREFIX,
-  evaluateQaReviewBudget,
-  isRecoveredStaleQaRun
-} from "../domain/qa-review/qa-review-budget.js";
-
-import { parseQaError, type QaReviewError } from "../domain/qa-review/qa-review-types.js";
+import { evaluateQaReviewBudget, isRecoveredStaleQaRun } from "../domain/qa-review/qa-review-budget.js";
+import { isQaReviewCancellationError, parseQaError } from "../domain/qa-review/qa-review-types.js";
 import { normalizeQaReviewResult } from "../domain/qa-review/qa-review-result-normalizer.js";
 import type { NormalizedQaReviewResult } from "../domain/qa-review/qa-review-types.js";
 
 
 import { resolveReviewBranch } from "../domain/qa-review/qa-review-branch-resolution.js";
 import { determineTaskReviewIntent } from "../domain/qa-review/task-review-outcome.js";
-import { resolveStaleRunningQaInvocationReason, QA_RUN_START_TIMEOUT_MS as STALE_QA_RUN_START_TIMEOUT_MS } from "../domain/qa-review/qa-review-stale-run.js";
+import { resolveRunningQaRunRecoveryDecision } from "../domain/qa-review/qa-review-stale-run.js";
 import { clearMergeProjectionForRerun, MERGE_PROJECTION_RESET } from "../domain/sprint/task-reset-state.js";
-import { buildQaReviewRequest, resolveTaskTriggerType } from "../domain/qa-review/qa-review-request-builder.js";
-import { buildSprintQaSnapshot, shouldRunSprintQaReview } from "../domain/qa-review/sprint-qa-snapshot.js";
+import { buildQaReviewRequests, resolveTaskTriggerType, type BuiltQaReviewRequest } from "../domain/qa-review/qa-review-request-builder.js";
+import { buildSprintQaSnapshot, evaluateSprintQaReviewCycleDecision, shouldRunSprintQaReview } from "../domain/qa-review/sprint-qa-snapshot.js";
+import type { SprintRunLifecycleService } from "./sprint-run-lifecycle-service.js";
 
 type CliQaProvider = Exclude<ProviderId, "jules">;
 
 const SPRINT_RUN_KEEPALIVE_MS = 30_000;
-const SPRINT_LEASE_EXTENSION_MS = 5 * 60 * 1000;
-
-/**
- * How many extra QA attempts beyond `maxTaskReviewRuns` we tolerate when the
- * reviewer keeps failing for infrastructure reasons (auth/config/container).
- * Infra failures don't consume the verdict budget (see
- * {@link QaReviewRepository.countDecisiveTaskRuns}), but a permanently broken
- * reviewer must still stop retrying eventually and escalate the task to a human
- * (QA_REVIEW_FAILED) rather than loop forever or — worse — fail open.
- */
 
 export interface TaskQaReviewOutcome {
   reviewed: boolean;
@@ -104,6 +89,7 @@ interface QualityAssuranceServiceDependencies {
   memoryService?: MemoryService;
   structuredAgentRequestService?: StructuredAgentRequestService;
   dockerService?: Pick<{ listContainers: () => Promise<DockerContainer[]> }, "listContainers">;
+  sprintRunLifecycleService?: Pick<SprintRunLifecycleService, "updateRun">;
 }
 
 export class QualityAssuranceService {
@@ -192,7 +178,7 @@ export class QualityAssuranceService {
     const latestRun = this.deps.qaReviewRepository.getLatestTaskRun(taskId);
     const taskRun = this.resolveTaskRunForSubtask(args.task, args.sprintRunId);
 
-    const request = await buildQaReviewRequest({
+    const requests = await buildQaReviewRequests({
       task: args.task,
       taskRun,
       project: this.deps.projectManagementRepository.getProject(args.projectId) || null,
@@ -208,7 +194,7 @@ export class QualityAssuranceService {
         this.deps.agentPresetSyncService.resolveTargetedQualityAssuranceAgent(projectId, agentPresetId),
     });
 
-    if (!request) {
+    if (requests.length === 0) {
       const budget = evaluateQaReviewBudget({
         existingRuns,
         decisiveRuns,
@@ -221,33 +207,33 @@ export class QualityAssuranceService {
       return { reviewed: false, reopenedTask: false, mergeBlocked: false, reportText: "" };
     }
 
-    const {
-      triggerType,
-      sprintFeatureBranch,
-      agentPresetId,
-      agentInstructions,
-      runPayload,
-    } = request;
-
-    const run = this.deps.qaReviewRepository.createRun(runPayload as any);
-
-    // Signal that the task has entered the QA stage so the live view advances
-    // from coding-completed → QA and starts timing the review immediately
-    // (the review itself can take minutes). Persisting the QA_PENDING indicator
-    // makes the stage tag, boat race and stats reflect QA for the whole review,
-    // not just the event-derived stage timeline.
-    this.appendTaskEvent(taskRun, "qa_review_started", {
-      triggerType,
-      qaReviewRunId: run.id,
-      runIndex: existingRuns + 1,
-    });
-    this.setTaskQaPending(args.task, true);
-
     const project = this.deps.projectManagementRepository.getProject(args.projectId);
     const sprint = this.deps.projectManagementRepository.getSprint(args.sprintId);
     if (!project || !sprint) {
       return { reviewed: false, reopenedTask: false, mergeBlocked: false, reportText: "" };
     }
+
+    const triggerType = requests[0]!.triggerType;
+    const sprintFeatureBranch = requests[0]!.sprintFeatureBranch;
+    const runIndex = existingRuns + 1;
+
+    const runs = requests.map((request) => {
+      const run = this.deps.qaReviewRepository.createRun(request.runPayload);
+      // Signal that the task has entered the QA stage so the live view advances
+      // from coding-completed → QA and starts timing the review immediately
+      // (the review itself can take minutes). Persisting the QA_PENDING indicator
+      // makes the stage tag, boat race and stats reflect QA for the whole review,
+      // not just the event-derived stage timeline.
+      this.appendTaskEvent(taskRun, "qa_review_started", {
+        triggerType: request.triggerType,
+        qaReviewRunId: run.id,
+        runIndex,
+        agentPresetId: request.agentPresetId,
+        agentName: request.agentName,
+      });
+      return { request, run };
+    });
+    this.setTaskQaPending(args.task, true);
 
     // Resolve which branch QA should check out. In LOCAL git mode the worker
     // branch is the only record of a code-complete task's work, and that metadata
@@ -283,22 +269,31 @@ export class QualityAssuranceService {
       }
     }
 
+    const reviewResults: Array<{
+      request: BuiltQaReviewRequest;
+      run: QaReviewRunRecord;
+      intentOutcome: ReturnType<typeof determineTaskReviewIntent>;
+      resolvedReview?: NormalizedQaReviewResult;
+      caughtError?: unknown;
+    }> = [];
+
+    for (const { request, run } of runs) {
       let resolvedReview: NormalizedQaReviewResult | undefined;
       let caughtError: unknown;
 
       try {
         resolvedReview = await this.runReview({
-          triggerType,
+          triggerType: request.triggerType,
           scope,
           projectName: project.name,
           sprintGoal: sprint.goal || "",
           repoPath: args.repoPath,
-          agentInstructions: agentInstructions,
+          agentInstructions: request.agentInstructions,
           subtasks: args.subtasks,
           currentTask: args.task,
           taskRun,
           sprintRunId: args.sprintRunId || null,
-          agentPresetId: agentPresetId,
+          agentPresetId: request.agentPresetId,
           reviewBranch,
           baseBranch: sprintFeatureBranch,
         });
@@ -307,7 +302,7 @@ export class QualityAssuranceService {
       }
 
       const intentOutcome = determineTaskReviewIntent({
-        triggerType,
+        triggerType: request.triggerType,
         review: resolvedReview,
         error: caughtError,
         existingRuns,
@@ -319,38 +314,26 @@ export class QualityAssuranceService {
           status: "completed",
           outcome: "pass",
           summaryMarkdown: intentOutcome.summary,
-          payload: resolvedReview!.raw,
+          payload: {
+            ...run.payload,
+            ...resolvedReview!.raw,
+          },
           finishedAt: new Date().toISOString(),
         });
         this.appendTaskEvent(taskRun, "qa_review_passed", {
-          triggerType,
+          triggerType: request.triggerType,
           summary: intentOutcome.summary,
           findings: resolvedReview!.findings,
           qaReviewRunId: run.id,
+          agentPresetId: request.agentPresetId,
+          agentName: request.agentName,
         });
-        // QA cleared — drop the QA_PENDING indicator so the merge gate can
-        // recompute the task's resting stage (CI / automerge / completed).
-        this.setTaskQaPending(args.task, false);
-        await this.cleanupCliWorkspaceIfNeeded(args.task, args.repoPath, scope);
-        return {
-          reviewed: true,
-          reopenedTask: false,
-          mergeBlocked: false,
-          reportText: renderQaPassReport(args.task.id, intentOutcome.summary),
-        };
+        reviewResults.push({ request, run, intentOutcome, resolvedReview });
+        continue;
       }
 
       if (intentOutcome.intent === "changes_requested") {
-        const continued = intentOutcome.fixInstructions
-          ? await this.requestFixesForTask({
-            task: args.task,
-            taskRun,
-            repoPath: args.repoPath,
-            featureBranch: sprintFeatureBranch,
-            scope,
-            prompt: intentOutcome.fixInstructions,
-          })
-          : { applied: false, mode: "none" as const };
+        const qaDecisionFinishedAt = new Date().toISOString();
 
         this.deps.qaReviewRepository.updateRun(run.id, {
           status: "completed",
@@ -358,80 +341,196 @@ export class QualityAssuranceService {
           summaryMarkdown: intentOutcome.summary,
           fixInstructions: intentOutcome.fixInstructions,
           payload: {
+            ...run.payload,
             ...resolvedReview!.raw,
-            continued: continued.applied,
-            continuationMode: continued.mode,
           },
-          finishedAt: new Date().toISOString(),
+          finishedAt: qaDecisionFinishedAt,
         });
-
-        if (continued.applied) {
-          this.deps.projectManagementRepository.updateTask(taskId, {
-            status: "in_progress",
-            ...MERGE_PROJECTION_RESET,
-          });
-          args.task.status = "RUNNING";
-        } else {
-          this.deps.projectManagementRepository.updateTask(taskId, {
-            status: "pending",
-            ...MERGE_PROJECTION_RESET,
-          });
-          args.task.status = "PENDING";
-        }
-        // Re-entering the coding stage: drop any stale CI / QA / MERGED indicator.
-        clearMergeProjectionForRerun(args.task);
-
         this.appendTaskEvent(taskRun, "qa_review_changes_requested", {
-          triggerType,
+          triggerType: request.triggerType,
           summary: intentOutcome.summary,
           findings: resolvedReview!.findings,
           fixInstructions: intentOutcome.fixInstructions,
           qaReviewRunId: run.id,
-          continued: continued.applied,
-          continuationMode: continued.mode,
+          agentPresetId: request.agentPresetId,
+          agentName: request.agentName,
         });
-
-        return {
-          reviewed: true,
-          reopenedTask: true,
-          mergeBlocked: true,
-          reportText: renderQaChangesRequestedReport(args.task.id, intentOutcome.summary, continued.applied),
-        };
+        reviewResults.push({ request, run, intentOutcome, resolvedReview });
+        continue;
       }
 
       // Handle retryable_failure and fatal_failure
       const qaError = intentOutcome.error;
+      if (qaError.code === "CANCELLED" || isQaReviewCancellationError(caughtError || qaError)) {
+        this.deps.qaReviewRepository.updateRun(run.id, {
+          status: "cancelled",
+          summaryMarkdown: qaError.message,
+          payload: {
+            ...run.payload,
+            error_code: qaError.code,
+          },
+          finishedAt: new Date().toISOString(),
+        });
+        this.appendTaskEvent(taskRun, "qa_review_cancelled", {
+          triggerType: request.triggerType,
+          error: qaError.message,
+          error_code: qaError.code,
+          qaReviewRunId: run.id,
+          agentPresetId: request.agentPresetId,
+          agentName: request.agentName,
+        });
+        this.deps.logger?.info("Task QA review cancelled", {
+          projectId: args.projectId,
+          sprintId: args.sprintId,
+          taskId,
+          triggerType: request.triggerType,
+          agentPresetId: request.agentPresetId,
+          agentName: request.agentName,
+          error: qaError.message,
+          error_code: qaError.code,
+        });
+        reviewResults.push({ request, run, intentOutcome, caughtError });
+        continue;
+      }
+
       this.deps.qaReviewRepository.updateRun(run.id, {
         status: "failed",
         summaryMarkdown: qaError.message,
         payload: {
+          ...run.payload,
           error_code: qaError.code,
         },
         finishedAt: new Date().toISOString(),
       });
       this.appendTaskEvent(taskRun, "qa_review_failed", {
-        triggerType,
+        triggerType: request.triggerType,
         error: qaError.message,
         error_code: qaError.code,
         qaReviewRunId: run.id,
+        agentPresetId: request.agentPresetId,
+        agentName: request.agentName,
       });
-      // Drop the QA_PENDING indicator; the merge gate re-derives the blocked
-      // state from the failed run on the next cycle.
-      this.setTaskQaPending(args.task, false);
       this.deps.logger?.warn("Task QA review failed", {
         projectId: args.projectId,
         sprintId: args.sprintId,
         taskId,
-        triggerType,
+        triggerType: request.triggerType,
+        agentPresetId: request.agentPresetId,
+        agentName: request.agentName,
         error: qaError.message,
         error_code: qaError.code,
       });
+      reviewResults.push({ request, run, intentOutcome, caughtError });
+    }
+
+    const changesRequested = reviewResults.find((result) => result.intentOutcome.intent === "changes_requested");
+    if (changesRequested && changesRequested.intentOutcome.intent === "changes_requested") {
+      const changesIntent = changesRequested.intentOutcome;
+      const qaDecisionFinishedAt = new Date().toISOString();
+      let continued: { applied: boolean; mode: "cli" | "jules" | "none" };
+      try {
+        continued = changesIntent.fixInstructions
+          ? await this.requestFixesForTask({
+            task: args.task,
+            taskRun,
+            repoPath: args.repoPath,
+            featureBranch: sprintFeatureBranch,
+            scope,
+            prompt: changesIntent.fixInstructions,
+          })
+          : { applied: false, mode: "none" as const };
+      } catch (error) {
+        this.deps.qaReviewRepository.updateRun(changesRequested.run.id, {
+          payload: {
+            ...changesRequested.run.payload,
+            ...changesRequested.resolvedReview!.raw,
+            continued: false,
+            continuationMode: "failed",
+            continuationError: error instanceof Error ? error.message : String(error),
+          },
+          finishedAt: qaDecisionFinishedAt,
+        });
+        throw error;
+      }
+
+      this.deps.qaReviewRepository.updateRun(changesRequested.run.id, {
+        payload: {
+          ...changesRequested.run.payload,
+          ...changesRequested.resolvedReview!.raw,
+          continued: continued.applied,
+          continuationMode: continued.mode,
+        },
+        finishedAt: qaDecisionFinishedAt,
+      });
+
+      if (continued.applied) {
+        this.deps.projectManagementRepository.updateTask(taskId, {
+          status: "in_progress",
+          ...MERGE_PROJECTION_RESET,
+        });
+        args.task.status = "RUNNING";
+      } else {
+        this.deps.projectManagementRepository.updateTask(taskId, {
+          status: "pending",
+          ...MERGE_PROJECTION_RESET,
+        });
+        args.task.status = "PENDING";
+      }
+      // Re-entering the coding stage: drop any stale CI / QA / MERGED indicator.
+      clearMergeProjectionForRerun(args.task);
+
+      this.appendTaskEvent(taskRun, "qa_review_changes_requested", {
+        triggerType: changesRequested.request.triggerType,
+        summary: changesIntent.summary,
+        findings: changesRequested.resolvedReview!.findings,
+        fixInstructions: changesIntent.fixInstructions,
+        qaReviewRunId: changesRequested.run.id,
+        continued: continued.applied,
+        continuationMode: continued.mode,
+        agentPresetId: changesRequested.request.agentPresetId,
+        agentName: changesRequested.request.agentName,
+      });
+
+      return {
+        reviewed: true,
+        reopenedTask: true,
+        mergeBlocked: true,
+        reportText: renderQaChangesRequestedReport(args.task.id, changesIntent.summary, continued.applied),
+      };
+    }
+
+    const failedReview = reviewResults.find((result) => result.intentOutcome.intent !== "pass");
+    if (failedReview) {
+      // Drop the QA_PENDING indicator; the merge gate re-derives the blocked
+      // state from the failed run on the next cycle.
+      this.setTaskQaPending(args.task, false);
+      if (failedReview.intentOutcome.intent === "pass" || failedReview.intentOutcome.intent === "changes_requested") {
+        return { reviewed: false, reopenedTask: false, mergeBlocked: true, reportText: "" };
+      }
+      const qaError = failedReview.intentOutcome.error;
       return {
         reviewed: false,
         reopenedTask: false,
-        mergeBlocked: intentOutcome.intent === "retryable_failure",
-        reportText: renderQaReviewFailedReport(args.task.id, caughtError || qaError),
+        mergeBlocked: failedReview.intentOutcome.intent !== "fatal_failure",
+        reportText: qaError.code === "CANCELLED"
+          ? ""
+          : renderQaReviewFailedReport(args.task.id, failedReview.caughtError || qaError),
       };
+    }
+
+    // QA cleared — drop the QA_PENDING indicator so the merge gate can
+    // recompute the task's resting stage (CI / automerge / completed).
+    this.setTaskQaPending(args.task, false);
+    await this.cleanupCliWorkspaceIfNeeded(args.task, args.repoPath, scope);
+    const passSummary = reviewResults
+      .flatMap((result) => result.intentOutcome.intent === "pass" ? [result.intentOutcome.summary] : [])
+      .join("\n\n");
+    return {
+      reviewed: true,
+      reopenedTask: false,
+      mergeBlocked: false,
+      reportText: renderQaPassReport(args.task.id, passSummary),
+    };
   }
 
   async reconcileRunningTaskQaReviews(args: {
@@ -442,7 +541,7 @@ export class QualityAssuranceService {
     const runningRuns = args.tasks
       .map((task) => task.record_id?.trim())
       .filter((taskId): taskId is string => Boolean(taskId))
-      .map((taskId) => this.deps.qaReviewRepository.getLatestTaskRun(taskId))
+      .flatMap((taskId) => this.deps.qaReviewRepository.listLatestTaskCycleRuns(taskId))
       .filter((run): run is QaReviewRunRecord => Boolean(run && run.status === "running"));
 
     if (runningRuns.length === 0) {
@@ -481,120 +580,169 @@ export class QualityAssuranceService {
     const sprintFeatureBranch = sprint.featureBranch?.trim()
       || `${settings.git.featureBranchPrefix || "feature/"}sprint-${sprint.number ?? 0}`;
 
-    const latestRun = this.reconcileRunningQaRun(this.deps.qaReviewRepository.getLatestSprintRun(args.sprintId));
+    const latestRuns = this.deps.qaReviewRepository
+      .listLatestSprintCycleRuns(args.sprintId)
+      .map((run) => this.reconcileRunningQaRun(run))
+      .filter((run): run is QaReviewRunRecord => Boolean(run));
+    const latestRun = latestRuns[0] ?? null;
     const maxRuns = qaSettings.maxSprintReviewRuns;
     const currentTaskSnapshot = buildSprintQaSnapshot(args.subtasks);
     const latestTaskUpdatedAt = this.getLatestSprintTaskUpdatedAt(args.projectId, args.sprintId);
-    const recoveredStaleLatestRun = isRecoveredStaleQaRun(latestRun);
     const shouldRunReview = shouldRunSprintQaReview({
       latestRun,
       latestTaskUpdatedAtMs: latestTaskUpdatedAt,
       currentSubtasks: args.subtasks,
       currentTaskSnapshot,
-      isRecoveredStaleRun: recoveredStaleLatestRun,
+      isRecoveredStaleRun: latestRuns.some((run) => isRecoveredStaleQaRun(run)),
     });
-    // Only count the budget as exhausted when the latest run actually produced a
-    // verdict (`completed`) at/over the cap. A reviewer that crashed for infra
-    // reasons (`failed`) yielded no judgement and must not let the sprint settle
-    // as reviewed — fall through so it is retried or held instead.
-    const retriesExhausted = typeof latestRun?.runIndex === "number"
-      && latestRun.runIndex >= maxRuns
-      && latestRun.status === "completed";
 
-    if (latestRun?.status === "running") {
+    const sprintQaDecision = evaluateSprintQaReviewCycleDecision({
+      latestRuns,
+      maxSprintReviewRuns: maxRuns,
+      shouldRunReview,
+    });
+
+    if (sprintQaDecision.action === "skip_review") {
+      return { reviewed: false, blockedCompletion: false, mergeBlocked: false, reportText: "" };
+    }
+
+    if (sprintQaDecision.action === "block_completion") {
       return {
         reviewed: false,
         blockedCompletion: true,
         mergeBlocked: true,
-        reportText: renderSprintQaPendingReport(latestRun),
-      };
-    }
-    if (latestRun?.outcome === "pass") {
-      return { reviewed: false, blockedCompletion: false, mergeBlocked: false, reportText: "" };
-    }
-    if (retriesExhausted) {
-      return { reviewed: false, blockedCompletion: false, mergeBlocked: false, reportText: "" };
-    }
-    if (
-      (latestRun?.outcome === "changes_requested" || latestRun?.status === "failed")
-      && !shouldRunReview
-    ) {
-      return {
-        reviewed: false,
-        blockedCompletion: true,
-        mergeBlocked: true,
-        reportText: renderSprintQaPendingReport(latestRun),
+        reportText: latestRun ? renderSprintQaPendingReport(latestRun) : "",
       };
     }
 
-    const agent = await this.deps.agentPresetSyncService.resolveTargetedQualityAssuranceAgent(
-      args.projectId,
-      qaSettings.sprintCompletion.agentPresetId,
-    );
-    const run = this.deps.qaReviewRepository.createRun({
-      projectId: args.projectId,
-      sprintId: args.sprintId,
-      sprintRunId: args.sprintRunId,
-      triggerType: "sprint_completion",
-      runIndex: (latestRun?.runIndex || 0) + 1,
-      agentPresetId: agent.id,
-      agentName: agent.name,
-      payload: {
-        sprintRunId: args.sprintRunId,
-        taskSnapshot: currentTaskSnapshot,
-      },
-    });
+    const sprintPresetIds = Array.isArray(qaSettings.sprintCompletion.agentPresetIds)
+      && qaSettings.sprintCompletion.agentPresetIds.length > 0
+      ? qaSettings.sprintCompletion.agentPresetIds
+      : [null];
+    const runIndex = (latestRun?.runIndex || 0) + 1;
+    const sprintReviewResults: Array<{
+      agentPresetId: string;
+      agentName: string;
+      run: QaReviewRunRecord;
+      review?: NormalizedQaReviewResult;
+      error?: unknown;
+    }> = [];
 
-    try {
-      const memoryInstructions = resolveAgentMemoryInstructions(
-        agent,
-        settings.memory?.workerLearningsInstruction
+    for (const configuredAgentPresetId of sprintPresetIds) {
+      const agent = await this.deps.agentPresetSyncService.resolveTargetedQualityAssuranceAgent(
+        args.projectId,
+        configuredAgentPresetId,
       );
-      let agentInstructions = agent.instructionMarkdown + (memoryInstructions ? `\n\n### Memory Capture Instructions\n${memoryInstructions}` : "");
-
-      const review = await this.runReview({
-        triggerType: "sprint_completion",
-        scope,
-        projectName: project.name,
-        sprintGoal: sprint.goal || "",
-        repoPath: args.repoPath,
-        agentInstructions: agentInstructions,
-        subtasks: args.subtasks,
-        currentTask: null,
-        taskRun: null,
+      const run = this.deps.qaReviewRepository.createRun({
+        projectId: args.projectId,
+        sprintId: args.sprintId,
         sprintRunId: args.sprintRunId,
+        triggerType: "sprint_completion",
+        runIndex,
         agentPresetId: agent.id,
-        // Sprint QA reviews the integrated base branch (where all task work is
-        // merged), falling back to the configured default branch.
-        reviewBranch: sprintFeatureBranch,
-        baseBranch: settings.git.defaultBranch,
+        agentName: agent.name,
+        payload: {
+          sprintRunId: args.sprintRunId,
+          taskSnapshot: currentTaskSnapshot,
+          agentPresetId: agent.id,
+          agentName: agent.name,
+        },
       });
 
-      if (review.verdict === "pass") {
+      try {
+        const memoryInstructions = resolveAgentMemoryInstructions(
+          agent,
+          settings.memory?.workerLearningsInstruction
+        );
+        const agentInstructions = agent.instructionMarkdown + (memoryInstructions ? `\n\n### Memory Capture Instructions\n${memoryInstructions}` : "");
+
+        const review = await this.runReview({
+          triggerType: "sprint_completion",
+          scope,
+          projectName: project.name,
+          sprintGoal: sprint.goal || "",
+          repoPath: args.repoPath,
+          agentInstructions,
+          subtasks: args.subtasks,
+          currentTask: null,
+          taskRun: null,
+          sprintRunId: args.sprintRunId,
+          agentPresetId: agent.id,
+          // Sprint QA reviews the integrated base branch (where all task work is
+          // merged), falling back to the configured default branch.
+          reviewBranch: sprintFeatureBranch,
+          baseBranch: settings.git.defaultBranch,
+        });
+
+        if (review.verdict === "pass") {
+          this.deps.qaReviewRepository.updateRun(run.id, {
+            status: "completed",
+            outcome: "pass",
+            summaryMarkdown: review.summary,
+            payload: {
+              ...run.payload,
+              ...review.raw,
+              taskSnapshot: currentTaskSnapshot,
+            },
+            finishedAt: new Date().toISOString(),
+          });
+          sprintReviewResults.push({ agentPresetId: agent.id, agentName: agent.name, run, review });
+          continue;
+        }
+
         this.deps.qaReviewRepository.updateRun(run.id, {
           status: "completed",
-          outcome: "pass",
+          outcome: "changes_requested",
+          targetTaskKey: review.targetTaskKey,
           summaryMarkdown: review.summary,
+          fixInstructions: review.fixInstructions,
           payload: {
+            ...run.payload,
             ...review.raw,
             taskSnapshot: currentTaskSnapshot,
           },
           finishedAt: new Date().toISOString(),
         });
-        return {
-          reviewed: true,
-          blockedCompletion: false,
-          mergeBlocked: false,
-          reportText: renderSprintQaPassReport(review.summary),
+        sprintReviewResults.push({ agentPresetId: agent.id, agentName: agent.name, run, review });
+      } catch (error) {
+        const qaError = parseQaError(error);
+        this.deps.qaReviewRepository.updateRun(run.id, {
+          status: qaError.code === "CANCELLED" || isQaReviewCancellationError(error) ? "cancelled" : "failed",
+          summaryMarkdown: qaError.message,
+          payload: {
+            ...run.payload,
+            error_code: qaError.code,
+          },
+          finishedAt: new Date().toISOString(),
+        });
+        const logPayload = {
+          projectId: args.projectId,
+          sprintId: args.sprintId,
+          sprintRunId: args.sprintRunId,
+          agentPresetId: agent.id,
+          agentName: agent.name,
+          error: qaError.message,
+          error_code: qaError.code,
         };
+        if (qaError.code === "CANCELLED" || isQaReviewCancellationError(error)) {
+          this.deps.logger?.info("Sprint QA review cancelled", logPayload);
+        } else {
+          this.deps.logger?.warn("Sprint QA review failed", logPayload);
+        }
+        sprintReviewResults.push({ agentPresetId: agent.id, agentName: agent.name, run, error });
       }
+    }
 
+    const changesRequested = sprintReviewResults.find((result) => result.review?.verdict === "changes_requested");
+    if (changesRequested?.review) {
+      const review = changesRequested.review;
       const targetTask = review.targetTaskKey
         ? args.subtasks.find((task) => task.id === review.targetTaskKey) ?? null
         : null;
       const targetTaskRun = targetTask ? this.resolveTaskRunForSubtask(targetTask, args.sprintRunId) : null;
       const fixInstructions = review.fixInstructions;
-      const continued = targetTask && fixInstructions
+      const canContinueTargetTask = Boolean(targetTask && !this.isMergedSubtask(targetTask));
+      const continued = targetTask && fixInstructions && canContinueTargetTask
         ? await this.requestFixesForTask({
           task: targetTask,
           taskRun: targetTaskRun,
@@ -611,21 +759,21 @@ export class QualityAssuranceService {
         fixInstructions,
         review,
         existingSubtasks: args.subtasks,
-        sourceRunId: run.id,
+        sourceRunId: changesRequested.run.id,
       });
 
-      this.deps.qaReviewRepository.updateRun(run.id, {
-        status: "completed",
-        outcome: "changes_requested",
+      this.deps.qaReviewRepository.updateRun(changesRequested.run.id, {
         targetTaskKey: targetTask?.id || review.targetTaskKey,
         targetSessionId: targetTask?.session_id || null,
         targetProvider: targetTask?.provider || null,
-        summaryMarkdown: review.summary,
-        fixInstructions,
         payload: {
+          ...changesRequested.run.payload,
           ...review.raw,
           continued: continued.applied,
           continuationMode: continued.mode,
+          continuationSkippedReason: targetTask && fixInstructions && !canContinueTargetTask
+            ? "target_task_already_merged"
+            : undefined,
           createdFollowUpTaskKeys: createdFollowUpTasks.map((task) => task.taskKey),
           taskSnapshot: currentTaskSnapshot,
         },
@@ -653,30 +801,28 @@ export class QualityAssuranceService {
           createdFollowUpTasks.map((task) => task.taskKey),
         ),
       };
-    } catch (error) {
-      const qaError = parseQaError(error);
-      this.deps.qaReviewRepository.updateRun(run.id, {
-        status: "failed",
-        summaryMarkdown: qaError.message,
-        payload: {
-          error_code: qaError.code,
-        },
-        finishedAt: new Date().toISOString(),
-      });
-      this.deps.logger?.warn("Sprint QA review failed", {
-        projectId: args.projectId,
-        sprintId: args.sprintId,
-        sprintRunId: args.sprintRunId,
-        error: qaError.message,
-        error_code: qaError.code,
-      });
+    }
+
+    const failedReview = sprintReviewResults.find((result) => result.error);
+    if (failedReview) {
       return {
         reviewed: false,
         blockedCompletion: true,
-        mergeBlocked: qaError.isRetryable,
-        reportText: renderSprintQaFailedReport(error),
+        mergeBlocked: true,
+        reportText: failedReview.error ? renderSprintQaFailedReport(failedReview.error) : "",
       };
     }
+
+    const passSummary = sprintReviewResults
+      .map((result) => result.review?.summary)
+      .filter((summary): summary is string => Boolean(summary))
+      .join("\n\n");
+    return {
+      reviewed: true,
+      blockedCompletion: false,
+      mergeBlocked: false,
+      reportText: renderSprintQaPassReport(passSummary),
+    };
   }
 
   getTaskMergeGateStatus(args: {
@@ -855,59 +1001,45 @@ export class QualityAssuranceService {
 
     const latestInvocation = this.findLatestQaExecutionInvocation(run);
     const providerInvocation = latestInvocation ? this.resolveProviderInvocationUsage(latestInvocation) : null;
-    const staleRunningInvocationReason = latestInvocation
-      ? resolveStaleRunningQaInvocationReason({
-          invocation: latestInvocation,
-          activeContainerSessionIds: options.activeContainerSessionIds,
-          providerInvocation,
-        })
-      : null;
-    if ((latestInvocation?.status === "running" || latestInvocation?.status === "paused") && !staleRunningInvocationReason) {
+    const recoveryDecision = resolveRunningQaRunRecoveryDecision({
+      run,
+      latestInvocation,
+      providerInvocation,
+      activeContainerSessionIds: options.activeContainerSessionIds,
+    });
+    if (recoveryDecision.action === "keep_running") {
       return run;
     }
 
-    const runStartedAtMs = Date.parse(run.startedAt);
-    const ageMs = Number.isFinite(runStartedAtMs) ? Date.now() - runStartedAtMs : 0;
-    if (!latestInvocation && ageMs < STALE_QA_RUN_START_TIMEOUT_MS) {
-      return run;
-    }
-
-    const finishedAt = latestInvocation?.finishedAt || new Date().toISOString();
-    const summaryMarkdown = staleRunningInvocationReason
-      || (latestInvocation
-        ? `${RECOVERED_STALE_QA_SUMMARY_PREFIX} after the backing invocation ${latestInvocation.status}. Code UX will retry the review.`
-        : `${RECOVERED_STALE_QA_SUMMARY_PREFIX} that never started its backing invocation. Code UX will retry the review.`);
-
-    if (latestInvocation && (latestInvocation.status === "running" || latestInvocation.status === "paused")) {
+    if (latestInvocation && recoveryDecision.shouldCancelExecutionInvocation) {
       this.deps.executionRepository.updateExecutionInvocation(latestInvocation.id, {
-        status: "failed",
-        finishedAt,
-        errorMessage: summaryMarkdown,
+        status: "cancelled",
+        finishedAt: recoveryDecision.finishedAt,
+        errorMessage: null,
       });
       this.deps.executionRepository.appendExecutionInvocationMessage(latestInvocation.id, {
         role: "system",
-        contentMarkdown: summaryMarkdown,
+        contentMarkdown: recoveryDecision.summaryMarkdown,
         metadata: {
           recovery: "qa_runtime_reconcile",
           qaRunId: run.id,
         },
-        createdAt: finishedAt,
+        createdAt: recoveryDecision.finishedAt,
       });
 
-
-      if (providerInvocation?.status === "running") {
+      if (providerInvocation && recoveryDecision.shouldCancelProviderInvocation) {
         this.deps.executionRepository.updateProviderInvocationUsage(providerInvocation.id, {
-          status: "failed",
-          finishedAt,
-          durationMs: this.calculateProviderInvocationDurationMs(providerInvocation, finishedAt),
+          status: "cancelled",
+          finishedAt: recoveryDecision.finishedAt,
+          durationMs: this.calculateProviderInvocationDurationMs(providerInvocation, recoveryDecision.finishedAt),
         });
       }
     }
 
     return this.deps.qaReviewRepository.updateRun(run.id, {
-      status: "failed",
-      summaryMarkdown,
-      finishedAt,
+      status: "cancelled",
+      summaryMarkdown: recoveryDecision.summaryMarkdown,
+      finishedAt: recoveryDecision.finishedAt,
     });
   }
 
@@ -997,8 +1129,6 @@ export class QualityAssuranceService {
     if (
       typeof executionRepository.getSprintRun !== "function"
       || typeof executionRepository.updateSprintRun !== "function"
-      || typeof executionRepository.getLease !== "function"
-      || typeof executionRepository.renewLease !== "function"
     ) {
       return;
     }
@@ -1009,27 +1139,9 @@ export class QualityAssuranceService {
     }
 
     const now = new Date().toISOString();
-    executionRepository.updateSprintRun(sprintRunId, {
-      lastHeartbeatAt: now,
-    });
-
-    const lease = executionRepository.getLease("sprint", sprintId);
-    if (!lease) {
-      return;
-    }
-
-    try {
-      executionRepository.renewLease({
-        scopeType: "sprint",
-        scopeId: sprintId,
-        leaseToken: lease.leaseToken,
-        expiresAt: new Date(Date.now() + SPRINT_LEASE_EXTENSION_MS).toISOString(),
-      });
-    } catch (error) {
-      this.deps.logger?.warn("Failed to renew sprint lease during QA review", {
-        sprintRunId,
-        sprintId,
-        error: error instanceof Error ? error.message : String(error),
+    if (this.deps.sprintRunLifecycleService) {
+      this.deps.sprintRunLifecycleService.updateRun(sprintRunId, {
+        lastHeartbeatAt: now,
       });
     }
   }
@@ -1135,8 +1247,9 @@ export class QualityAssuranceService {
       "- If `verdict` is `changes_requested`, `fixInstructions` must tell the coding session exactly what to fix next.",
       "- For task-level reviews, review only the current task and return `targetTaskKey` as the current task key when changes are required.",
       "- For task-level reviews, keep `followUpTasks` empty unless this prompt explicitly asks you to create follow-up sprint tasks.",
-      "- For sprint completion reviews, set `targetTaskKey` to the best task to continue when changes are required.",
+      "- For sprint completion reviews, set `targetTaskKey` to the best unmerged task to continue when changes are required.",
       "- For sprint completion reviews, use `followUpTasks` when the required work should become new sprint tasks instead of only resuming one existing session.",
+      "- For sprint completion reviews, if the best target task is already merged, keep the merged task as `targetTaskKey` for traceability but put the repair in `followUpTasks` so Code UX does not reopen a settled branch.",
       "- Every `followUpTasks[].promptMarkdown` entry must contain the full task instructions, not just a short summary.",
       "- For `completed_task_without_pr`, set `shouldHavePr` explicitly.",
       "- Do not include prose outside the JSON object.",
@@ -1729,6 +1842,12 @@ export class QualityAssuranceService {
       .map((task) => Date.parse(task.updatedAt))
       .filter((value) => Number.isFinite(value));
     return timestamps.length > 0 ? Math.max(...timestamps) : 0;
+  }
+
+  private isMergedSubtask(task: Subtask): boolean {
+    return task.is_merged === true
+      || task.merge_indicator === "MERGED"
+      || task.merge_indicator === "AUTOMERGE";
   }
 
   private createSprintFollowUpTasks(args: {

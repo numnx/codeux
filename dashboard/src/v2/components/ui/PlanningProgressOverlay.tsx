@@ -92,10 +92,16 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
   };
 
   const theme = accentColors[themeAccent];
+  const displayedShipProgress = reducedMotion ? 0.5 : feedback.shipProgress;
 
   const getBadgeText = () => {
     if (actionType === "quicksprint") return "Quicksprint in motion";
     return PLANNING_ACTION_LABELS[actionType] || "Planning in motion";
+  };
+
+  const getCancelLabel = () => {
+    if (actionType === "quicksprint") return "Cancel Quicksprint Request";
+    return "Cancel Active Request";
   };
 
   const getDescriptionText = () => {
@@ -123,6 +129,9 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
       onClick={(e) => {
         if (e.target === e.currentTarget) onDismiss();
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={getBadgeText()}
     >
       <div className="flex flex-col items-center justify-center bg-white dark:bg-void-800 rounded-2xl shadow-2xl border border-black/[0.08] dark:border-white/[0.08] max-w-2xl w-full p-6 sm:p-8 relative cursor-default max-h-[calc(100dvh-2rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
       <button
@@ -138,21 +147,25 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
         className="relative mb-12 flex h-32 w-full max-w-md items-center justify-center overflow-hidden pointer-events-none"
         role="progressbar"
         aria-live="polite"
-        aria-valuenow={Math.round(feedback.shipProgress * 100)}
+        aria-valuenow={Math.round(displayedShipProgress * 100)}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label={feedback.text}
       >
         <div className="absolute inset-x-0 bottom-8 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
         <div
-          className="absolute transition-[left] duration-200 ease-linear"
-          style={{ left: `${feedback.shipProgress * 100}%`, transform: "translateX(-50%)" }}
+          className="absolute transition-[left] ease-linear motion-reduce:transition-none"
+          style={{
+            left: `${displayedShipProgress * 100}%`,
+            transform: "translateX(-50%)",
+            transitionDuration: `${MODAL_MOTION.overlay.exit}s`,
+          }}
         >
           <svg width="120" height="60" viewBox="-60 -30 120 60">
             {feedback.shipType === "container" ? (
-              <ContainerShip accentColor={theme.shipContainer} isMoving={true} isDark={isDark} />
+              <ContainerShip accentColor={theme.shipContainer} isMoving={!reducedMotion} isDark={isDark} />
             ) : (
-              <WoodenShip accentColor={theme.shipWooden} isMoving={true} isDark={isDark} />
+              <WoodenShip accentColor={theme.shipWooden} isMoving={!reducedMotion} isDark={isDark} />
             )}
           </svg>
         </div>
@@ -188,7 +201,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
               <span className={`relative inline-flex rounded-full h-3 w-3 ${theme.pingBg2}`}></span>
             </span>
             <h3
-              className="font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white"
+              className="font-display text-xl font-semibold tracking-tight text-slate-900 dark:text-white"
               aria-live="polite"
             >
               {feedback.text}
@@ -197,6 +210,9 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
         </div>
         <p className="mx-auto max-w-xs text-sm leading-relaxed text-slate-500 dark:text-slate-400">
           {getDescriptionText()}
+        </p>
+        <p className="mx-auto max-w-sm text-xs leading-relaxed text-slate-400 dark:text-slate-500">
+          You can minimize this panel and keep the request running, or cancel it from here.
         </p>
         <div className="mt-4 flex flex-row items-center justify-center gap-3">
           <button
@@ -222,7 +238,7 @@ export const PlanningProgressOverlay: FunctionComponent<PlanningProgressOverlayP
               className="inline-flex items-center gap-2 rounded-full border border-status-red/20 bg-status-red/[0.06] px-4 py-2 text-xs font-semibold text-status-red transition-colors hover:bg-status-red/[0.12] dark:border-status-red/20 dark:bg-status-red/[0.08] dark:text-status-red dark:hover:bg-status-red/[0.16]"
             >
               <X className="h-3.5 w-3.5" />
-              Cancel Active Request
+              {getCancelLabel()}
             </button>
           )}
         </div>

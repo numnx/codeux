@@ -4,8 +4,7 @@ import { createPortal } from "preact/compat";
 import gsap from "gsap";
 import { calculatePosition, Position, Alignment } from "../../lib/positioning/index.js";
 import { useGsapInteractionTokens } from "../../lib/motion/constants.js";
-import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
-import { useFocusTrap } from "../../hooks/use-focus-trap.js";
+import { restoreFocusSafely, useFocusTrap } from "../../hooks/use-focus-trap.js";
 
 interface PopoverProps {
   children: ComponentChildren;
@@ -19,6 +18,15 @@ interface PopoverProps {
   triggerRef?: RefObject<HTMLElement>;
   isTooltip?: boolean;
   ariaLabel?: string;
+}
+
+function assignRef<T>(ref: unknown, value: T | null): void {
+  if (!ref) return;
+  if (typeof ref === "function") {
+    ref(value);
+    return;
+  }
+  (ref as { current: T | null }).current = value;
 }
 
 export const Popover = ({
@@ -35,7 +43,6 @@ export const Popover = ({
   ariaLabel,
 }: PopoverProps) => {
   const focusTrapRef = useFocusTrap(!isTooltip && isOpen, { onClose: () => onOpenChange(false), restoreFocus: true });
-  const isReducedMotion = useReducedMotion();
   const gsapTokens = useGsapInteractionTokens();
   const [isRendered, setIsRendered] = useState(false);
   const localTriggerRef = useRef<HTMLButtonElement>(null);
@@ -46,6 +53,12 @@ export const Popover = ({
 
   // Generate a unique ID for ARIA wiring if none exists
   const [popoverId] = useState(() => `popover-${Math.random().toString(36).substr(2, 9)}`);
+
+  const restoreFocus = useCallback(() => {
+    if (isTooltip) return;
+    restoreFocusSafely(previousFocusRef.current, triggerRef.current);
+    previousFocusRef.current = null;
+  }, [isTooltip, triggerRef]);
 
   const updatePosition = useCallback(() => {
     if (!triggerRef.current || !popoverRef.current) return;
@@ -67,24 +80,10 @@ export const Popover = ({
       if (!isTooltip) {
         previousFocusRef.current = document.activeElement as HTMLElement | null;
       }
-    } else if (isRendered) { // Only restore if it was previously open
-      // Restore focus on close
-      if (!isTooltip && !focusTrapRef.current) {
-        if (
-          !document.activeElement ||
-          document.activeElement === document.body ||
-          (popoverRef.current && popoverRef.current.contains(document.activeElement))
-        ) {
-          if (previousFocusRef.current?.isConnected) {
-            previousFocusRef.current.focus({ preventScroll: true });
-            previousFocusRef.current = null;
-          } else if (triggerRef.current?.isConnected) {
-            triggerRef.current.focus({ preventScroll: true });
-          }
-        }
-      }
+    } else if (isRendered) {
+      restoreFocus();
     }
-  }, [isOpen, isTooltip]);
+  }, [isOpen, isRendered, isTooltip, restoreFocus]);
 
   // Position once the portal has actually mounted. `isRendered` flips in a
   // separate effect after `isOpen`, so depending on it here guarantees the
@@ -123,7 +122,7 @@ export const Popover = ({
           opacity: 1,
           scale: 1,
           y: 0,
-          duration: isReducedMotion ? 0 : gsapTokens.enterExit.duration,
+          duration: gsapTokens.enterExit.duration,
           ease: gsapTokens.enterExit.ease,
         }
       );
@@ -132,12 +131,12 @@ export const Popover = ({
         opacity: 0,
         scale: 0.95,
         y: position === "bottom" ? -5 : position === "top" ? 5 : 0,
-        duration: isReducedMotion ? 0 : gsapTokens.enterExit.duration,
+        duration: gsapTokens.enterExit.duration,
         ease: gsapTokens.enterExit.ease,
         onComplete: () => setIsRendered(false),
       });
     }
-  }, [isOpen, isRendered, position, isReducedMotion]);
+  }, [isOpen, isRendered, position, gsapTokens.enterExit.duration, gsapTokens.enterExit.ease]);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -145,8 +144,7 @@ export const Popover = ({
         isOpen &&
         popoverRef.current &&
         !popoverRef.current.contains(e.target as Node) &&
-        triggerRef.current &&
-        !triggerRef.current.contains(e.target as Node)
+        (!triggerRef.current || !triggerRef.current.contains(e.target as Node))
       ) {
         onOpenChange(false);
       }
@@ -154,6 +152,8 @@ export const Popover = ({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
+        e.preventDefault();
+        e.stopPropagation();
         onOpenChange(false);
       }
     };
@@ -175,7 +175,7 @@ export const Popover = ({
         cloneElement(children as preact.VNode<any>, {
           "aria-haspopup": isTooltip ? ("true" as const) : ("dialog" as const),
           "aria-expanded": isOpen,
-          "aria-controls": isOpen ? popoverId : undefined,
+          "aria-controls": popoverId,
           "aria-label": (children.props as any)["aria-label"],
           disabled: (children.props as any).disabled,
           onClick: (e: MouseEvent) => {
@@ -186,44 +186,43 @@ export const Popover = ({
           },
           onKeyDown: (e: KeyboardEvent) => {
             if (e.key === 'Enter' || e.key === ' ') {
-               if (!externalTriggerRef) {
-                 e.preventDefault();
-                 if (!(children.props as any).disabled) {
-                   onOpenChange(!isOpen);
-                 }
-               }
+              e.preventDefault();
+              if (!(children.props as any).disabled) {
+                onOpenChange(!isOpen);
+              }
             }
             (children.props as any).onKeyDown?.(e);
           },
           ref: (node: any) => {
             if (externalTriggerRef) {
-              if (typeof externalTriggerRef === 'function') (externalTriggerRef as any)(node);
-              else (externalTriggerRef as any).current = node;
+              assignRef(externalTriggerRef, node);
             } else {
               (localTriggerRef as any).current = node;
             }
-            const childRef = (children as any).ref;
-            if (childRef) {
-              if (typeof childRef === 'function') childRef(node);
-              else childRef.current = node;
-            }
+            assignRef((children as any).ref, node);
           },
         })
       ) : (
       <button
         type="button"
-        ref={externalTriggerRef ? undefined : localTriggerRef}
+        ref={(node) => {
+          if (externalTriggerRef) {
+            assignRef(externalTriggerRef, node);
+          } else {
+            assignRef(localTriggerRef, node);
+          }
+        }}
         className="inline-flex cursor-pointer text-left"
         onClick={() => onOpenChange(!isOpen)}
         onKeyDown={(e) => {
-          if (!externalTriggerRef && (e.key === 'Enter' || e.key === ' ')) {
+          if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             onOpenChange(!isOpen);
           }
         }}
         aria-haspopup={isTooltip ? "true" : "dialog"}
         aria-expanded={isOpen}
-        aria-controls={isOpen ? popoverId : undefined}
+        aria-controls={popoverId}
       >
         {children}
       </button>

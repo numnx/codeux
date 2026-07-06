@@ -45,7 +45,8 @@ export const ProviderCombobox: FunctionComponent<{
   disabled?: boolean;
   placeholder?: string;
   "aria-label"?: string;
-}> = ({ value, onChange, disabled = false, placeholder = "Search providers…", "aria-label": ariaLabel }) => {
+  "aria-describedby"?: string;
+}> = ({ value, onChange, disabled = false, placeholder = "Search providers…", "aria-label": ariaLabel, "aria-describedby": ariaDescribedby }) => {
   const providers = useProviderCatalog();
 
   const options = useMemo<SelectOption[]>(() => {
@@ -70,7 +71,7 @@ export const ProviderCombobox: FunctionComponent<{
   }, [providers, value]);
 
   return (
-    <div className="min-w-[220px]">
+    <div className="min-w-0 w-full sm:min-w-[220px]">
       <AvantgardeSelect
         value={value}
         onChange={(nextValue) => {
@@ -83,6 +84,7 @@ export const ProviderCombobox: FunctionComponent<{
         searchable
         allowCustomValue
         aria-label={ariaLabel}
+        aria-describedby={ariaDescribedby}
       />
     </div>
   );

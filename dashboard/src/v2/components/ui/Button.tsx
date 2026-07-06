@@ -5,17 +5,18 @@ import { Check, X, Loader2 } from "lucide-preact";
 import gsap from "gsap";
 import { useActionFeedback } from "../../hooks/use-action-feedback.js";
 import { useMagnetic } from "../../hooks/use-magnetic.js";
-import { useGsapDurations, GSAP_DURATIONS, GSAP_EASINGS, GSAP_INTERACTION_TOKENS, useGsapInteractionTokens } from "../../lib/motion/constants.js";
+import { useGsapInteractionTokens } from "../../lib/motion/constants.js";
 import { useInteractionTokens } from "../../lib/motion/tokens.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
-export const SHARED_INTERACTION_CLASSES = "cursor-pointer transition-all duration-[150ms] motion-reduce:duration-0 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:ease-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-focus-ring)] focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed motion-safe:active:scale-[0.98] active:brightness-95 dark:active:brightness-110 touch-target";
+export const SHARED_INTERACTION_CLASSES = "cursor-pointer transition-[background-color,border-color,color,box-shadow,opacity,transform,filter] duration-[var(--interaction-control-feedback-duration)] motion-reduce:duration-0 ease-[var(--interaction-control-feedback-ease)] motion-reduce:ease-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--focus-ring-signal)] focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:pointer-events-none aria-disabled:opacity-50 aria-disabled:cursor-not-allowed motion-safe:enabled:active:scale-[0.98] enabled:active:brightness-95 dark:enabled:active:brightness-110 touch-target";
 
 export interface ButtonProps extends ComponentProps<"button"> {
   success?: boolean;
   pending?: boolean;
   isLoading?: boolean;
   icon?: any;
+  disabledReason?: string;
   variant?: "primary" | "secondary" | "danger" | "ghost" | "signal";
   size?: "sm" | "md" | "lg";
 }
@@ -25,7 +26,7 @@ const VARIANTS = {
   secondary: "border border-[color:var(--border-hairline)] bg-[var(--surface-glass)] text-slate-600 hover:text-slate-900 hover:bg-[var(--surface-glass-hover)] dark:text-slate-300 dark:hover:text-white",
   danger: "border border-status-red/30 bg-status-red/[0.06] text-status-red hover:bg-status-red/[0.12]",
   ghost: "bg-transparent text-slate-600 hover:text-slate-900 hover:bg-[var(--fill-muted-hover)] dark:hover:text-slate-300",
-  signal: "bg-signal-500 hover:bg-signal-400 text-void-900 shadow-[var(--elevation-raised)] aria-disabled:shadow-none",
+  signal: "bg-signal-500 hover:bg-signal-400 text-white dark:text-void-900 shadow-[var(--elevation-raised)] aria-disabled:shadow-none",
 };
 
 const SIZES = {
@@ -43,6 +44,7 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
   isLoading = false,
   success = false,
   disabled,
+  disabledReason,
   icon: Icon,
   onClick,
   ...props
@@ -52,8 +54,9 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
   const isPending = pending || isLoading || feedback.status === "pending";
   const isSuccess = success || feedback.status === "success";
   const isError = feedback.status === "error";
+  const isFeedbackActive = isPending || isSuccess || isError;
+  const isAriaDisabled = props["aria-disabled"] === true || props["aria-disabled"] === "true";
   const gsapTokens = useGsapInteractionTokens();
-  const durations = useGsapDurations();
   const reducedMotion = useReducedMotion();
   const tokens = useInteractionTokens();
 
@@ -63,18 +66,35 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
   const fixedWidthRef = useRef<number | null>(null);
   const labelRef = useRef<HTMLSpanElement>(null);
   const spinnerRef = useRef<HTMLDivElement>(null);
+  const lastIdleWidthRef = useRef<number | null>(null);
+  const activationPendingRef = useRef(false);
+  const disabledReasonIdRef = useRef<string | null>(null);
+  if (disabledReasonIdRef.current === null) {
+    disabledReasonIdRef.current = `button-disabled-reason-${Math.random().toString(36).slice(2)}`;
+  }
+  const describedBy = [
+    props["aria-describedby"],
+    disabledReason ? disabledReasonIdRef.current : null,
+  ].filter(Boolean).join(" ") || undefined;
 
   useMagnetic(buttonRef, contentRef, { enabled: variant === "primary" || variant === "signal" });
 
   useLayoutEffect(() => {
-    if (isPending && buttonRef.current && fixedWidthRef.current === null) {
-      fixedWidthRef.current = buttonRef.current.offsetWidth;
-      buttonRef.current.style.width = `${fixedWidthRef.current}px`;
-    } else if (!isPending && buttonRef.current) {
+    if (isFeedbackActive && buttonRef.current && fixedWidthRef.current === null) {
+      const measuredWidth = lastIdleWidthRef.current || buttonRef.current.offsetWidth;
+      if (measuredWidth > 0) {
+        fixedWidthRef.current = measuredWidth;
+        buttonRef.current.style.width = `${measuredWidth}px`;
+      }
+    } else if (!isFeedbackActive && buttonRef.current) {
       fixedWidthRef.current = null;
       buttonRef.current.style.width = "";
+      const measuredWidth = buttonRef.current.offsetWidth;
+      if (measuredWidth > 0) {
+        lastIdleWidthRef.current = measuredWidth;
+      }
     }
-  }, [isPending]);
+  }, [isFeedbackActive]);
 
   const previousState = useRef({ isPending, isSuccess, isError });
   useLayoutEffect(() => {
@@ -87,7 +107,7 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
         gsap.fromTo(
           activeIcon,
           { x: -4, scale: 0.6, opacity: 0 },
-          { x: 0, scale: 1, opacity: 1, duration: gsapTokens.controlFeedback.duration, ease: "power2.out", clearProps: "all" }
+          { x: 0, scale: 1, opacity: 1, duration: gsapTokens.controlFeedback.duration, ease: gsapTokens.controlFeedback.ease, clearProps: "all" }
         );
       }
     }
@@ -95,37 +115,37 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
     if (!reducedMotion) {
       if (isPending && !prev.isPending) {
         if (labelRef.current && spinnerRef.current) {
-          gsap.to(labelRef.current, { opacity: 0, duration: durations.fast, ease: GSAP_EASINGS.smooth });
+          gsap.to(labelRef.current, { opacity: 0, duration: gsapTokens.controlFeedback.duration, ease: gsapTokens.controlFeedback.ease });
           gsap.fromTo(
             spinnerRef.current,
             { opacity: 0, scale: 0.7 },
-            { opacity: 1, scale: 1, duration: durations.fast, ease: GSAP_EASINGS.spring }
+            { opacity: 1, scale: 1, duration: gsapTokens.inlineValidation.duration, ease: gsapTokens.inlineValidation.ease }
           );
         }
       }
 
       if (isSuccess && !prev.isSuccess) {
         if (labelRef.current && spinnerRef.current) {
-          gsap.to(labelRef.current, { opacity: 1, duration: durations.fast, ease: GSAP_EASINGS.smooth });
-          gsap.to(spinnerRef.current, { opacity: 0, scale: 0.7, duration: durations.fast, ease: GSAP_EASINGS.smooth });
+          gsap.to(labelRef.current, { opacity: 1, duration: gsapTokens.controlFeedback.duration, ease: gsapTokens.controlFeedback.ease });
+          gsap.to(spinnerRef.current, { opacity: 0, scale: 0.7, duration: gsapTokens.controlFeedback.duration, ease: gsapTokens.controlFeedback.ease });
         }
         if (buttonRef.current) {
           if (gsap.timeline) {
             const tl = gsap.timeline();
             tl.to(buttonRef.current, {
-              boxShadow: "0 0 0 6px rgba(var(--accent-primary-rgb), 0.3)",
+              boxShadow: "var(--primitive-signal-glow)",
               duration: gsapTokens.controlFeedback.duration,
-              ease: "power2.out",
+              ease: gsapTokens.controlFeedback.ease,
             }).to(buttonRef.current, {
-              boxShadow: "0 0 0 0px rgba(var(--accent-primary-rgb), 0)",
+              boxShadow: "var(--primitive-signal-glow-empty)",
               duration: gsapTokens.controlFeedback.duration,
-              ease: "power2.in",
+              ease: gsapTokens.controlFeedback.ease,
             });
           } else {
              gsap.to(buttonRef.current, {
-              boxShadow: "0 0 0 6px rgba(var(--accent-primary-rgb), 0.3)",
+              boxShadow: "var(--primitive-signal-glow)",
               duration: gsapTokens.controlFeedback.duration,
-              ease: "power2.out",
+              ease: gsapTokens.controlFeedback.ease,
             });
           }
         }
@@ -133,14 +153,14 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
 
       if (isError && !prev.isError) {
         if (labelRef.current && spinnerRef.current) {
-          gsap.to(labelRef.current, { opacity: 1, duration: durations.fast, ease: GSAP_EASINGS.smooth });
-          gsap.to(spinnerRef.current, { opacity: 0, scale: 0.7, duration: durations.fast, ease: GSAP_EASINGS.smooth });
+          gsap.to(labelRef.current, { opacity: 1, duration: gsapTokens.controlFeedback.duration, ease: gsapTokens.controlFeedback.ease });
+          gsap.to(spinnerRef.current, { opacity: 0, scale: 0.7, duration: gsapTokens.controlFeedback.duration, ease: gsapTokens.controlFeedback.ease });
         }
         if (buttonRef.current) {
           gsap.to(buttonRef.current, {
             keyframes: [{ x: -5 }, { x: 4 }, { x: -3 }, { x: 2 }, { x: 0 }],
             duration: gsapTokens.inlineValidation.duration,
-            ease: "none",
+            ease: gsapTokens.inlineValidation.ease,
           });
         }
       }
@@ -148,8 +168,8 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
       if (!isPending && !isSuccess && !isError && (prev.isPending || prev.isSuccess || prev.isError)) {
         // Restore label when returning to idle
         if (labelRef.current && spinnerRef.current) {
-          gsap.to(labelRef.current, { opacity: 1, duration: durations.fast, ease: GSAP_EASINGS.smooth });
-          gsap.to(spinnerRef.current, { opacity: 0, duration: durations.fast, ease: GSAP_EASINGS.smooth });
+          gsap.to(labelRef.current, { opacity: 1, duration: gsapTokens.controlFeedback.duration, ease: gsapTokens.controlFeedback.ease });
+          gsap.to(spinnerRef.current, { opacity: 0, duration: gsapTokens.controlFeedback.duration, ease: gsapTokens.controlFeedback.ease });
         }
       }
     } else {
@@ -162,11 +182,11 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
     }
 
     previousState.current = { isPending, isSuccess, isError };
-  }, [isPending, isSuccess, isError, durations.fast, reducedMotion]);
+  }, [isPending, isSuccess, isError, gsapTokens.controlFeedback.duration, gsapTokens.controlFeedback.ease, gsapTokens.inlineValidation.duration, gsapTokens.inlineValidation.ease, reducedMotion]);
 
   const handleClick = useCallback(
     (e: any) => {
-      if (disabled || isPending || props["aria-disabled"] === true || props["aria-disabled"] === "true") {
+      if (disabled || isPending || isAriaDisabled || activationPendingRef.current) {
         e?.preventDefault();
         e?.stopPropagation();
         return;
@@ -175,64 +195,75 @@ export const Button: FunctionComponent<ButtonProps> = memo(({
 
       const result = (onClick as any)(e);
       if (result && typeof result === "object" && "then" in result && typeof result.then === "function") {
+        activationPendingRef.current = true;
         setPending("");
         result
-          .then(() => setSuccess(""))
+          .then(() => {
+            activationPendingRef.current = false;
+            setSuccess("");
+          })
           .catch((err: unknown) => {
+            activationPendingRef.current = false;
             setError("");
             throw err;
           });
       }
       return result;
     },
-    [onClick, isPending, setPending, setSuccess, setError]
+    [disabled, isPending, isAriaDisabled, onClick, setPending, setSuccess, setError]
   );
 
-  const baseClasses = `group/btn inline-flex items-center justify-center gap-2 font-bold ${SHARED_INTERACTION_CLASSES}`;
+  const baseClasses = `group/btn inline-flex min-w-0 max-w-full items-center justify-center gap-2 font-bold ${SHARED_INTERACTION_CLASSES}`;
   const variantClasses = VARIANTS[variant];
   const sizeClasses = SIZES[size];
 
-    let overrideClasses = "";
+  let overrideClasses = "";
   if (isSuccess) overrideClasses = "!bg-status-green !text-white !border-status-green ring-2 ring-status-green ring-offset-2 ring-offset-white dark:ring-offset-void-900";
   else if (isError) overrideClasses = "!bg-status-red !text-white !border-transparent";
   if (isPending) overrideClasses += " pointer-events-none";
+  if (variant === "danger") overrideClasses += " focus-visible:ring-[var(--focus-ring-danger)]";
 
   return (
-    <button
-      {...props}
-      style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}
-      ref={buttonRef}
-      onClick={handleClick}
-      disabled={disabled && !isPending}
-      aria-disabled={disabled || isPending || props["aria-disabled"] === true || props["aria-disabled"] === "true"}
-      aria-busy={isPending}
-      className={`${baseClasses} ${variantClasses} ${sizeClasses} ${overrideClasses} relative overflow-hidden ${className}`}
-    >
+    <>
+      <button
+        {...props}
+        style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease, ...(typeof props.style === "object" ? props.style : {}) }}
+        ref={buttonRef}
+        onClick={handleClick}
+        disabled={disabled}
+        aria-disabled={disabled || isPending || isAriaDisabled}
+        aria-describedby={describedBy}
+        aria-busy={isPending}
+        title={props.title || disabledReason}
+        className={`${baseClasses} ${variantClasses} ${sizeClasses} ${overrideClasses} relative overflow-hidden ${className}`}
+      >
 
-      <div ref={contentRef} className={`flex items-center justify-center gap-2`}>
-        {(Icon || isSuccess || isError) && (
-          <div ref={iconContainerRef} className="relative flex items-center justify-center w-4 h-4 shrink-0">
-            <div data-active={!isPending && !isSuccess && !isError} className={`absolute inset-0 flex items-center justify-center transition-all  ${isPending || isSuccess || isError ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"}`}
-              style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}>
-              {Icon && <Icon className="w-4 h-4" aria-hidden="true" />}
+        <div ref={contentRef} className="flex min-w-0 max-w-full items-center justify-center gap-2">
+          {(Icon || isSuccess || isError) && (
+            <div ref={iconContainerRef} className="relative flex items-center justify-center w-4 h-4 shrink-0">
+              <div data-active={!isPending && !isSuccess && !isError} className={`absolute inset-0 flex items-center justify-center transition-all  ${isPending || isSuccess || isError ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"}`}
+                style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}>
+                {Icon && <Icon className="w-4 h-4" aria-hidden="true" />}
+              </div>
+              <div key={`success-${feedback.status}`} data-active={isSuccess} className={`absolute inset-0 flex items-center justify-center transition-all  ${isSuccess ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"}`}
+                style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}>
+                <Check className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
+              </div>
+              <div key={`error-${feedback.status}`} data-active={isError} className={`absolute inset-0 flex items-center justify-center transition-all  ${isError ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"}`}
+                style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}>
+                <X className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
+              </div>
             </div>
-            <div key={`success-${feedback.status}`} data-active={isSuccess} className={`absolute inset-0 flex items-center justify-center transition-all  ${isSuccess ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"}`}
-              style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}>
-              <Check className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
+          )}
+          <div className="relative flex min-w-0 max-w-full items-center justify-center">
+            <span ref={labelRef} className="flex min-w-0 max-w-full items-center justify-center gap-2 truncate" style={{ opacity: isPending ? 0 : 1 }}>{children}</span>
+            <div ref={spinnerRef} className="absolute inset-0 flex items-center justify-center pointer-events-none text-current" style={{ opacity: isPending ? 1 : 0, transform: isPending ? "scale(1)" : "scale(0.7)", transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}>
+              <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
             </div>
-            <div key={`error-${feedback.status}`} data-active={isError} className={`absolute inset-0 flex items-center justify-center transition-all  ${isError ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"}`}
-              style={{ transitionDuration: tokens.controlFeedback.duration, transitionTimingFunction: tokens.controlFeedback.ease }}>
-              <X className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
-            </div>
-          </div>
-        )}
-        <div className="relative flex items-center justify-center">
-          <span ref={labelRef} className="flex items-center justify-center gap-2" style={{ opacity: isPending ? 0 : 1 }}>{children}</span>
-          <div ref={spinnerRef} className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ opacity: isPending ? 1 : 0, transform: isPending ? "scale(1)" : "scale(0.7)" }}>
-            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
           </div>
         </div>
-      </div>
-    </button>
+      </button>
+      {disabledReason && <span id={disabledReasonIdRef.current ?? undefined} className="sr-only">{disabledReason}</span>}
+    </>
   );
 });

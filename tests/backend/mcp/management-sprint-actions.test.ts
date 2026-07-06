@@ -110,9 +110,28 @@ describe("SprintActions", () => {
     expect(result.result).toEqual(mockSprint);
   });
 
-  it("returns a clear validation error when sprint create has no title", async () => {
-    await expect(sprintActions.handleSprintAction(makeArgs("create", { projectId: "p1" })))
-      .rejects.toThrow("name or title is required");
+  it("allows sprint creation without a title", async () => {
+    const mockSprint = { id: "s1", name: "Untitled sprint 1" };
+    vi.mocked(projectRepo.createSprint).mockReturnValue(mockSprint as any);
+
+    const result = await sprintActions.handleSprintAction(makeArgs("create", { projectId: "p1" }));
+
+    expect(projectRepo.createSprint).toHaveBeenCalledWith("p1", {});
+    expect(result.result).toEqual(mockSprint);
+  });
+
+  it("rejects blank required strings before repository calls", async () => {
+    await expect(sprintActions.handleSprintAction(makeArgs("list", { projectId: "   " })))
+      .rejects.toThrow("projectId is required");
+    expect(projectRepo.listSprints).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid sprint status enum values", async () => {
+    await expect(sprintActions.handleSprintAction(makeArgs("create", {
+      projectId: "p1",
+      title: "Sprint",
+      status: "not-real",
+    }))).rejects.toThrow("Invalid value for status. Must be one of: running, paused, completed, failed, cancelled, idle");
     expect(projectRepo.createSprint).not.toHaveBeenCalled();
   });
 
@@ -246,6 +265,25 @@ describe("SprintActions", () => {
       sprint: null,
       planning: null,
     });
+  });
+
+  it("rejects invalid import issue enum filters", async () => {
+    await expect(sprintActions.handleSprintAction(makeArgs("import_issues", {
+      projectId: "p1",
+      provider: "bitbucket",
+      search: "bug",
+    }))).rejects.toThrow("Invalid value for provider. Must be one of: github, gitlab, jira");
+    expect(sprintIssueService.searchIssues).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid numeric string import limits", async () => {
+    await expect(sprintActions.handleSprintAction(makeArgs("import_issues", {
+      projectId: "p1",
+      provider: "github",
+      search: "bug",
+      limit: "many",
+    }))).rejects.toThrow("Invalid value for limit. Must be a valid integer.");
+    expect(sprintIssueService.searchIssues).not.toHaveBeenCalled();
   });
 
   it("searches GitLab issues with repository filters and attaches legacy sprint search imports", async () => {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSprintQaSnapshot,
+  evaluateSprintQaReviewCycleDecision,
+  evaluateSprintQaReviewDecision,
   readSprintQaSnapshot,
   shouldRunSprintQaReview,
 } from "../../../../src/domain/qa-review/sprint-qa-snapshot.js";
@@ -117,6 +119,92 @@ describe("Sprint QA Snapshot", () => {
         currentSubtasks: [makeTask("t1")],
         isRecoveredStaleRun: true,
       })).toBe(true);
+    });
+  });
+
+  describe("evaluateSprintQaReviewDecision", () => {
+    it.each([
+      {
+        name: "runs the initial review when no prior sprint QA run exists",
+        latestRun: null,
+        maxSprintReviewRuns: 3,
+        shouldRunReview: true,
+        expected: { action: "run_review", reason: "no_prior_review" },
+      },
+      {
+        name: "skips after a completed passing review",
+        latestRun: makeRun({ status: "completed", outcome: "pass", runIndex: 1 }),
+        maxSprintReviewRuns: 3,
+        shouldRunReview: false,
+        expected: { action: "skip_review", reason: "already_passed" },
+      },
+      {
+        name: "blocks completion when a failed review has no meaningful follow-up changes",
+        latestRun: makeRun({ status: "failed", outcome: null, runIndex: 1 }),
+        maxSprintReviewRuns: 3,
+        shouldRunReview: false,
+        expected: { action: "block_completion", reason: "awaiting_follow_up" },
+      },
+      {
+        name: "runs again after a failed review when the sprint changed",
+        latestRun: makeRun({ status: "failed", outcome: null, runIndex: 1 }),
+        maxSprintReviewRuns: 3,
+        shouldRunReview: true,
+        expected: { action: "run_review", reason: "needs_review" },
+      },
+      {
+        name: "skips when a completed changes-requested review exhausted the retry budget",
+        latestRun: makeRun({ status: "completed", outcome: "changes_requested", runIndex: 1 }),
+        maxSprintReviewRuns: 1,
+        shouldRunReview: true,
+        expected: { action: "skip_review", reason: "retry_budget_exhausted" },
+      },
+      {
+        name: "keeps completion blocked while review is running",
+        latestRun: makeRun({ status: "running", outcome: null, runIndex: 1 }),
+        maxSprintReviewRuns: 3,
+        shouldRunReview: true,
+        expected: { action: "block_completion", reason: "review_running" },
+      },
+    ])("$name", ({ latestRun, maxSprintReviewRuns, shouldRunReview, expected }) => {
+      expect(evaluateSprintQaReviewDecision({
+        latestRun,
+        maxSprintReviewRuns,
+        shouldRunReview,
+      })).toEqual(expected);
+    });
+  });
+
+  describe("evaluateSprintQaReviewCycleDecision", () => {
+    it("allows completion only when every reviewer in the latest cycle passed", () => {
+      expect(evaluateSprintQaReviewCycleDecision({
+        latestRuns: [
+          makeRun({ status: "completed", outcome: "pass", runIndex: 1 }),
+          makeRun({ id: "run-2", status: "completed", outcome: "pass", runIndex: 1 }),
+        ],
+        maxSprintReviewRuns: 3,
+        shouldRunReview: false,
+      })).toEqual({ action: "skip_review", reason: "already_passed" });
+    });
+
+    it("blocks completion when any reviewer in the latest cycle is still running or requested changes", () => {
+      expect(evaluateSprintQaReviewCycleDecision({
+        latestRuns: [
+          makeRun({ status: "completed", outcome: "pass", runIndex: 1 }),
+          makeRun({ id: "run-2", status: "running", outcome: null, runIndex: 1 }),
+        ],
+        maxSprintReviewRuns: 3,
+        shouldRunReview: false,
+      })).toEqual({ action: "block_completion", reason: "review_running" });
+
+      expect(evaluateSprintQaReviewCycleDecision({
+        latestRuns: [
+          makeRun({ status: "completed", outcome: "pass", runIndex: 1 }),
+          makeRun({ id: "run-2", status: "completed", outcome: "changes_requested", runIndex: 1 }),
+        ],
+        maxSprintReviewRuns: 3,
+        shouldRunReview: false,
+      })).toEqual({ action: "block_completion", reason: "awaiting_follow_up" });
     });
   });
 });

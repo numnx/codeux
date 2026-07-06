@@ -160,10 +160,10 @@ describe("VirtualWorkerService", () => {
 
     await virtualWorkerService.reconcile();
 
-    // The first resolution gets cached, the subsequent ones hit the cache
-    // 2 times: once for resolveDashboardSettings(projectId) and once for resolveDashboardSettings(projectId, sprintId)
-    // because sprintId ?? "" resolves to different keys.
-    expect(settingsSpy).toHaveBeenCalledTimes(1);
+    // The repository-level effective settings cache may already be warm from
+    // setup, but this scheduling pass must not repeatedly hit settings rows for
+    // duplicate attention items in the same sprint.
+    expect(settingsSpy.mock.calls.length).toBeLessThanOrEqual(1);
   });
 
   it("reconcile skips projects already scheduled or active", async () => {
@@ -650,6 +650,57 @@ describe("VirtualWorkerService", () => {
     expect((virtualWorkerService as any).projectNeedsVirtualWorker(project.id)).toBe(true);
   });
 
+  it("projectNeedsVirtualWorker returns true for virtual projects with pending dispatches and no attention", async () => {
+    const {
+      settingsRepository,
+      sessionTracking,
+      projectManagementRepository,
+      executionRepository,
+      workerEndpointRepository,
+      projectWorkerAssignmentRepository,
+      projectAttentionService,
+      workerTaskDispatchService,
+    } = await createFixture();
+
+    const project = projectManagementRepository.createProject({
+      name: "Pending Dispatch Project",
+      sourceType: "local",
+      sourceRef: "/workspace/pending-dispatch-project",
+      defaultBranch: "main",
+    });
+
+    settingsRepository.saveProjectSettings(project.id, {
+      workers: {
+        executionMode: "VIRTUAL",
+        virtualWorkerProvider: "codex",
+      },
+    });
+    vi.spyOn(executionRepository, "listProjectIdsWithPendingDispatches").mockReturnValue([project.id]);
+
+    const virtualWorkerService = new VirtualWorkerService({
+      settingsRepository,
+      sessionTracking,
+      executionRepository,
+      projectManagementRepository,
+      workerEndpointRepository,
+      projectWorkerAssignmentRepository,
+      projectWorkerAssignmentService: new ProjectWorkerAssignmentService(
+        projectWorkerAssignmentRepository,
+        workerEndpointRepository,
+      ),
+      projectAttentionService,
+      workerTaskDispatchService,
+      cliWorkflowService: {
+        startTask: vi.fn(),
+      } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
+      } as any,
+    });
+
+    expect((virtualWorkerService as any).projectNeedsVirtualWorker(project.id)).toBe(true);
+  });
+
   it("start and stop manage the reconcile timer", async () => {
     const {
       settingsRepository,
@@ -687,6 +738,49 @@ describe("VirtualWorkerService", () => {
     virtualWorkerService.stop();
     // Calling stop again should be safe
     virtualWorkerService.stop();
+  });
+
+  it("logs initial reconcile failures during start", async () => {
+    const {
+      settingsRepository,
+      sessionTracking,
+      projectManagementRepository,
+      executionRepository,
+      workerEndpointRepository,
+      projectWorkerAssignmentRepository,
+      projectAttentionService,
+      workerTaskDispatchService,
+    } = await createFixture();
+    const logger = { error: vi.fn() };
+
+    const virtualWorkerService = new VirtualWorkerService({
+      settingsRepository,
+      sessionTracking,
+      executionRepository,
+      projectManagementRepository,
+      workerEndpointRepository,
+      projectWorkerAssignmentRepository,
+      projectWorkerAssignmentService: new ProjectWorkerAssignmentService(
+        projectWorkerAssignmentRepository,
+        workerEndpointRepository,
+      ),
+      projectAttentionService,
+      workerTaskDispatchService,
+      cliWorkflowService: { startTask: vi.fn() } as any,
+      providerConcurrencyService: {
+        hasAvailableCapacity: vi.fn().mockResolvedValue(true),
+      } as any,
+      logger: logger as any,
+    });
+    const error = new Error("initial reconcile failed");
+    vi.spyOn(virtualWorkerService, "reconcile").mockRejectedValueOnce(error);
+
+    virtualWorkerService.start();
+    await Promise.resolve();
+    await Promise.resolve();
+    virtualWorkerService.stop();
+
+    expect(logger.error).toHaveBeenCalledWith("Virtual worker reconcile failed", { error });
   });
 
   it("getProviderLabel returns correct labels", async () => {
@@ -877,15 +971,19 @@ describe("VirtualWorkerService", () => {
         summaryMarkdown: "Summary body",
         payload: {
           currentTask: {
-            taskPrompt: "Preserve the current task change.",
+            taskPrompt: "Preserve the current task change in monitoring/dag-conflict-b-2026-07-03T16-28-17-794Z/beta.md.",
           },
           featureBranchTaskContexts: [
             {
               taskKey: "T01",
               taskTitle: "Earlier merge",
-              taskPrompt: "Keep the earlier merged edit.",
+              taskPrompt: "Keep the earlier merged edit for dag-conflict-2026-07-03T16-28-17-794Z-B-T01.",
             },
           ],
+          lastVirtualWorkerError: "Merge conflict resolution mutated required prompt timestamp literals.",
+          lastVirtualWorkerProvider: "opencode",
+          lastVirtualWorkerSessionId: "virtual-merge-opencode-test",
+          lastVirtualWorkerFailedAt: "2026-07-03T18:41:17.409Z",
         },
         openedAt: "2026-03-15T10:00:00.000Z",
         claimedAt: null,
@@ -899,9 +997,18 @@ describe("VirtualWorkerService", () => {
       "Record durable merge learnings in .task-learnings.md",
     );
 
-    expect(prompt).toContain("Preserve the current task change.");
+    expect(prompt).toContain("Preserve exact literal identifiers");
+    expect(prompt).toContain("Do not normalize, reformat, or reinterpret timestamp-like strings");
+    expect(prompt).toContain("copy required existing lines verbatim");
+    expect(prompt).toContain("repair it to the exact literal from the task prompt");
+    expect(prompt).toContain("Preserve the current task change in monitoring/dag-conflict-b-2026-07-03T16-28-17-794Z/beta.md.");
     expect(prompt).toContain("T01 Earlier merge");
-    expect(prompt).toContain("Keep the earlier merged edit.");
+    expect(prompt).toContain("Keep the earlier merged edit for dag-conflict-2026-07-03T16-28-17-794Z-B-T01.");
+    expect(prompt).toContain("Previous automatic merge-conflict attempt failed");
+    expect(prompt).toContain("Provider: opencode");
+    expect(prompt).toContain("Session: virtual-merge-opencode-test");
+    expect(prompt).toContain("Error: Merge conflict resolution mutated required prompt timestamp literals.");
+    expect(prompt).not.toContain("2026-07-03T16:28:17Z");
     expect(prompt).toContain("## PROJECT CONTEXT FROM MEMORY");
     expect(prompt).toContain("Record durable merge learnings in .task-learnings.md");
     expect(prompt).toContain("Workspace guidance");
@@ -1270,6 +1377,66 @@ describe("VirtualWorkerService", () => {
     );
   });
 
+  it("keeps merge-conflict attention open when the worker records no merge evidence", async () => {
+    const { virtualWorkerService, projectAttentionService, project, workerEndpointRepository } = await setupServiceWithProject();
+
+    const endpoint = workerEndpointRepository.createVirtualEndpoint({
+      endpointKey: "virtual:no-merge-evidence",
+      displayName: "Virtual Worker",
+      status: "connected",
+      transport: "internal",
+      capabilities: {},
+    });
+
+    const item = projectAttentionService.openItem({
+      projectId: project.id,
+      sprintId: null,
+      taskId: null,
+      sprintRunId: null,
+      dispatchId: null,
+      attentionType: "merge_conflict",
+      severity: "high",
+      ownerType: "worker",
+      title: "Merge Conflict",
+      summaryMarkdown: "Resolve it",
+      payload: { repoPath: "/test", conflictingBranches: { source: "src", target: "tgt" } },
+    });
+
+    vi.spyOn((virtualWorkerService as any).workspaceManager, "buildWorktreePath").mockReturnValue("/tmp/wt");
+    vi.spyOn((virtualWorkerService as any).workspaceManager, "prepareWorktree").mockResolvedValue({ worktreePath: "/tmp/wt" });
+    vi.spyOn((virtualWorkerService as any).workspaceManager, "buildWorkspaceGuidance").mockResolvedValue("guidance");
+    vi.spyOn((virtualWorkerService as any).workspaceManager, "removeWorktree").mockResolvedValue(undefined);
+    vi.spyOn((virtualWorkerService as any).workspaceArtifactService, "exportBinaryPatch").mockResolvedValue("");
+    vi.spyOn((virtualWorkerService as any).workspaceArtifactService, "applyPatchToBranch")
+      .mockResolvedValue({ hasChanges: false });
+    vi.spyOn((virtualWorkerService as any), "runProviderWithRetry").mockResolvedValue(undefined);
+    vi.spyOn((virtualWorkerService as any), "runWorkspaceCommand").mockResolvedValue({
+      ok: true,
+      stdout: "initial-head\n",
+      stderr: "",
+      code: 0,
+    });
+    (virtualWorkerService as any).prService = {
+      hasUnpushedCommits: vi.fn().mockResolvedValue(false),
+      hasWorkerBranchCommitsAgainstFeature: vi.fn().mockResolvedValue(false),
+    };
+
+    vi.spyOn((virtualWorkerService as any).dockerService, "isAvailable").mockResolvedValue(true);
+    vi.spyOn((virtualWorkerService as any), "isMergeConflictResolvedOnRemote").mockResolvedValue(false);
+    vi.spyOn((virtualWorkerService as any), "runMergeIntoSource").mockResolvedValue(true);
+    vi.spyOn((virtualWorkerService as any), "ensureMergeConflictResolved").mockResolvedValue(undefined);
+    vi.spyOn((virtualWorkerService as any), "finalizeMergeCommit").mockResolvedValue(undefined);
+    vi.spyOn((virtualWorkerService as any), "ensureTargetMergedIntoSource").mockResolvedValue(undefined);
+
+    await (virtualWorkerService as any).resolveMergeConflictAttention(endpoint.id, item);
+
+    const updated = projectAttentionService.getItem(item.id);
+    expect(updated?.status).toBe("open");
+    expect(updated?.payload?.lastVirtualWorkerError).toContain("without recording merge evidence");
+    expect(projectAttentionService.listActiveProjectItems(project.id)
+      .some((attentionItem) => attentionItem.attentionType === "human_escalation_required")).toBe(false);
+  });
+
   it("records the merge-conflict guardrail attempt even when the resolution fails", async () => {
     const { virtualWorkerService, projectAttentionService, project, workerEndpointRepository, projectManagementRepository } = await setupServiceWithProject();
 
@@ -1307,16 +1474,21 @@ describe("VirtualWorkerService", () => {
       payload: { repoPath: "/test", conflictingBranches: { source: "src", target: "tgt" } },
     });
 
+    vi.spyOn((virtualWorkerService as any).dockerService, "isAvailable").mockResolvedValue(true);
     vi.spyOn((virtualWorkerService as any), "isMergeConflictResolvedOnRemote").mockResolvedValue(false);
     // Fail the attempt *after* it has been counted, exercising the catch/escalate path.
     vi.spyOn((virtualWorkerService as any).workspaceManager, "prepareWorktree").mockRejectedValue(new Error("boom"));
 
     await (virtualWorkerService as any).resolveMergeConflictAttention(endpoint.id, item);
 
-    // The core fix: a failed attempt still consumes the retry budget.
+    // A failed attempt still consumes the retry budget, but it remains worker-owned
+    // until the configured cap is exhausted.
     expect(record).toHaveBeenCalledWith(expect.anything(), expect.any(String), "merge_conflict");
+    const updated = projectAttentionService.getItem(item.id);
+    expect(updated?.status).toBe("open");
+    expect(updated?.payload?.lastVirtualWorkerError).toBe("boom");
     const active = projectAttentionService.listActiveProjectItems(project.id);
-    expect(active.some((i) => i.attentionType === "human_escalation_required")).toBe(true);
+    expect(active.some((i) => i.attentionType === "human_escalation_required")).toBe(false);
   });
 
   it("tracks taskless main-merge conflict attempts on the attention payload without guardrail FK errors", async () => {
@@ -1354,17 +1526,19 @@ describe("VirtualWorkerService", () => {
       payload: { repoPath: "/test", conflictingBranches: { source: "feature/sprint-1", target: "main" } },
     });
 
+    vi.spyOn((virtualWorkerService as any).dockerService, "isAvailable").mockResolvedValue(true);
     vi.spyOn((virtualWorkerService as any), "isMergeConflictResolvedOnRemote").mockResolvedValue(false);
     vi.spyOn((virtualWorkerService as any).workspaceManager, "prepareWorktree").mockRejectedValue(new Error("boom"));
 
     await expect((virtualWorkerService as any).resolveMergeConflictAttention(endpoint.id, item)).resolves.toBeUndefined();
 
-    const resolved = projectAttentionService.getItem(item.id);
-    expect(resolved?.status).toBe("resolved");
-    expect(resolved?.payload?.mergeConflictResolutionAttempts).toBe(1);
-    expect(resolved?.payload?.mergeConflictGuardrailSubject).toBe(`attention:${item.id}`);
+    const updated = projectAttentionService.getItem(item.id);
+    expect(updated?.status).toBe("open");
+    expect(updated?.payload?.mergeConflictResolutionAttempts).toBe(1);
+    expect(updated?.payload?.mergeConflictGuardrailSubject).toBe(`attention:${item.id}`);
+    expect(updated?.payload?.lastVirtualWorkerError).toBe("boom");
     const active = projectAttentionService.listActiveProjectItems(project.id);
-    expect(active.some((i) => i.attentionType === "human_escalation_required")).toBe(true);
+    expect(active.some((i) => i.attentionType === "human_escalation_required")).toBe(false);
   });
 
   it("escalates without running a provider once the merge-conflict guardrail cap is reached", async () => {
@@ -1588,7 +1762,72 @@ describe("VirtualWorkerService", () => {
     expect(calls).not.toContainEqual(["add", "-A"]);
   });
 
-  it("escalates to human when provider execution fails during handleAttentionItem", async () => {
+  it("rejects merge conflict resolutions that mutate required timestamp marker literals", async () => {
+    const { virtualWorkerService } = await setupServiceWithProject();
+
+    vi.spyOn((virtualWorkerService as any), "runWorkspaceCommand").mockImplementation(
+      async (_path: string, _cmd: string, args: string[]) => {
+        if (args[0] === "grep") {
+          return {
+            ok: true,
+            stdout: "monitoring/dag-conflict-shared/ledger.md:3:dag-conflict-2026-07-03T16:28-17-794Z-B T02 completed 2026-07-03T17:25:33Z\n",
+            stderr: "",
+            code: 0,
+          } as any;
+        }
+        if (args[0] === "ls-files") {
+          return {
+            ok: true,
+            stdout: "monitoring/dag-conflict-b-2026-07-03T16:28-17-794Z/beta.md\n",
+            stderr: "",
+            code: 0,
+          } as any;
+        }
+        return { ok: true, stdout: "", stderr: "", code: 0 } as any;
+      },
+    );
+
+    await expect((virtualWorkerService as any).ensureMergeConflictPreservesPromptLiterals("/wt", {
+      summaryMarkdown: "",
+      payload: {
+        currentTask: {
+          taskPrompt: "Use marker `dag-conflict-2026-07-03T16-28-17-794Z-B`.",
+        },
+      },
+    })).rejects.toThrow("mutated required prompt timestamp literals");
+  });
+
+  it("allows merge conflict resolutions that preserve required timestamp marker literals", async () => {
+    const { virtualWorkerService } = await setupServiceWithProject();
+
+    vi.spyOn((virtualWorkerService as any), "runWorkspaceCommand").mockImplementation(
+      async (_path: string, _cmd: string, args: string[]) => {
+        if (args[0] === "grep") {
+          throw new Error("exit 1");
+        }
+        if (args[0] === "ls-files") {
+          return {
+            ok: true,
+            stdout: "monitoring/dag-conflict-b-2026-07-03T16-28-17-794Z/beta.md\n",
+            stderr: "",
+            code: 0,
+          } as any;
+        }
+        return { ok: true, stdout: "", stderr: "", code: 0 } as any;
+      },
+    );
+
+    await expect((virtualWorkerService as any).ensureMergeConflictPreservesPromptLiterals("/wt", {
+      summaryMarkdown: "",
+      payload: {
+        currentTask: {
+          taskPrompt: "Use marker `dag-conflict-2026-07-03T16-28-17-794Z-B`.",
+        },
+      },
+    })).resolves.toBeUndefined();
+  });
+
+  it("keeps merge conflict attention retryable when provider execution fails before the cap is exhausted", async () => {
     const { virtualWorkerService, projectAttentionService, project, workerEndpointRepository } = await setupServiceWithProject();
 
     const endpoint = workerEndpointRepository.createVirtualEndpoint({
@@ -1609,15 +1848,97 @@ describe("VirtualWorkerService", () => {
       payload: { repoPath: "/test", conflictingBranches: { source: "src", target: "tgt" } },
     });
 
+    vi.spyOn((virtualWorkerService as any).dockerService, "isAvailable").mockResolvedValue(true);
+    vi.spyOn((virtualWorkerService as any), "isMergeConflictResolvedOnRemote").mockResolvedValue(false);
     vi.spyOn((virtualWorkerService as any).workspaceManager, "prepareWorktree").mockRejectedValue(new Error("Provider failed"));
 
     await (virtualWorkerService as any).handleAttentionItem(endpoint.id, item, "test");
 
     const updatedItem = projectAttentionService.getItem(item.id);
-    expect(updatedItem?.status).toBe("resolved"); // The original item is resolved because it's escalated
+    expect(updatedItem?.status).toBe("claimed");
+    expect(updatedItem?.payload?.lastVirtualWorkerError).toBe("Provider failed");
+    expect(updatedItem?.payload?.mergeConflictRetryCount).toBe(1);
+
+    const activeItems = projectAttentionService.listActiveProjectItems(project.id);
+    expect(activeItems.some(i => i.attentionType === "human_escalation_required")).toBe(false);
+  });
+
+  it("escalates to human when provider execution fails after the merge conflict cap is exhausted", async () => {
+    const { virtualWorkerService, projectAttentionService, project, workerEndpointRepository } = await setupServiceWithProject();
+
+    const endpoint = workerEndpointRepository.createVirtualEndpoint({
+      endpointKey: "virtual:999-cap",
+      displayName: "Virtual Worker",
+      status: "connected",
+      transport: "internal",
+      capabilities: {},
+    });
+
+    const item = projectAttentionService.openItem({
+      projectId: project.id,
+      attentionType: "merge_conflict",
+      severity: "high",
+      ownerType: "worker",
+      title: "Merge Conflict",
+      summaryMarkdown: "Resolve it",
+      payload: {
+        repoPath: "/test",
+        conflictingBranches: { source: "src", target: "tgt" },
+        mergeConflictResolutionAttempts: 2,
+      },
+    });
+
+    vi.spyOn((virtualWorkerService as any).dockerService, "isAvailable").mockResolvedValue(true);
+    vi.spyOn((virtualWorkerService as any), "isMergeConflictResolvedOnRemote").mockResolvedValue(false);
+    vi.spyOn((virtualWorkerService as any).workspaceManager, "prepareWorktree").mockRejectedValue(new Error("Provider failed"));
+
+    await (virtualWorkerService as any).handleAttentionItem(endpoint.id, item, "test");
+
+    const updatedItem = projectAttentionService.getItem(item.id);
+    expect(updatedItem?.status).toBe("resolved");
 
     const activeItems = projectAttentionService.listActiveProjectItems(project.id);
     expect(activeItems.some(i => i.attentionType === "human_escalation_required")).toBe(true);
+  });
+
+  it("keeps merge conflict attention retryable when provider execution is cancelled by shutdown", async () => {
+    const { virtualWorkerService, projectAttentionService, project, workerEndpointRepository, sessionTracking } = await setupServiceWithProject();
+
+    const endpoint = workerEndpointRepository.createVirtualEndpoint({
+      endpointKey: "virtual:cancelled-merge",
+      displayName: "Virtual Worker",
+      status: "connected",
+      transport: "internal",
+      capabilities: {},
+    });
+
+    const item = projectAttentionService.openItem({
+      projectId: project.id,
+      attentionType: "merge_conflict",
+      severity: "high",
+      ownerType: "worker",
+      title: "Merge Conflict",
+      summaryMarkdown: "Resolve it",
+      payload: { repoPath: "/test", conflictingBranches: { source: "src", target: "tgt" } },
+    });
+
+    vi.spyOn((virtualWorkerService as any).dockerService, "isAvailable").mockResolvedValue(true);
+    vi.spyOn((virtualWorkerService as any), "isMergeConflictResolvedOnRemote").mockResolvedValue(false);
+    vi.spyOn((virtualWorkerService as any).workspaceManager, "prepareWorktree")
+      .mockRejectedValue(new Error("Command spawner host exited (code=null, signal=SIGHUP)"));
+    vi.spyOn((virtualWorkerService as any).workspaceManager, "removeWorktree").mockResolvedValue(undefined);
+
+    await (virtualWorkerService as any).handleAttentionItem(endpoint.id, item, "test");
+
+    const updatedItem = projectAttentionService.getItem(item.id);
+    expect(updatedItem?.status).toBe("claimed");
+    expect(updatedItem?.payload?.workerOutcome).toBeUndefined();
+
+    const activeItems = projectAttentionService.listActiveProjectItems(project.id);
+    expect(activeItems.some(i => i.attentionType === "human_escalation_required")).toBe(false);
+
+    const sessions = sessionTracking.listSessions(10).sessions;
+    expect(sessions.find(session => session.id.startsWith("virtual-merge-codex-"))?.state).toBe("CANCELLED");
   });
 
   it("resolveActionRequiredAttention covers auto-approve plan path", async () => {

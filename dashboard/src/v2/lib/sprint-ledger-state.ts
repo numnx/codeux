@@ -8,6 +8,16 @@ export interface LedgerSort {
   direction: SprintTableSortDirection;
 }
 
+export const SPRINT_TABLE_SORT_LABELS: Record<SprintTableSortKey, string> = {
+  showcasePinned: "Showcase",
+  sprintKey: "Sprint ID",
+  name: "Sprint",
+  status: "Status",
+  tasksCount: "Tasks",
+  completion: "Completion",
+  createdAt: "Created",
+};
+
 export type SprintShowcaseFilter = "all" | "pinned" | "unpinned";
 export type SprintQaFilter = "all" | "missing" | "running" | "reviewed";
 
@@ -192,6 +202,114 @@ export function pruneSelection(selectedIds: Set<string>, filteredSprints: Sprint
  */
 export function getSelectedFilteredSprints(selectedIds: Set<string>, filteredSprints: Sprint[]): Sprint[] {
   return filteredSprints.filter((s) => selectedIds.has(s.id));
+}
+
+export interface LedgerSelectionSummary {
+  selectedCount: number;
+  totalCount: number;
+  allSelected: boolean;
+  noneSelected: boolean;
+}
+
+export function getLedgerSelectionSummary(selectedIds: Set<string>, filteredSprints: Sprint[]): LedgerSelectionSummary {
+  const selectedCount = filteredSprints.reduce((count, sprint) => count + (selectedIds.has(sprint.id) ? 1 : 0), 0);
+  const totalCount = filteredSprints.length;
+  return {
+    selectedCount,
+    totalCount,
+    allSelected: totalCount > 0 && selectedCount === totalCount,
+    noneSelected: selectedCount === 0,
+  };
+}
+
+export function getLedgerViewStateKey(filters: LedgerFilters, sort: LedgerSort, listWindow: string | number): string {
+  const status = filters.status === "all" ? "all" : [...filters.status].sort().join(",");
+  return [
+    filters.query.trim(),
+    status,
+    filters.showcase,
+    filters.qa,
+    sort.key,
+    sort.direction,
+    String(listWindow),
+  ].join("|");
+}
+
+export type BulkLedgerAction = "start" | "pin" | "unpin" | "delete" | null;
+
+export function formatSprintCount(count: number): string {
+  return `${count} sprint${count === 1 ? "" : "s"}`;
+}
+
+export interface LedgerOutcomeMessageOptions {
+  totalCount?: number;
+  selectedCount?: number;
+  removedSelectedCount?: number;
+}
+
+export function getLedgerOutcomeMessage(
+  outcome: string,
+  visibleCount: number,
+  options: LedgerOutcomeMessageOptions = {},
+): string {
+  const visibleCopy = typeof options.totalCount === "number"
+    ? `Showing ${visibleCount} of ${formatSprintCount(options.totalCount)}.`
+    : `${formatSprintCount(visibleCount)} visible.`;
+  const selectedCopy = typeof options.selectedCount === "number"
+    ? options.selectedCount === 0
+      ? "No sprints selected."
+      : `${options.selectedCount} selected.`
+    : "";
+  const removedCopy = options.removedSelectedCount
+    ? `${options.removedSelectedCount} hidden selection${options.removedSelectedCount === 1 ? "" : "s"} removed.`
+    : "";
+
+  return [outcome, visibleCopy, selectedCopy, removedCopy].filter(Boolean).join(" ");
+}
+
+export function getBulkActionMessage(action: BulkLedgerAction, selectedCount: number, pending: boolean): string {
+  if (selectedCount === 0) {
+    return "No sprints selected.";
+  }
+  const suffix = `${selectedCount} selected sprint${selectedCount === 1 ? "" : "s"}`;
+  if (!action) {
+    return `Bulk controls apply to ${suffix}.`;
+  }
+  if (pending) {
+    const verb = action === "delete" ? "Deleting" : action === "start" ? "Starting" : action === "pin" ? "Pinning" : "Unpinning";
+    return `${verb} ${suffix}.`;
+  }
+  const verb = action === "delete" ? "Delete" : action === "start" ? "Start" : action === "pin" ? "Pin" : "Unpin";
+  return `${verb} will apply to ${suffix}.`;
+}
+
+export function getBulkPendingReason(action: BulkLedgerAction, selectedCount: number): string {
+  const suffix = `${selectedCount} selected sprint${selectedCount === 1 ? "" : "s"}`;
+  if (selectedCount === 0) {
+    return "Bulk controls are disabled because no sprints are selected.";
+  }
+  if (action === "start") {
+    return `Bulk controls are disabled while starting ${suffix}.`;
+  }
+  if (action === "pin") {
+    return `Bulk controls are disabled while pinning ${suffix}.`;
+  }
+  if (action === "unpin") {
+    return `Bulk controls are disabled while unpinning ${suffix}.`;
+  }
+  if (action === "delete") {
+    return `Bulk controls are disabled while deleting ${suffix}.`;
+  }
+  return `Bulk controls are disabled while an action runs for ${suffix}.`;
+}
+
+export function getSortAriaSort(sort: LedgerSort, key: SprintTableSortKey): "none" | "ascending" | "descending" {
+  if (sort.key !== key) return "none";
+  return sort.direction === "asc" ? "ascending" : "descending";
+}
+
+export function getSortButtonLabel(sort: LedgerSort, key: SprintTableSortKey): string {
+  return `Sort by ${SPRINT_TABLE_SORT_LABELS[key]}`;
 }
 
 /**

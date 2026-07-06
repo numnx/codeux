@@ -173,6 +173,7 @@ function makeBasePayload() {
       containerImage: "node:20",
       containerSetupScriptPath: "",
       containerCacheSetupScriptImage: true,
+      containerInstallPlaywrightBrowsers: true,
       containerMountGitConfig: true,
       containerGitUserName: "Jules",
       containerGitUserEmail: "jules@example.com",
@@ -202,6 +203,7 @@ function makeBasePayload() {
       hostPortRangeStart: 3000,
       hostPortRangeEnd: 4000,
       containerAppPort: 3000,
+      containerAppPorts: [3000],
       startupScriptPath: "",
     },
     workers: {

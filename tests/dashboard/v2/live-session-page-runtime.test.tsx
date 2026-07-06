@@ -12,20 +12,38 @@ vi.mock("gsap", () => ({
     registerPlugin: vi.fn()
   }
 }));
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/preact";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
+import { act, fireEvent, render, screen, cleanup, waitFor } from "@testing-library/preact";
 import { within } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 
 expect.extend(matchers);
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 import { LiveSessionPage } from "../../../dashboard/src/v2/LiveSessionPage.js";
 import { useDashboardRuntimeData } from "../../../dashboard/src/hooks/use-dashboard-runtime-data.js";
 import { useProjectData } from "../../../dashboard/src/v2/context/project-data.js";
 import { useProjectGitStatus } from "../../../dashboard/src/v2/hooks/use-project-git-status.js";
-
-
-
+import { useLiveSessionActions } from "../../../dashboard/src/v2/hooks/use-live-session-actions.js";
+const liveSessionActionMocks = vi.hoisted(() => ({
+  rerunningIds: new Set<string>(),
+  pendingActionIds: new Set<string>(),
+  handleRerun: vi.fn(),
+  handleOrchestrateSprint: vi.fn(),
+  handlePauseSprintRun: vi.fn(),
+  handleCancelSprintRun: vi.fn(),
+  handleForceCancelSprintRun: vi.fn(),
+  handleCancelTaskDispatch: vi.fn(),
+  handleForceCancelTaskDispatch: vi.fn(),
+  handleRetryTaskDispatch: vi.fn(),
+  handleClaimAttentionItem: vi.fn(),
+  handleResolveAttentionItem: vi.fn(),
+  handleDismissAttentionItem: vi.fn(),
+}));
+const forceCompleteLiveTaskMock = vi.hoisted(() => vi.fn());
 
 
 vi.mock("gsap", () => ({
@@ -56,21 +74,10 @@ vi.mock("../../../dashboard/src/v2/hooks/use-preview-sessions.js", () => ({
   usePreviewSessions: () => ({ selectedSession: null }),
 }));
 vi.mock("../../../dashboard/src/v2/hooks/use-live-session-actions.js", () => ({
-  useLiveSessionActions: () => ({
-    rerunningIds: new Set(),
-    pendingActionIds: new Set(),
-    handleRerun: vi.fn(),
-    handleOrchestrateSprint: vi.fn(),
-    handlePauseSprintRun: vi.fn(),
-    handleCancelSprintRun: vi.fn(),
-    handleForceCancelSprintRun: vi.fn(),
-    handleCancelTaskDispatch: vi.fn(),
-    handleForceCancelTaskDispatch: vi.fn(),
-    handleRetryTaskDispatch: vi.fn(),
-    handleClaimAttentionItem: vi.fn(),
-    handleResolveAttentionItem: vi.fn(),
-    handleDismissAttentionItem: vi.fn(),
-  }),
+  useLiveSessionActions: vi.fn(() => liveSessionActionMocks),
+}));
+vi.mock("../../../dashboard/src/v2/lib/api/live-tasks-client.js", () => ({
+  forceCompleteLiveTask: (...args: unknown[]) => forceCompleteLiveTaskMock(...args),
 }));
 
 const mockExecution = {
@@ -90,7 +97,11 @@ describe("LiveSessionPage Runtime Status", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    vi.useRealTimers();
+    liveSessionActionMocks.rerunningIds = new Set();
+    liveSessionActionMocks.pendingActionIds = new Set();
     vi.mocked(useProjectData).mockReturnValue({ selectedProjectId: "p1" } as any);
+    vi.mocked(useLiveSessionActions).mockReturnValue(liveSessionActionMocks);
   });
 
   it("renders the LiveTransportBanner in a disconnected state", () => {
@@ -114,9 +125,10 @@ describe("LiveSessionPage Runtime Status", () => {
     render(<LiveSessionPage />);
     expect(screen.getByText("Disconnected")).toBeInTheDocument();
     expect(screen.getByText(/Lost connection to the live stream/)).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveAttribute("aria-live", "assertive");
   });
 
-  it("does not show a recovering banner (transient state must not flash/shift layout)", () => {
+  it("shows polite background refresh messaging while preserving cached runtime panels", () => {
     vi.mocked(useDashboardRuntimeData).mockReturnValue({
       error: null,
       gitStatus: null,
@@ -135,7 +147,59 @@ describe("LiveSessionPage Runtime Status", () => {
     });
 
     render(<LiveSessionPage />);
-    expect(screen.queryByText("Recovering State")).not.toBeInTheDocument();
+    expect(screen.getByText("Refreshing Live Data")).toBeInTheDocument();
+    expect(screen.getByText(/current runtime snapshot visible/)).toBeInTheDocument();
+    const banner = screen.getByText("Refreshing Live Data").closest('[role="status"]');
+    expect(banner).toHaveAttribute("aria-live", "polite");
+    expect(banner).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("region", { name: "Execution runtime" })).toBeInTheDocument();
+  });
+
+  it("preserves cached runtime rows and marks affected panels busy when the live snapshot is stale", () => {
+    vi.mocked(useDashboardRuntimeData).mockReturnValue({
+      error: null,
+      gitStatus: null,
+      gitStatusError: null,
+      initialLoadComplete: true,
+      transportState: "connected",
+      isRecovering: false,
+      snapshotUpdatedAt: "2024-01-01T00:00:00Z",
+      refreshGitStatus: vi.fn(),
+      refreshRuntimeStatus: vi.fn(),
+      selectedSprintId: "s1",
+      status: { subtasks: [], timestamp: "2024-01-01T00:00:00Z", project_id: "p1", sprint_id: "s1" },
+      execution: {
+        ...mockExecution,
+        sprintRuns: [{
+          id: "run-stale",
+          projectId: "p1",
+          sprintId: "s1",
+          sprintName: "Cached Sprint",
+          sprintNumber: 1,
+          status: "running",
+          triggerType: "manual",
+          triggeredBy: null,
+          executorMode: "mixed",
+          startedAt: "2024-01-01T10:00:00Z",
+          finishedAt: null,
+          lastHeartbeatAt: "2024-01-01T10:05:00Z",
+          createdAt: "2024-01-01T10:00:00Z",
+          activeLeaseOwnerKey: null,
+          activeLeaseExpiresAt: null,
+          humanIntervention: null,
+        }],
+      },
+      stats: { total: 0 } as any,
+      tasksWithLiveActivities: [],
+    });
+
+    render(<LiveSessionPage />);
+
+    expect(screen.getByText("Stale Data")).toBeInTheDocument();
+    expect(screen.getAllByText("Stale Snapshot").length).toBeGreaterThan(0);
+    expect(screen.getByText("Cached Sprint · Sprint 1")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Execution runtime" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("log", { name: "Sprint run status rows" })).toHaveAttribute("aria-busy", "true");
   });
 
   it("renders the LiveTransportBanner with an error message", () => {
@@ -159,6 +223,9 @@ describe("LiveSessionPage Runtime Status", () => {
     render(<LiveSessionPage />);
     expect(screen.getByText("Connection Error")).toBeInTheDocument();
     expect(screen.getByText("Some network failure")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Connection Error");
+    expect(screen.getAllByText("Retrying Load").length).toBeGreaterThan(0);
+    expect(screen.getByRole("region", { name: "Execution runtime" })).toHaveAttribute("aria-busy", "true");
   });
 
   it("renders manual pause messaging and shows intervention label only once", () => {
@@ -208,7 +275,10 @@ describe("LiveSessionPage Runtime Status", () => {
 
     render(<LiveSessionPage />);
     expect(screen.getByText("Paused")).toBeInTheDocument();
-    expect(screen.getAllByText("Approve dependency and resume the sprint.").length).toBeGreaterThan(0);
+    const runLog = screen.getByRole("log", { name: "Sprint run status rows" });
+    expect(within(runLog).queryByText("Approve dependency and resume the sprint.")).not.toBeInTheDocument();
+    fireEvent.click(within(runLog).getByRole("button", { name: /instructions/i }));
+    expect(within(runLog).getByText("Approve dependency and resume the sprint.")).toBeInTheDocument();
     expect(screen.getAllByText("Needs you")).toHaveLength(1);
   });
 
@@ -260,8 +330,136 @@ describe("LiveSessionPage Runtime Status", () => {
     render(<LiveSessionPage />);
     expect(screen.getByText("Stopped")).toBeInTheDocument();
     expect(screen.getByText("Sprint Stopped By System")).toBeInTheDocument();
-    expect(screen.getAllByText("Resolve the stop condition and restart when ready.").length).toBeGreaterThan(0);
+    const runLog = screen.getByRole("log", { name: "Sprint run status rows" });
+    expect(within(runLog).queryByText("Resolve the stop condition and restart when ready.")).not.toBeInTheDocument();
+    fireEvent.click(within(runLog).getByRole("button", { name: /instructions/i }));
+    expect(within(runLog).getByText("Resolve the stop condition and restart when ready.")).toBeInTheDocument();
     expect(screen.queryByText("Needs you")).not.toBeInTheDocument();
+  });
+
+  it("keeps pending runtime actions inert with target-specific accessible names", () => {
+    liveSessionActionMocks.pendingActionIds = new Set(["sprint-pause:run-pending"]);
+    vi.mocked(useLiveSessionActions).mockReturnValue(liveSessionActionMocks);
+    vi.mocked(useDashboardRuntimeData).mockReturnValue({
+      error: null,
+      gitStatus: null,
+      gitStatusError: null,
+      initialLoadComplete: true,
+      transportState: "connected",
+      isRecovering: false,
+      snapshotUpdatedAt: new Date().toISOString(),
+      refreshGitStatus: vi.fn(),
+      refreshRuntimeStatus: vi.fn(),
+      selectedSprintId: "s1",
+      status: { subtasks: [], timestamp: "2024-01-01T00:00:00Z", project_id: "p1", sprint_id: "s1" },
+      execution: {
+        ...mockExecution,
+        sprintRuns: [{
+          id: "run-pending",
+          projectId: "p1",
+          sprintId: "s1",
+          sprintName: "Pending Sprint",
+          sprintNumber: 1,
+          status: "running",
+          triggerType: "manual",
+          triggeredBy: null,
+          executorMode: "mixed",
+          startedAt: "2024-01-01T10:00:00Z",
+          finishedAt: null,
+          lastHeartbeatAt: "2024-01-01T10:05:00Z",
+          createdAt: "2024-01-01T10:00:00Z",
+          activeLeaseOwnerKey: null,
+          activeLeaseExpiresAt: null,
+          humanIntervention: null,
+        }],
+      },
+      stats: { total: 0 } as any,
+      tasksWithLiveActivities: [],
+    });
+
+    render(<LiveSessionPage />);
+
+    const pendingPause = screen.getByRole("button", { name: /Pause sprint run Pending Sprint\. Pausing is already in progress\./i });
+    fireEvent.click(pendingPause);
+
+    expect(pendingPause).toHaveAttribute("aria-disabled", "true");
+    expect(pendingPause).toHaveAttribute("aria-busy", "true");
+    expect(pendingPause).toHaveTextContent("Pausing");
+    expect(pendingPause).toHaveTextContent("Pausing in progress.");
+    expect(liveSessionActionMocks.handlePauseSprintRun).not.toHaveBeenCalled();
+  });
+
+  it("gates force-complete side effects behind explicit dialog confirmation", async () => {
+    forceCompleteLiveTaskMock.mockResolvedValue(undefined);
+    const refreshRuntimeStatus = vi.fn().mockResolvedValue(undefined);
+    const refreshGitStatus = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(useDashboardRuntimeData).mockReturnValue({
+      error: null,
+      gitStatus: null,
+      gitStatusError: null,
+      initialLoadComplete: true,
+      transportState: "connected",
+      isRecovering: false,
+      snapshotUpdatedAt: new Date().toISOString(),
+      refreshGitStatus,
+      refreshRuntimeStatus,
+      selectedSprintId: "s1",
+      status: {
+        project_id: "p1",
+        sprint_id: "s1",
+        sprint_number: 1,
+        timestamp: "2024-01-01T00:00:00Z",
+        subtasks: [{
+          record_id: "task-force-1",
+          sprint_id: "s1",
+          project_id: "p1",
+          id: "T_FORCE",
+          title: "Force target task",
+          prompt: "Force complete this task",
+          depends_on: [],
+          is_independent: true,
+          status: "RUNNING",
+        }],
+      },
+      execution: mockExecution,
+      stats: { total: 1, completed: 0, running: 1, failed: 0, pending: 0 } as any,
+      tasksWithLiveActivities: [{
+        record_id: "task-force-1",
+        sprint_id: "s1",
+        project_id: "p1",
+        id: "T_FORCE",
+        title: "Force target task",
+        prompt: "Force complete this task",
+        depends_on: [],
+        is_independent: true,
+        status: "RUNNING",
+      }],
+    });
+
+    render(<LiveSessionPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Force complete task T_FORCE" }));
+    expect(forceCompleteLiveTaskMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Force Complete Task" })).toHaveTextContent(/Force target task/i);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Force Complete Task" })).not.toBeInTheDocument());
+    expect(forceCompleteLiveTaskMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Force complete task T_FORCE" }));
+    vi.useFakeTimers();
+    const confirmButton = screen.getByRole("button", { name: "Hold to Force Complete" });
+    fireEvent.pointerDown(confirmButton, { button: 0, pointerId: 1 });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(forceCompleteLiveTaskMock).toHaveBeenCalledWith("p1", "task-force-1");
+    });
+    expect(refreshRuntimeStatus).toHaveBeenCalled();
   });
 
   it("renders Waiting for slot (2/2) for a queued dispatch with concurrency wait event", () => {
@@ -380,7 +578,10 @@ describe("LiveSessionPage Integration Isolation", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    liveSessionActionMocks.rerunningIds = new Set();
+    liveSessionActionMocks.pendingActionIds = new Set();
     vi.mocked(useProjectData).mockReturnValue({ selectedProjectId: "p1" } as any);
+    vi.mocked(useLiveSessionActions).mockReturnValue(liveSessionActionMocks);
   });
 
   it("isolates task state rigidly to the explicitly selected sprint despite concurrent newer execution metadata", () => {
@@ -548,7 +749,7 @@ describe("LiveSessionPage Integration Isolation", () => {
     // Since we are looking at the older sprint, the task T1 should be shown as COMPLETED.
     // Even though there is a newer sprint running a task with the same key T1.
     // Stats should show 1 completed, 0 running.
-    expect(screen.getByText("Task 1")).toBeInTheDocument();
+    expect(screen.getAllByText("Task 1").length).toBeGreaterThan(0);
     expect(screen.getByText("COMPLETED")).toBeInTheDocument();
     expect(screen.queryByText("Task 1 (New)")).not.toBeInTheDocument();
   });
@@ -689,11 +890,12 @@ describe("LiveSessionPage Integration Isolation", () => {
     });
 
     render(<LiveSessionPage />);
-    const card = screen.getByText("Restarted task").closest('[tabindex="0"]');
+    const prLink = screen.getByRole("link", { name: /View Pull Request/i });
+    const card = prLink.closest('[tabindex="0"]');
 
     expect(card).not.toBeNull();
     expect(within(card as HTMLElement).queryByText("Needs clarification before continuing")).not.toBeInTheDocument();
-    expect(within(card as HTMLElement).getByRole("link", { name: /View Pull Request/i })).toHaveAttribute("href", "https://github.com/example/repo/pull/101");
+    expect(prLink).toHaveAttribute("href", "https://github.com/example/repo/pull/101");
   });
 
   it("does not surface a previous failure banner once the latest dispatch is running", () => {
@@ -832,7 +1034,9 @@ describe("LiveSessionPage Integration Isolation", () => {
     });
 
     render(<LiveSessionPage />);
-    const card = screen.getByText("Running rerun").closest('[tabindex="0"]');
+    const card = screen.getAllByText("Running rerun")
+      .map((element) => element.closest('[tabindex="0"]'))
+      .find((element): element is HTMLElement => element instanceof HTMLElement);
 
     expect(card).not.toBeNull();
     expect(within(card as HTMLElement).queryByText("Restart failure should be hidden")).not.toBeInTheDocument();
@@ -1091,6 +1295,10 @@ describe("LiveSessionPage Integration Isolation", () => {
     const ciRunCard = inProgressStatus.closest("a");
     expect(ciRunCard).not.toBeNull();
     expect(ciRunCard?.querySelector("svg.animate-spin")).toBeTruthy();
+    expect(ciRunCard).toHaveTextContent("CI status: IN PROGRESS");
+    expect(screen.getByRole("log", { name: "Live invocation feed" })).toHaveAttribute("aria-live", "polite");
+    expect(screen.getByRole("region", { name: "Dispatch queue" })).toBeInTheDocument();
+    expect(screen.getByText("No task dispatches yet.")).toHaveAttribute("aria-live", "polite");
   });
 });
 

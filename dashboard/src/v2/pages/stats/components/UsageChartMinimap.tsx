@@ -18,7 +18,7 @@ export const UsageChartMinimap: FunctionComponent<{
   zoomRange: ChartZoomRange | null;
   onZoomChange: (range: ChartZoomRange | null) => void;
   accentHex?: string;
-}> = ({ buckets, zoomRange, onZoomChange, accentHex = "#00E0A0" }) => {
+}> = ({ buckets, zoomRange, onZoomChange, accentHex = "var(--stats-accent-signal)" }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragStart, setDragStart] = useState<number | null>(null);
   const [dragCurrent, setDragCurrent] = useState<number | null>(null);
@@ -172,6 +172,9 @@ export const UsageChartMinimap: FunctionComponent<{
             : hasZoomableRange
               ? 'Zoom reset. Use arrow keys to pan and escape to clear.'
               : 'Single-bucket view. Zoom is unavailable until more buckets exist.'}
+        </div>
+        <div className="sr-only">
+          Minimap bucket order: {buckets.map((bucket, index) => `${index + 1}. ${bucket.label}, ${bucket.usage.totalTokens.toLocaleString()} tokens`).join("; ")}.
         </div>
         <svg
           aria-hidden="true"

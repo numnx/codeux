@@ -1,5 +1,4 @@
 import { h } from "preact";
-import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Loader2, MessageSquare, Search } from "lucide-preact";
 import { JiraIcon } from "../icons/JiraIcon.js";
@@ -15,6 +14,7 @@ import {
 import { fetchProjectEffectiveSettings } from "../../lib/settings-api.js";
 import { MultiSelect } from "../ui/MultiSelect.js";
 import {
+  buildIssueImportCompactState,
   buildIssueImportMetadataRows,
   getIssueImportEmptyStateCopy,
   getIssueImportErrorCopy,
@@ -26,6 +26,16 @@ import {
 import { IssueImportEmptyState } from "./importer/IssueImportEmptyState.js";
 import { IssueImportIssueCard } from "./importer/IssueImportIssueCard.js";
 import { IssueImportSummaryRail } from "./importer/IssueImportSummaryRail.js";
+import {
+  IssueImportDateInput,
+  IssueImportField,
+  IssueImportFilterSection,
+  IssueImportMultiSelectField,
+  IssueImportNumberInput,
+  IssueImportSelect,
+  IssueImportTextarea,
+  IssueImportTextInput,
+} from "./importer/IssueImportFields.js";
 import {
   IssueImportErrorPanel,
   IssueImportLoadingSkeletonList,
@@ -88,6 +98,7 @@ export const SprintJiraImportModal = ({
   const [sortDirection, setSortDirection] = useState<JiraSortDirection>("desc");
   const [limit, setLimit] = useState(40);
   const [jql, setJql] = useState("");
+  const [advancedFiltersExpanded, setAdvancedFiltersExpanded] = useState(false);
   const [results, setResults] = useState<JiraIssueSearchResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -103,7 +114,7 @@ export const SprintJiraImportModal = ({
   ), [results, selectedKeys]);
 
   const getIssueImportMode = (issue: JiraIssueSearchResult): ImportedTaskMode => (
-    importModes[issue.key] ?? inferImportedTaskMode(issue, Boolean(onImportSpecialTasks))
+    importModes[issue.key] ?? "linked"
   );
 
   const selectedLinkedIssues = useMemo(() => (
@@ -131,6 +142,41 @@ export const SprintJiraImportModal = ({
   );
   const visibleSelectedCount = results.filter((issue) => selectedKeys.has(issue.key)).length;
   const emptyStateCopy = getIssueImportEmptyStateCopy("jira", hasSearched);
+  const compactState = buildIssueImportCompactState({
+    filters: [
+      {
+        id: "status",
+        label: "Status",
+        value: status,
+        defaultValue: "open",
+        valueLabel: getOptionLabel(STATUS_OPTIONS, status),
+        defaultLabel: "Open",
+        alwaysShow: true,
+        priority: 0,
+      },
+      { id: "project", label: "Project", value: projectKey, priority: 1 },
+      { id: "issue", label: "Issue", value: issueKey, priority: 2 },
+      { id: "search", label: "Text", value: search, priority: 3 },
+      { id: "assignee", label: "Assignee", value: assigneeText, priority: 4 },
+      { id: "reporter", label: "Reporter", value: reporterText, priority: 5 },
+      { id: "type", label: "Type", value: issueType, priority: 6 },
+      { id: "priority", label: "Priority", value: priority, priority: 7 },
+      { id: "labels", label: "Labels", value: labels, priority: 8 },
+      { id: "updatedAfter", label: "Updated after", value: updatedAfter, priority: 9 },
+      { id: "updatedBefore", label: "Updated before", value: updatedBefore, priority: 10 },
+      { id: "jql", label: "JQL", value: jql, priority: 11 },
+    ],
+    selectedCount: selectedIssues.length,
+    visibleCount: results.length,
+    totalCount: results.length,
+    sortField,
+    sortDirection,
+    sortFieldOptions: SORT_FIELD_OPTIONS,
+    sortDirectionOptions: SORT_DIRECTION_OPTIONS,
+  });
+  const guidedSearchSummary = status === "open" && sortField === "updated" && sortDirection === "desc"
+    ? "Default: open Jira issues, recently updated first."
+    : `Showing ${getOptionLabel(STATUS_OPTIONS, status).toLowerCase()} Jira issues sorted by ${compactState.sortLabel.toLowerCase()}.`;
 
   const runSearch = async (
     overrides: Partial<{
@@ -269,12 +315,6 @@ export const SprintJiraImportModal = ({
       return;
     }
 
-    if (onImportSpecialTasks) {
-      setImportModes((currentModes) => ({
-        ...currentModes,
-        [issue.key]: inferImportedTaskMode(issue, true),
-      }));
-    }
   };
 
   const toggleConversation = (issue: JiraIssueSearchResult): void => {
@@ -308,6 +348,23 @@ export const SprintJiraImportModal = ({
     setSelectedKeys(new Set());
     setConversationDisabledKeys(new Set());
     setImportModes({});
+  };
+
+  const setImportModeForSelected = (mode: ImportedTaskMode): void => {
+    if (selectedKeys.size === 0) {
+      return;
+    }
+    setImportModes((currentModes) => {
+      const next = { ...currentModes };
+      for (const key of selectedKeys) {
+        if (mode === "linked") {
+          delete next[key];
+        } else {
+          next[key] = mode;
+        }
+      }
+      return next;
+    });
   };
 
   const setConversationForAllSelected = (enabled: boolean): void => {
@@ -374,250 +431,321 @@ export const SprintJiraImportModal = ({
           description="Search Jira with exact keys, guided filters, and bulk selection, then import linked issues or special task payloads."
           items={[
             { label: "Project", value: projectKey || "all projects" },
-            { label: "Visible selected", value: `${visibleSelectedCount} / ${results.length}` },
-            { label: "Linked", value: String(selectedLinkedIssueCount) },
-            { label: "Special", value: String(selectedSpecialTaskCount) },
+            { label: "Sort", value: compactState.sortLabel },
+            { label: "Visible", value: `${results.length} results` },
+            { label: "Linked", value: String(selectedLinkedIssueCount), active: selectedLinkedIssueCount > 0 },
+            { label: "Special", value: String(selectedSpecialTaskCount), active: selectedSpecialTaskCount > 0 },
           ]}
+          status={guidedSearchSummary}
         />
       )}
       filters={(
         <div className="grid gap-5">
-              <section className="grid gap-4 rounded-[1.5rem] border border-black/[0.06] bg-black/[0.015] p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
-                <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                  <LabeledControl label="Project key" hint="Leave blank to search all Jira projects.">
-                    <input
-                      value={projectKey}
-                      onInput={(event) => setProjectKey((event.target as HTMLInputElement).value.toUpperCase())}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          void runSearch();
-                        }
-                      }}
-                      placeholder="OPS"
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-4 text-sm font-black uppercase tracking-[0.08em] text-slate-700 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
-                      aria-label="Jira project key"
-                    />
-                  </LabeledControl>
+          <IssueImportFilterSection
+            title="Guided Jira Search"
+            description={guidedSearchSummary}
+            action={(
+              <button
+                type="button"
+                onClick={() => void runSearch()}
+                disabled={loading}
+                className="inline-flex h-11 min-w-36 items-center justify-center gap-2 rounded-[1rem] bg-[#0052CC] px-5 text-xs font-black uppercase tracking-[0.14em] text-white transition-all hover:-translate-y-px hover:bg-[#0047b3] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#4C9AFF] dark:text-slate-950 dark:hover:bg-[#3b85e0]"
+                aria-label="Search"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                Search
+              </button>
+            )}
+          >
+            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+              <IssueImportField label="Project key" hint="Leave blank to search all Jira projects.">
+                <IssueImportTextInput
+                  provider={JIRA_PROVIDER}
+                  value={projectKey}
+                  onInput={(event) => setProjectKey((event.target as HTMLInputElement).value.toUpperCase())}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      void runSearch();
+                    }
+                  }}
+                  placeholder="OPS"
+                  className="font-semibold uppercase tracking-[0.08em]"
+                  aria-label="Jira project key"
+                />
+              </IssueImportField>
 
-                  <LabeledControl label="Exact issue key" hint="Use a full issue key like OPS-42, or leave blank to search by text.">
-                    <input
-                      value={issueKey}
-                      onInput={(event) => setIssueKey((event.target as HTMLInputElement).value.toUpperCase())}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          void runSearch();
-                        }
-                      }}
-                      placeholder="OPS-42"
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-4 text-sm text-slate-700 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
-                      aria-label="Jira exact issue key"
-                    />
-                  </LabeledControl>
+              <IssueImportField label="Exact issue key" hint="Use a full issue key like OPS-42.">
+                <IssueImportTextInput
+                  provider={JIRA_PROVIDER}
+                  value={issueKey}
+                  onInput={(event) => setIssueKey((event.target as HTMLInputElement).value.toUpperCase())}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      void runSearch();
+                    }
+                  }}
+                  placeholder="OPS-42"
+                  className="font-semibold uppercase tracking-[0.08em]"
+                  aria-label="Jira exact issue key"
+                />
+              </IssueImportField>
 
-                  <LabeledControl label="Free-text search" hint="Search summaries, descriptions, and issue keys.">
-                    <input
-                      value={search}
-                      onInput={(event) => setSearch((event.target as HTMLInputElement).value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          void runSearch();
-                        }
-                      }}
-                      placeholder="Search title, description, or key"
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-4 text-sm text-slate-700 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
-                      aria-label="Jira search text"
-                    />
-                  </LabeledControl>
+              <IssueImportField label="Search text" hint="Search summaries, descriptions, and issue keys.">
+                <IssueImportTextInput
+                  provider={JIRA_PROVIDER}
+                  value={search}
+                  onInput={(event) => setSearch((event.target as HTMLInputElement).value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      void runSearch();
+                    }
+                  }}
+                  placeholder="Search title, description, or key"
+                  aria-label="Jira search text"
+                />
+              </IssueImportField>
 
-                  <LabeledControl label="Status">
-                    <select
-                      aria-label="Jira status"
-                      value={status}
-                      onChange={(event) => setStatus((event.target as HTMLSelectElement).value as JiraStatusFilter)}
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-300"
-                    >
-                      {STATUS_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </LabeledControl>
+              <IssueImportField label="Status">
+                <IssueImportSelect
+                  provider={JIRA_PROVIDER}
+                  aria-label="Jira status"
+                  value={status}
+                  onChange={(event) => setStatus((event.target as HTMLSelectElement).value as JiraStatusFilter)}
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </IssueImportSelect>
+              </IssueImportField>
 
-                  <LabeledControl label="Assignee / user text" hint="Supports Jira names, emails, account IDs, me, currentUser(), unassigned, and empty.">
-                    <input
-                      aria-label="Jira assignee"
-                      value={assigneeText}
-                      onInput={(event) => setAssigneeText((event.target as HTMLInputElement).value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          void runSearch();
-                        }
-                      }}
-                      placeholder="me"
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-4 text-sm text-slate-700 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
-                    />
-                  </LabeledControl>
+              <IssueImportField label="Sort field">
+                <IssueImportSelect
+                  provider={JIRA_PROVIDER}
+                  aria-label="Sort field"
+                  value={sortField}
+                  onChange={(event) => setSortField((event.target as HTMLSelectElement).value as JiraSortField)}
+                >
+                  {SORT_FIELD_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </IssueImportSelect>
+              </IssueImportField>
 
-                  <LabeledControl label="Reporter / user text" hint="Supports Jira names, emails, account IDs, me, and currentUser().">
-                    <input
-                      aria-label="Jira reporter"
-                      value={reporterText}
-                      onInput={(event) => setReporterText((event.target as HTMLInputElement).value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          void runSearch();
-                        }
-                      }}
-                      placeholder="currentUser()"
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-4 text-sm text-slate-700 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
-                    />
-                  </LabeledControl>
+              <IssueImportField label="Sort direction">
+                <IssueImportSelect
+                  provider={JIRA_PROVIDER}
+                  aria-label="Sort direction"
+                  value={sortDirection}
+                  onChange={(event) => setSortDirection((event.target as HTMLSelectElement).value as JiraSortDirection)}
+                >
+                  {SORT_DIRECTION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </IssueImportSelect>
+              </IssueImportField>
 
-                  <LabeledControl label="Issue type">
-                    <input
-                      value={issueType}
-                      onInput={(event) => setIssueType((event.target as HTMLInputElement).value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          void runSearch();
-                        }
-                      }}
-                      placeholder="Bug, Story, Epic"
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-4 text-sm text-slate-700 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
-                      aria-label="Jira issue type"
-                    />
-                  </LabeledControl>
-
-                  <LabeledControl label="Priority">
-                    <input
-                      value={priority}
-                      onInput={(event) => setPriority((event.target as HTMLInputElement).value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          void runSearch();
-                        }
-                      }}
-                      placeholder="High, Critical, Medium"
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-4 text-sm text-slate-700 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
-                      aria-label="Jira priority"
-                    />
-                  </LabeledControl>
-
-                  <LabeledControl label="Updated after">
-                    <input
-                      type="date"
-                      value={updatedAfter}
-                      onInput={(event) => setUpdatedAfter((event.target as HTMLInputElement).value)}
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-4 text-sm text-slate-700 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
-                      aria-label="Updated after"
-                    />
-                  </LabeledControl>
-
-                  <LabeledControl label="Updated before">
-                    <input
-                      type="date"
-                      value={updatedBefore}
-                      onInput={(event) => setUpdatedBefore((event.target as HTMLInputElement).value)}
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-4 text-sm text-slate-700 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
-                      aria-label="Updated before"
-                    />
-                  </LabeledControl>
-
-                  <LabeledControl label="Sort field">
-                    <select
-                      aria-label="Sort field"
-                      value={sortField}
-                      onChange={(event) => setSortField((event.target as HTMLSelectElement).value as JiraSortField)}
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-300"
-                    >
-                      {SORT_FIELD_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </LabeledControl>
-
-                  <LabeledControl label="Sort direction">
-                    <select
-                      aria-label="Sort direction"
-                      value={sortDirection}
-                      onChange={(event) => setSortDirection((event.target as HTMLSelectElement).value as JiraSortDirection)}
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-300"
-                    >
-                      {SORT_DIRECTION_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </LabeledControl>
-
-                  <LabeledControl label="Limit" hint="Bounded to the Jira search endpoint limit.">
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={limit}
-                      onInput={(event) => {
-                        const nextValue = Number((event.target as HTMLInputElement).value);
-                        setLimit(Number.isFinite(nextValue) ? Math.max(1, Math.min(100, Math.trunc(nextValue))) : 40);
-                      }}
-                      className="h-12 rounded-[1.1rem] border border-black/[0.07] bg-white px-4 text-sm text-slate-700 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
-                      aria-label="Jira result limit"
-                    />
-                  </LabeledControl>
-                </div>
-
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto]">
-                  <LabeledControl label="Labels">
-                    <MultiSelect
-                      value={labels}
-                      onChange={setLabels}
-                      placeholder="Optional Jira labels, press Enter to add"
-                    />
-                  </LabeledControl>
-
-                  <div className="grid gap-3 xl:self-end">
-                    <button
-                      type="button"
-                      onClick={() => void runSearch()}
-                      disabled={loading}
-                      className="inline-flex h-12 min-w-40 items-center justify-center gap-2 rounded-[1.1rem] bg-slate-900 px-5 text-xs font-black uppercase tracking-[0.14em] text-white transition-all hover:-translate-y-px hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950 dark:hover:bg-white/90"
-                      aria-label="Search"
-                    >
-                      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                      Search
-                    </button>
-                  </div>
-                </div>
-
-                <details className="rounded-[1.2rem] border border-black/[0.06] bg-white/80 px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                  <summary className="cursor-pointer list-none text-xs font-black uppercase tracking-[0.14em] text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0052CC]/30">
-                    Advanced JQL override
-                  </summary>
-                  <div className="mt-3 grid gap-2">
-                    <textarea
-                      value={jql}
-                      onInput={(event) => setJql((event.target as HTMLTextAreaElement).value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                          void runSearch();
-                        }
-                      }}
-                      rows={4}
-                      placeholder="project = OPS AND labels in (security)"
-                      className="w-full rounded-[1.1rem] border border-black/[0.07] bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#0052CC] focus-visible:ring-2 focus-visible:ring-[#0052CC]/20 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-200"
-                      aria-label="Jira JQL override"
-                    />
-                    <p className="text-xs leading-relaxed text-slate-400">
-                      JQL is optional. Leave it empty for guided search, or use it to override every other filter.
-                    </p>
-                  </div>
-                </details>
-              </section>
+              <IssueImportField label="Limit" hint="Bounded to the Jira search endpoint limit.">
+                <IssueImportNumberInput
+                  provider={JIRA_PROVIDER}
+                  min={1}
+                  max={100}
+                  value={limit}
+                  onInput={(event) => {
+                    const nextValue = Number((event.target as HTMLInputElement).value);
+                    setLimit(Number.isFinite(nextValue) ? Math.max(1, Math.min(100, Math.trunc(nextValue))) : 40);
+                  }}
+                  aria-label="Jira result limit"
+                />
+              </IssueImportField>
             </div>
+          </IssueImportFilterSection>
+        </div>
+      )}
+      advancedFilters={(
+        <div className="grid gap-4">
+          <div className="grid gap-4 xl:grid-cols-2">
+            <IssueImportFilterSection
+              title="People"
+              description="Narrow by Jira assignee or reporter text when the default open backlog is too broad."
+              compact
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <IssueImportField label="Jira assignee" hint="Supports names, emails, account IDs, me, currentUser(), unassigned, and empty.">
+                  <IssueImportTextInput
+                    provider={JIRA_PROVIDER}
+                    aria-label="Jira assignee"
+                    value={assigneeText}
+                    onInput={(event) => setAssigneeText((event.target as HTMLInputElement).value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        void runSearch();
+                      }
+                    }}
+                    placeholder="me"
+                  />
+                </IssueImportField>
+
+                <IssueImportField label="Jira reporter" hint="Supports names, emails, account IDs, me, and currentUser().">
+                  <IssueImportTextInput
+                    provider={JIRA_PROVIDER}
+                    aria-label="Jira reporter"
+                    value={reporterText}
+                    onInput={(event) => setReporterText((event.target as HTMLInputElement).value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        void runSearch();
+                      }
+                    }}
+                    placeholder="currentUser()"
+                  />
+                </IssueImportField>
+              </div>
+            </IssueImportFilterSection>
+
+            <IssueImportFilterSection
+              title="Classification"
+              description="Filter Jira taxonomy fields without changing the import mode."
+              compact
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <IssueImportField label="Issue type">
+                  <IssueImportTextInput
+                    provider={JIRA_PROVIDER}
+                    value={issueType}
+                    onInput={(event) => setIssueType((event.target as HTMLInputElement).value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        void runSearch();
+                      }
+                    }}
+                    placeholder="Bug, Story, Epic"
+                    aria-label="Jira issue type"
+                  />
+                </IssueImportField>
+
+                <IssueImportField label="Priority">
+                  <IssueImportTextInput
+                    provider={JIRA_PROVIDER}
+                    value={priority}
+                    onInput={(event) => setPriority((event.target as HTMLInputElement).value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        void runSearch();
+                      }
+                    }}
+                    placeholder="High, Critical, Medium"
+                    aria-label="Jira priority"
+                  />
+                </IssueImportField>
+
+                <IssueImportMultiSelectField
+                  label="Labels"
+                  hint="Labels narrow search only. They do not switch issues into special-task mode."
+                  className="md:col-span-2"
+                >
+                  <MultiSelect
+                    value={labels}
+                    onChange={setLabels}
+                    placeholder="Optional Jira labels, press Enter to add"
+                  />
+                </IssueImportMultiSelectField>
+              </div>
+            </IssueImportFilterSection>
+          </div>
+
+          <IssueImportFilterSection
+            title="Updated Window"
+            description="Use Jira updated dates when recent-first sorting still returns too much history."
+            compact
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <IssueImportField label="Updated after">
+                <IssueImportDateInput
+                  provider={JIRA_PROVIDER}
+                  value={updatedAfter}
+                  onInput={(event) => setUpdatedAfter((event.target as HTMLInputElement).value)}
+                  aria-label="Updated after"
+                />
+              </IssueImportField>
+
+              <IssueImportField label="Updated before">
+                <IssueImportDateInput
+                  provider={JIRA_PROVIDER}
+                  value={updatedBefore}
+                  onInput={(event) => setUpdatedBefore((event.target as HTMLInputElement).value)}
+                  aria-label="Updated before"
+                />
+              </IssueImportField>
+            </div>
+          </IssueImportFilterSection>
+
+          <IssueImportFilterSection
+            title="Advanced JQL Override"
+            description="When present, JQL replaces the guided filters in the Jira search request."
+            compact
+          >
+            <IssueImportTextarea
+              provider={JIRA_PROVIDER}
+              value={jql}
+              onInput={(event) => setJql((event.target as HTMLTextAreaElement).value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                  void runSearch();
+                }
+              }}
+              rows={4}
+              placeholder="project = OPS AND labels in (security)"
+              aria-label="Jira JQL override"
+            />
+          </IssueImportFilterSection>
+        </div>
+      )}
+      advancedFiltersExpanded={advancedFiltersExpanded}
+      advancedFiltersLabel="Advanced Jira filters"
+      advancedFiltersId="jira-import-advanced-filters"
+      activeFilterCountLabel={compactState.activeFilterCountLabel}
+      onAdvancedFiltersToggle={() => setAdvancedFiltersExpanded((expanded) => !expanded)}
+      resultStatus={(
+        <div className="flex flex-col gap-3 rounded-[1.1rem] border border-black/[0.06] bg-white/70 p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              <span className="font-black text-slate-700 dark:text-slate-200">{results.length}</span>{" "}
+              visible {results.length === 1 ? "result" : "results"}.
+              {" "}
+              <span className="font-black text-slate-700 dark:text-slate-200">{selectedLinkedIssueCount}</span>{" "}
+              linked,
+              {" "}
+              <span className="font-black text-slate-700 dark:text-slate-200">{selectedSpecialTaskCount}</span>{" "}
+              special.
+            </div>
+            <div className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+              Sort: {compactState.sortLabel}
+            </div>
+          </div>
+          {compactState.chips.length > 0 && (
+            <div className="flex flex-wrap gap-1.5" aria-label="Active Jira filters">
+              {compactState.chips.map((chip) => (
+                <span
+                  key={chip.id}
+                  className={`inline-flex max-w-full items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ${
+                    chip.active
+                      ? "bg-[#0052CC]/10 text-[#0052CC] ring-[#0052CC]/20 dark:bg-[#4C9AFF]/12 dark:text-[#9ecbff] dark:ring-[#4C9AFF]/20"
+                      : "bg-black/[0.035] text-slate-500 ring-black/[0.05] dark:bg-white/[0.05] dark:text-slate-300 dark:ring-white/[0.06]"
+                  }`}
+                >
+                  <span className="text-slate-400 dark:text-slate-500">{chip.label}</span>
+                  <span className="truncate">{chip.value}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       )}
       footer={(
             <div className="flex flex-col gap-4 rounded-[1.4rem] border border-black/[0.06] bg-black/[0.015] p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
@@ -666,6 +794,38 @@ export const SprintJiraImportModal = ({
                   <MessageSquare className="h-3.5 w-3.5" strokeWidth={2.1} />
                   Append conversation to all selected
                 </label>
+                {onImportSpecialTasks && (
+                  <div
+                    className="flex flex-wrap items-center gap-1 rounded-[1rem] border border-black/[0.06] bg-white p-1 dark:border-white/[0.08] dark:bg-white/[0.05]"
+                    role="group"
+                    aria-label="Jira import mode for selected issues"
+                  >
+                    {([
+                      ["linked", "Linked"],
+                      ["security", "Security task"],
+                      ["quality", "Quality task"],
+                    ] as Array<[ImportedTaskMode, string]>).map(([mode, label]) => {
+                      const selectedMode = selectedIssues.length > 0
+                        && selectedIssues.every((issue) => getIssueImportMode(issue) === mode);
+                      return (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setImportModeForSelected(mode)}
+                          disabled={selectedIssues.length === 0}
+                          aria-pressed={selectedMode}
+                          className={`rounded-[0.8rem] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                            selectedMode
+                              ? "bg-[#0052CC] text-white dark:bg-[#4C9AFF] dark:text-slate-950"
+                              : "text-slate-500 hover:bg-black/[0.04] hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 <div className="flex items-center justify-end gap-3">
                   <button
                     type="button"
@@ -678,7 +838,7 @@ export const SprintJiraImportModal = ({
                     type="button"
                     onClick={() => { void handleImport(); }}
                     disabled={selectedIssues.length === 0 || importing}
-                    className="rounded-[1rem] bg-[#0052CC] px-5 py-3 text-sm font-black text-white shadow-[0_12px_28px_rgba(0,82,204,0.2)] transition-all hover:-translate-y-px hover:bg-[#0047b3] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#4C9AFF] dark:text-slate-900 dark:hover:bg-[#3b85e0]"
+                    className="rounded-[1rem] bg-[#0052CC] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(0,82,204,0.2)] transition-all hover:-translate-y-px hover:bg-[#0047b3] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#4C9AFF] dark:text-slate-900 dark:hover:bg-[#3b85e0]"
                     aria-label={selectedIssues.length === 0 ? "Import issues disabled until Jira issues are selected" : "Import issues"}
                   >
                     {importing ? "Importing..." : "Import Issues"}
@@ -742,8 +902,9 @@ export const SprintJiraImportModal = ({
                 labels={truncateIssueImportLabels(issue.labels ?? [], 6)}
                 assignees={truncateIssueImportAssignees(issue.assignees ?? [], 4)}
                 selectionLabel={selected ? "Selected" : "Click to select"}
-                modeLabel={importMode === "linked" ? null : `${importMode} task`}
+                modeLabel={importMode === "linked" ? "Linked issue" : `${importMode} task`}
                 icon={<JiraIcon className="h-4 w-4" />}
+                metadataLimit={5}
                 onToggle={() => toggleIssue(issue)}
                 onToggleConversation={() => {
                   if (selected) {
@@ -759,26 +920,6 @@ export const SprintJiraImportModal = ({
   );
 };
 
-function LabeledControl({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: ComponentChildren;
-}): h.JSX.Element {
-  return (
-    <label className="grid gap-2">
-      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-        {label}
-      </span>
-      {children}
-      {hint && <span className="text-xs leading-relaxed text-slate-400">{hint}</span>}
-    </label>
-  );
-}
-
 function normalizeOptionalText(value: string | undefined): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -787,37 +928,11 @@ function normalizeOptionalDate(value: string | undefined): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function inferImportedTaskMode(issue: JiraIssueSearchResult, allowSpecialTasks: boolean): ImportedTaskMode {
-  if (!allowSpecialTasks) {
-    return "linked";
-  }
-
-  const normalizedLabels = (issue.labels || []).map((label) => label.trim().toLowerCase());
-  const normalizedType = (issue.issueType || "").trim().toLowerCase();
-  const normalizedPriority = (issue.priority || "").trim().toLowerCase();
-  const normalizedText = [issue.title, issue.bodyPreview]
-    .join(" ")
-    .trim()
-    .toLowerCase();
-
-  if (
-    normalizedLabels.some((label: string) => ["security", "sec", "vulnerability", "vuln"].includes(label))
-    || ["security", "vulnerability", "incident"].some((term) => normalizedType.includes(term))
-    || ["security", "vulnerability", "cve", "secret", "secrets"].some((term) => normalizedText.includes(term))
-  ) {
-    return "security";
-  }
-
-  if (
-    normalizedLabels.some((label: string) => ["quality", "bug", "regression", "defect", "test"].includes(label))
-    || ["bug", "regression", "defect", "quality"].some((term) => normalizedType.includes(term))
-    || ["bug", "regression", "defect", "quality"].some((term) => normalizedText.includes(term))
-    || ["highest", "critical"].includes(normalizedPriority)
-  ) {
-    return "quality";
-  }
-
-  return "linked";
+function getOptionLabel<TValue extends string>(
+  options: ReadonlyArray<{ value: TValue; label: string }>,
+  value: TValue,
+): string {
+  return options.find((option) => option.value === value)?.label ?? value;
 }
 
 function buildImportedTaskPayload(

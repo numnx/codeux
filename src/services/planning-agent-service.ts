@@ -29,7 +29,7 @@ import type { PlannedSprintPayload, PlannedTaskDraft } from "../contracts/projec
 import { persistPlannedTasks } from "./planning-task-persistence.js";
 import { ProviderExecutionService, resolveEffectiveModel } from "./provider-execution-service.js";
 import { StructuredAgentRequestService, type StructuredAgentRequestResult } from "./structured-agent-request-service.js";
-import { StructuredProviderResponseService } from "./structured-provider-response-service.js";
+import { ProviderInvocationCancelledError, StructuredProviderResponseService } from "./structured-provider-response-service.js";
 import { waitUntil } from "../shared/polling/wait-until.js";
 import { LEARNINGS_FILENAME } from "../contracts/memory-types.js";
 import * as PlanningPromptBuilder from "./planning-prompt-builder.js";
@@ -105,6 +105,21 @@ function isExecutionInvocationActiveForFinalize(
   }
   const current = executionRepository?.getExecutionInvocation(invocationId);
   return current?.status !== "cancelled";
+}
+
+function finalizePlanningInvocationError(
+  executionRepository: PlanningAgentServiceDeps["executionRepository"],
+  invocationId: string | undefined,
+  error: unknown,
+): void {
+  if (!invocationId || !isExecutionInvocationActiveForFinalize(executionRepository, invocationId)) {
+    return;
+  }
+  executionRepository?.updateExecutionInvocation(invocationId, {
+    status: error instanceof ProviderInvocationCancelledError ? "cancelled" : "failed",
+    errorMessage: error instanceof Error ? error.message : String(error),
+    finishedAt: new Date().toISOString(),
+  });
 }
 
 interface PlanningContinuationContext {
@@ -233,13 +248,7 @@ export class PlanningAgentService {
     } catch (error) {
 //
 
-      if (invocation && isExecutionInvocationActiveForFinalize(this.deps.executionRepository, invocation.id)) {
-        this.deps.executionRepository?.updateExecutionInvocation(invocation.id, {
-          status: "failed",
-          errorMessage: error instanceof Error ? error.message : String(error),
-          finishedAt: new Date().toISOString(),
-        });
-      }
+      finalizePlanningInvocationError(this.deps.executionRepository, invocation?.id, error);
       throw error;
     }
 
@@ -356,6 +365,7 @@ export class PlanningAgentService {
       codingAgentRoster,
       sprintNumber: sprint.number,
       sprintName: sprint.name,
+      canSetSprintTitle: sprint.isGeneratedName,
       goal: sprint.goal,
       memoryContext,
       learningsInstruction,
@@ -394,7 +404,7 @@ export class PlanningAgentService {
           "Please output ONLY the valid JSON sprint definition. Requirements:",
           "- Output raw JSON only — no markdown fences, no commentary, no prose before or after.",
           "- Ensure all string values are properly escaped (especially quotes and newlines inside promptMarkdown).",
-          "- Use the exact schema from the original instructions: {\"goal\":\"...\",\"tasks\":[...]}"
+          "- Use the exact schema from the original instructions: {\"goal\":\"...\",\"tasks\":[...]}, with optional top-level \"title\" only when allowed by those instructions."
         ].join("\n"),
       });
       payload = virtualResult.parsed;
@@ -426,13 +436,7 @@ export class PlanningAgentService {
         );
       }
 
-      if (invocation && isExecutionInvocationActiveForFinalize(this.deps.executionRepository, invocation.id)) {
-        this.deps.executionRepository?.updateExecutionInvocation(invocation.id, {
-          status: "failed",
-          errorMessage: error instanceof Error ? error.message : String(error),
-          finishedAt: new Date().toISOString(),
-        });
-      }
+      finalizePlanningInvocationError(this.deps.executionRepository, invocation?.id, error);
       throw error;
     }
 
@@ -440,10 +444,16 @@ export class PlanningAgentService {
       this.deps.projectManagementRepository.deleteTasksBySprint(sprintId);
     }
 
+    const sprintUpdate: { name?: string; goal?: string } = {};
+    const plannedTitle = payload.title?.trim();
+    if (plannedTitle && sprint.isGeneratedName) {
+      sprintUpdate.name = plannedTitle;
+    }
     if (payload.goal && payload.goal.trim() && payload.goal.trim() !== sprint.goal.trim()) {
-      this.deps.projectManagementRepository.updateSprint(sprint.id, {
-        goal: payload.goal.trim(),
-      });
+      sprintUpdate.goal = payload.goal.trim();
+    }
+    if (Object.keys(sprintUpdate).length > 0) {
+      this.deps.projectManagementRepository.updateSprint(sprint.id, sprintUpdate);
     }
 
     const { createdTaskIds } = persistPlannedTasks(
@@ -485,7 +495,7 @@ export class PlanningAgentService {
       "",
       "Output the complete valid JSON sprint definition now. Requirements:",
       "- Output raw JSON only — no markdown fences, no commentary, no prose before or after.",
-      "- Use the exact schema from the original planning instructions: {\"goal\":\"...\",\"tasks\":[...]}",
+      "- Use the exact schema from the original planning instructions: {\"goal\":\"...\",\"tasks\":[...]}, with optional top-level \"title\" only when allowed by those instructions.",
       "- Include the full final task list, not a partial diff or summary.",
       "",
       "## Original Planning Instructions",
@@ -592,8 +602,11 @@ export class PlanningAgentService {
         }
         : null,
     });
-    const providerConfigId = args.overrides?.virtualProvider
-      ? Object.entries(route.providers).find(([, candidate]) => candidate.provider === args.overrides?.virtualProvider)?.[0] || route.providerConfigId
+    const virtualProviderOverride = args.overrides?.virtualProvider;
+    const providerConfigId = virtualProviderOverride
+      ? Object.entries(route.providers).find(([candidateConfigId, candidate]) => (
+        candidateConfigId === virtualProviderOverride || candidate.provider === virtualProviderOverride
+      ))?.[0] || route.providerConfigId
       : route.providerConfigId;
     const baseProviderSettings = route.providers[providerConfigId];
     if (!baseProviderSettings) {

@@ -2,14 +2,22 @@
 /** @jsx h */
 /** @jsxFrag Fragment */
 import { h, Fragment } from "preact";
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/preact";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { cleanup, render, screen } from "@testing-library/preact";
 import * as matchers from '@testing-library/jest-dom/matchers';
 expect.extend(matchers);
+
+vi.mock("../../../dashboard/src/v2/hooks/use-reduced-motion.js", () => ({
+  useReducedMotion: vi.fn(() => false),
+  useResolvedMotionDuration: vi.fn((duration: number | string) => duration),
+}));
 
 import { UsageGraphTooltip } from "../../../dashboard/src/v2/pages/stats/components/UsageGraphTooltip.js";
 import { InteractiveUsageChart } from "../../../dashboard/src/v2/pages/stats/components/InteractiveUsageChart.js";
 import { UsageSeriesSidebar } from "../../../dashboard/src/v2/pages/stats/components/UsageSeriesSidebar.js";
+import { Sparkline } from "../../../dashboard/src/v2/components/ui/Sparkline.js";
+import { useReducedMotion } from "../../../dashboard/src/v2/hooks/use-reduced-motion.js";
+import gsap from "gsap";
 import {
   getVisibleBuckets,
   normalizeChartSeries,
@@ -38,6 +46,7 @@ vi.mock("gsap", () => ({
     }),
     to: vi.fn(),
     fromTo: vi.fn(),
+    killTweensOf: vi.fn(),
     set: vi.fn(),
     getProperty: vi.fn().mockReturnValue(1),
     context: (fn: () => void) => {
@@ -46,6 +55,15 @@ vi.mock("gsap", () => ({
     },
   }
 }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(useReducedMotion).mockReturnValue(false);
+});
+
+afterEach(() => {
+  cleanup();
+});
 
 describe("Chart View Models", () => {
   it("getVisibleBuckets slices correctly", () => {
@@ -178,6 +196,84 @@ describe("UsageGraphTooltip responsiveness", () => {
     expect(tooltip.className).toContain("max-w-[calc(100vw-2rem)]");
     expect(tooltip.className).toContain("text-wrap");
     expect(tooltip.className).toContain("break-words");
+  });
+
+  it("differentiates idle, focused, and pinned inspection copy with marker text equivalents", () => {
+    const bucket = {
+      bucketStart: "2023-01-01T00:00:00.000Z",
+      usage: {
+        totalCostUsd: 1.25,
+        totalTokens: 1200,
+        activeTimeMs: 30000,
+        invocationCount: 3,
+      },
+    } as any;
+    const activeSeries = [{ id: "tokens", label: "Tokens", accentHex: "#00E0A0", value: "1.2k" }];
+
+    const { rerender } = render(
+      <UsageGraphTooltip
+        visible={false}
+        left={10}
+        label=""
+        bucketStart=""
+        inspectionState="idle"
+        activeSeries={[]}
+      />
+    );
+
+    expect(screen.getByText("No bucket selected")).toBeInTheDocument();
+    expect(screen.getByText(/Hover a bucket, tab into the chart, or move the range slider/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Idle marker waiting for chart focus." })).toBeInTheDocument();
+
+    rerender(
+      <UsageGraphTooltip
+        visible={true}
+        left={45}
+        label="Jan 01"
+        bucketStart="2023-01-01T00:00:00.000Z"
+        bucket={bucket}
+        inspectionState="focused"
+        activeSeries={activeSeries}
+      />
+    );
+
+    expect(screen.getByText("Focused bucket")).toBeInTheDocument();
+    expect(screen.getByText(/Focused from pointer or keyboard inspection/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Focused bucket marker at 45 percent of the visible chart window." })).toBeInTheDocument();
+
+    rerender(
+      <UsageGraphTooltip
+        visible={true}
+        left={82}
+        label="Jan 01"
+        bucketStart="2023-01-01T00:00:00.000Z"
+        bucket={bucket}
+        inspectionState="pinned"
+        activeSeries={activeSeries}
+      />
+    );
+
+    expect(screen.getByText("Pinned bucket")).toBeInTheDocument();
+    expect(screen.getByText(/Pinned from keyboard or range control/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Pinned bucket marker at 82 percent of the visible chart window." })).toBeInTheDocument();
+  });
+});
+
+describe("Sparkline accessibility", () => {
+  it("exposes a role img label when a sparkline summary is provided", () => {
+    render(<Sparkline points={[1, 4, 2]} color="#00E0A0" ariaLabel="Token sparkline, high 4 and low 1." />);
+
+    expect(screen.getByRole("img", { name: "Token sparkline, high 4 and low 1." })).toHaveAttribute("data-reduced-motion", "false");
+  });
+
+  it("updates instantly without draw animation when reduced motion is enabled", () => {
+    vi.mocked(useReducedMotion).mockReturnValue(true);
+    const { rerender } = render(<Sparkline points={[1, 2, 3]} color="#00E0A0" ariaLabel="Reduced motion sparkline." />);
+
+    rerender(<Sparkline points={[3, 2, 1]} color="#00E0A0" ariaLabel="Reduced motion sparkline." />);
+
+    expect(screen.getByRole("img", { name: "Reduced motion sparkline." })).toHaveAttribute("data-reduced-motion", "true");
+    expect(gsap.to).not.toHaveBeenCalled();
   });
 });
 

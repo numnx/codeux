@@ -17,11 +17,12 @@ import {
 } from "./lib/agent-preset-api.js";
 import { useProjectEffectiveSettings } from "./hooks/use-project-effective-settings.js";
 import { generateRandomAgentAvatar } from "./lib/agent-avatar.js";
+import { fetchProjectInvocationsQuery } from "./lib/invocation-api.js";
 import { WaveFluid } from "./components/ui/WaveFluid.js";
 import { BorderTrace } from "./components/ui/BorderTrace.js";
 import { AgentsHero } from "./components/agents/AgentsHero.js";
 import { AgentPresetShowcaseCard } from "./components/agents/AgentPresetShowcaseCard.js";
-import { AgentPresetDetailPanel } from "./components/agents/AgentPresetDetailPanel.js";
+import { AgentPresetDetailPanel, type AgentUsageSummary } from "./components/agents/AgentPresetDetailPanel.js";
 import { AgentPresetEditorPanel } from "./components/agents/AgentPresetEditorPanel.js";
 import { InstructionFileCard } from "./components/agents/InstructionFileCard.js";
 import { InstructionFileEditorPanel } from "./components/agents/InstructionFileEditorPanel.js";
@@ -54,7 +55,7 @@ const RosterStat: FunctionComponent<RosterStatProps> = ({ label, value, accent, 
         <span className={`h-2 w-2 rounded-full ${tone.dot} ${tone.glow}`} />
       </div>
       <div className="mt-4 flex items-end justify-between">
-        <div className="font-display text-4xl font-black tracking-tighter text-slate-900 dark:text-white">
+        <div className="font-display text-2xl font-semibold tracking-tighter text-slate-900 dark:text-white">
           {value}
         </div>
         <Icon className={`h-5 w-5 ${tone.text}`} strokeWidth={1.8} />
@@ -67,6 +68,12 @@ const normalizeAgentName = (value: string): string => (
   value.trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ").toLowerCase()
 );
 
+type QaRouteTriggerSettings = {
+  enabled?: boolean;
+  agentPresetIds?: unknown;
+  agentPresetId?: string | null;
+};
+
 type PushAgentMode = "commit_only" | "commit_and_push" | "pull_request";
 
 type PushAgentResult = {
@@ -76,6 +83,11 @@ type PushAgentResult = {
   pullRequestUrl?: string;
 };
 
+type PageActionFeedback = {
+  tone: "pending" | "success" | "error";
+  message: string;
+  retry?: () => void;
+} | null;
 
 /* ── Main Page ── */
 export const AgentsPage: FunctionComponent = () => {
@@ -95,8 +107,11 @@ export const AgentsPage: FunctionComponent = () => {
   const [pushMode, setPushMode] = useState<PushAgentMode>("commit_only");
   const [pushBranchName, setPushBranchName] = useState("");
   const [pushResult, setPushResult] = useState<PushAgentResult | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<PageActionFeedback>(null);
   const [projectFileSavingEnabled, setProjectFileSavingEnabled] = useState(true);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [selectedAgentUsage, setSelectedAgentUsage] = useState<AgentUsageSummary | null>(null);
+  const [selectedAgentUsageLoading, setSelectedAgentUsageLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [instructionFiles, setInstructionFiles] = useState<InstructionFileSummary[]>([]);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
@@ -219,6 +234,7 @@ export const AgentsPage: FunctionComponent = () => {
   const handleCreate = async (): Promise<void> => {
     if (!selectedProject) return;
     try {
+      setActionFeedback({ tone: "pending", message: "Creating agent preset..." });
       const created = await createAgentPreset(selectedProject.id, {
         name: `Agent ${presets.length + 1}`,
         instructionMarkdown: "",
@@ -229,19 +245,26 @@ export const AgentsPage: FunctionComponent = () => {
       setSelectedPresetId(created.id);
       setIsEditing(true);
       setError(null);
+      setActionFeedback({ tone: "success", message: "Agent preset created. Complete the required fields, then save." });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      setActionFeedback({ tone: "error", message: `Agent creation failed: ${message}`, retry: () => void handleCreate() });
     }
   };
 
   const handleImport = async (presetId: string): Promise<void> => {
     setImportingId(presetId);
+    setActionFeedback({ tone: "pending", message: "Importing preset from markdown..." });
     try {
       const updated = await importAgentPresetFromMarkdown(presetId);
       setPresets((cur) => cur.map((p) => (p.id === updated.id ? updated : p)));
       setError(null);
+      setActionFeedback({ tone: "success", message: "Agent preset imported from markdown." });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      setActionFeedback({ tone: "error", message: `Import failed: ${message}`, retry: () => void handleImport(presetId) });
     } finally {
       setImportingId(null);
     }
@@ -250,11 +273,15 @@ export const AgentsPage: FunctionComponent = () => {
   const handleSyncAll = async (): Promise<void> => {
     if (!selectedProject) return;
     setSyncingAll(true);
+    setActionFeedback({ tone: "pending", message: "Syncing all agent presets from markdown..." });
     try {
       setPresets(await syncAllAgentPresetsFromMarkdown(selectedProject.id));
       setError(null);
+      setActionFeedback({ tone: "success", message: "Agent presets synced from markdown." });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      setActionFeedback({ tone: "error", message: `Sync failed: ${message}`, retry: () => void handleSyncAll() });
     } finally {
       setSyncingAll(false);
     }
@@ -318,13 +345,17 @@ export const AgentsPage: FunctionComponent = () => {
 
   const handleSave = async (presetId: string, next: Parameters<typeof updateAgentPreset>[1]): Promise<void> => {
     setSavingId(presetId);
+    setActionFeedback({ tone: "pending", message: "Saving agent preset..." });
     try {
       const updated = await updateAgentPreset(presetId, next);
       setPresets((cur) => cur.map((p) => (p.id === updated.id ? updated : p)));
       setIsEditing(false);
       setError(null);
+      setActionFeedback({ tone: "success", message: "Agent preset saved." });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      setActionFeedback({ tone: "error", message: `Save failed: ${message}`, retry: () => void handleSave(presetId, next) });
     } finally {
       setSavingId(null);
     }
@@ -332,6 +363,7 @@ export const AgentsPage: FunctionComponent = () => {
 
   const handleDelete = async (presetId: string): Promise<void> => {
     setDeletingId(presetId);
+    setActionFeedback({ tone: "pending", message: "Deleting agent preset..." });
     try {
       await deleteAgentPreset(presetId);
       setPresets((cur) => {
@@ -343,8 +375,11 @@ export const AgentsPage: FunctionComponent = () => {
         return next;
       });
       setError(null);
+      setActionFeedback({ tone: "success", message: "Agent preset deleted." });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      setActionFeedback({ tone: "error", message: `Delete failed: ${message}`, retry: () => void handleDelete(presetId) });
     } finally {
       setDeletingId(null);
     }
@@ -374,6 +409,30 @@ export const AgentsPage: FunctionComponent = () => {
         addBuiltIn(label, builtInName);
       }
     };
+    const collectQaAgentPresetIds = (trigger: QaRouteTriggerSettings): string[] => {
+      if (Array.isArray(trigger.agentPresetIds)) {
+        return trigger.agentPresetIds
+          .filter((agentPresetId): agentPresetId is string => typeof agentPresetId === "string")
+          .map((agentPresetId) => agentPresetId.trim())
+          .filter(Boolean);
+      }
+      const legacyAgentPresetId = trigger.agentPresetId?.trim();
+      return legacyAgentPresetId ? [legacyAgentPresetId] : [];
+    };
+    const addQaRoute = (
+      trigger: QaRouteTriggerSettings | null | undefined,
+      label: string,
+    ) => {
+      if (!trigger?.enabled) return;
+      const agentPresetIds = collectQaAgentPresetIds(trigger);
+      if (agentPresetIds.length > 0) {
+        for (const agentPresetId of agentPresetIds) {
+          add(agentPresetId, label);
+        }
+      } else {
+        addBuiltIn(label, "Quality assurance agent");
+      }
+    };
 
     const routing = effectiveSettings?.settings.agents.routing;
     const qa = effectiveSettings?.settings.agents.qualityAssurance;
@@ -394,15 +453,9 @@ export const AgentsPage: FunctionComponent = () => {
     addManualRoute(routing?.clarificationReply.agentPresetId, "Clarification Reply", "Project manager");
 
     if (qa?.enabled) {
-      if (qa.taskCompletion.enabled) {
-        addManualRoute(qa.taskCompletion.agentPresetId, "QA Task", "Quality assurance agent");
-      }
-      if (qa.sprintCompletion.enabled) {
-        addManualRoute(qa.sprintCompletion.agentPresetId, "QA Sprint", "Quality assurance agent");
-      }
-      if (qa.completedTaskWithoutPr.enabled) {
-        addManualRoute(qa.completedTaskWithoutPr.agentPresetId, "QA No PR", "Quality assurance agent");
-      }
+      addQaRoute(qa.taskCompletion, "QA Task");
+      addQaRoute(qa.sprintCompletion, "QA Sprint");
+      addQaRoute(qa.completedTaskWithoutPr, "QA No PR");
     }
 
     return tags;
@@ -422,6 +475,48 @@ export const AgentsPage: FunctionComponent = () => {
 
   const selectedPreset = presets.find((p) => p.id === selectedPresetId);
   const selectedFile = instructionFiles.find((f) => f.id === selectedFileId);
+
+  useEffect(() => {
+    if (!selectedProject || !selectedPreset || selectedFileId) {
+      setSelectedAgentUsage(null);
+      setSelectedAgentUsageLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    setSelectedAgentUsageLoading(true);
+    fetchProjectInvocationsQuery(selectedProject.id, {
+      agentPresetId: selectedPreset.id,
+      limit: 8,
+      sortKey: "startedAt",
+      sortDir: "desc",
+    }, { signal: controller.signal })
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setSelectedAgentUsage({
+          invocationCount: result.summary.totalInvocations,
+          completedCount: result.summary.completedCount,
+          failedCount: result.summary.failedCount,
+          runningCount: result.summary.runningCount,
+          totalTokens: result.summary.totalTokens,
+          totalCostCents: result.summary.totalCostCents,
+        });
+      })
+      .catch((usageError) => {
+        if (controller.signal.aborted) return;
+        setSelectedAgentUsage(null);
+        console.warn("Failed to load agent usage summary", usageError);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setSelectedAgentUsageLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [selectedProject?.id, selectedPreset?.id, selectedFileId]);
 
   const rosterStats = useMemo(() => {
     const synced = presets.filter((p) => p.syncStatus === "synced").length;
@@ -461,7 +556,7 @@ export const AgentsPage: FunctionComponent = () => {
   }, [pushResult]);
 
   return (
-    <PageContainer containerRef={contentRef} padding="agents" className="gap-10 md:gap-14">
+    <PageContainer aria-label="Agents" containerRef={contentRef} padding="agents" className="gap-10 md:gap-14">
       <AgentsHero
         selectedProject={selectedProject}
         projectLoading={projectLoading}
@@ -520,7 +615,7 @@ export const AgentsPage: FunctionComponent = () => {
                       key={option.value}
                       className={`flex cursor-pointer items-start gap-3 rounded-2xl border px-3 py-3 transition-colors ${
                         pushMode === option.value
-                          ? "border-signal-500/30 bg-signal-500/[0.08] text-slate-900 dark:bg-signal-500/10 dark:text-white"
+                          ? "border-signal-500/30 bg-signal-500/[0.08] text-white dark:bg-signal-500/10 dark:text-white"
                           : "border-black/[0.06] bg-white/70 text-slate-600 hover:bg-black/[0.02] dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:bg-white/[0.05]"
                       }`}
                     >
@@ -569,7 +664,7 @@ export const AgentsPage: FunctionComponent = () => {
                     type="button"
                     onClick={() => void submitPushAgents()}
                     disabled={pushing}
-                    className="inline-flex items-center gap-2 rounded-full bg-signal-500 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-void-900 shadow-[0_0_24px_rgba(0,224,160,0.22)] transition-all hover:bg-signal-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-full bg-signal-500 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white dark:text-void-900 shadow-[0_0_24px_rgba(0,224,160,0.22)] transition-all hover:bg-signal-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {pushing ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.4} />
@@ -617,6 +712,31 @@ export const AgentsPage: FunctionComponent = () => {
         </div>
       )}
 
+      {actionFeedback && (
+        <div
+          role={actionFeedback.tone === "error" ? "alert" : "status"}
+          aria-live="polite"
+          className={`flex min-h-[3rem] items-center justify-between gap-3 rounded-2xl border px-5 py-3 text-sm font-medium backdrop-blur-md ${
+            actionFeedback.tone === "error"
+              ? "border-status-red/30 bg-status-red/[0.08] text-status-red"
+              : actionFeedback.tone === "pending"
+                ? "border-signal-500/25 bg-signal-500/[0.08] text-signal-700 dark:text-signal-300"
+                : "border-status-green/20 bg-status-green/[0.08] text-status-green"
+          }`}
+        >
+          <span>{actionFeedback.message}</span>
+          {actionFeedback.retry && (
+            <button
+              type="button"
+              onClick={actionFeedback.retry}
+              className="rounded-full border border-current/25 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors hover:bg-current/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-current/30"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Info banner */}
       {selectedProject && (
         <div className="flex items-start gap-3 rounded-2xl border border-black/[0.05] bg-white/40 px-5 py-3.5 text-[13px] leading-relaxed text-slate-500 backdrop-blur-md dark:border-white/[0.05] dark:bg-white/[0.02] dark:text-slate-400">
@@ -649,7 +769,7 @@ export const AgentsPage: FunctionComponent = () => {
           <h3 className="mb-2 font-display text-xl font-semibold tracking-tight text-slate-900 dark:text-white">The Workshop Is Quiet</h3>
           <p className="max-w-sm text-sm leading-relaxed text-slate-500 dark:text-slate-400">Spin up your first specialist. Give it a name, a personality, an avatar — and operator-grade system instructions.</p>
           <div className="mt-4">
-            <button type="button" onClick={() => void handleCreate()} className="group inline-flex items-center gap-2 rounded-full bg-signal-500 px-6 py-3 text-sm font-bold text-void-900 shadow-[0_0_24px_rgba(0,224,160,0.28)] transition-all hover:scale-[1.03] hover:bg-signal-400 hover:shadow-[0_0_32px_rgba(0,224,160,0.36)] focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2">
+            <button type="button" onClick={() => void handleCreate()} className="group inline-flex items-center gap-2 rounded-full bg-signal-500 px-6 py-3 text-sm font-bold text-white dark:text-void-900 shadow-[0_0_24px_rgba(0,224,160,0.28)] transition-all hover:scale-[1.03] hover:bg-signal-400 hover:shadow-[0_0_32px_rgba(0,224,160,0.36)] focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30 focus-visible:ring-offset-2">
               <Plus className="h-4.5 w-4.5 transition-transform group-hover:rotate-90" strokeWidth={2.5} />
               Create First Agent
             </button>
@@ -747,6 +867,8 @@ export const AgentsPage: FunctionComponent = () => {
                   routeTags={routeTagsByPresetId.get(selectedPreset.id) ?? []}
                   providerOptions={providerOptions}
                   availableMcpServers={availableMcpServers}
+                  usageSummary={selectedAgentUsage}
+                  usageLoading={selectedAgentUsageLoading}
                   onEdit={() => setIsEditing(true)}
                   onDelete={handleDelete}
                   onImport={handleImport}

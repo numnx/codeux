@@ -319,6 +319,7 @@ describe("StatsPage Shell", () => {
     expect(screen.getByRole("heading", { name: "Stats" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Stats workspace context")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("No project selected");
+    expect(screen.getByRole("status", { name: "No project selected" })).toHaveTextContent("Stats panel idle");
     expect(screen.getByText("Project · No project selected")).toBeInTheDocument();
     expect(screen.queryByText("No snapshot yet")).not.toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Time window presets" })).toBeInTheDocument();
@@ -331,9 +332,8 @@ describe("StatsPage Shell", () => {
     render(<StatsPage />);
 
     expect(screen.getByRole("region", { name: "Statistics" })).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByRole("status")).toHaveTextContent("Stats panel refreshing");
-    expect(screen.getByRole("status")).toHaveTextContent("Loading telemetry field");
-    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
+    expect(screen.getByRole("status", { name: "Loading telemetry field" })).toHaveTextContent("Stats panel refreshing");
+    expect(screen.getByRole("status", { name: "Loading telemetry field" })).toHaveAttribute("aria-live", "polite");
   });
 
   it("keeps previous stats visible while a refresh is loading", () => {
@@ -342,6 +342,7 @@ describe("StatsPage Shell", () => {
     render(<StatsPage />);
 
     expect(screen.queryByText(/Loading telemetry field/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Statistics" })).not.toHaveAttribute("aria-busy");
     expect(screen.getByRole("region", { name: "Providers metrics" })).toBeInTheDocument();
     expect(screen.getByLabelText("Mock analysis studio")).toHaveTextContent("Reliability analysis");
     expect(screen.getAllByRole("status").some((status) => status.textContent === "Refreshing")).toBe(true);
@@ -353,26 +354,75 @@ describe("StatsPage Shell", () => {
 
     render(<StatsPage />);
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Stats panel unavailable");
-    expect(screen.getByRole("alert")).toHaveTextContent("Stats fetch failed.");
+    expect(screen.getByRole("alert", { name: "Stats fetch failed." })).toHaveTextContent("Stats panel unavailable");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("announces invalid custom date ranges and blocks Apply", () => {
+    const applyCustomRange = vi.fn();
     mockStatsPageData({
       activeQuery: { window: "custom", from: "2026-07-03", to: "2026-06-26" },
       customFrom: "2026-07-03",
       customTo: "2026-06-26",
+      applyCustomRange,
     });
 
     render(<StatsPage />);
 
     expect(screen.getByRole("button", { name: "Custom" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    const apply = screen.getByRole("button", { name: "Apply" });
+    expect(apply).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("alert")).toHaveTextContent("End date must be after start date.");
-    expect(screen.getByLabelText("Custom start date")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Custom start date")).toHaveAttribute("aria-invalid", "false");
     expect(screen.getByLabelText("Custom end date")).toHaveAttribute("aria-errormessage", "stats-custom-range-error");
+
+    fireEvent.click(apply);
+    expect(screen.getByLabelText("Custom end date")).toHaveFocus();
+    expect(applyCustomRange).not.toHaveBeenCalled();
+  });
+
+  it("focuses the first missing custom date and announces successful range changes", () => {
+    const applyCustomRange = vi.fn();
+    const applyPresetWindow = vi.fn();
+    mockStatsPageData({
+      activeQuery: { window: "7d" },
+      customFrom: "",
+      customTo: "2026-07-03",
+      applyCustomRange,
+      applyPresetWindow,
+    });
+
+    render(<StatsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Custom" }));
+    const apply = screen.getByRole("button", { name: "Apply" });
+    fireEvent.click(apply);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Choose both dates before applying a custom range.");
+    expect(screen.getByLabelText("Custom start date")).toHaveFocus();
+    expect(applyCustomRange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "24h" }));
+    expect(applyPresetWindow).toHaveBeenCalledWith("24h");
+    expect(screen.getAllByRole("status").some((status) => status.textContent === "Time window changed to 24h.")).toBe(true);
+  });
+
+  it("announces successful custom range applies without changing query contracts", () => {
+    const applyCustomRange = vi.fn();
+    mockStatsPageData({
+      activeQuery: { window: "custom", from: "2026-06-26", to: "2026-07-03" },
+      customFrom: "2026-06-26",
+      customTo: "2026-07-03",
+      applyCustomRange,
+    });
+
+    render(<StatsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(applyCustomRange).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByRole("status").some((status) => status.textContent === "Custom range applied: 2026-06-26 to 2026-07-03.")).toBe(true);
   });
 
   it("calls visual mode switches from the hero and renders active content for three modes", () => {
@@ -380,9 +430,14 @@ describe("StatsPage Shell", () => {
     mockStatsPageData({ visualMode: "trend", setVisualMode });
     const { rerender } = render(<StatsPage />);
 
-    fireEvent.click(within(screen.getByRole("group", { name: "Analytics modes" })).getByRole("button", { name: "Composition" }));
-    fireEvent.click(within(screen.getByRole("group", { name: "Analytics modes" })).getByRole("button", { name: "Providers" }));
-    fireEvent.click(within(screen.getByRole("group", { name: "Analytics modes" })).getByRole("button", { name: "System" }));
+    const modeGroup = screen.getByRole("group", { name: "Analytics modes" });
+    expect(within(modeGroup).getByRole("button", { name: "Trend" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(modeGroup).getByRole("button", { name: "Trend" })).toHaveAttribute("data-selection-motion", "selectionMovement");
+    expect(within(modeGroup).getByText("Selected analytics mode: Trend.")).toBeInTheDocument();
+
+    fireEvent.click(within(modeGroup).getByRole("button", { name: "Composition" }));
+    fireEvent.click(within(modeGroup).getByRole("button", { name: "Providers" }));
+    fireEvent.click(within(modeGroup).getByRole("button", { name: "System" }));
     expect(setVisualMode).toHaveBeenNthCalledWith(1, "composition");
     expect(setVisualMode).toHaveBeenNthCalledWith(2, "reliability");
     expect(setVisualMode).toHaveBeenNthCalledWith(3, "system");
@@ -399,6 +454,56 @@ describe("StatsPage Shell", () => {
     rerender(<StatsPage />);
     expect(screen.getByRole("region", { name: "Ledgers metrics" })).toBeInTheDocument();
     expect(screen.getByLabelText("Mock analysis studio")).toHaveTextContent("Task Telemetry");
+  });
+
+  it("moves analytics mode focus with arrow keys while preserving pressed-button semantics", () => {
+    const setVisualMode = vi.fn();
+    mockStatsPageData({ visualMode: "trend", setVisualMode });
+    render(<StatsPage />);
+
+    const modeGroup = screen.getByRole("group", { name: "Analytics modes" });
+    within(modeGroup).getByRole("button", { name: "Trend" }).focus();
+    fireEvent.keyDown(modeGroup, { key: "ArrowRight" });
+
+    expect(setVisualMode).toHaveBeenCalledWith("composition");
+    expect(within(modeGroup).getByRole("button", { name: "Composition" })).toHaveFocus();
+    expect(modeGroup).not.toHaveAttribute("role", "tablist");
+    expect(within(modeGroup).queryByRole("tab")).not.toBeInTheDocument();
+  });
+
+  it("labels metric-card empty sparklines as explicit no-data states", () => {
+    mockStatsPageData({
+      visualMode: "trend",
+      stats: {
+        ...richStats,
+        usage: {
+          ...usage,
+          invocationCount: 0,
+          activeTimeMs: 0,
+          wallTimeMs: 0,
+          inputTokens: 0,
+          cachedInputTokens: 0,
+          outputTokens: 0,
+          reasoningOutputTokens: 0,
+          totalTokens: 0,
+          totalCostUsd: 0,
+          reportedInvocationCount: 0,
+          estimatedInvocationCount: 0,
+          unavailableInvocationCount: 0,
+          unsupportedInvocationCount: 0,
+        },
+        buckets: [],
+        chartSeries: [],
+        statusCounts: { completed: 0, failed: 0, cancelled: 0, running: 0, paused: 0 },
+        duration: { sampleCount: 0, avgMs: 0, p50Ms: 0, p95Ms: 0, maxMs: 0 },
+      },
+    });
+
+    render(<StatsPage />);
+
+    const costCard = screen.getByRole("article", { name: /Cost: No cost/ });
+    expect(within(costCard).getByText("No sparkline data")).toBeInTheDocument();
+    expect(within(costCard).getByRole("img", { name: /Cost has no spend sparkline data/i })).toBeInTheDocument();
   });
 
   it("does not animate the shell when reduced motion is enabled", () => {

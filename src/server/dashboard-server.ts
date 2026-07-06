@@ -1,13 +1,8 @@
 import express, { type Express } from "express";
-import * as fs from "fs";
-import * as path from "path";
 import type { Server } from "http";
-import { createServer, request as httpRequest } from "http";
-import type { IncomingMessage } from "http";
-import net from "net";
-import type { Duplex } from "stream";
+import { createServer } from "http";
+import type { Socket } from "node:net";
 import type {
-  DashboardStatus,
   ExecutionAttentionItemSummary,
   ExecutionAssignedWorkerSummary,
   DockerContainer,
@@ -33,7 +28,6 @@ import type {
 import type { OnboardingStateRecord } from "../domain/user/onboarding-state.js";
 import type {
   EffectiveSettingsResponse,
-  ProjectSettings,
   ProjectSettingsOverride,
   SprintSettingsOverride,
   SystemSettings,
@@ -104,13 +98,13 @@ import type { MemoryRepository } from "../repositories/memory-repository.js";
 import type { SettingsRepository } from "../repositories/settings-repository.js";
 import { createLogger, type Logger } from "../shared/logging/logger.js";
 
-import { registerDashboardRoutes } from "./dashboard-route-registration.js";
+import { createDashboardRouteDependencies, registerDashboardRoutes } from "./dashboard-route-registration.js";
 import { applyDashboardPreRouteMiddleware, applyDashboardPostRouteMiddleware } from "./dashboard-middleware.js";
 
 
 
 import { bootDashboardRealtimeWebSocketServer } from "./dashboard-realtime-websocket-server.js";
-import { bootDashboardTerminalWebSocketServer } from "./terminal-routes.js";
+import { bootDashboardTerminalWebSocketServer, prewarmLoginBaseImage } from "./terminal-routes.js";
 import type { DashboardRealtimeService } from "../services/dashboard-realtime-service.js";
 import type { MemoryService } from "../services/memory-service.js";
 import type { MemoryPromotionService } from "../services/memory-promotion-service.js";
@@ -118,10 +112,13 @@ import type { EmbeddingModelManager } from "../services/embedding-model-manager.
 import type { EmbeddingService } from "../services/embedding-service.js";
 import type { KnowledgeService } from "../services/knowledge-service.js";
 import type { UpdateStatus } from "../services/update-checker-service.js";
-import { CODE_UX_VERSION } from "../shared/config/code-ux-paths.js";
-import { asyncRoute, syncRoute, toErrorResponse } from "./route-utils.js";
-import { parseTrimmedString, requireTrimmedString } from "./request-parsers.js";
-import { parsePreviewSessionIdFromHost, pipePreviewUpgradeRequest } from "./preview-host-utils.js";
+import {
+  parsePreviewSessionIdFromHost,
+  parseSelectedPreviewPortFromRequest,
+  pipePreviewUpgradeRequest,
+  resolvePreviewHostPort,
+  stripPreviewPortSelectorFromPath,
+} from "./preview-host-utils.js";
 
 export type DashboardDependencies = Omit<
   DashboardServerOptions,
@@ -291,6 +288,7 @@ export interface DashboardServerOptions {
     path: string;
     headers?: Record<string, string | undefined>;
     body?: Buffer;
+    selectedPort?: string | number | null;
   }) => Promise<{ status: number; headers: Record<string, string>; body: Buffer }>;
   listFileBrowserSessions?: (projectId: string) => Promise<FileBrowserSession[]> | FileBrowserSession[];
   startFileBrowserSession?: (projectId: string, sprintId: string) => Promise<FileBrowserSession> | FileBrowserSession;
@@ -306,6 +304,7 @@ export interface DashboardServerOptions {
 export interface DashboardServerHandle {
   port: number;
   server: Server;
+  close?: () => Promise<void>;
 }
 
 export const configureDashboardApp = (options: DashboardServerOptions): Logger => {
@@ -339,14 +338,11 @@ export const configureDashboardApp = (options: DashboardServerOptions): Logger =
     }
   });
 
-  const deps: DashboardDependencies = Object.create(options) as unknown as DashboardDependencies;
-  deps.getUpdateStatus = options.getUpdateStatus ?? (async () => ({
-    currentVersion: CODE_UX_VERSION,
-    latestVersion: null,
-    updateAvailable: false,
-    checkedAt: new Date().toISOString(),
-  }));
-  registerDashboardRoutes(app, deps, liveActivityCacheMs);
+  registerDashboardRoutes({
+    app,
+    deps: createDashboardRouteDependencies(options),
+    liveActivityCacheMs,
+  });
 
   applyDashboardPostRouteMiddleware(app, dashboardDir);
 
@@ -367,16 +363,39 @@ const listenDashboardServer = async (
     }
     listeningServer.listen(port, host, () => resolve(listeningServer));
   });
+  const sockets = new Set<Socket>();
+  server.on("connection", (socket: Socket) => {
+    sockets.add(socket);
+    socket.on("close", () => {
+      sockets.delete(socket);
+    });
+  });
+  const close = async (): Promise<void> => {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error && error.message !== "Server is not running.") {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+      server.closeIdleConnections?.();
+      for (const socket of sockets) {
+        socket.destroy();
+      }
+      server.closeAllConnections?.();
+    });
+  };
 
   const address = typeof server.address === "function" ? server.address() : null;
   if (!address || typeof address === "string") {
     if (port === 0) {
       throw new Error("Dashboard server did not bind to a TCP port.");
     }
-    return { port, server };
+    return { port, server, close };
   }
 
-  return { port: address.port, server };
+  return { port: address.port, server, close };
 };
 
 const bindDashboardServer = async (
@@ -422,6 +441,9 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     getSprintPreviewSession,
   } = options;
   const dashboardLogger = configureDashboardApp(options);
+  if (process.env.NODE_ENV !== "test") {
+    prewarmLoginBaseImage(dashboardLogger.child({ component: "login-base-image-prewarm" }));
+  }
   const handle = await bindDashboardServer(app, port, dashboardLogger);
 
   handle.server.on("upgrade", (req, socket, head) => {
@@ -432,7 +454,15 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
     void (async () => {
       try {
         const session = await getSprintPreviewSession(sessionId);
-        if (!session?.hostPort) {
+        if (!session) {
+          socket.destroy();
+          return;
+        }
+        const upstreamPort = resolvePreviewHostPort(
+          session,
+          parseSelectedPreviewPortFromRequest(req.url || "/", req.headers["x-code-ux-preview-port"]),
+        );
+        if (!upstreamPort) {
           socket.destroy();
           return;
         }
@@ -440,7 +470,8 @@ export const setupDashboardServer = async (options: DashboardServerOptions): Pro
           req,
           socket,
           head,
-          upstreamPort: session.hostPort,
+          upstreamPort,
+          targetPath: stripPreviewPortSelectorFromPath(req.url || "/"),
         });
       } catch {
         socket.destroy();

@@ -14,14 +14,15 @@ import {
   pickContainerEnv,
   resolveConfiguredPath,
   toDockerMountArg,
+  writeDockerEnvFile,
   ContainerMount,
 } from "../../../services/cli-docker-utils.js";
 import { CONTAINER_SETUP_SCRIPT } from "../../../services/cli-workflow-utils.js";
 import { DockerBootstrapBuilder } from "./docker-bootstrap-builder.js";
 import { DockerCredentialMountBuilder } from "./docker-credential-mount-builder.js";
-import { DockerSetupImageCache } from "./docker-setup-image-cache.js";
+import { DockerSetupImageCache, type DockerSetupImageCacheProgress } from "./docker-setup-image-cache.js";
 import { resolveDockerRuntimeRoot } from "./docker-runtime-paths.js";
-import { buildRuntimeVolumeName, WorkspaceManager } from "./workspace-manager.js";
+import { buildRuntimeVolumeName, WorkspaceManager, type SnapshotCheckout } from "./workspace-manager.js";
 import { workspaceVolumeHelperPool, type WorkspaceVolumeHelperPool } from "./workspace-volume-helper.js";
 import { CONTAINER_RUNTIME_HOME, CONTAINER_WORKSPACE_ROOT } from "./provider-runtime-artifacts.js";
 import { getHomeCodeUxPath, getRepoCodeUxPath } from "../../../shared/config/code-ux-paths.js";
@@ -40,6 +41,7 @@ export interface IDockerRunner {
     cwd: string;
     repoPath: string;
     sessionId: string;
+    snapshotCheckout?: SnapshotCheckout;
     preserve?: boolean;
     reuseExisting?: boolean;
   }): Promise<{ cwd: string; cleanup: () => Promise<void> }>;
@@ -56,6 +58,7 @@ export interface IDockerRunner {
     providerAuthPath?: string;
     signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
+    onSetupImageProgress?: (progress: DockerSetupImageCacheProgress) => void;
     mcpConnection?: McpConnectionInfo | null;
     customMcpServers?: CustomMcpServer[];
   }): Promise<CommandResult>;
@@ -75,6 +78,7 @@ export class DockerRunner implements IDockerRunner {
     cwd: string;
     repoPath: string;
     sessionId: string;
+    snapshotCheckout?: SnapshotCheckout;
     preserve?: boolean;
     reuseExisting?: boolean;
   }): Promise<{ cwd: string; cleanup: () => Promise<void> }> {
@@ -86,8 +90,8 @@ export class DockerRunner implements IDockerRunner {
     }
 
     const workspaceRef = args.reuseExisting
-      ? await this.workspaceManager.createOrReuseSnapshotWorkspace(args.repoPath, args.sessionId)
-      : await this.workspaceManager.createSnapshotWorkspace(args.repoPath, args.sessionId);
+      ? await this.workspaceManager.createOrReuseSnapshotWorkspace(args.repoPath, args.sessionId, args.snapshotCheckout)
+      : await this.workspaceManager.createSnapshotWorkspace(args.repoPath, args.sessionId, args.snapshotCheckout);
     return {
       cwd: workspaceRef,
       cleanup: async () => {
@@ -112,6 +116,7 @@ export class DockerRunner implements IDockerRunner {
     providerAuthPath?: string;
     signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
+    onSetupImageProgress?: (progress: DockerSetupImageCacheProgress) => void;
     mcpConnection?: McpConnectionInfo | null;
     customMcpServers?: CustomMcpServer[];
   }): Promise<CommandResult> {
@@ -122,6 +127,7 @@ export class DockerRunner implements IDockerRunner {
     const runtimeNpmPrefix = pathPosix.join(runtimeHome, ".npm-global");
     const runtimeNpmCache = pathPosix.join(runtimeHome, ".npm-cache");
     const runtimeVolumeName = buildRuntimeVolumeName(workspace.volumeName);
+    const installPlaywrightBrowsers = workflowSettings.containerInstallPlaywrightBrowsers !== false;
 
     await this.maybeLogDockerPathMappingHint(sessionId, repoPath, onActivity);
 
@@ -135,10 +141,12 @@ export class DockerRunner implements IDockerRunner {
         baseImage,
         setupScriptPath,
         cacheEnabled: workflowSettings.containerCacheSetupScriptImage,
+        installPlaywrightBrowsers,
         runtimeRoot,
         repoPath,
         signal,
         onActivity,
+        onProgress: input.onSetupImageProgress,
         mapSourcePathForDaemon: (sourcePath, label) =>
           this.mapDockerSourcePathForDaemon(sourcePath, repoPath, sessionId, label, onActivity),
       });
@@ -146,6 +154,9 @@ export class DockerRunner implements IDockerRunner {
       const argvFilePath = path.join(tempRoot, "provider-argv.sh");
       await fs.writeFile(argvFilePath, this.buildProviderArgvFile(args), "utf8");
       const argvFileSource = this.mapDockerSourcePathForDaemon(argvFilePath, repoPath, sessionId, "provider argv", onActivity);
+      const envFilePath = path.join(tempRoot, "provider.env");
+      await writeDockerEnvFile(envFilePath, pickContainerEnv(providerEnv));
+      const envFileSource = this.mapDockerSourcePathForDaemon(envFilePath, repoPath, sessionId, "provider env", onActivity);
 
       const containerName = this.buildContainerName(providerLabel, sessionId);
 
@@ -183,6 +194,8 @@ export class DockerRunner implements IDockerRunner {
         `HOME=${runtimeHome}`,
         "-e",
         `CODE_UX_PROVIDER_ARGV_FILE=${CONTAINER_PROVIDER_ARGV_FILE}`,
+        "--env-file",
+        envFileSource,
         "--mount",
         toDockerMountArg({
           source: argvFileSource,
@@ -207,12 +220,10 @@ export class DockerRunner implements IDockerRunner {
         dockerArgs.push("--mount", toDockerMountArg({ source: passwdSource, destination: "/etc/passwd", readonly: true }));
       }
 
-      for (const variable of pickContainerEnv(providerEnv)) {
-        dockerArgs.push("-e", `${variable.key}=${variable.value}`);
-      }
       dockerArgs.push(
         "-e", `CODE_UX_GIT_USER_NAME=${workflowSettings.containerGitUserName}`,
         "-e", `CODE_UX_GIT_USER_EMAIL=${workflowSettings.containerGitUserEmail}`,
+        "-e", `CODE_UX_INSTALL_PLAYWRIGHT=${installPlaywrightBrowsers ? "1" : "0"}`,
       );
 
       if (setupScriptPath && resolvedImage.runSetupScriptAtRuntime) {
@@ -259,7 +270,7 @@ export class DockerRunner implements IDockerRunner {
       // an abort) reuses it. Docker's `--rm` cleanup from a just-killed previous run is
       // asynchronous and can still be in flight, so force-remove any stale container
       // occupying the name first rather than racing `docker run --name` against it.
-      await runCommandStrict("docker", ["rm", "-f", containerName], process.cwd()).catch(() => undefined);
+      await this.removeProviderContainer(containerName);
 
       let abortKillIssued = false;
       const killContainerOnAbort = (): void => {
@@ -283,11 +294,19 @@ export class DockerRunner implements IDockerRunner {
       }
 
       try {
-        return await runStreamingCommand("docker", dockerArgs, process.cwd(), process.env, {
+        const runDocker = () => runStreamingCommand("docker", dockerArgs, process.cwd(), process.env, {
           signal,
           onStdoutLine: (line) => onActivity(line, "agent"),
           onStderrLine: (line) => onActivity(`[${providerLabel}] ${line}`, "provider"),
         });
+        const firstResult = await runDocker();
+        if (!firstResult.ok && this.isDockerNameConflict(firstResult, containerName) && !signal?.aborted) {
+          onActivity(`Retrying ${providerLabel} after reclaiming stale Docker container ${containerName}.`, "provider");
+          await this.removeProviderContainer(containerName);
+          await this.sleep(500);
+          return await runDocker();
+        }
+        return firstResult;
       } finally {
         if (signal) {
           signal.removeEventListener("abort", killContainerOnAbort);
@@ -314,6 +333,20 @@ export class DockerRunner implements IDockerRunner {
     const safeProvider = providerLabel.replace(/[^a-zA-Z0-9_.-]+/g, "-").toLowerCase();
     const safeSessionId = sessionId.replace(/[^a-zA-Z0-9_.-]+/g, "-").toLowerCase().slice(0, 48);
     return `code-ux-${safeProvider}-${safeSessionId || "session"}`.slice(0, 120);
+  }
+
+  private async removeProviderContainer(containerName: string): Promise<void> {
+    await runCommandStrict("docker", ["rm", "-f", "-v", containerName], process.cwd()).catch(() => undefined);
+  }
+
+  private isDockerNameConflict(result: CommandResult, containerName: string): boolean {
+    const text = `${result.stderr || ""}\n${result.stdout || ""}`;
+    return text.includes("Conflict. The container name")
+      && text.includes(`/${containerName}`);
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private shellSingleQuote(value: string): string {

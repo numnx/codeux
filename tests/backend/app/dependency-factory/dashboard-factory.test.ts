@@ -7,6 +7,14 @@ import { SprintDependencies } from "../../../../src/app/dependency-factory/sprin
 import { ActivityCacheService } from "../../../../src/server/activity-cache-service.js";
 import { TaskRerunService } from "../../../../src/services/task-rerun-service.js";
 import { WorkspaceManager } from "../../../../src/infrastructure/providers/cli/workspace-manager.js";
+import { createLateBoundDependency } from "../../../../src/shared/late-bound-dependency.js";
+import { ExecutionControlService } from "../../../../src/services/execution-control-service.js";
+
+const taskRerunMockState = vi.hoisted(() => ({
+  instances: [] as Array<{
+    rerunTask: ReturnType<typeof vi.fn>;
+  }>,
+}));
 
 vi.mock("../../../../src/server/activity-cache-service.js", () => {
   const ActivityCacheService = vi.fn();
@@ -15,7 +23,13 @@ vi.mock("../../../../src/server/activity-cache-service.js", () => {
 });
 
 vi.mock("../../../../src/services/task-rerun-service.js", () => {
-  const TaskRerunService = vi.fn();
+  const TaskRerunService = vi.fn().mockImplementation(function TaskRerunServiceMock() {
+    const instance = {
+      rerunTask: vi.fn().mockResolvedValue({ id: "T1" }),
+    };
+    taskRerunMockState.instances.push(instance);
+    return instance;
+  });
   return { TaskRerunService };
 });
 
@@ -36,6 +50,7 @@ describe("Dashboard Factory", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    taskRerunMockState.instances.length = 0;
 
     mockContext = {
       runtimeContext: {
@@ -76,12 +91,27 @@ describe("Dashboard Factory", () => {
         findActiveSprintRun: vi.fn().mockReturnValue({ id: "run-1" }),
         createSprintRun: vi.fn(),
         updateSprintRun: vi.fn(),
+        getTaskDispatch: vi.fn().mockReturnValue({
+          id: "dispatch-1",
+          taskId: "task1",
+          projectId: "project-1",
+          sprintId: "sprint-1",
+          sprintRunId: "run-1",
+          status: "failed",
+          queuedAt: "2026-03-09T10:00:00.000Z",
+          startedAt: "2026-03-09T10:01:00.000Z",
+          finishedAt: "2026-03-09T10:02:00.000Z",
+        }),
         getLatestTaskRun: vi.fn().mockReturnValue(null),
         getLatestTaskWorkspaceResumeTarget: vi.fn().mockReturnValue(null),
         getLatestTaskRunWithWorkspace: vi.fn().mockReturnValue(null),
         createTaskRun: vi.fn().mockReturnValue({ id: "reset-run-1" }),
         appendTaskRunEvent: vi.fn(),
         getTaskRunByDispatchId: vi.fn().mockReturnValue(null),
+      },
+      sprintRunLifecycleService: {
+        createRun: vi.fn(),
+        markRunning: vi.fn(),
       },
       settingsRepository: {
         getDefaultDashboardSettings: vi.fn().mockReturnValue({}),
@@ -99,6 +129,8 @@ describe("Dashboard Factory", () => {
       projectAttentionService: {
         resolveItemsForDispatch: vi.fn(),
         resolveItemsForTask: vi.fn(),
+        resolveItems: vi.fn(),
+        resolveItemsForSprintRun: vi.fn(),
       },
       connectionChatRepository: {},
       projectWorkerAssignmentRepository: {},
@@ -115,6 +147,19 @@ describe("Dashboard Factory", () => {
       sprintIssueService: {
         searchJiraIssues: vi.fn(),
         closeLinkedIssues: vi.fn(),
+      },
+      sprintPreviewService: {},
+      memoryPromotionService: {},
+      embeddingModelManager: {},
+      knowledgeService: {},
+      sessionTracking: {},
+      providerConcurrencyService: {},
+      schedulerRepository: {},
+      qaReviewRepository: {
+        resetTaskReviewRuns: vi.fn(),
+      },
+      guardrailService: {
+        reset: vi.fn(),
       },
     };
 
@@ -225,6 +270,51 @@ describe("Dashboard Factory", () => {
       { taskId: "task1", dependsOnTaskIds: [] },
       { taskId: "task2", dependsOnTaskIds: ["task1"] },
     ]);
+  });
+
+  it("links late-bound services so execution control can call task reruns after factory construction", async () => {
+    const result = createDashboardDependencies(
+      mockContext as unknown as ServerContext,
+      mockCoreDeps as unknown as CoreDependencies,
+      mockSprintDeps as unknown as SprintDependencies
+    );
+
+    const rerunResult = await result.executionControlService.retryTaskDispatch("dispatch-1");
+    const taskRerunInstance = taskRerunMockState.instances[0];
+
+    expect(rerunResult).toEqual({ id: "T1" });
+    expect(mockCoreDeps.executionRepository.getTaskDispatch).toHaveBeenCalledWith("dispatch-1");
+    expect(mockCoreDeps.executionRepository.appendTaskRunEvent).toHaveBeenCalledWith(
+      "reset-run-1",
+      "dispatch_retry_requested",
+      "user",
+      { dispatchId: "dispatch-1", requestedBy: "dashboard" },
+      { sourceEventKey: "dashboard-retry:dispatch-1" },
+    );
+    expect(mockCoreDeps.projectAttentionService.resolveItemsForDispatch).toHaveBeenCalledWith(
+      "dispatch-1",
+      "dispatch_retry_requested",
+    );
+    expect(taskRerunInstance.rerunTask).toHaveBeenCalledWith("task1");
+  });
+
+  it("fails clearly when a late-bound task rerun service is accessed before linking", async () => {
+    const taskRerunServiceRef = createLateBoundDependency<TaskRerunService>("dashboard task rerun service");
+    const executionControlDeps: ConstructorParameters<typeof ExecutionControlService>[0] = {
+      projectManagementRepository: mockCoreDeps.projectManagementRepository,
+      executionRepository: mockCoreDeps.executionRepository,
+      projectAttentionService: mockCoreDeps.projectAttentionService,
+      taskRerunService: taskRerunServiceRef,
+      sprintOrchestrator: mockSprintDeps.sprintOrchestrator,
+      julesApi: mockCoreDeps.julesApi,
+      activeDispatchRegistry: mockCoreDeps.activeDispatchRegistry,
+      logger: mockCoreDeps.logger.child({ component: "execution-control-service" }),
+    };
+    const executionControlService = new ExecutionControlService(executionControlDeps);
+
+    await expect(executionControlService.retryTaskDispatch("dispatch-1")).rejects.toThrow(
+      'Late-bound dependency "dashboard task rerun service" has not been linked.',
+    );
   });
 
   it("getSubtasks handles missing lastStatus", () => {
@@ -453,7 +543,7 @@ describe("Dashboard Factory", () => {
 
   it("resolveSprintRunId creates and timestamps a sprint run when none is active", async () => {
     mockCoreDeps.executionRepository.findActiveSprintRun.mockReturnValue(null);
-    mockCoreDeps.executionRepository.createSprintRun.mockReturnValue({ id: "run-created" });
+    mockCoreDeps.sprintRunLifecycleService.createRun.mockReturnValue({ id: "run-created" });
 
     createDashboardDependencies(
       mockContext as unknown as ServerContext,
@@ -465,7 +555,7 @@ describe("Dashboard Factory", () => {
     const sprintRun = await taskRerunArgs.resolveSprintRunId({ projectId: "project-1", sprintId: "sprint-1" });
 
     expect(sprintRun).toEqual({ sprintRunId: "run-created", created: true });
-    expect(mockCoreDeps.executionRepository.createSprintRun).toHaveBeenCalledWith({
+    expect(mockCoreDeps.sprintRunLifecycleService.createRun).toHaveBeenCalledWith({
       projectId: "project-1",
       sprintId: "sprint-1",
       triggerType: "dashboard",
@@ -473,10 +563,9 @@ describe("Dashboard Factory", () => {
       executorMode: "mixed",
       status: "running",
     });
-    expect(mockCoreDeps.executionRepository.updateSprintRun).toHaveBeenCalledWith(
+    expect(mockCoreDeps.sprintRunLifecycleService.markRunning).toHaveBeenCalledWith(
       "run-created",
       expect.objectContaining({
-        status: "running",
         startedAt: expect.any(String),
         lastHeartbeatAt: expect.any(String),
       }),

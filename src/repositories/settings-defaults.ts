@@ -91,6 +91,20 @@ export const DEFAULT_PROVIDER_CONFIG_IDS: Record<ProviderId, ProviderConfigId> =
   opencode: "opencode",
   antigravity: "antigravity",
 };
+
+export const DEFAULT_PLAYWRIGHT_MCP_SERVER_ID = "playwright";
+
+export const DEFAULT_PLAYWRIGHT_MCP_SERVER = {
+  id: DEFAULT_PLAYWRIGHT_MCP_SERVER_ID,
+  name: "playwright",
+  label: "Playwright",
+  description: "Browser automation MCP server for coding agents.",
+  enabled: true,
+  transport: "stdio",
+  command: "npx",
+  args: ["@playwright/mcp@latest"],
+  providers: ["gemini", "codex", "claude-code", "qwen-code", "opencode", "antigravity"],
+} satisfies DashboardSettings["customMcpServers"][number];
 export const DEFAULT_PROVIDER_CONFIG_NAMES: Record<ProviderId, string> = {
   jules: "Jules Primary",
   gemini: "Gemini Primary",
@@ -421,14 +435,16 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
   dbAutoVacuumOnStartup: true,
   dbPruningEnabled: true,
   dbRetentionDays: 14,
+  restartSprintPolicy: "continue",
+  restartInvocationPolicy: "continue",
   appearance: {
-    navigationMode: "DOCK",
+    navigationMode: "SIDEBAR",
     theme: "SYSTEM",
     reducedMotion: "AUTO",
     backgroundMode: "ANIMATED",
     animatedBackground: "deep-ocean",
     staticBackgroundColor: "#0d0f12",
-    backgroundPattern: "HEXAGONS",
+    backgroundPattern: "NONE",
     zoomLevel: 1,
   },
   automationLevel: "SEMI_AUTO",
@@ -487,7 +503,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     waitForJulesCiAutofix: false,
     julesCiAutofixMaxRetries: 3,
     featurePrAutoMergeMode: "ALWAYS",
-    mainBranchAutoMergeMode: "CREATE_PR",
+    mainBranchAutoMergeMode: "ALWAYS",
   },
   guardrails: {
     enabled: true,
@@ -530,6 +546,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     containerImage: "node:24-bookworm",
     containerSetupScriptPath: "",
     containerCacheSetupScriptImage: true,
+    containerInstallPlaywrightBrowsers: true,
     containerMountGitConfig: false,
     containerGitUserName: "Code UX",
     containerGitUserEmail: "agents@codeux.ai",
@@ -551,8 +568,8 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     maxQuotaRetriesWithoutTimer: 5,
   },
   sprintPreview: {
-    enabled: false,
-    showInAppBrowser: false,
+    enabled: true,
+    showInAppBrowser: true,
     autoStartOnRunningSprint: false,
     rebuildOnTaskCompletion: false,
     rebuildOnSprintCompletion: false,
@@ -561,6 +578,7 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
     hostPortRangeStart: 5555,
     hostPortRangeEnd: 6666,
     containerAppPort: 3000,
+    containerAppPorts: [3000],
     startupScriptPath: ".code-ux/browser/start-preview.sh",
   },
   workers: {
@@ -592,21 +610,24 @@ export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
       exhaustionPolicy: "FINISH_TASK",
       taskCompletion: {
         enabled: true,
+        agentPresetIds: [],
         agentPresetId: null,
       },
       sprintCompletion: {
         enabled: true,
+        agentPresetIds: [],
         agentPresetId: null,
       },
       completedTaskWithoutPr: {
         enabled: true,
+        agentPresetIds: [],
         agentPresetId: null,
       },
     },
   },
   skills: DEFAULT_SKILLS,
   mcpTools: DEFAULT_MCP_TOOL_TOGGLES.map((tool) => ({ ...tool })),
-  customMcpServers: [],
+  customMcpServers: [{ ...DEFAULT_PLAYWRIGHT_MCP_SERVER, args: [...DEFAULT_PLAYWRIGHT_MCP_SERVER.args], providers: [...DEFAULT_PLAYWRIGHT_MCP_SERVER.providers] }],
   memory: {
     enabled: true,
     embeddingProvider: "in_app",

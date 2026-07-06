@@ -13,6 +13,7 @@ import {
   providerSupportsThinkingMode,
   isProviderAvailable,
   getProviderAuthLabel,
+  getProviderInstanceAuthLabel,
   getEligibleProviders,
   sourceLabel,
   thinkingModeOptions,
@@ -24,8 +25,14 @@ import {
   getDefaultRouteOptionLabel,
   getProviderDisplayMetadata,
   getVirtualProviderDisplayMetadata,
+  applyExternalHintsToSystemSettings,
+  formatModelPrice,
+  getRelevantModelPricingRefs,
+  normalizeModelPricingOverrideId,
+  normalizeModelPricingOverrides,
 } from "../../../dashboard/src/v2/lib/settings-view-models.js";
 import type { SystemSettings, ProjectSettings, ExternalSettingsHints, DashboardSettings } from "../../../dashboard/src/types.js";
+import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-defaults.js";
 
 describe("sortProviderConfigEntries", () => {
   it("keeps the primary first and orders added instances by creation, not by name", () => {
@@ -88,6 +95,15 @@ describe("settings view model source helpers", () => {
     expect(sourceLabel("sprint")).toBe("Sprint override");
     expect(sourceLabel("mixed")).toBe("Mixed sources");
     expect(sourceLabel("system")).toBe("Inherited");
+  });
+
+  it("distinguishes inherited, overridden, and mixed project section sources", () => {
+    expect(getFieldSource({}, "git.defaultBranch")).toBe("system");
+    expect(getFieldSource({ "git.defaultBranch": "project" }, "git.defaultBranch")).toBe("project");
+    expect(getFieldSource({
+      "git.defaultBranch": "project",
+      "git.autoCreatePr": "system",
+    }, "git")).toBe("mixed");
   });
 
   it("provides thinking mode options", () => {
@@ -189,6 +205,48 @@ describe("settings view model source helpers", () => {
     ]));
   });
 
+  it("adds configured Codex and Claude custom endpoint models to instance model options", () => {
+    const systemSettings = {
+      integrations: {
+        providers: {
+          "codex-local": {
+            provider: "codex",
+            name: "Codex Local",
+            apiKey: "mykey",
+            mountAuth: false,
+            authPath: "",
+            customBaseUrl: "http://127.0.0.1:11434/v1",
+            customModel: "openai/gpt-oss-local",
+          },
+          "claude-local": {
+            provider: "claude-code",
+            name: "Claude Local",
+            apiKey: "mykey",
+            mountAuth: false,
+            authPath: "",
+            customBaseUrl: "http://127.0.0.1:11434/v1",
+            customModel: "anthropic/claude-local",
+          },
+        },
+      },
+    } as SystemSettings;
+
+    expect(getProviderInstanceModelOptions(
+      "codex-local",
+      { provider: "codex", model: "gpt-5.5" },
+      systemSettings,
+    )).toEqual(expect.arrayContaining([
+      { value: "openai/gpt-oss-local", label: "openai/gpt-oss-local (configured)" },
+    ]));
+    expect(getProviderInstanceModelOptions(
+      "claude-local",
+      { provider: "claude-code", model: "default" },
+      systemSettings,
+    )).toEqual(expect.arrayContaining([
+      { value: "anthropic/claude-local", label: "anthropic/claude-local (configured)" },
+    ]));
+  });
+
   it("prefills new Qwen and OpenCode custom endpoint settings for local Ollama", () => {
     expect(createSystemProviderDraft("qwen-code", "Qwen Ollama")).toMatchObject({
       apiKey: "",
@@ -204,6 +262,61 @@ describe("settings view model source helpers", () => {
       openCodeBaseUrl: "http://127.0.0.1:11434/v1",
       openCodeEnvKey: "OLLAMA_API_KEY",
     });
+  });
+});
+
+describe("model pricing view model helpers", () => {
+  it("normalizes stale custom override ids without overwriting canonical overrides", () => {
+    expect(normalizeModelPricingOverrideId("custom/google/gemma")).toBe("google/gemma");
+    expect(normalizeModelPricingOverrideId("custom/local-model")).toBe("custom/local-model");
+
+    expect(normalizeModelPricingOverrides({
+      "google/gemma": { inputTokens: 1, outputTokens: 2, cachedInputTokens: 0 },
+      "custom/google/gemma": { inputTokens: 3, outputTokens: 4, cachedInputTokens: 0 },
+    })).toEqual({
+      "google/gemma": { inputTokens: 1, outputTokens: 2, cachedInputTokens: 0 },
+    });
+  });
+
+  it("formats missing and configured token pricing consistently", () => {
+    expect(formatModelPrice(undefined)).toBe("No published pricing");
+    expect(formatModelPrice({ inputTokens: 1, outputTokens: 2, cachedInputTokens: 0.5 })).toBe("$1/M in • $2/M out • $0.5/M cached");
+  });
+
+  it("keeps enabled project defaults visible as relevant pricing refs", () => {
+    const refs = getRelevantModelPricingRefs({
+      integrations: {
+        providers: {
+          codex: { provider: "codex", name: "Codex Primary", apiKey: "", mountAuth: false, authPath: "" },
+        },
+      },
+      defaults: {
+        aiProvider: {
+          providers: {
+            codex: {
+              provider: "codex",
+              name: "Codex Primary",
+              enabled: true,
+              model: "gpt-5.5",
+              weight: 1,
+              thinkingMode: "HIGH",
+              maxConcurrentTasks: 0,
+            },
+          },
+        },
+      },
+    } as SystemSettings, [{
+      id: "openai/gpt-5.5",
+      providerId: "openai",
+      providerName: "OpenAI",
+      modelId: "gpt-5.5",
+      modelName: "GPT-5.5",
+      cost: { inputTokens: 1, outputTokens: 2, cachedInputTokens: 0 },
+    }], {});
+
+    expect(refs.get("openai/gpt-5.5")?.usedBy).toEqual([
+      { id: "codex", label: "Codex Primary", provider: "codex" },
+    ]);
   });
 });
 
@@ -274,6 +387,10 @@ describe("provider availability helpers", () => {
     expect(getProviderAuthLabel("claude-code", mockSystemSettings, mockHints, true)).toBe("Auth mount enabled");
   });
 
+  it("returns no auth display for an invalid provider config id", () => {
+    expect(getProviderInstanceAuthLabel("missing-provider", mockSystemSettings, true)).toBeNull();
+  });
+
   it("getEligibleProviders returns providers that are available AND enabled", () => {
     const eligible = getEligibleProviders(mockSystemSettings, {
       ...mockProjectSettings,
@@ -287,6 +404,43 @@ describe("provider availability helpers", () => {
     // codex local auth alone should not activate it
     // claude-code is activated via auth mount and enabled
     expect(eligible).toEqual(["jules", "claude-code"]);
+  });
+});
+
+describe("external hint project override helpers", () => {
+  it("fills only inherited empty provider keys from external hints", () => {
+    const settings = {
+      runtime: { dashboardPort: 5173, consoleLogLevel: "info", debugLogFileLevel: "error", consoleLogMode: "standard" },
+      integrations: {
+        providers: {
+          jules: { provider: "jules", name: "Jules Primary", apiKey: "", mountAuth: false, authPath: "" },
+          gemini: { provider: "gemini", name: "Gemini Primary", apiKey: "project-gemini", mountAuth: false, authPath: "~/.gemini" },
+        },
+        githubToken: "",
+      },
+      defaults: DEFAULT_DASHBOARD_SETTINGS as ProjectSettings,
+      mcpTools: [],
+      customMcpServers: [],
+      modelPricing: { overrides: {} },
+    } as SystemSettings;
+    const hints: ExternalSettingsHints = {
+      env: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
+      settingsJson: { julesApiKey: "", geminiApiKey: "", codexApiKey: "", claudeCodeApiKey: "", githubToken: "" },
+      resolved: {
+        julesApiKey: "hint-jules",
+        geminiApiKey: "hint-gemini",
+        codexApiKey: "",
+        claudeCodeApiKey: "",
+        githubToken: "hint-gh",
+      },
+      providerAvailability: {},
+    };
+
+    const next = applyExternalHintsToSystemSettings(settings, hints);
+
+    expect(next.integrations.providers.jules.apiKey).toBe("hint-jules");
+    expect(next.integrations.providers.gemini.apiKey).toBe("project-gemini");
+    expect(next.integrations.githubToken).toBe("hint-gh");
   });
 });
 
@@ -389,6 +543,170 @@ describe("provider display metadata helpers", () => {
     expect(metadata?.effectiveModel).toBe("gpt-5.5");
     expect(getDefaultModelOptionLabel(metadata)).toBe("Default Model (gpt-5.5)");
   });
+
+  it("displays Codex custom endpoint models instead of catalog defaults", () => {
+    const systemSettings = {
+      integrations: {
+        providers: {
+          "codex-local": {
+            provider: "codex",
+            name: "Codex Local",
+            apiKey: "key",
+            mountAuth: false,
+            authPath: "",
+            customBaseUrl: "http://127.0.0.1:11434/v1",
+            customModel: "openai/gpt-oss-local",
+          },
+        },
+      },
+      defaults: {
+        aiProvider: {
+          providers: {
+            "codex-local": {
+              provider: "codex",
+              name: "Codex Local",
+              enabled: true,
+              model: "gpt-5.5",
+              weight: 50,
+              thinkingMode: "HIGH",
+            },
+          },
+        },
+      },
+    } as SystemSettings;
+
+    const metadata = getProviderDisplayMetadata(systemSettings, "codex-local");
+
+    expect(metadata?.effectiveModel).toBe("openai/gpt-oss-local");
+    expect(getDefaultModelOptionLabel(metadata)).toBe("Default Model (openai/gpt-oss-local)");
+  });
+
+  it("displays Claude custom endpoint models instead of default", () => {
+    const systemSettings = {
+      integrations: {
+        providers: {
+          "claude-local": {
+            provider: "claude-code",
+            name: "Claude Local",
+            apiKey: "key",
+            mountAuth: false,
+            authPath: "",
+            customBaseUrl: "http://127.0.0.1:11434/v1",
+            customModel: "anthropic/claude-local",
+          },
+        },
+      },
+      defaults: {
+        aiProvider: {
+          providers: {
+            "claude-local": {
+              provider: "claude-code",
+              name: "Claude Local",
+              enabled: true,
+              model: "default",
+              weight: 50,
+              thinkingMode: "HIGH",
+            },
+          },
+        },
+      },
+    } as SystemSettings;
+
+    const metadata = getProviderDisplayMetadata(systemSettings, "claude-local");
+
+    expect(metadata?.effectiveModel).toBe("anthropic/claude-local");
+    expect(getDefaultModelOptionLabel(metadata)).toBe("Default Model (anthropic/claude-local)");
+  });
+
+  it("ignores stale custom model fields for mounted local-auth providers", () => {
+    const systemSettings = {
+      integrations: {
+        providers: {
+          "codex-mounted": {
+            provider: "codex",
+            name: "Codex Mounted",
+            apiKey: "",
+            authType: "localAuth",
+            mountAuth: true,
+            authPath: "~/.codex",
+            customBaseUrl: "http://127.0.0.1:11434/v1",
+            customModel: "openai/stale-local",
+          },
+        },
+      },
+      defaults: {
+        aiProvider: {
+          providers: {
+            "codex-mounted": {
+              provider: "codex",
+              name: "Codex Mounted",
+              enabled: true,
+              model: "gpt-5.5",
+              weight: 50,
+              thinkingMode: "HIGH",
+            },
+          },
+        },
+      },
+    } as SystemSettings;
+
+    const metadata = getProviderDisplayMetadata(systemSettings, "codex-mounted");
+
+    expect(metadata?.effectiveModel).toBe("gpt-5.5");
+  });
+
+  it("displays Qwen and OpenCode configured custom endpoint models", () => {
+    const systemSettings = {
+      integrations: {
+        providers: {
+          "qwen-ollama": {
+            provider: "qwen-code",
+            name: "Qwen Ollama",
+            apiKey: "key",
+            mountAuth: false,
+            authPath: "",
+            qwenAuthMode: "MODEL_PROVIDER",
+            qwenModelId: "glm-4.7-flash",
+          },
+          "opencode-ollama": {
+            provider: "opencode",
+            name: "OpenCode Ollama",
+            apiKey: "key",
+            mountAuth: false,
+            authPath: "",
+            openCodeAuthMode: "CUSTOM_PROVIDER",
+            openCodeProviderId: "ollama",
+            openCodeModelId: "glm-4.7-flash",
+          },
+        },
+      },
+      defaults: {
+        aiProvider: {
+          providers: {
+            "qwen-ollama": {
+              provider: "qwen-code",
+              name: "Qwen Ollama",
+              enabled: true,
+              model: "custom/model",
+              weight: 50,
+              thinkingMode: "HIGH",
+            },
+            "opencode-ollama": {
+              provider: "opencode",
+              name: "OpenCode Ollama",
+              enabled: true,
+              model: "custom/model",
+              weight: 50,
+              thinkingMode: "HIGH",
+            },
+          },
+        },
+      },
+    } as SystemSettings;
+
+    expect(getProviderDisplayMetadata(systemSettings, "qwen-ollama")?.effectiveModel).toBe("glm-4.7-flash");
+    expect(getProviderDisplayMetadata(systemSettings, "opencode-ollama")?.effectiveModel).toBe("ollama/glm-4.7-flash");
+  });
 });
 
 
@@ -398,9 +716,9 @@ describe("settings cloning helpers", () => {
     maxTaskReviewRuns: 2,
     maxSprintReviewRuns: 3,
     exhaustionPolicy: "STOP" as const,
-    taskCompletion: { strategy: "ALWAYS" as const },
-    sprintCompletion: { strategy: "ALWAYS" as const },
-    completedTaskWithoutPr: { strategy: "CREATE_PR" as const },
+    taskCompletion: { strategy: "ALWAYS" as const, agentPresetIds: ["qa-task"], agentPresetId: "qa-task" },
+    sprintCompletion: { strategy: "ALWAYS" as const, agentPresetIds: ["qa-sprint", "qa-peer"], agentPresetId: "qa-sprint" },
+    completedTaskWithoutPr: { strategy: "CREATE_PR" as const, agentPresetIds: [], agentPresetId: null },
   });
 
   const createMockProjectSettings = (): ProjectSettings => ({
@@ -459,6 +777,7 @@ describe("settings cloning helpers", () => {
     clone.jira.host = "new-host";
     clone.agents.qualityAssurance.enabled = false;
     clone.agents.qualityAssurance.taskCompletion.strategy = "NEVER";
+    clone.agents.qualityAssurance.sprintCompletion.agentPresetIds.push("qa-extra");
     clone.agents.routing.taskCoding.orchestratorAgentPresetIds.push("c");
     clone.customMcpServers![0].headers!["X-New"] = "123";
     clone.customMcpServers![0].env!["BAZ"] = "qux";
@@ -471,6 +790,7 @@ describe("settings cloning helpers", () => {
     expect(original.jira.host).toBe("h");
     expect(original.agents.qualityAssurance.enabled).toBe(true);
     expect(original.agents.qualityAssurance.taskCompletion.strategy).toBe("ALWAYS");
+    expect(original.agents.qualityAssurance.sprintCompletion.agentPresetIds).toEqual(["qa-sprint", "qa-peer"]);
     expect(original.agents.routing.taskCoding.orchestratorAgentPresetIds).toEqual(["a", "b"]);
     expect(original.customMcpServers![0].headers!["X-New"]).toBeUndefined();
     expect(original.customMcpServers![0].env!["BAZ"]).toBeUndefined();
@@ -488,6 +808,7 @@ describe("settings cloning helpers", () => {
     clone.memory.enabled = false;
     clone.jira.host = "new-host";
     clone.agents.qualityAssurance.enabled = false;
+    clone.agents.qualityAssurance.sprintCompletion.agentPresetIds.push("qa-extra");
     clone.agents.routing.taskCoding.orchestratorAgentPresetIds.push("c");
     clone.customMcpServers![0].headers!["X-New"] = "123";
 
@@ -495,6 +816,7 @@ describe("settings cloning helpers", () => {
     expect(original.memory.enabled).toBe(true);
     expect(original.jira.host).toBe("h");
     expect(original.agents.qualityAssurance.enabled).toBe(true);
+    expect(original.agents.qualityAssurance.sprintCompletion.agentPresetIds).toEqual(["qa-sprint", "qa-peer"]);
     expect(original.agents.routing.taskCoding.orchestratorAgentPresetIds).toEqual(["a", "b"]);
     expect(original.customMcpServers![0].headers!["X-New"]).toBeUndefined();
   });

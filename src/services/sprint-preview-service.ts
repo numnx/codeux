@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 import type {
   CliWorkflowSettings,
   SprintPreviewScript,
+  SprintPreviewPortMapping,
   SprintPreviewSession,
   SprintPreviewSettings,
 } from "../contracts/app-types.js";
@@ -18,7 +19,7 @@ import type { SettingsRepository } from "../repositories/settings-repository.js"
 import { SprintPreviewRepository } from "../repositories/sprint-preview-repository.js";
 import { DockerBootstrapBuilder } from "../infrastructure/providers/cli/docker-bootstrap-builder.js";
 import { DockerCredentialMountBuilder } from "../infrastructure/providers/cli/docker-credential-mount-builder.js";
-import { DockerSetupImageCache } from "../infrastructure/providers/cli/docker-setup-image-cache.js";
+import { DockerSetupImageCache, type DockerSetupImageCacheProgress } from "../infrastructure/providers/cli/docker-setup-image-cache.js";
 import { resolveDockerRuntimeRoot } from "../infrastructure/providers/cli/docker-runtime-paths.js";
 import { formatSprintBranch } from "../domain/sprint/branch-name-generator.js";
 import { runCommandStrict } from "./cli-process-runner.js";
@@ -29,6 +30,7 @@ import {
   pickContainerEnv,
   resolveConfiguredPath,
   toDockerMountArg,
+  writeDockerEnvFile,
 } from "./cli-docker-utils.js";
 import { CONTAINER_SETUP_SCRIPT } from "./cli-workflow-utils.js";
 import {
@@ -144,13 +146,20 @@ export class SprintPreviewService {
 
       await this.enforceMaxConcurrentContainers(projectId, settings.maxConcurrentContainers, existing?.id || null);
 
-      const hostPort = existing?.hostPort || await this.findFreePort(settings);
+      const portMappings = await this.allocatePortMappings(settings, existing);
+      const primaryPortMapping = this.getPrimaryPortMapping(portMappings);
+      const hostPort = primaryPortMapping.hostPort;
+      if (hostPort === null) {
+        throw new Error("Preview session did not receive an assigned host port.");
+      }
 
       const session = existing || this.deps.sprintPreviewRepository.createSession({
         projectId,
         sprintId,
         status: "starting",
         containerAppPort: settings.containerAppPort,
+        hostPort,
+        portMappings,
         startupScriptPath: preparedScript.scriptPath,
         startupMode: preparedScript.mode,
         installCommand: effectiveInstallCommand,
@@ -165,6 +174,7 @@ export class SprintPreviewService {
         status: "starting" as const,
         hostPort,
         containerAppPort: settings.containerAppPort,
+        portMappings,
         startupScriptPath: preparedScript.scriptPath,
         startupMode: preparedScript.mode,
         installCommand: effectiveInstallCommand,
@@ -222,6 +232,7 @@ export class SprintPreviewService {
           baseImage,
           setupScriptPath,
           cacheEnabled: effectiveSettings.cliWorkflow.containerCacheSetupScriptImage,
+          installPlaywrightBrowsers: false,
           buildIfMissing: false,
           runtimeRoot: projectRuntimeRoot,
           repoPath: project.baseDir,
@@ -230,6 +241,16 @@ export class SprintPreviewService {
               projectId,
               sprintId,
               message,
+            });
+          },
+          onProgress: (progress: DockerSetupImageCacheProgress) => {
+            this.deps.logger?.info("Sprint preview setup image progress", {
+              projectId,
+              sprintId,
+              kind: progress.kind,
+              progressPercent: progress.progressPercent,
+              stepText: progress.stepText,
+              imageTag: progress.imageTag,
             });
           },
           mapSourcePathForDaemon: (sourcePath) => this.mapDockerSourcePathForDaemon(sourcePath, project.baseDir),
@@ -256,34 +277,45 @@ export class SprintPreviewService {
           pathPosix.join(containerNpmCache, "pnpm-store"),
         ], project.baseDir);
 
-        const dockerArgs = buildSprintPreviewDockerCreateArgs({
-          projectId,
-          sprintId,
-          sessionId: session.id,
-          containerName,
-          hostPort,
-          containerAppPort: settings.containerAppPort,
-          containerWorkspacePath,
-          containerRuntimeHome,
-          volumeName,
-          userSpec,
-          setupScriptSource: setupScriptPath ? this.mapDockerSourcePathForDaemon(setupScriptPath, project.baseDir) : null,
-          shouldRunSetupScriptAtRuntime,
-          containerGitUserName: workflowSettings.containerGitUserName,
-          containerGitUserEmail: workflowSettings.containerGitUserEmail,
-          credentialMounts: credentialMounts.map((mount) => ({
-            ...mount,
-            source: this.mapDockerSourcePathForDaemon(mount.source, project.baseDir),
-          })),
-          effectiveInstallCommand,
-          buildCommand: preparedScript.buildCommand,
-          runCommand: preparedScript.runCommand,
-          sourceCommit,
-          resolvedImage: resolvedImage.image,
-          bootstrapScript,
-        });
+        const startResult = await (async () => {
+          const envFileTempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-preview-env-"));
+          try {
+            const envFilePath = path.join(envFileTempRoot, "preview.env");
+            await writeDockerEnvFile(envFilePath, pickContainerEnv(process.env));
+            const dockerArgs = buildSprintPreviewDockerCreateArgs({
+              projectId,
+              sprintId,
+              sessionId: session.id,
+              containerName,
+              hostPort,
+              containerAppPort: settings.containerAppPort,
+              portMappings,
+              containerWorkspacePath,
+              containerRuntimeHome,
+              volumeName,
+              userSpec,
+              setupScriptSource: setupScriptPath ? this.mapDockerSourcePathForDaemon(setupScriptPath, project.baseDir) : null,
+              shouldRunSetupScriptAtRuntime,
+              containerGitUserName: workflowSettings.containerGitUserName,
+              containerGitUserEmail: workflowSettings.containerGitUserEmail,
+              credentialMounts: credentialMounts.map((mount) => ({
+                ...mount,
+                source: this.mapDockerSourcePathForDaemon(mount.source, project.baseDir),
+              })),
+              effectiveInstallCommand,
+              buildCommand: preparedScript.buildCommand,
+              runCommand: preparedScript.runCommand,
+              sourceCommit,
+              envFileSource: this.mapDockerSourcePathForDaemon(envFilePath, project.baseDir),
+              resolvedImage: resolvedImage.image,
+              bootstrapScript,
+            });
 
-        const startResult = await runCommandStrict("docker", dockerArgs, project.baseDir);
+            return await runCommandStrict("docker", dockerArgs, project.baseDir);
+          } finally {
+            await fs.rm(envFileTempRoot, { recursive: true, force: true }).catch(() => undefined);
+          }
+        })();
         const containerId = startResult.stdout.trim();
         if (!containerId) {
           throw new Error("Docker preview container did not return a container id.");
@@ -313,6 +345,7 @@ export class SprintPreviewService {
           ...sessionBasePatch,
           status: "error",
           hostPort: null,
+          portMappings: this.clearPortMappingHostPorts(portMappings),
           containerId: null,
           containerName: null,
           healthStatus: "unreachable",
@@ -405,6 +438,9 @@ export class SprintPreviewService {
       }
       this.deps.sprintPreviewRepository.updateSession(session.id, {
         status: "stopped",
+        hostPort: session.hostPort,
+        containerAppPort: session.containerAppPort,
+        portMappings: this.getEffectivePortMappings(session),
         containerId: null,
         containerName: null,
         healthStatus: "unknown",
@@ -434,6 +470,9 @@ export class SprintPreviewService {
       await this.lifecycle.removeContainerIfPresent(containerRef, process.cwd());
       return this.deps.sprintPreviewRepository.updateSession(sessionId, {
         status: "stopped",
+        hostPort: session.hostPort,
+        containerAppPort: session.containerAppPort,
+        portMappings: this.getEffectivePortMappings(session),
         containerId: null,
         containerName: null,
         healthStatus: "unknown",
@@ -522,6 +561,7 @@ export class SprintPreviewService {
     path: string;
     headers?: Record<string, string | undefined>;
     body?: Buffer;
+    selectedPort?: string | number | null;
   }): Promise<SprintPreviewProxyResponse> {
     if (args.body && args.body.length > 5 * 1024 * 1024) {
       throw new Error("Request body exceeds maximum allowed size for proxied preview");
@@ -531,8 +571,12 @@ export class SprintPreviewService {
     if (!refreshed.hostPort) {
       throw new Error("Preview session does not have an active host port.");
     }
+    const selectedMapping = this.resolveSelectedPortMapping(refreshed, args.selectedPort);
+    if (!selectedMapping.hostPort) {
+      throw new Error("Selected preview port is not active for this session.");
+    }
 
-    const upstreamUrl = new URL(normalizePreviewPath(args.path), `http://127.0.0.1:${refreshed.hostPort}`);
+    const upstreamUrl = new URL(normalizePreviewPath(args.path), `http://127.0.0.1:${selectedMapping.hostPort}`);
     let response: Response;
     try {
       response = await fetch(upstreamUrl, {
@@ -607,16 +651,18 @@ export class SprintPreviewService {
 
   async reconcileSessions(): Promise<void> {
     const sessions = this.deps.sprintPreviewRepository.listSessions();
-    // Memoize the per-project execution snapshot within this pass; many sessions share a project and
-    // it is an expensive DB rollup, so recomputing it per session was a second N+1.
-    const executionSnapshotByProject = new Map<string, ReturnType<typeof this.deps.executionRepository.getProjectExecutionSnapshot>>();
-    const getExecutionSnapshot = (projectId: string) => {
-      let snapshot = executionSnapshotByProject.get(projectId);
-      if (!snapshot) {
-        snapshot = this.deps.executionRepository.getProjectExecutionSnapshot(projectId);
-        executionSnapshotByProject.set(projectId, snapshot);
+    const runningSprintIdsByProject = new Map<string, Set<string>>();
+    const getRunningSprintIds = (projectId: string) => {
+      let sprintIds = runningSprintIdsByProject.get(projectId);
+      if (!sprintIds) {
+        sprintIds = new Set(
+          this.deps.executionRepository
+            .listSprintRunsByStatus(["running"], { projectId })
+            .map((run) => run.sprintId),
+        );
+        runningSprintIdsByProject.set(projectId, sprintIds);
       }
-      return snapshot;
+      return sprintIds;
     };
 
     if (sessions.length > 0) {
@@ -632,9 +678,7 @@ export class SprintPreviewService {
           continue;
         }
         const refreshed = await this.refreshRuntimeState(session, containers);
-        const activeRun = getExecutionSnapshot(session.projectId)
-          .sprintRuns
-          .some((run) => run.sprintId === session.sprintId && run.status === "running");
+        const activeRun = getRunningSprintIds(session.projectId).has(session.sprintId);
 
         // Prune dead sessions for finished sprints. Once a sprint is terminal and has no running
         // container, the session can never auto-start again, so reconciling it every 15s (settings
@@ -724,23 +768,14 @@ export class SprintPreviewService {
 
     const projects = this.deps.projectManagementRepository.listProjects().projects;
     for (const project of projects) {
-      const execution = getExecutionSnapshot(project.id);
-      const activeSprintRunIds = new Set(
-        execution.sprintRuns
-          .filter((run) => run.status === "running")
-          .map((run) => run.sprintId),
-      );
-      for (const sprint of this.deps.projectManagementRepository.listSprints(project.id).sprints) {
-        if (!activeSprintRunIds.has(sprint.id)) {
-          continue;
-        }
-        const existing = this.deps.sprintPreviewRepository.getSessionByProjectSprint(project.id, sprint.id);
-        const settings = this.resolveSettings(project.id, sprint.id).sprintPreview;
+      for (const sprintId of getRunningSprintIds(project.id)) {
+        const existing = this.deps.sprintPreviewRepository.getSessionByProjectSprint(project.id, sprintId);
+        const settings = this.resolveSettings(project.id, sprintId).sprintPreview;
         if (settings.enabled === false) {
           continue;
         }
         if (!existing && settings.autoStartOnRunningSprint) {
-          await this.startSession(project.id, sprint.id).catch(() => undefined);
+          await this.startSession(project.id, sprintId).catch(() => undefined);
         }
       }
     }
@@ -763,7 +798,9 @@ export class SprintPreviewService {
       });
     }
 
-    const hostPort = session.hostPort || container.hostPort || null;
+    const portMappings = this.mergeContainerHostPort(this.getEffectivePortMappings(session), container.hostPort || null);
+    const primaryMapping = this.getPrimaryPortMapping(portMappings);
+    const hostPort = primaryMapping.hostPort;
 
     const adoptedSession = session.containerId === container.id && session.containerName === container.name && session.hostPort === hostPort
       ? session
@@ -771,6 +808,8 @@ export class SprintPreviewService {
         containerId: container.id,
         containerName: container.name,
         hostPort,
+        containerAppPort: primaryMapping.containerPort,
+        portMappings,
       });
 
     if (container.status !== "running") {
@@ -1308,13 +1347,125 @@ export class SprintPreviewService {
     });
   }
 
-  private async findFreePort(settings: SprintPreviewSettings): Promise<number> {
-    const candidates: number[] = [];
-    for (let port = settings.hostPortRangeStart; port <= settings.hostPortRangeEnd; port += 1) {
-      candidates.push(port);
+  private getOrderedContainerPorts(settings: SprintPreviewSettings): number[] {
+    const ports = [
+      settings.containerAppPort,
+      ...settings.containerAppPorts,
+    ].filter((port) => Number.isInteger(port) && port >= 1 && port <= 65535);
+    return [...new Set(ports)];
+  }
+
+  private async allocatePortMappings(
+    settings: SprintPreviewSettings,
+    existing?: SprintPreviewSession | null,
+  ): Promise<SprintPreviewPortMapping[]> {
+    const containerPorts = this.getOrderedContainerPorts(settings);
+    const usedHostPorts = new Set<number>();
+    const existingByContainerPort = new Map(
+      this.getEffectivePortMappings(existing)
+        .filter((mapping) => mapping.hostPort !== null)
+        .map((mapping) => [mapping.containerPort, mapping.hostPort as number]),
+    );
+    const mappings: SprintPreviewPortMapping[] = [];
+
+    for (const [index, containerPort] of containerPorts.entries()) {
+      const preservedHostPort = existingByContainerPort.get(containerPort);
+      const validPreservedHostPort = preservedHostPort !== undefined
+        && preservedHostPort >= settings.hostPortRangeStart
+        && preservedHostPort <= settings.hostPortRangeEnd
+        && !usedHostPorts.has(preservedHostPort);
+      const preservedPortAvailable = validPreservedHostPort
+        ? await this.checkPortAvailable(preservedHostPort)
+        : false;
+      const existingContainerMayOwnPort = Boolean(existing?.containerId || existing?.containerName);
+      const canPreserve = validPreservedHostPort
+        && (preservedPortAvailable || existingContainerMayOwnPort);
+      const hostPort = canPreserve
+        ? preservedHostPort
+        : await this.findFreePort(settings, usedHostPorts);
+
+      usedHostPorts.add(hostPort);
+      mappings.push({
+        containerPort,
+        hostPort,
+        ...(index === 0 ? { isPrimary: true } : {}),
+      });
     }
-    const randomized = candidates.sort(() => Math.random() - 0.5);
-    for (const port of randomized) {
+
+    return mappings;
+  }
+
+  private clearPortMappingHostPorts(mappings: SprintPreviewPortMapping[]): SprintPreviewPortMapping[] {
+    return mappings.map((mapping) => ({
+      ...mapping,
+      hostPort: null,
+    }));
+  }
+
+  private mergeContainerHostPort(
+    mappings: SprintPreviewPortMapping[],
+    containerHostPort: number | null,
+  ): SprintPreviewPortMapping[] {
+    if (!containerHostPort || mappings.some((mapping) => mapping.isPrimary === true && mapping.hostPort)) {
+      return mappings;
+    }
+    return mappings.map((mapping, index) => index === 0
+      ? { ...mapping, hostPort: containerHostPort, isPrimary: true }
+      : mapping);
+  }
+
+  private getPrimaryPortMapping(mappings: SprintPreviewPortMapping[]): SprintPreviewPortMapping {
+    return mappings.find((mapping) => mapping.isPrimary === true) ?? mappings[0] ?? {
+      containerPort: 3000,
+      hostPort: null,
+      isPrimary: true,
+    };
+  }
+
+  private getEffectivePortMappings(session: Pick<SprintPreviewSession, "containerAppPort" | "hostPort" | "portMappings"> | null | undefined): SprintPreviewPortMapping[] {
+    if (session && Array.isArray(session.portMappings) && session.portMappings.length > 0) {
+      return session.portMappings;
+    }
+    if (!session) {
+      return [];
+    }
+    return [{
+      containerPort: session.containerAppPort,
+      hostPort: session.hostPort,
+      isPrimary: true,
+    }];
+  }
+
+  private resolveSelectedPortMapping(
+    session: SprintPreviewSession,
+    selectedPort?: string | number | null,
+  ): SprintPreviewPortMapping {
+    const portMappings = this.getEffectivePortMappings(session);
+    const primary = this.getPrimaryPortMapping(portMappings);
+    if (selectedPort === undefined || selectedPort === null || selectedPort === "") {
+      return primary;
+    }
+    const parsedPort = typeof selectedPort === "number"
+      ? selectedPort
+      : Number.parseInt(selectedPort, 10);
+    const normalizedPort = typeof selectedPort === "string" ? selectedPort.trim() : String(selectedPort);
+    if (!/^\d+$/.test(normalizedPort) || !Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+      throw new Error("Selected preview port is invalid.");
+    }
+    const mapping = portMappings.find((candidate) =>
+      candidate.containerPort === parsedPort || candidate.hostPort === parsedPort
+    );
+    if (!mapping) {
+      throw new Error("Selected preview port is not available for this session.");
+    }
+    return mapping;
+  }
+
+  private async findFreePort(settings: SprintPreviewSettings, excludedPorts = new Set<number>()): Promise<number> {
+    for (let port = settings.hostPortRangeStart; port <= settings.hostPortRangeEnd; port += 1) {
+      if (excludedPorts.has(port)) {
+        continue;
+      }
       const available = await this.checkPortAvailable(port);
       if (available) {
         return port;

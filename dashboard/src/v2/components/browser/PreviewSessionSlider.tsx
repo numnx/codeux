@@ -2,8 +2,9 @@ import type { FunctionComponent } from "preact";
 import { useRef } from "preact/hooks";
 import { ChevronLeft, ChevronRight, ExternalLink, Globe, Trash2, Loader2, CheckCircle2 } from "lucide-preact";
 import type { SprintPreviewSession } from "../../../types.js";
-import { buildPreviewOrigin } from "../../lib/preview-origin.js";
+import { buildPreviewOrigin, formatPreviewPortMappingsSummary, getPrimaryPreviewPortMapping } from "../../lib/preview-origin.js";
 import { getSafeUrl } from "../../lib/safe-url.js";
+import { buildInteractionTransition } from "../../lib/motion/tokens.js";
 
 interface PreviewSessionSliderProps {
   sessions: SprintPreviewSession[];
@@ -26,19 +27,27 @@ const healthTone: Record<SprintPreviewSession["healthStatus"], string> = {
   unknown: "text-slate-400",
 };
 
-const formatPortMapping = (session: SprintPreviewSession): string => {
-  const sourcePort = typeof session.containerAppPort === "number" ? session.containerAppPort : null;
-  const routedPort = typeof session.hostPort === "number" ? session.hostPort : null;
-  if (sourcePort && routedPort) {
-    return `:${sourcePort} -> :${routedPort}`;
+const healthLabel: Record<SprintPreviewSession["healthStatus"], string> = {
+  healthy: "Healthy",
+  unreachable: "Unreachable",
+  unknown: "Health unknown",
+};
+
+const statusLabel: Record<SprintPreviewSession["status"], string> = {
+  running: "Running",
+  starting: "Starting",
+  stopped: "Stopped",
+  error: "Error",
+};
+
+const cardTransition = buildInteractionTransition("selectionMovement");
+const controlTransition = buildInteractionTransition("controlFeedback");
+
+const getPreviewRailScrollBehavior = (): ScrollBehavior => {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return "smooth";
   }
-  if (sourcePort) {
-    return `:${sourcePort} -> pending`;
-  }
-  if (routedPort) {
-    return `pending -> :${routedPort}`;
-  }
-  return "port pending";
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 };
 
 export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> = ({
@@ -51,72 +60,109 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const cardCount = sessions.length;
   const removingSessionIdSet = new Set(removingSessionIds);
+  const selectedSession = sessions.find((session) => session.id === selectedSessionId) || null;
+  const railId = "preview-session-rail";
+  const hasOverflowControls = cardCount > 5;
 
   const scrollLeft = () => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -320, behavior: "smooth" });
+      scrollContainerRef.current.scrollBy({ left: -320, behavior: getPreviewRailScrollBehavior() });
     }
   };
 
   const scrollRight = () => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 320, behavior: "smooth" });
+      scrollContainerRef.current.scrollBy({ left: 320, behavior: getPreviewRailScrollBehavior() });
     }
   };
 
   return (
-    <div className="relative w-full group">
-      {cardCount > 5 && (
+    <section className="relative w-full min-w-0 group" aria-label="Preview sessions">
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {selectedSession
+          ? `Selected preview session ${selectedSession.sprintName}. Status ${statusLabel[selectedSession.status]}.`
+          : cardCount > 0
+            ? "No preview session is selected."
+            : "No preview sessions are available."}
+        {removingSessionIds.length > 0 ? " Removing preview session." : ""}
+      </div>
+      {hasOverflowControls && (
         <>
           <button
             type="button"
             onClick={scrollLeft}
-            className="absolute -left-4 top-1/2 z-10 -translate-y-1/2 rounded-full border border-black/[0.08] bg-white/90 p-2 text-slate-600 opacity-0 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-slate-900 group-hover:opacity-100 dark:border-white/[0.08] dark:bg-[#05080d]/90 dark:text-slate-400 dark:hover:bg-[#05080d] dark:hover:text-white lg:flex lg:group-focus-within:flex focus-within:opacity-100 focus:opacity-100 group-focus-within:opacity-100 hidden"
+            aria-label="Scroll preview sessions left"
+            aria-controls={railId}
+            className="absolute -left-4 top-1/2 z-10 flex -translate-y-1/2 rounded-full border border-black/[0.08] bg-white/95 p-2 text-slate-700 opacity-100 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-slate-900 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 group-focus-within:opacity-100 motion-reduce:transition-none dark:border-white/[0.08] dark:bg-[#05080d]/95 dark:text-slate-300 dark:hover:bg-[#05080d] dark:hover:text-white lg:opacity-0 lg:group-hover:opacity-100"
+            style={{ transition: controlTransition }}
             title="Scroll left"
           >
-            <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
+            <ChevronLeft aria-hidden="true" className="h-5 w-5" strokeWidth={2.5} />
           </button>
           <button
             type="button"
             onClick={scrollRight}
-            className="absolute -right-4 top-1/2 z-10 -translate-y-1/2 rounded-full border border-black/[0.08] bg-white/90 p-2 text-slate-600 opacity-0 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-slate-900 group-hover:opacity-100 dark:border-white/[0.08] dark:bg-[#05080d]/90 dark:text-slate-400 dark:hover:bg-[#05080d] dark:hover:text-white lg:flex lg:group-focus-within:flex focus-within:opacity-100 focus:opacity-100 group-focus-within:opacity-100 hidden"
+            aria-label="Scroll preview sessions right"
+            aria-controls={railId}
+            className="absolute -right-4 top-1/2 z-10 flex -translate-y-1/2 rounded-full border border-black/[0.08] bg-white/95 p-2 text-slate-700 opacity-100 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-slate-900 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 group-focus-within:opacity-100 motion-reduce:transition-none dark:border-white/[0.08] dark:bg-[#05080d]/95 dark:text-slate-300 dark:hover:bg-[#05080d] dark:hover:text-white lg:opacity-0 lg:group-hover:opacity-100"
+            style={{ transition: controlTransition }}
             title="Scroll right"
           >
-            <ChevronRight className="h-5 w-5" strokeWidth={2.5} />
+            <ChevronRight aria-hidden="true" className="h-5 w-5" strokeWidth={2.5} />
           </button>
         </>
       )}
       <div
+        id={railId}
         ref={scrollContainerRef}
-        className="flex w-full snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2 pt-1 scrollbar-hide"
+        role="list"
+        aria-label={cardCount > 0 ? `${cardCount} preview sessions` : "No preview sessions"}
+        className="flex w-full max-w-full snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-1 pb-2 pt-1 scrollbar-hide"
       >
         {sessions.map((session) => {
           const active = selectedSessionId === session.id;
           const origin = buildPreviewOrigin(session.id);
-          const canOpen = Boolean(session.hostPort);
+          const primaryMapping = getPrimaryPreviewPortMapping(session);
+          const canOpen = Boolean(primaryMapping?.hostPort) && session.status === "running";
           const removing = removingSessionIdSet.has(session.id);
+          const linkUnavailableReason = session.status === "starting"
+            ? "Preview link unavailable until the container finishes starting and receives a routed host port."
+            : session.status === "stopped"
+              ? "Preview link unavailable because the selected container is stopped. Rebuild or launch the container to open it."
+              : session.status === "error"
+                ? "Preview link unavailable because the selected container has an error. Rebuild the container to recover it."
+            : "Preview link unavailable until a host port is routed.";
+          const removePendingReason = `Preview session ${session.sprintName} is already being removed.`;
+          const removeDescriptionId = `preview-session-${session.id}-remove-state`;
 
           return (
             <div
               key={session.id}
-              className={`relative w-[280px] flex-none snap-start rounded-[1.25rem] border p-4 transition-all lg:w-[calc(20%-0.6rem)] ${
+              role="listitem"
+              aria-busy={removing || session.status === "starting"}
+              className={`relative w-[280px] flex-none snap-start rounded-[1.25rem] border p-4 transition-all motion-reduce:transition-none lg:w-[calc(20%-0.6rem)] ${
                 active
                   ? "border-signal-500/35 bg-signal-500/[0.08] shadow-[0_10px_28px_rgba(0,224,160,0.1)] ring-1 ring-signal-500/25 dark:bg-signal-500/[0.1]"
                   : "border-black/[0.08] bg-white/68 backdrop-blur-xl hover:border-black/[0.14] hover:bg-white/80 dark:border-white/[0.08] dark:bg-void-900/35 dark:hover:border-white/[0.14] dark:hover:bg-void-900/50"
               }`}
+              style={{ transition: cardTransition }}
             >
               {active && (
                 <div className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-signal-500 shadow-sm dark:border-void-900">
-                  <CheckCircle2 className="w-2.5 h-2.5 text-void-900" strokeWidth={3} />
+                  <CheckCircle2 aria-hidden="true" className="w-2.5 h-2.5 text-void-900" strokeWidth={3} />
                 </div>
               )}
               <button
                 type="button"
                 onClick={() => onSelectSession(session.id)}
-                className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 rounded-lg"
+                aria-label={`Select preview session ${session.sprintName}`}
+                aria-pressed={active}
+                aria-current={active ? "true" : undefined}
+                aria-describedby={`preview-session-${session.id}-status`}
+                className="w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50"
               >
                 <div className="flex items-center justify-between gap-3 mb-3">
-                  <span className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                  <span className="min-w-0 break-words text-sm font-semibold leading-5 text-slate-900 dark:text-white">
                     {session.sprintName}
                   </span>
                   <span
@@ -124,22 +170,47 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
                       statusTone[session.status]
                     }`}
                   >
-                    {session.status === 'starting' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                    {session.status}
+                    {session.status === 'starting' && <Loader2 aria-hidden="true" className="w-2.5 h-2.5 animate-spin motion-reduce:animate-none" />}
+                    {statusLabel[session.status]}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400">
+                <div id={`preview-session-${session.id}-status`} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-600 dark:text-slate-400">
                   <Globe
+                    aria-hidden="true"
                     className={`h-3.5 w-3.5 ${healthTone[session.healthStatus]}`}
                     strokeWidth={2}
                   />
-                  <span>{formatPortMapping(session)}</span>
+                  <span className={`font-semibold ${healthTone[session.healthStatus]}`}>
+                    {healthLabel[session.healthStatus]}
+                  </span>
+                  <span className="break-words">{formatPreviewPortMappingsSummary(session)}</span>
                 </div>
 
-                <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-500">
-                  {session.hostPort ? `127.0.0.1:${session.hostPort}` : "waiting for routed port"}
+                <div className="mt-1 break-words text-[11px] text-slate-500 dark:text-slate-500">
+                  {removing
+                    ? "removing session"
+                    : primaryMapping?.hostPort
+                      ? `127.0.0.1:${primaryMapping.hostPort}`
+                      : session.status === "starting"
+                        ? "starting and waiting for routed port"
+                        : "waiting for routed port"}
                 </div>
+                {!canOpen && (
+                  <div id={`preview-session-${session.id}-link-state`} className="mt-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                    {linkUnavailableReason}
+                  </div>
+                )}
+                {active && (
+                  <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-signal-600 dark:text-signal-400">
+                    Selected
+                  </div>
+                )}
+                {removing && (
+                  <div id={removeDescriptionId} className="mt-2 text-[10px] font-semibold text-status-red">
+                    {removePendingReason}
+                  </div>
+                )}
               </button>
 
               <div className="mt-4 flex items-center justify-between gap-2 border-t border-black/[0.06] pt-3 dark:border-white/[0.06]">
@@ -151,32 +222,53 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
                       onRemoveSession(session.id);
                     }
                   }}
-                  className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-red/50 ${
+                  className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-red/50 motion-reduce:transition-none ${
                     removing
                     ? "border-status-red/15 text-status-red cursor-not-allowed disabled:opacity-50"
                     : "border-status-red/15 text-status-red hover:border-status-red/30 hover:bg-status-red/8"
                   }`}
-                  title="Remove preview container"
+                  style={{ transition: controlTransition }}
+                  title={removing ? removePendingReason : "Remove preview container"}
 
-                  aria-label="Remove preview container"
+                  aria-label={removing ? `Removing preview session ${session.sprintName}` : `Remove preview session ${session.sprintName}`}
                   disabled={removing}
                   aria-disabled={removing}
                   aria-busy={removing}
+                  aria-describedby={removing ? removeDescriptionId : undefined}
                 >
-                  {removing ? <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.5} /> : <Trash2 className="h-3 w-3" strokeWidth={2.5} />}
+                  {removing ? <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin motion-reduce:animate-none" strokeWidth={2.5} /> : <Trash2 aria-hidden="true" className="h-3 w-3" strokeWidth={2.5} />}
                   {removing ? "Removing..." : "Remove"}
                 </button>
                 <a
                   href={canOpen ? getSafeUrl(origin) : undefined}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-black/[0.08] px-3 text-[11px] font-semibold text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/50 ${!canOpen ? "pointer-events-none opacity-50" : ""}`}
-                  title="Open isolated preview in a new tab"
-                  onClick={(e) => e.stopPropagation()}
+                  className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/50 motion-reduce:transition-none ${
+                    canOpen
+                      ? "border-black/[0.08] text-slate-600 hover:border-black/[0.16] hover:text-slate-900 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
+                      : "cursor-not-allowed border-slate-400/25 bg-slate-500/10 text-slate-500 dark:border-slate-500/40 dark:bg-slate-500/15 dark:text-slate-400"
+                  }`}
+                  style={{ transition: controlTransition }}
+                  title={canOpen ? "Open isolated preview in a new tab" : linkUnavailableReason}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!canOpen) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (!canOpen && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                    }
+                  }}
+                  role={!canOpen ? "link" : undefined}
+                  aria-label={canOpen ? `Open preview session ${session.sprintName} in a new tab` : `Open preview session ${session.sprintName} unavailable`}
                   aria-disabled={!canOpen}
+                  aria-describedby={!canOpen ? `preview-session-${session.id}-link-state` : undefined}
+                  tabIndex={canOpen ? undefined : 0}
                 >
-                  <ExternalLink className="h-3 w-3" strokeWidth={2.5} />
-                  Open Link
+                  <ExternalLink aria-hidden="true" className="h-3 w-3" strokeWidth={2.5} />
+                  {canOpen ? "Open Link" : "Link Unavailable"}
                 </a>
               </div>
             </div>
@@ -184,6 +276,6 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
         })}
 
       </div>
-    </div>
+    </section>
   );
 };

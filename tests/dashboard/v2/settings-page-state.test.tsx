@@ -1,8 +1,11 @@
 // @vitest-environment happy-dom
+import { h } from "preact";
 import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
-import { renderHook, act, waitFor, cleanup } from "@testing-library/preact";
+import { renderHook, act, waitFor, cleanup, render, screen, fireEvent } from "@testing-library/preact";
+import * as matchers from "@testing-library/jest-dom/matchers";
 import { useSettingsPageState } from "../../../dashboard/src/v2/hooks/use-settings-page-state.js";
-import { CATEGORIES, CATEGORY_SEARCH_HINTS } from "../../../dashboard/src/v2/components/settings/SettingsCategoryRail.js";
+import { SettingsCategoryRail, CATEGORIES } from "../../../dashboard/src/v2/components/settings/SettingsCategoryRail.js";
+import { focusFirstInvalidSettingsControl, SettingsPage } from "../../../dashboard/src/v2/SettingsPage.js";
 import { applyEffectiveProjectSettings } from "../../../dashboard/src/v2/lib/settings-view-models.js";
 import * as settingsApi from "../../../dashboard/src/v2/lib/settings-api.js";
 import * as memoryApi from "../../../dashboard/src/v2/lib/memory-api.js";
@@ -12,13 +15,20 @@ import { DEFAULT_DASHBOARD_SETTINGS } from "../../../src/repositories/settings-d
 
 import * as navigationBlocker from "../../../dashboard/src/v2/router/navigation-blocker.js";
 
-vi.mock("../../../dashboard/src/v2/context/project-data.js", () => ({
-  useProjectData: vi.fn(() => ({
+expect.extend(matchers);
+
+vi.mock("../../../dashboard/src/v2/context/project-data.js", async () => {
+  const { createContext } = await import("preact");
+  const projectDataValue = {
     deleteProject: vi.fn(() => Promise.resolve()),
     selectedProject: { id: "proj-1", name: "Test Project" },
     selectedProjectId: "proj-1",
-  }))
-}));
+  };
+  return {
+    ProjectDataContext: createContext(projectDataValue),
+    useProjectData: vi.fn(() => projectDataValue),
+  };
+});
 
 vi.mock("../../../dashboard/src/v2/router/navigation-blocker.js", () => ({
   registerNavigationBlocker: vi.fn(() => vi.fn()),
@@ -82,17 +92,17 @@ afterEach(() => {
 
 describe("useSettingsPageState", () => {
   it("loads updated default CI, memory, and QA settings", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.systemSettings?.defaults.ciIntelligence.featurePrAutoMergeMode).toBe("ALWAYS");
-    expect(result.current.systemSettings?.defaults.ciIntelligence.mainBranchAutoMergeMode).toBe("CREATE_PR");
+    expect(result.current.systemSettings?.defaults.ciIntelligence.mainBranchAutoMergeMode).toBe("ALWAYS");
     expect(result.current.systemSettings?.defaults.ciIntelligence.resolveMergeConflicts).toBe(true);
     expect(result.current.systemSettings?.defaults.ciIntelligence.resolveMainMergeConflicts).toBe(true);
     expect(result.current.systemSettings?.defaults.memory.enabled).toBe(true);
     expect(result.current.systemSettings?.defaults.agents.qualityAssurance.enabled).toBe(true);
     expect(result.current.editableSettings?.ciIntelligence.featurePrAutoMergeMode).toBe("ALWAYS");
-    expect(result.current.editableSettings?.ciIntelligence.mainBranchAutoMergeMode).toBe("CREATE_PR");
+    expect(result.current.editableSettings?.ciIntelligence.mainBranchAutoMergeMode).toBe("ALWAYS");
     expect(result.current.editableSettings?.ciIntelligence.resolveMergeConflicts).toBe(true);
     expect(result.current.editableSettings?.ciIntelligence.resolveMainMergeConflicts).toBe(true);
     expect(result.current.editableSettings?.memory.enabled).toBe(true);
@@ -108,7 +118,7 @@ describe("useSettingsPageState", () => {
     const mapped = applyEffectiveProjectSettings(effective);
 
     expect(mapped.settings.ciIntelligence.featurePrAutoMergeMode).toBe("ALWAYS");
-    expect(mapped.settings.ciIntelligence.mainBranchAutoMergeMode).toBe("CREATE_PR");
+    expect(mapped.settings.ciIntelligence.mainBranchAutoMergeMode).toBe("ALWAYS");
     expect(mapped.settings.ciIntelligence.resolveMergeConflicts).toBe(true);
     expect(mapped.settings.ciIntelligence.resolveMainMergeConflicts).toBe(true);
     expect(mapped.settings.memory.enabled).toBe(true);
@@ -116,14 +126,14 @@ describe("useSettingsPageState", () => {
   });
 
   it("updates editable settings for project scope", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
     act(() => { result.current.setActiveScope("project"); });
     act(() => { result.current.updateEditableSettings((curr) => ({ ...curr, aiProvider: {} } as any)); });
   });
 
   it("updates editable settings for system scope", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
     act(() => { result.current.updateEditableSettings((curr) => ({ ...curr, aiProvider: {} } as any)); });
   });
@@ -135,7 +145,7 @@ describe("useSettingsPageState", () => {
     };
     window.addEventListener("codeux:appearance-preview", listener);
 
-    const { result, unmount } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result, unmount } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
@@ -162,7 +172,7 @@ describe("useSettingsPageState", () => {
   });
 
   it("handles null selectedProject properly", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     act(() => { result.current.setActiveScope("project"); });
   });
 
@@ -190,7 +200,7 @@ describe("useSettingsPageState", () => {
       sources: {},
     } as any);
 
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
 
     await waitFor(() => expect(result.current.projectAgentPresetOptions.length).toBe(3));
 
@@ -202,7 +212,7 @@ describe("useSettingsPageState", () => {
   });
 
   it("initializes with general category and system scope", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
 
     expect(result.current.activeCategory).toBe("general");
     expect(result.current.activeScope).toBe("system");
@@ -211,8 +221,47 @@ describe("useSettingsPageState", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
   });
 
+  it("renders settings loading state as a busy category region", () => {
+    mockFetchSystem.mockReturnValueOnce(new Promise(() => {}));
+
+    render(<SettingsPage />);
+
+    expect(screen.getByRole("region", { name: "Settings category panel" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status", { name: "Loading settings" })).toHaveTextContent("Loading settings.");
+  });
+
+  it("renders settings load failures as alerts while preserving the shell", async () => {
+    mockFetchSystem.mockRejectedValueOnce(new Error("settings exploded"));
+
+    render(<SettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("alert").some((alert) => alert.textContent?.includes("settings exploded"))).toBe(true);
+    });
+    expect(screen.getByRole("region", { name: "Settings category panel" })).not.toHaveAttribute("aria-busy");
+  });
+
+  it("announces empty settings search results and recovers when the query clears", async () => {
+    render(<SettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("region", { name: "Settings category panel" })).not.toHaveAttribute("aria-busy");
+    });
+
+    fireEvent.input(screen.getByLabelText("Search settings categories"), {
+      target: { value: "this_should_not_exist_at_all" },
+    });
+    const emptySearchStatus = screen.getByText(/No settings match this_should_not_exist_at_all\./);
+    expect(emptySearchStatus.closest('[role="status"]')).toBeInTheDocument();
+
+    fireEvent.input(screen.getByLabelText("Search settings categories"), {
+      target: { value: "" },
+    });
+    expect(screen.getByText(/settings categories available/).closest('[role="status"]')).toBeInTheDocument();
+  });
+
   it("loads hints correctly during initialization", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     // Check if fetchExternalSettingsHints was called
@@ -224,15 +273,16 @@ describe("useSettingsPageState", () => {
     }
   });
 
-  it("filters categories based on search input including hints", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+  it("filters categories based on search input including index metadata", async () => {
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
       result.current.setSettingsSearch("jules");
     });
-    expect(result.current.filteredCategories.length).toBe(1);
-    expect(result.current.filteredCategories[0]!.id).toBe("models");
+    expect(result.current.filteredCategories.map((category) => category.id)).toEqual(["models", "integrations"]);
+    expect(result.current.settingsSearchMatches.models?.matchedLabels).toContain("Jules");
+    expect(result.current.settingsSearchMatches.integrations?.matchedLabels).toContain("Jules");
 
     act(() => {
       result.current.setSettingsSearch("pricing");
@@ -251,8 +301,58 @@ describe("useSettingsPageState", () => {
     expect(result.current.filteredCategories.length).toBe(CATEGORIES.length);
   });
 
+  it("moves category rail focus with arrow keys and commits selection with Enter", () => {
+    const onSwitchCategory = vi.fn();
+    render(
+      <SettingsCategoryRail
+        filteredCategories={CATEGORIES.slice(0, 3)}
+        activeCategory="general"
+        settingsSearch=""
+        settingsSearchMatches={{}}
+        onSwitchCategory={onSwitchCategory}
+      />,
+    );
+
+    const general = screen.getByRole("button", { name: /General/ });
+    const appearance = screen.getByRole("button", { name: /Appearance/ });
+    general.focus();
+
+    fireEvent.keyDown(general, { key: "ArrowDown" });
+    expect(appearance).toBe(document.activeElement);
+    expect(onSwitchCategory).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(appearance, { key: "Enter" });
+    expect(onSwitchCategory).toHaveBeenCalledWith("appearance");
+  });
+
+  it("focuses the first invalid visible settings field before save dispatch", () => {
+    const root = document.createElement("div");
+    const valid = document.createElement("input");
+    valid.type = "number";
+    valid.min = "1";
+    valid.value = "4";
+    const invalid = document.createElement("input");
+    invalid.type = "number";
+    invalid.min = "1";
+    invalid.value = "0";
+    const laterInvalid = document.createElement("input");
+    laterInvalid.setAttribute("aria-invalid", "true");
+    root.append(valid, invalid, laterInvalid);
+    document.body.append(root);
+    const invalidFocus = vi.spyOn(invalid, "focus");
+    const laterFocus = vi.spyOn(laterInvalid, "focus");
+
+    const message = focusFirstInvalidSettingsControl(root);
+
+    expect(message).toBeTruthy();
+    expect(invalid.getAttribute("aria-invalid")).toBe("true");
+    expect(invalidFocus).toHaveBeenCalled();
+    expect(laterFocus).not.toHaveBeenCalled();
+    root.remove();
+  });
+
   it("automatically switches active category if current is filtered out", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
@@ -265,14 +365,14 @@ describe("useSettingsPageState", () => {
   });
 
   it("adds and removes keydown listener", () => {
-    const { unmount } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { unmount } = renderHook(() => useSettingsPageState(CATEGORIES));
     const removeSpy = vi.spyOn(window, 'removeEventListener');
     unmount();
     expect(removeSpy).toHaveBeenCalled();
   });
 
   it("allows switching scope and updating editable settings", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
@@ -287,7 +387,7 @@ describe("useSettingsPageState", () => {
   });
 
   it("handles saving system settings and verifying loading states", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
@@ -316,8 +416,61 @@ describe("useSettingsPageState", () => {
     expect(mockSaveSystem).toHaveBeenCalled();
   });
 
+  it("preserves project draft values while a system save reloads effective settings", async () => {
+    const initialSettings = cloneDashboardSettings();
+    const staleReloadSettings = cloneDashboardSettings();
+    staleReloadSettings.git.defaultBranch = "server-reloaded-main";
+    mockFetchProject.mockResolvedValue({
+      settings: initialSettings,
+      sources: {},
+    } as any);
+    mockSaveSystem.mockResolvedValueOnce({
+      runtime: { dashboardPort: 4444, consoleLogLevel: "debug", debugLogFileLevel: "error", consoleLogMode: "standard" },
+      integrations: { providers: {}, githubToken: "" },
+      defaults: cloneDashboardSettings(),
+      mcpTools: [],
+    } as any);
+    mockSaveProject.mockRejectedValueOnce(new Error("project save failed"));
+
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.updateSystem((current) => ({
+        ...current,
+        runtime: {
+          ...current.runtime,
+          consoleLogLevel: "debug",
+        },
+      }));
+      result.current.setActiveScope("project");
+    });
+    act(() => {
+      result.current.updateEditableSettings((current) => ({
+        ...current,
+        git: {
+          ...current.git,
+          defaultBranch: "draft-project-main",
+        },
+      }));
+    });
+    mockFetchProject.mockResolvedValue({
+      settings: staleReloadSettings,
+      sources: {},
+    } as any);
+
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(mockSaveSystem).toHaveBeenCalled();
+    expect(mockSaveProject).toHaveBeenCalled();
+    expect(result.current.projectSettings?.git.defaultBranch).toBe("draft-project-main");
+    expect(result.current.error).toContain("project save failed");
+  });
+
   it.skip("handles saving project settings", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     if (!result.current.projectSettings) {
@@ -340,7 +493,7 @@ describe("useSettingsPageState", () => {
   });
 
   it("handles reset project settings", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -350,7 +503,7 @@ describe("useSettingsPageState", () => {
   });
 
   it("handles delete project", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     window.confirm = vi.fn(() => true);
@@ -362,7 +515,7 @@ describe("useSettingsPageState", () => {
   it("handles clearing project memory by tier", async () => {
     const mockClearProject = vi.spyOn(memoryApi, "clearProjectMemories")
       .mockResolvedValue({ memories: 2, claims: 1, evidence: 1 });
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -377,7 +530,7 @@ describe("useSettingsPageState", () => {
   it("handles clearing system-wide memory by tier", async () => {
     const mockClearSystem = vi.spyOn(memoryApi, "clearSystemMemories")
       .mockResolvedValue({ memories: 5, claims: 0, evidence: 0 });
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -389,7 +542,7 @@ describe("useSettingsPageState", () => {
   });
 
   it("handles reset database", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     window.confirm = vi.fn(() => true);
@@ -400,7 +553,7 @@ describe("useSettingsPageState", () => {
   });
 
   it("refetches effective settings when revisiting the models category", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     const initialCalls = mockFetchProject.mock.calls.length;
@@ -416,7 +569,7 @@ describe("useSettingsPageState", () => {
   });
 
   it("refetches models data after settings-updated events while models category is active", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
@@ -438,7 +591,7 @@ describe("useSettingsPageState", () => {
   });
 
   it.skip("handles import hints", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     if (!result.current.systemSettings) {
@@ -452,7 +605,7 @@ describe("useSettingsPageState", () => {
   });
 
   it("triggers unsaved changes modal when navigation is attempted while dirty", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     // Get the mock registerNavigationBlocker
@@ -485,7 +638,7 @@ describe("useSettingsPageState", () => {
   });
 
   it("warns on real unload while dirty but suppresses the prompt during an intentional discard", async () => {
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     const mockRegister = navigationBlocker.registerNavigationBlocker as any;
@@ -521,7 +674,7 @@ describe("useSettingsPageState", () => {
       defaults: cloneDashboardSettings(),
       mcpTools: [],
     } as any);
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     const mockRegister = navigationBlocker.registerNavigationBlocker as any;
@@ -545,7 +698,7 @@ describe("useSettingsPageState", () => {
 
   it("keeps the modal open and skips navigation when saving from the modal fails", async () => {
     mockSaveSystem.mockRejectedValueOnce(new Error("save boom"));
-    const { result } = renderHook(() => useSettingsPageState(CATEGORIES, CATEGORY_SEARCH_HINTS));
+    const { result } = renderHook(() => useSettingsPageState(CATEGORIES));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     const mockRegister = navigationBlocker.registerNavigationBlocker as any;

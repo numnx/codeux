@@ -3,7 +3,11 @@ import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 import { AppDbStorage } from "../../../src/repositories/app-db-storage.js";
-import { ProjectManagementRepository } from "../../../src/repositories/project-management-repository.js";
+import {
+  createGeneratedSprintName,
+  isGeneratedSprintName,
+  ProjectManagementRepository,
+} from "../../../src/repositories/project-management-repository.js";
 import { ExecutionRepository } from "../../../src/repositories/execution-repository.js";
 import { SprintMarkdownService } from "../../../src/services/sprint-markdown-service.js";
 
@@ -29,6 +33,44 @@ afterEach(async () => {
 });
 
 describe("ProjectManagementRepository", () => {
+  it("creates untitled sprints with deterministic generated names and slugs", async () => {
+    const { repository } = await createRepository();
+    const project = repository.createProject({
+      name: "Untitled Sprint Project",
+      sourceType: "local",
+      sourceRef: "/workspace/untitled-sprint-project",
+    });
+
+    const sprint1 = repository.createSprint(project.id, {
+      goal: "Plan without a user title",
+    });
+    const sprint2 = repository.createSprint(project.id, {
+      name: "   ",
+      goal: "Plan another untitled sprint",
+    });
+    const custom = repository.createSprint(project.id, {
+      name: "Custom sprint title",
+      goal: "Plan with a user title",
+    });
+    const customPlaceholder = repository.createSprint(project.id, {
+      name: "Untitled sprint 1",
+      goal: "Plan with a user title that resembles a generated placeholder",
+    });
+
+    expect(sprint1.name).toBe(createGeneratedSprintName(1));
+    expect(sprint1.slug).toBe("untitled-sprint-1");
+    expect(sprint1.isGeneratedName).toBe(true);
+    expect(isGeneratedSprintName(sprint1.name)).toBe(true);
+    expect(sprint2.name).toBe(createGeneratedSprintName(2));
+    expect(sprint2.slug).toBe("untitled-sprint-2");
+    expect(sprint2.isGeneratedName).toBe(true);
+    expect(custom.name).toBe("Custom sprint title");
+    expect(custom.slug).toBe("custom-sprint-title");
+    expect(custom.isGeneratedName).toBe(false);
+    expect(customPlaceholder.name).toBe("Untitled sprint 1");
+    expect(customPlaceholder.isGeneratedName).toBe(false);
+    expect(isGeneratedSprintName(customPlaceholder.name)).toBe(true);
+  });
 
   it("updates a project and sprint gracefully with empty or partial inputs", async () => {
     const { repository } = await createRepository();
@@ -112,6 +154,97 @@ describe("ProjectManagementRepository", () => {
     });
 
     expect(() => repository.deleteSprint(sprint.id)).toThrow(`Sprint ${sprint.id} has preserved execution invocation ${invocation.id}`);
+    expect(repository.getSprint(sprint.id)).not.toBeNull();
+  });
+
+  it("blocks sprint deletion while an active sprint run exists", async () => {
+    const { repository, executionRepository } = await createRepository();
+    const project = repository.createProject({
+      name: "Active Sprint Run Delete Project",
+      sourceType: "local",
+      sourceRef: "/workspace/active-sprint-run-delete-project",
+    });
+    const sprint = repository.createSprint(project.id, {
+      name: "Active Sprint",
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      executorMode: "mixed",
+      status: "running",
+    });
+
+    expect(() => repository.deleteSprint(sprint.id)).toThrow(`Sprint ${sprint.id} has active run ${sprintRun.id}`);
+    expect(repository.getSprint(sprint.id)).not.toBeNull();
+
+    executionRepository.updateSprintRun(sprintRun.id, {
+      status: "cancelled",
+      finishedAt: "2026-01-01T00:00:00.000Z",
+      lastHeartbeatAt: "2026-01-01T00:00:00.000Z",
+    });
+    expect(() => repository.deleteSprint(sprint.id)).not.toThrow();
+    expect(repository.getSprint(sprint.id)).toBeNull();
+  });
+
+  it("blocks sprint deletion briefly after cancellation so runtime cleanup can settle", async () => {
+    const { repository, executionRepository } = await createRepository();
+    const project = repository.createProject({
+      name: "Recently Cancelled Sprint Delete Project",
+      sourceType: "local",
+      sourceRef: "/workspace/recently-cancelled-sprint-delete-project",
+    });
+    const sprint = repository.createSprint(project.id, {
+      name: "Recently Cancelled Sprint",
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      executorMode: "mixed",
+      status: "running",
+    });
+    executionRepository.updateSprintRun(sprintRun.id, {
+      status: "cancelled",
+      finishedAt: new Date().toISOString(),
+      lastHeartbeatAt: new Date().toISOString(),
+    });
+
+    expect(() => repository.deleteSprint(sprint.id)).toThrow(`Sprint ${sprint.id} has recently finished run ${sprintRun.id}`);
+    expect(repository.getSprint(sprint.id)).not.toBeNull();
+  });
+
+  it("blocks sprint deletion while active runtime children are still linked", async () => {
+    const { repository, executionRepository } = await createRepository();
+    const project = repository.createProject({
+      name: "Active Runtime Delete Project",
+      sourceType: "local",
+      sourceRef: "/workspace/active-runtime-delete-project",
+    });
+    const sprint = repository.createSprint(project.id, {
+      name: "Active Runtime Sprint",
+    });
+    const task = repository.createTask(project.id, {
+      sprintId: sprint.id,
+      taskKey: "T01",
+      title: "Active runtime task",
+      status: "in_progress",
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      executorMode: "docker_cli",
+      status: "cancelled",
+      finishedAt: "2026-01-01T00:00:00.000Z",
+    });
+    const dispatch = executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: sprint.id,
+      sprintRunId: sprintRun.id,
+      taskId: task.id,
+      executorType: "docker_cli",
+      status: "running",
+    } as any);
+
+    expect(() => repository.deleteSprint(sprint.id)).toThrow(`Sprint ${sprint.id} has active task dispatch ${dispatch.id}`);
     expect(repository.getSprint(sprint.id)).not.toBeNull();
   });
 
@@ -440,6 +573,247 @@ describe("ProjectManagementRepository", () => {
       lastRunAt: "2026-03-09T12:30:00.000Z",
       lastRunStatus: "COMPLETED",
     });
+  });
+
+  it("loads project and sprint summaries through batched aggregation helpers", async () => {
+    const { repository, storage } = await createRepository();
+    const projectA = repository.createProject({
+      name: "Batch Summary A",
+      sourceType: "local",
+      sourceRef: "/workspace/batch-summary-a",
+    });
+    const projectB = repository.createProject({
+      name: "Batch Summary B",
+      sourceType: "local",
+      sourceRef: "/workspace/batch-summary-b",
+    });
+
+    const sprintA1 = repository.createSprint(projectA.id, {
+      name: "A Sprint 1",
+      number: 1,
+      status: "running",
+    });
+    const sprintA2 = repository.createSprint(projectA.id, {
+      name: "A Sprint 2",
+      number: 2,
+      status: "idle",
+    });
+    const sprintB1 = repository.createSprint(projectB.id, {
+      name: "B Sprint 1",
+      number: 1,
+      status: "idle",
+    });
+
+    const taskA1 = repository.createTask(projectA.id, {
+      sprintId: sprintA1.id,
+      title: "A1 Task 1",
+      status: "completed",
+    });
+    repository.createTask(projectA.id, {
+      sprintId: sprintA1.id,
+      title: "A1 Task 2",
+      status: "completed",
+    });
+    repository.createTask(projectA.id, {
+      sprintId: sprintA1.id,
+      title: "A1 Task 3",
+      status: "pending",
+    });
+    repository.createTask(projectA.id, {
+      sprintId: sprintA2.id,
+      title: "A2 Task 1",
+      status: "pending",
+    });
+    repository.createTask(projectA.id, {
+      sprintId: sprintA2.id,
+      title: "A2 Task 2",
+      status: "in_progress",
+    });
+    repository.createTask(projectB.id, {
+      sprintId: sprintB1.id,
+      title: "B1 Task 1",
+      status: "completed",
+    });
+
+    repository.replaceSprintLinkedIssues(projectA.id, sprintA1.id, [{
+      provider: "github",
+      hostDomain: "github.com",
+      repository: "acme/widgets",
+      issueNumber: 42,
+      title: "Batch summary linked issue",
+      url: "https://github.com/acme/widgets/issues/42",
+      state: "open",
+    }]);
+
+    const db = storage.getDatabase();
+    db.prepare(`
+      INSERT INTO sprint_runs (
+        id, project_id, sprint_id, status, trigger_type, executor_mode,
+        started_at, finished_at, last_heartbeat_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      "batch-summary-sprint-run-old",
+      projectA.id,
+      sprintA1.id,
+      "running",
+      "manual",
+      "mixed",
+      "2026-03-09T10:00:00.000Z",
+      null,
+      null,
+      "2026-03-09T10:00:00.000Z",
+      "2026-03-09T10:00:00.000Z",
+    );
+    db.prepare(`
+      INSERT INTO sprint_runs (
+        id, project_id, sprint_id, status, trigger_type, executor_mode,
+        started_at, finished_at, last_heartbeat_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      "batch-summary-sprint-run-latest",
+      projectA.id,
+      sprintA1.id,
+      "cancelled",
+      "manual",
+      "mixed",
+      "2026-03-09T11:00:00.000Z",
+      "2026-03-09T11:30:00.000Z",
+      null,
+      "2026-03-09T11:00:00.000Z",
+      "2026-03-09T11:30:00.000Z",
+    );
+    db.prepare(`
+      INSERT INTO sprint_runs (
+        id, project_id, sprint_id, status, trigger_type, executor_mode,
+        started_at, finished_at, last_heartbeat_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      "batch-summary-sprint-run-active",
+      projectA.id,
+      sprintA2.id,
+      "running",
+      "manual",
+      "mixed",
+      "2026-03-09T12:00:00.000Z",
+      null,
+      null,
+      "2026-03-09T12:00:00.000Z",
+      "2026-03-09T12:00:00.000Z",
+    );
+    db.prepare(`
+      INSERT INTO task_runs (
+        id, project_id, sprint_id, task_id, state, started_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      "batch-summary-task-run-latest",
+      projectA.id,
+      sprintA1.id,
+      taskA1.id,
+      "COMPLETED",
+      "2026-03-09T12:30:00.000Z",
+    );
+    db.prepare(`
+      INSERT INTO qa_review_runs (
+        id, project_id, sprint_id, trigger_type, status, outcome, run_index,
+        summary_markdown, payload_json, agent_name, started_at, finished_at, created_at, updated_at
+      ) VALUES (?, ?, ?, 'sprint_completion', 'completed', 'pass', 1, ?, ?, 'QA Bot', ?, ?, ?, ?)
+    `).run(
+      "batch-summary-qa",
+      projectA.id,
+      sprintA1.id,
+      "Batch summary looks good.",
+      JSON.stringify({ findings: ["Verified batching"] }),
+      "2026-03-09T13:00:00.000Z",
+      "2026-03-09T13:05:00.000Z",
+      "2026-03-09T13:00:00.000Z",
+      "2026-03-09T13:05:00.000Z",
+    );
+
+    const executeSpy = vi.spyOn(storage, "executeChunkedInQuery");
+
+    const projects = repository.listProjects().projects;
+    const mappedProjectA = projects.find((project) => project.id === projectA.id);
+    const mappedProjectB = projects.find((project) => project.id === projectB.id);
+
+    expect(mappedProjectA).toMatchObject({
+      sprintsCount: 2,
+      completedTasks: 2,
+      openTasks: 3,
+      isRunning: true,
+      status: "running",
+      lastRunAt: "2026-03-09T12:30:00.000Z",
+      lastRunStatus: "COMPLETED",
+    });
+    expect(mappedProjectB).toMatchObject({
+      sprintsCount: 1,
+      completedTasks: 1,
+      openTasks: 0,
+      isRunning: false,
+      status: "idle",
+      lastRunAt: null,
+      lastRunStatus: null,
+    });
+
+    const projectBatchSql = executeSpy.mock.calls.map(([params]) => `${params.sqlPrefix} ${params.sqlSuffix || ""}`);
+    expect(projectBatchSql.some((sql) => sql.includes("FROM sprints") && sql.includes("COUNT(*) AS sprints_count"))).toBe(true);
+    expect(projectBatchSql.some((sql) => sql.includes("FROM tasks") && sql.includes("completed_tasks"))).toBe(true);
+    expect(projectBatchSql.some((sql) => sql.includes("latest_sprint_runs"))).toBe(true);
+    expect(projectBatchSql.some((sql) => sql.includes("project_run_activity"))).toBe(true);
+    for (const [params] of executeSpy.mock.calls.filter(([params]) => params.sqlPrefix.includes("sprints_count")
+      || params.sqlPrefix.includes("completed_tasks")
+      || params.sqlPrefix.includes("latest_sprint_runs")
+      || params.sqlPrefix.includes("project_run_activity"))) {
+      expect(params.items).toEqual(expect.arrayContaining([projectA.id, projectB.id]));
+    }
+
+    executeSpy.mockClear();
+
+    const sprints = repository.listSprints(projectA.id).sprints;
+    const mappedSprintA1 = sprints.find((sprint) => sprint.id === sprintA1.id);
+    const mappedSprintA2 = sprints.find((sprint) => sprint.id === sprintA2.id);
+
+    expect(sprints.map((sprint) => sprint.id)).toEqual([sprintA2.id, sprintA1.id]);
+    expect(mappedSprintA1).toMatchObject({
+      tasksCount: 3,
+      completion: 67,
+      status: "cancelled",
+      linkedIssues: [{
+        issueNumber: 42,
+        title: "Batch summary linked issue",
+      }],
+      latestReview: {
+        status: "completed",
+        outcome: "pass",
+        summary: "Batch summary looks good.",
+        findings: ["Verified batching"],
+        reviewer: "QA Bot",
+        finishedAt: "2026-03-09T13:05:00.000Z",
+      },
+    });
+    expect(mappedSprintA2).toMatchObject({
+      tasksCount: 2,
+      completion: 0,
+      status: "running",
+      linkedIssues: [],
+    });
+
+    const sprintBatchSql = executeSpy.mock.calls.map(([params]) => `${params.sqlPrefix} ${params.sqlSuffix || ""}`);
+    expect(sprintBatchSql.some((sql) => sql.includes("FROM tasks") && sql.includes("tasks_count"))).toBe(true);
+    expect(sprintBatchSql.some((sql) => sql.includes("FROM sprint_runs"))).toBe(true);
+    expect(sprintBatchSql.some((sql) => sql.includes("FROM qa_review_runs"))).toBe(true);
+    expect(sprintBatchSql.some((sql) => sql.includes("FROM sprint_linked_issues"))).toBe(true);
+    expect(executeSpy.mock.calls.some(([params]) => params.sqlPrefix.includes("tasks_count")
+      && params.items.includes(sprintA1.id)
+      && params.items.includes(sprintA2.id))).toBe(true);
+    expect(executeSpy.mock.calls.some(([params]) => params.sqlPrefix.includes("FROM sprint_runs")
+      && params.items.includes(sprintA1.id)
+      && params.items.includes(sprintA2.id))).toBe(true);
+    expect(executeSpy.mock.calls.some(([params]) => params.sqlPrefix.includes("FROM qa_review_runs")
+      && params.items.includes(sprintA1.id)
+      && params.items.includes(sprintA2.id))).toBe(true);
+    expect(executeSpy.mock.calls.some(([params]) => params.sqlPrefix.includes("FROM sprint_linked_issues")
+      && params.items.includes(sprintA1.id)
+      && params.items.includes(sprintA2.id))).toBe(true);
   });
 
 

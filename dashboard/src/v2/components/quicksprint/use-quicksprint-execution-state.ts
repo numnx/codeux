@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback } from "preact/hooks";
-import type { PlanningRouteOption } from "../../lib/sprint-composer-state.js";
+import { toVirtualPlanningRouteOption, type PlanningRouteOption } from "../../lib/sprint-composer-state.js";
 import { getProviderModelOptions } from "../../lib/settings-view-models.js";
 import { useExecutionTimeline } from "../../../hooks/ExecutionTimelineContext.js";
 import type { ProviderId, AgentPreset } from "../../types.js";
@@ -32,6 +32,7 @@ export function useQuicksprintExecutionState({
   noTaskLimit,
   agentPresets,
   onClose,
+  onError,
 }: {
   onExecute: (templateId: string, taskCount: number, submitMode: "plan_only" | "plan_and_start", additionalPrompt?: string, routeOverride?: PlanningRouteOption | null, modelOverride?: string | null, signal?: AbortSignal, options?: QuicksprintExecutionOptions) => Promise<void>;
   virtualProviders: VirtualProviderOption[];
@@ -43,6 +44,7 @@ export function useQuicksprintExecutionState({
   noTaskLimit: boolean;
   agentPresets: AgentPreset[];
   onClose: () => void;
+  onError?: (message: string) => void;
 }) {
   const [executingMode, setExecutingMode] = useState<"plan_only" | "plan_and_start" | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -62,16 +64,7 @@ export function useQuicksprintExecutionState({
         opts.push({ type: "connected", id: conn.id, label: conn.displayName || conn.connectionKey });
       }
     }
-    for (const vp of virtualProviders) {
-      opts.push({
-        type: "virtual",
-        id: vp.providerConfigId || vp.id || vp.provider || "",
-        label: vp.displayLabel || vp.label || vp.providerConfigId || vp.id || vp.provider || "Provider",
-        provider: vp.providerConfigId || vp.id || vp.provider,
-        iconProviderId: vp.iconProviderId || (vp.provider as ProviderId | undefined) || (vp.id as ProviderId | undefined),
-        effectiveModel: vp.effectiveModel,
-      });
-    }
+    opts.push(...virtualProviders.map(toVirtualPlanningRouteOption));
     return opts;
   }, [connections, virtualProviders]);
 
@@ -90,6 +83,7 @@ export function useQuicksprintExecutionState({
   const handleExecute = useCallback(
     async (mode: "plan_only" | "plan_and_start") => {
       if (!selectedTemplate) return;
+      if (executingMode || activeRequestRef.current) return;
 
       const reqId = ++requestCounterRef.current;
       activeRequestRef.current = { id: reqId, detached: false, cancelled: false };
@@ -126,9 +120,11 @@ export function useQuicksprintExecutionState({
         if (activeRequestRef.current?.id === reqId && !activeRequestRef.current.detached && !activeRequestRef.current.cancelled) {
           onClose();
         }
-      } catch (err: any) {
-        if (err.name !== "AbortError") {
+      } catch (err: unknown) {
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
           console.error("Quicksprint execute failed:", err);
+          const templateName = selectedTemplate.name;
+          onError?.(`Planning failed for ${templateName}. Review the route and try again.`);
         }
       } finally {
         clearInterval(timer);
@@ -144,10 +140,10 @@ export function useQuicksprintExecutionState({
         }
       }
     },
-    [onExecute, selectedTemplate, taskCount, noTaskLimit, additionalPrompt, routeOverride, modelOverride, onClose],
+    [onExecute, selectedTemplate, executingMode, taskCount, noTaskLimit, additionalPrompt, routeOverride, modelOverride, onClose, onError],
   );
 
-  const handleNewQuicksprint = useCallback(() => {
+  const detachCurrentRequest = useCallback(() => {
     if (activeRequestRef.current) {
       activeRequestRef.current.detached = true;
     }
@@ -156,6 +152,10 @@ export function useQuicksprintExecutionState({
     setExecutingMode(null);
     setIsOverlayDismissed(true);
   }, []);
+
+  const handleNewQuicksprint = useCallback(() => {
+    detachCurrentRequest();
+  }, [detachCurrentRequest]);
 
   const handleCancelExecute = useCallback(() => {
     if (abortControllerRef.current) {
@@ -172,7 +172,7 @@ export function useQuicksprintExecutionState({
     executingMode, setExecutingMode,
     elapsedMs, setElapsedMs,
     isOverlayDismissed, setIsOverlayDismissed,
-    handleExecute, handleCancelExecute, handleNewQuicksprint,
+    handleExecute, handleCancelExecute, handleNewQuicksprint, detachCurrentRequest,
     routeOptions, modelOptions, combinedPrompt,
     abortControllerRef, activeRequestRef, requestCounterRef
   };

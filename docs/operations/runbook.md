@@ -11,8 +11,10 @@ Database maintenance runs automatically during normal startup. Operators can exp
 - Startup logs will show a structured result detailing counts of pruned elements, failed vacuums, and WAL checkpoint failures (`checkpointFailures`). WAL checkpoint failures are non-fatal, busy checkpoints are safe to retry later.
 
 1. Confirm API key source is available (recommended, but startup is allowed without key).
-2. Start server (`npm run dev` or `npm start`).
-   - `npm run dev` runs the TypeScript entrypoint through Node's `ts-node` ESM register hook.
+2. Start server (`pnpm run dev` or `pnpm start`).
+   - `pnpm run dev` runs the TypeScript entrypoint through the repository dev script.
+   - Code UX writes a project-manager PID lock under the home `.code-ux/runtime/` directory. If another recorded Code UX runtime process is still alive, startup waits briefly for that process to finish shutdown before failing, instead of launching a second scheduler against the same Docker/runtime state. Tune the wait with `CODE_UX_RUNTIME_LOCK_WAIT_MS` when shutdown is expected to be slow. Set `CODE_UX_ALLOW_MULTIPLE_RUNTIMES=1` only for targeted diagnostics.
+   - Dashboard startup launches a best-effort background prewarm for the pinned provider-login base image. Startup does not wait for Docker; if Docker is unavailable or the build fails, the login modal retries image preparation on demand and can still fall back to the raw base image.
 3. Open dashboard and verify settings.
 4. Confirm `/api/status` and `/api/git-status` are responding.
 
@@ -30,6 +32,13 @@ If started without key:
 5. Follow merge and action-required protocol until terminal state, resuming from the dashboard after manual intervention.
 
 ## Safety Controls
+
+### Dashboard and file access boundaries
+- Dashboard mutation requests to `/api/*`, `/health`, and `/ready` reject hostile browser origins. Treat `Sec-Fetch-Site: cross-site`, malformed `Origin`, cross-host `Origin`, malformed `Referer`, and cross-host `Referer` on mutations as blocked browser requests; CLI/API clients without browser origin headers remain allowed.
+- Local directory browsing only lists canonical paths inside the allowed local roots. Encoded traversal, Windows-style separator traversal, absolute paths outside the roots, and symlink escapes must not expose directory listings or leak requested paths in error responses.
+- Sprint file-browser file and diff reads accept normalized relative paths only. Encoded traversal, `..` traversal, Windows drive paths, and absolute paths are rejected before provider or Docker-backed file-browser dependencies are invoked.
+- MCP approval prompts are one-time, correlation-id-bound decisions. Expired, mismatched, duplicate, blank, or malformed correlation IDs must not return a pending approval.
+- Structured logs and invocation output pass through redaction helpers before storage or display. Secret-like environment assignments, authorization headers, hosted Git tokens, and URL credentials should appear only as `[REDACTED]` in logs and provider output.
 
 ### Emergency stop
 If consecutive task creation failures reach threshold:
@@ -67,6 +76,11 @@ Checks:
   - direct attention-item realtime refresh
   - scope-aware websocket replay checks
 - If the live view updates task state but Git/CI panels lag, confirm `/api/git-status` is healthy; that surface is rate-limited to avoid external API spam, so it may trail runtime updates by a couple of seconds under heavy activity.
+- `/api/live-activities` fetches are bounded per provider session with a safe timeout so slow activity reads cannot stall the dashboard request indefinitely. Fetch concurrency remains capped, terminal sessions are skipped before cache lookup or provider fetch, and sessions that genuinely return zero activities are negative-cached briefly to avoid hot polling.
+- If a live activity refresh times out or fails for a session with previously cached activities, Code UX logs a warning and returns the stale activities instead of replacing them with an empty result. Provider errors and timeouts are not treated as empty activity results, so the next refresh can recover as soon as the provider responds again.
+- Sprint session-sync activity polling uses the same bounded behavior: a slow or rejected provider activity API logs `Could not fetch activities for session` with `sessionName`, `pageSize`, `concurrency`, `timeoutMs`, `elapsedMs`, `errorName`, and `errorMessage`, then records an empty activity list for that poll only. A genuine empty provider response is not logged as a failure.
+- Live activity warnings include structured fields such as `sessionName`, `failureCause`, `errorName`, `cacheFallbackState`, `cachedActivityCount`, and `timeoutMs` when applicable. They should not include provider output bodies; inspect provider session logs separately if the cause needs deeper diagnosis.
+- To validate this surface after cache or timeout changes, run `pnpm run test:backend -- tests/backend/server/activity-cache-service.test.ts`, then `pnpm run test:backend:coverage` to confirm `src/server/activity-cache-service.ts` remains above its 80% line threshold.
 - `/api/system/update-status` reports the running Code UX version plus the latest published npm version. It caches the npm lookup briefly, so repeated dashboard refreshes should not hammer the registry, and the dashboard logs a single startup notice when a newer release is available.
 - The dashboard title bar shows a small "Update available" badge next to the version label whenever `/api/system/update-status` reports a newer published version. If the badge is missing, the check either found no newer release or the lookup failed and was suppressed.
 - If the dashboard still degrades under load, inspect `runtime.debugLogFileLevel`; file logging defaults to `error` and uses async streams, but sustained log volume is still a useful signal that a hot loop is too noisy.
@@ -80,6 +94,13 @@ Checks:
 - Git subprocesses launched by the backend run through the `alpine/git` helper container by default, with Git-specific auth/config environment forwarded into the container. Extra host paths such as temporary bundle outputs and Git index files are mounted to Linux-style container paths under `/mnt/code-ux/git-paths/*`, so Windows paths like `C:\Users\...\AppData\Local\Temp\code-ux-bundle-*` are never used as Docker mount targets. The helper masks the image-declared `/git` volume with tmpfs so these commands do not leave anonymous Docker volumes behind. Set `CODE_UX_GIT_CONTAINER_MODE=host` or `CODE_UX_CONTAINERIZED_GIT=0` only for targeted diagnostics.
 - Git host API reads are throttled and cached briefly to avoid rate-limit bursts when multiple sprints poll PR/CI state at the same time. Failed-run job/log enrichment is still limited, so Git/CI panels may trail live task state under heavy activity.
 - "Workflow completed without PR" is only expected when `git.autoCreatePr` is disabled for the resolved system/project/sprint settings.
+
+### 2a. Models catalog workflow cannot push to a protected branch
+Checks:
+- The Models Catalog workflow runs on pushes to `main` and `dev`, fetches `models.dev`, and compares the result with `assets/models-dev/catalog.json`.
+- When the catalog changes, the workflow must not push directly back to `main` or `dev`; branch protection requires PR-based changes. It pushes `chore/models-catalog-<target-branch>` instead and opens or updates a PR against the branch that triggered the workflow.
+- If the job reports a push rejection for `refs/heads/main` or `refs/heads/dev`, the workflow is running an older definition. Re-run it after the branch includes the PR-based catalog update workflow.
+- If PR creation fails, check the workflow token permissions include both `contents: write` and `pull-requests: write`.
 
 ### 3. API-backed tools return key setup instructions
 Checks:
@@ -122,18 +143,23 @@ Checks:
   - For Claude auth mounts, ensure host has `~/.claude/.credentials.json`; if auth still stalls, also verify the sibling `~/.claude.json` exists when your local Claude login created it.
   - Runtime now syncs only those Claude auth files before launch, avoiding recursive copy of all `.claude` state.
   - For Gemini auth mounts, ensure host has `~/.gemini/settings.json` plus the expected auth files such as `oauth_creds.json`; runtime now syncs only those stable files and intentionally skips `.gemini/tmp`, `history`, and other mutable runtime trees.
-  - Runtime merges generated Gemini and Claude MCP config into the copied auth settings, and appends the Codex MCP stanza into `~/.codex/config.toml` only when it is not already present, so enabling Docker auth mounts does not wipe host-side provider config.
+  - Runtime strips local MCP declarations from copied provider auth/config files before merging generated MCP config. Only Code UX-managed MCP servers enabled on the MCP settings page, including the default Playwright server, are injected into Docker provider homes. For Codex this avoids duplicate `[mcp_servers.playwright]` tables when the host `~/.codex/config.toml` already defines Playwright.
   - For WORKER-profile routes, a saved worker model is only forwarded when it belongs to the selected provider. If you switch a planning or worker run from Codex to Gemini/Claude, Code UX now falls back to that provider's own model instead of sending an incompatible model id like `gpt-5.3-codex` to Gemini or Claude.
   - Codex websocket `HTTP 5xx` failures are transport/server errors, not auth failures. If you see `responses_websocket` + `HTTP error: 500`, treat that as a transient provider-side failure rather than a stale local login.
   - If auth is expected from host login state, is the relevant Docker auth mount enabled and is its mount path valid?
   - Docker mode requires daemon-visible workspace paths. Runtime now prefers repo-scoped worktree paths for Docker sessions.
   - Docker runtime state is stored under `~/.code-ux/runtime/docker/<repo-hash>/` by default (override with `JULES_DOCKER_RUNTIME_ROOT`). Cached setup image build contexts and build locks live under that root so setup-cache images survive dashboard restarts and concurrent post-restart jobs wait on the same build instead of starting duplicate builds.
-  - During Code UX restarts, Docker-backed provider invocations interrupted by a shutdown signal stay recoverable until startup confirms whether the labeled session container still exists.
-  - Docker workspace/runtime volumes for tracked CLI sessions are preserved across startup pruning even after recovery marks the interrupted session `FAILED`; the next retry can still resume the old workspace volume when `Resume failed task in same workspace` is enabled.
-  - Rerun resume uses the latest `cli_workspace_bound` event as the source of truth for the workspace session id. If the latest failed provider invocation has a different `session_id`, Code UX still resumes the Docker volume named by the recorded workspace binding.
+  - During normal Code UX shutdown (`SIGINT`, `SIGTERM`, `SIGHUP`, or Electron quit), the server requests active dispatch aborts, drains persistent Git/workspace helper pools (including helpers that were still starting), and then kills any still-running Docker containers with `code-ux.*` labels or deterministic `code-ux-*` runtime names. It does not remove Docker workspace/runtime volumes. On the next start, recovery follows `Settings -> General -> Restart Behavior`: continue resumes active sprint runs by default, pause/cancel applies sprint-level policy before watch-loop recovery, and invocation restart/cancel removes labelled active containers without deleting preserved volumes.
+  - Pausing a sprint run also pauses or stops active task dispatch rows, cancels linked provider and QA runtime rows, releases task and sprint leases, and resets affected project tasks to `pending`. Resuming that run uses existing-run recovery and will not create a second sprint run.
+  - Dashboard and MCP HTTP listeners track and destroy open sockets during shutdown, including upgraded dashboard WebSocket sockets, so open browser tabs do not delay process exit or leave ports bound during rapid restarts.
+  - Docker workspace/runtime volumes for tracked CLI sessions are preserved across startup pruning after recovery marks the interrupted session `CANCELLED`; the next retry can still resume the old workspace volume when `Resume failed task in same workspace` is enabled.
+  - Rerun resume uses the latest `cli_workspace_bound` event as the source of truth for the workspace session id. If the latest interrupted provider invocation has a different `session_id`, Code UX still resumes the Docker volume named by the recorded workspace binding.
   - Codex uses per-session container home directories under that runtime root to prevent stale state from previous Codex runs.
   - Runtime cleanup prunes stale `home-codex-*` session homes and stale shared runtime temp directories automatically once those sessions are no longer active.
-- Docker provider launches use readable container names such as `code-ux-codex-<session>` and mount provider arguments through a generated argv file instead of passing the full prompt through the host `docker run` command line. Packaged Windows Electron builds that fail with `spawn ENAMETOOLONG` during provider launch are using an older build or a non-provider launch path that still embeds a large payload in command arguments.
+- During shutdown, Code UX disposes the command-spawner host before Docker cleanup. If shutdown is interrupted or Docker cleanup is slow, the helper process cannot continue launching Docker commands behind the exiting runtime.
+- Docker provider launches use readable container names such as `code-ux-codex-<session>` and mount provider arguments through a generated argv file instead of passing the full prompt through the host `docker run` command line. Secret-bearing provider environment variables are written to temporary `0600` env-files and supplied with `--env-file`, so `ps`/process-list inspection should show only the env-file path and not API key values. If Docker reports that the deterministic provider container name is already in use, Code UX force-removes that named container with volumes and retries the launch once; repeated conflicts usually mean an external Docker daemon or another runtime is recreating the same session container. Packaged Windows Electron builds that fail with `spawn ENAMETOOLONG` during provider launch are using an older build or a non-provider launch path that still embeds a large payload in command arguments.
+- When setup-image caching is enabled, the first Docker provider or preview run for a base image/setup-script combination may spend several minutes building a content-addressed `code-ux-setup-cache-*` image. Activity logs now call out the cache miss, stream Docker build steps, and report bounded progress; later runs reuse the cached image until the base image, setup script content, Dockerfile template, or Playwright-browser setting changes. If the build fails, Code UX logs the fallback and runs the setup script at container runtime instead.
+- Provider login uses a separate content-addressed `code-ux-login-base-node-24-bookworm-slim:*` image with curl and keyring prerequisites baked in. The image is prewarmed after dashboard logging is available, but this is best-effort: failures should be treated as startup warnings, not as a reason to block the dashboard or provider login.
 - Backend Git commands and snapshot workspace bootstrap use public helper images such as `alpine/git`. Snapshot bootstrap verifies or pulls these helpers automatically, and if Docker reports a broken host credential helper while pulling a public helper image, Code UX retries that helper pull with an isolated empty Docker client config; provider/container images still use the normal Docker configuration. Persistent helper containers are removed with `docker rm -f -v` so image-declared anonymous volumes are cleaned with the container. Startup Docker pruning is scheduled in the background and only queries Code UX labels, so a large Docker daemon does not delay dashboard boot with full volume/container scans.
 - Snapshot workspace bootstrap creates the temporary Git bundle through the containerized Git helper using a portable `/mnt/code-ux/git-paths/*` target, then streams the bundle directly into `docker run` stdin. Packaged Windows Electron builds should not route `C:\...AppData\Local\Temp\code-ux-bundle-*` paths through `bash -lc` or use those paths as Docker mount targets; seeing `cat: 'C:\...\repo.bundle': No such file or directory` or `invalid mount path: 'C:/Users/.../code-ux-bundle-*'` indicates an older build.
 - Packaged Windows Electron runs use an opaque desktop window to avoid Chromium tile-memory exhaustion (`tile_manager.cc:1012 WARNING: tile memory limits exceeded`). All animated backgrounds, patterns, and images render normally. Performance mitigations are applied at the WebGL layer (0.5× render scale, `powerPreference: "low-power"`, `contain: strict` on background layers, Chromium `--force-gpu-mem-available-mb` flag).
@@ -142,7 +168,7 @@ Checks:
 - GitHub credential sync still copies mount contents into a fixed dir (`~/.config/gh`); Gemini sync is now auth-only to avoid concurrent Docker sessions racing on shared `.gemini/tmp/tool-outputs`.
 - If provider output says "No file changes produced", runtime now still checks for unpushed worker-branch commits and will push/create (or reuse) the feature PR when commits exist.
 - CI autofix and merge-conflict virtual-worker runs now perform the same unpublished-commit check before they mark the attention item resolved, so provider-created local commits are pushed to GitHub even when the workspace diff is empty by the end of the run. Merge-conflict publish also retries killed no-output `git push` attempts after the resolved commit has been materialized locally, preventing a transient helper/container termination from turning a valid resolution into a human handoff.
-- Workspace patch export includes newly created untracked files by marking them in a temporary Git index before diffing. In Docker mode, Git-specific environment variables are forwarded into the helper container so the temporary index and HTTP auth config are applied inside the isolated workspace volume. Provider HOME lives in the paired runtime volume at `/code-ux-runtime-home`, outside `/workspace`; patch export still excludes the transient `.task-learnings.md`, legacy `.code-ux-home/`, and the entire `logs/openai/` directory (including nested logs) so memory capture, provider config, provider cache state, and transient OpenAI request/response logs cannot be committed.
+- Workspace patch export includes newly created untracked files by marking them in a temporary Git index before diffing. In Docker mode, Git-specific environment variables are forwarded into the helper container so the temporary index and HTTP auth config are applied inside the isolated workspace volume. Provider HOME lives in the paired runtime volume at `/code-ux-runtime-home`, outside `/workspace`; patch export still excludes the transient `.task-learnings.md`, legacy `.code-ux-home/`, root `.pnpm-store/`, and the entire `logs/openai/` directory (including nested logs) so memory capture, provider config, package-manager cache state, provider cache state, and transient OpenAI request/response logs cannot be committed. Export staging asks Git to discover untracked files internally (`git add --intent-to-add -- .` with shared excludes), so large legitimate untracked file sets do not cross Docker or OS argument limits.
 - For Docker-in-Docker or remote daemon path mismatches, configure:
     - `JULES_DOCKER_HOST_WORKSPACE_ROOT=<host-visible-repo-root>`
     - `JULES_DOCKER_HOST_HOME_ROOT=<host-visible-home-root>` (optional, for auth mounts)
@@ -152,6 +178,11 @@ Checks:
   - `Settings -> CLI Workflow -> Cleanup worktree on failure` should remain disabled (recommended default).
 - To continue retries in the same failed workspace:
   - `Settings -> CLI Workflow -> Resume failed task in same workspace` should remain enabled (default).
+- Dashboard **Resume** for a paused sprint run reactivates that same run and starts the recovery/watch-loop path in place. It should not create a replacement sprint run or a second watch loop. If the old loop is still draining, resume schedules a short follow-up recovery attempt after the registry clears so a run is not left `running` without a heartbeat.
+- Sprint deletion is rejected while the sprint has any queued/running/cancel-pending sprint run, active task dispatch, running provider/execution invocation, preserved invocation transcript, or a sprint run that finished in the last 30 seconds. Cancel, pause, or let runtime cleanup settle first; this prevents database cascades from deleting rows while an in-memory watch loop or provider callback is still unwinding.
+- Startup recovery closes active dispatch/task-run rows whose linked provider invocation already reached a terminal state. If the project task is already code-complete, the dispatch mirrors completion; otherwise the task is reset to pending for a clean retry instead of staying in a stale running state.
+- Live provider telemetry refreshes the linked task-dispatch heartbeat while the provider invocation is running. A dispatch heartbeat should not go stale when provider usage rows are still updating.
+- In local-git mode, an existing worker-owned main-merge conflict attention item suppresses additional `feature -> default` merge attempts while the worker is resolving the conflict. Human-escalated main-merge attention pauses the sprint with local conflict instructions.
 
 ### 5. Planning retry message appears but no provider work is visible
 Checks:
@@ -189,11 +220,14 @@ Checks:
 - For CLI-backed tasks, inspect the latest dispatch error. Code UX now treats unrecoverable Git auth/config failures as hard blockers instead of retryable failures.
   - Examples: unset GitHub token, `fatal: could not read Username for 'https://github.com'`, `Authentication failed`, or similar remote permission/auth errors during push/PR flow.
   - Expected behavior: the task run moves to `BLOCKED`, the sprint pauses, and the watch loop stops consuming tokens until credentials are fixed and the task or sprint is resumed manually.
-- For tasks shown as `QUOTA`, inspect the dispatch error and retry-after metadata. Code UX preserves quota/rate-limit dispatch errors during session sync; exact Codex reset hints are honored when the provider returns a concrete reset time, while ambiguous clock-only hints fall back to a bounded 30-minute retry. The active retry timestamp is surfaced through execution invocation rows, system messages, and `cli_provider_quota_wait` task-run events; if no active retry timestamp remains, the task is requeued instead of staying in `QUOTA`. If Code UX was offline while a provider invocation was waiting for a quota reset or rate-limit retry, startup recovery closes that stale running invocation and requeues task-backed work so the recovered sprint loop can start a fresh continuation. Repeated quota failures without a reset timer are still bounded by `cliWorkflow.maxQuotaRetriesWithoutTimer`.
+- For tasks shown as `QUOTA`, inspect the dispatch error and retry-after metadata. Code UX preserves quota/rate-limit dispatch errors during session sync; exact Codex reset hints are honored when the provider returns a concrete reset time, while ambiguous clock-only hints fall back to a bounded 30-minute retry. The active retry timestamp is surfaced through execution invocation rows, system messages, and `cli_provider_quota_wait` task-run events; if no active retry timestamp remains, the task is requeued instead of staying in `QUOTA`. Cancelling a task-backed quota invocation from Chat -> Invocations closes the linked dispatch as `cancelled`, marks the task run with the retryable blocked sentinel, resets the project task to `pending`, and the next sprint cycle can dispatch it again with the current provider routing. If Code UX was offline while a provider invocation was waiting for a quota reset or rate-limit retry, startup recovery closes that stale running invocation as `cancelled` and requeues task-backed work so the recovered sprint loop can start a fresh continuation. Repeated quota failures without a reset timer are still bounded by `cliWorkflow.maxQuotaRetriesWithoutTimer`.
 - For tasks stuck in a CI/QA gate after QA requested fixes, compare the latest `qa_review_runs` row with later `execution_invocations` for the same task run. A completed `cli_task_followup` after the latest `changes_requested` QA result should trigger a verification QA run on the next orchestration cycle; if no follow-up exists, the task is intentionally waiting on fix work or human intervention.
+- When a task has multiple QA reviewers configured, inspect all `qa_review_runs` rows for the latest `run_index`, not just one row. The task remains blocked if any reviewer row in that cycle is `running`, `failed`, or `completed` with `changes_requested`; the cycle clears only when every reviewer row passed. Reviewer-specific `agent_preset_id`, `agent_name`, and payload fields identify which reviewer blocked the cycle.
+- For tasks stuck at `CODING_COMPLETED` with merge indicator `CI`, inspect the feature PR checks. Completed failed checks should move the task back to `RUNNING` and open a worker-owned `ci_fix_required` item until the CI-fix guardrail is reached. The `waitForJulesCiAutofix` toggle only controls whether Code UX first sends failed-check context to an existing Jules session; when it is disabled, Code UX should skip Jules and dispatch a worker CI fix instead. Human/agent intervention should appear only after the guardrail is exhausted.
 - Do not treat a later full task run as task-QA follow-up work. Task QA fixes should continue the same task session and branch through `cli_task_followup`; sprint-review failures create follow-up tasks instead.
 - For tasks showing `QA_PENDING` with a `running` `qa_review_runs` row but no matching provider container, check the latest `qa_review` row in `execution_invocations`. Code UX now fails stale running QA rows automatically when the invocation never linked provider runtime or when its Docker-backed `provider_invocations.session_id` is absent from running `code-ux.session-id` container labels; the next cycle should enqueue a fresh QA review.
 - For Jules-backed tasks stuck in `RUNNING`, compare the recorded task session with the live Jules API. If the session is absent from both the list snapshot and a direct `getSession` lookup returns not found, session sync now fails the stale provider/execution/task-run rows and requeues the task when failed-task retry is enabled.
+- If local state is terminal but the provider still reports the session as running, session sync treats it as a stale running session and keeps polling so renewed provider work can reactivate the task. If the list snapshot is stale but the recorded provider session fetch returns a terminal state, session sync maps that recovered terminal state through the normal provider-state mapping and completes or fails the local run consistently.
 - If provider concurrency repeatedly logs that the cap is reached but no provider containers are running, inspect `provider_invocations` for old `status = running` rows. Code UX now reconciles stale rows via a shared recovery helper during provider slot waits and startup so orphaned provider slots are failed and new work can claim the slot. Recovery waits for linked execution activity to go idle, so a newly claimed provider slot is not failed merely because its container has not appeared yet.
 
 ### 8. Tasks completed but pipeline not progressing
@@ -202,9 +236,11 @@ Checks:
 - Did the merge settle on the feature branch, or was this a no-output task that should auto-promote to final `completed`?
 - Are CI / review gates still intentionally holding the task before final completion?
 - If QA requested changes and the provider completed a same-session follow-up, Code UX should treat that `cli_task_followup` as fresh work even when the task run itself did not get a newer `finished_at` timestamp.
+- QA budgets are counted by review cycle (`run_index`), not by the number of configured reviewers. Multiple reviewer rows in one cycle should not exhaust task or sprint QA budget by themselves.
 - If task QA exhausted its review budget and no same-session follow-up is waiting for verification, the configured exhaustion policy applies. For new or unset policies, the default `FINISH_TASK` policy marks the task completed despite no QA pass; projects can still opt into `FAIL_TASK` or `ESCALATE_TO_HUMAN` when they need stricter handling.
 - A task already parked in `QA_REVIEW_FAILED` should not start new automatic worker branches on later watch-loop cycles. If it does, inspect status derivation and task rerun/reset events; only explicit rerun/reset should move the task back to pending.
 - If QA still appears running but no QA container exists, the watch loop should reconcile the stale QA invocation and retry the review rather than leaving `merge_indicator = QA_PENDING`.
+- For sprint completion blocked by QA, inspect all latest-cycle `trigger_type = 'sprint_completion'` rows. The sprint can complete only when every configured sprint reviewer in that cycle passed; any running, failed, or changes-requested reviewer keeps completion blocked.
 - If the provider session actually ended `FAILED`, Code UX should now clear the stale session/PR runtime state and requeue the task instead of treating the task as completed just because a PR artifact exists.
 
 ### 9. Tasks show RUNNING after MCP was interrupted
@@ -245,14 +281,21 @@ Transient provider failures are classified and managed in `src/shared/providers/
 - Use the dashboard live view to inspect state without starting new work.
 - Use activities APIs to inspect detailed session trace.
 - Re-enable steps after diagnosis to restore normal operation.
-- On startup, interrupted local CLI sessions (`cli-*` with `RUNNING`) are auto-recovered to `FAILED` so orchestration can safely retry them.
-- On startup, active `queued` and `running` sprint runs are resumed automatically in place; Code UX now restores the watch loop instead of requiring a manual sprint restart.
-- Local `docker_cli` task dispatches are rewritten to retryable failed state during that recovery, while durable Jules sessions and connected-worker dispatches remain attached to the resumed sprint run.
+- On startup, interrupted local CLI sessions (`cli-*` with `RUNNING`) are auto-recovered to `CANCELLED` so invocation error-rate statistics do not treat app shutdown/restart as provider failure.
+- On startup, active `queued` and `running` sprint runs are resumed automatically in place by default; Code UX restores the watch loop instead of requiring a manual sprint restart. Operators can change `Settings -> General -> Restart Behavior -> After app restart` to pause or cancel active runs before recovery resumes anything.
+- `Settings -> General -> Restart Behavior -> Interrupted invocations` controls active/interrupted provider rows when sprint continuation is enabled: `Continue` preserves live labelled containers, `Restart` stops labelled containers without removing preserved volumes and requeues task-backed work, and `Cancel` stops labelled containers without automatic retry.
+- If the dashboard shows a sprint as running after its latest run was paused, restart recovery should sync the parent sprint projection back to `paused` as long as there is no newer queued/running/cancel-pending run for the same sprint.
+- If the dashboard shows a sprint as running but no queued/running/cancel-pending sprint run exists, restart recovery should repair the parent sprint projection from the latest run, or back to `idle` when no run exists.
+- Startup recovery does not steal an unexpired sprint lease when the recorded `sprint_orchestrator:<pid>` owner is still alive. This prevents a second dashboard process from creating a duplicate watch loop for work another live process already owns.
+- Manual dashboard resume uses the same existing-run recovery path as startup recovery, so paused runs keep their original run id and heartbeat history when monitoring restarts.
+- Startup recovery also cancels older duplicate active dispatch rows for the same `(sprint_run_id, task_id)`, keeping the newest active dispatch and cancelling linked provider runtime rows for the duplicates. Live dispatch has the same guard before creating a new task dispatch, so repeated watch-loop cycles remain idempotent after restarts or lease drift.
+- Dashboard sprint cancellation force-closes active task dispatch rows, task runs, and task status after the provider containers are stopped. Late provider callbacks from an already-cancelled sprint are ignored so cancelled work cannot revive stale `running` dispatch state.
+- Local `docker_cli` task invocations and dispatches are closed as `cancelled` during that recovery, while the task itself is moved back to a retryable state. Durable Jules sessions and connected-worker dispatches remain attached to the resumed sprint run.
 - If a restart finds active Jules task runs with persisted session ids but their sprint run was left `failed` or `cancelled` while the sprint is still active, startup recovery rehydrates a single sprint run, moves those durable Jules rows onto it, reopens their dispatch/provider runtime links, and resumes monitoring.
 - Failed CLI sessions can preserve their worktree for manual follow-up or assisted retry, based on CLI Workflow settings.
 - Dashboard task reruns now support a full clean reset:
   - the selected task always clears session, PR, merge, and intervention state before restart
-  - normal reruns pass the previous CLI workspace binding into the next dispatch so the provider can continue from the same workspace when it still exists, even if restart recovery recorded a newer interrupted provider session id
+  - normal reruns pass the previous CLI workspace binding into the next dispatch so the provider can continue from the same workspace when it still exists, even if restart recovery recorded a newer cancelled/interrupted provider session id
   - selecting **Clear worktree** removes the previous workspace using the active CLI execution mode and suppresses workspace resume, forcing a new workspace for the rerun
   - provider overrides target the exact provider instance from **Settings -> Integrations** and may include a model override, so reruns can switch between multiple logins/configs for the same provider type
   - optional downstream reset rewrites dependent tasks to fresh pending execution snapshots so old completed/running descendants do not keep stale runtime metadata
@@ -284,6 +327,31 @@ pnpm run build
 curl http://localhost:4444/api/status
 curl http://localhost:4444/api/git-status
 ```
+
+## CI And E2E Operations
+
+GitHub validation is split by signal:
+- `CI` runs `Typecheck & Lint`, `Backend Tests & Coverage`, `Dashboard Tests`, `Build`, and `Security Audit` on Node 22 with pnpm 10.33.0. It runs on pushes to `main` and `dev`, and on pull requests targeting any branch.
+- `Playwright Tests` runs browser E2E validation on pushes and pull requests targeting `main` or `dev`. Release and publish workflows remain separate from CI/E2E validation.
+- Superseded runs for the same branch or pull request are cancelled by workflow concurrency groups.
+
+Local equivalents:
+- `pnpm run lint` mirrors the TypeScript validation portion of `Typecheck & Lint`.
+- `pnpm run test:backend:coverage` mirrors the backend coverage job.
+- `pnpm run test:dashboard` mirrors the dashboard Vitest job.
+- `pnpm run audit` mirrors the independent security audit job.
+- `pnpm run build` validates the compiled server and dashboard bundle.
+- `pnpm exec playwright test` runs the browser E2E suite locally after dependencies and Playwright browsers are installed.
+
+Dependency and cache behavior:
+- CI restores `node_modules` only as a speed hint and still runs `pnpm install --frozen-lockfile --ignore-scripts` in every job.
+- Vitest, Vite, TypeScript, and Playwright browser caches are keyed to the Linux runner, Node 22, pnpm 10.33.0, and dependency/config files that affect the cached output.
+- Playwright always runs `pnpm exec playwright install chromium --with-deps` after restoring the browser cache so cached browser binaries cannot hide missing OS dependencies.
+- The Build and Playwright jobs do not cache `.cache/tsc`; those jobs must emit a fresh `dist/` tree for package output and the E2E web server.
+
+Artifacts:
+- On Playwright failure, download the `playwright-artifacts` artifact from the workflow run. It contains `test-results/` traces/screenshots/videos when produced and `playwright-report/` for the HTML report.
+- The artifact retention window is seven days. If no files were produced, artifact upload is allowed to continue without masking the original test failure.
 
 ## Escalation Notes
 

@@ -21,7 +21,13 @@ const ViewerShell: FunctionComponent<{ children: preact.ComponentChildren }> = (
 );
 
 export const DiffViewer: FunctionComponent<DiffViewerProps> = ({ diff, loading, error, isDark, sideBySide }) => {
-  if (loading) {
+  const loadingStatusId = "diff-viewer-refresh-status";
+  const errorStatusId = "diff-viewer-error-status";
+  const statusId = diff
+    ? [loading ? loadingStatusId : null, error ? errorStatusId : null].filter(Boolean).join(" ") || undefined
+    : undefined;
+
+  if (loading && !diff) {
     return (
       <ViewerShell>
         <span class="inline-flex items-center gap-2 text-balance break-words" role="status" aria-live="polite">
@@ -32,7 +38,7 @@ export const DiffViewer: FunctionComponent<DiffViewerProps> = ({ diff, loading, 
     );
   }
 
-  if (error) {
+  if (error && !diff) {
     return (
       <ViewerShell>
         <span class="inline-flex flex-col items-center gap-2 text-status-red text-balance break-words" role="alert">
@@ -50,7 +56,7 @@ export const DiffViewer: FunctionComponent<DiffViewerProps> = ({ diff, loading, 
   if (!diff) {
     return (
       <ViewerShell>
-        <span class="flex flex-col gap-2 items-center text-slate-500 text-balance break-words">
+        <span class="flex flex-col gap-2 items-center text-slate-500 text-balance break-words" role="status">
           <span class="font-medium text-slate-700 dark:text-slate-300">No change selected</span>
           <span>Select a changed file to see what changed versus the default branch.</span>
         </span>
@@ -73,7 +79,23 @@ export const DiffViewer: FunctionComponent<DiffViewerProps> = ({ diff, loading, 
   }
 
   return (
-    <div class="min-w-0 flex-1 h-full w-full">
+    <section
+      class={`relative min-w-0 flex-1 h-full w-full ${loading || error ? "ring-1 ring-inset ring-ember-500/20" : ""}`}
+      aria-label={`Diff for ${diff.path}`}
+      aria-busy={loading}
+      aria-describedby={statusId}
+    >
+      {loading && (
+        <div id={loadingStatusId} class="absolute right-3 top-3 z-10 inline-flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-full border border-signal-500/20 bg-white/92 px-3 py-1.5 text-[11px] font-semibold text-signal-700 shadow-sm backdrop-blur-md dark:bg-void-900/92 dark:text-signal-300" role="status" aria-live="polite">
+          <Loader2 class="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" strokeWidth={2} />
+          <span class="break-words">Refreshing diff. Showing cached comparison.</span>
+        </div>
+      )}
+      {error && (
+        <div id={errorStatusId} class="absolute left-3 right-3 top-3 z-10 rounded-xl border border-status-red/25 bg-white/94 px-3 py-2 text-xs text-status-red shadow-sm backdrop-blur-md dark:bg-void-900/94" role="alert">
+          Failed to refresh diff. Showing cached copy. {error}
+        </div>
+      )}
       <DiffEditor
         height="100%"
         theme={isDark ? MONACO_DARK_THEME : MONACO_LIGHT_THEME}
@@ -92,6 +114,7 @@ export const DiffViewer: FunctionComponent<DiffViewerProps> = ({ diff, loading, 
           readOnly: true,
           domReadOnly: true,
           renderSideBySide: sideBySide,
+          ariaLabel: `Diff for ${diff.path}`,
           fontSize: 13,
           fontFamily: "'JetBrains Mono', ui-monospace, monospace",
           smoothScrolling: true,
@@ -101,6 +124,6 @@ export const DiffViewer: FunctionComponent<DiffViewerProps> = ({ diff, loading, 
           scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
         }}
       />
-    </div>
+    </section>
   );
 };

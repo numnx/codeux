@@ -1,5 +1,5 @@
 import type { JulesActivity, JulesSession, Subtask } from "../../contracts/app-types.js";
-import type { TaskRunRecord, TaskDispatchStatus, TaskRunState } from "../../contracts/execution-types.js";
+import type { TaskRunRecord } from "../../contracts/execution-types.js";
 import type { SessionSyncDependencies } from "../sprint-types.js";
 import { buildTaskRunKey, extractTaskRunKeyFromTitle } from "../../services/task-run-key.js";
 import { planSessionActivityFetches } from "../../domain/sprint/session-sync/activity-fetch-plan.js";
@@ -15,8 +15,13 @@ import {
   isQuotaCooldownActive,
   isRetryAfterActive,
 } from "../../shared/providers/provider-error-classifier.js";
-
-
+import {
+  mapSessionStateToTaskRunState,
+  mapTaskRunStateToDispatchStatus,
+  mapTaskRunStateToPlanningStatus,
+  mergeDispatchStatus,
+  resolveDispatchErrorMessage,
+} from "../../domain/sprint/session-sync/session-state-mapping.js";
 
 const extractGitMetrics = (session: JulesSession): Record<string, unknown> | null => {
   const pullRequestOutput = Array.isArray(session.outputs)
@@ -39,29 +44,6 @@ const extractGitMetrics = (session: JulesSession): Record<string, unknown> | nul
   };
 };
 
-const mapSessionStateToTaskRunState = (
-  sessionState: string | undefined,
-  isActionRequiredState: SessionSyncDependencies["isActionRequiredState"],
-  actionRequiredReplyPending = false,
-): TaskRunState => {
-  if (sessionState === "COMPLETED") {
-    return "COMPLETED";
-  }
-  if (sessionState === "FAILED") {
-    return "FAILED";
-  }
-  if (sessionState === "QUOTA") {
-    return "QUOTA";
-  }
-  if (sessionState === "RATE_LIMITED") {
-    return "QUOTA";
-  }
-  if (isActionRequiredState(sessionState)) {
-    return actionRequiredReplyPending ? "RUNNING" : "BLOCKED";
-  }
-  return "RUNNING";
-};
-
 const hasSubmittedReplyForActionRequiredState = (
   task: Subtask,
   sessionState: string | undefined,
@@ -74,64 +56,6 @@ const hasSubmittedReplyForActionRequiredState = (
     ...task,
     activities: activities ?? task.activities,
   });
-};
-
-const mapTaskRunStateToDispatchStatus = (state: TaskRunState): TaskDispatchStatus => {
-  switch (state) {
-    case "COMPLETED":
-      return "completed";
-    case "FAILED":
-      return "failed";
-    case "QUOTA":
-      return "quota";
-    case "BLOCKED":
-      return "blocked";
-    case "RUNNING":
-    case "PENDING":
-    default:
-      return "running";
-  }
-};
-
-const mapTaskRunStateToPlanningStatus = (state: TaskRunState): "pending" | "in_progress" | "coding_completed" => {
-  switch (state) {
-    case "COMPLETED":
-      return "coding_completed";
-    case "RUNNING":
-      return "in_progress";
-    case "FAILED":
-    case "BLOCKED":
-    case "PENDING":
-    default:
-      return "pending";
-  }
-};
-
-const mergeDispatchStatus = (
-  currentStatus: TaskDispatchStatus | null,
-  nextRunState: TaskRunState,
-): TaskDispatchStatus => {
-  if (currentStatus === "cancel_requested" && nextRunState === "RUNNING") {
-    return "cancel_requested";
-  }
-  return mapTaskRunStateToDispatchStatus(nextRunState);
-};
-
-const resolveDispatchErrorMessage = (
-  currentErrorMessage: string | null | undefined,
-  nextRunState: TaskRunState,
-  sessionState: string | undefined,
-): string | null => {
-  if (nextRunState === "FAILED") {
-    return `Provider session ${sessionState || "FAILED"}`;
-  }
-  if (nextRunState === "BLOCKED") {
-    return `Provider session requires attention: ${sessionState || "ACTION_REQUIRED"}`;
-  }
-  if (nextRunState === "QUOTA") {
-    return currentErrorMessage || `Provider session ${sessionState || "QUOTA"}`;
-  }
-  return null;
 };
 
 const getActivityPreview = (activity: JulesActivity): string => {
@@ -187,29 +111,143 @@ const buildProviderActivityEventPayload = (
   sessionCompleted: activity.sessionCompleted ?? null,
 });
 
+const normalizeSessionRef = (sessionRef: string | null | undefined): string | null => {
+  if (typeof sessionRef !== "string") {
+    return null;
+  }
+  const normalized = sessionRef.trim().replace(/^sessions\//, "");
+  return normalized.length > 0 ? normalized : null;
+};
+
+interface SessionSyncSessionMetadata {
+  sessionId: string | null;
+  sessionName: string | null;
+  latestTaskRunBySessionId: TaskRunRecord | null;
+  provider: string | null;
+  isLocallyTerminal: boolean;
+}
+
+interface SessionMetadataLookup {
+  getForSession: (session: JulesSession) => SessionSyncSessionMetadata;
+  getForSessionRef: (sessionRef: string) => SessionSyncSessionMetadata;
+}
+
+const createSessionMetadataLookup = (deps: SessionSyncDependencies): SessionMetadataLookup => {
+  const cache = new Map<string, SessionSyncSessionMetadata>();
+  const sessionObjectCache = new WeakMap<JulesSession, SessionSyncSessionMetadata>();
+
+  const readLocalTerminalState = (sessionName: string | null): boolean => {
+    return Boolean(
+      sessionName
+      && deps.executionRepository
+      && typeof deps.executionRepository.isSessionTerminal === "function"
+      && deps.executionRepository.isSessionTerminal(sessionName),
+    );
+  };
+
+  const cacheAliases = (metadata: SessionSyncSessionMetadata): SessionSyncSessionMetadata => {
+    for (const alias of [metadata.sessionId, metadata.sessionName]) {
+      const key = normalizeSessionRef(alias);
+      if (key) {
+        cache.set(key, metadata);
+      }
+    }
+    return metadata;
+  };
+
+  const resolveMetadata = (
+    sessionRef: string | null,
+    session?: JulesSession,
+  ): SessionSyncSessionMetadata => {
+    if (session) {
+      const cachedByObject = sessionObjectCache.get(session);
+      if (cachedByObject) {
+        return cachedByObject;
+      }
+    }
+
+    const sessionName = session ? deps.resolveSessionName(session) || null : null;
+    const sessionId = normalizeSessionRef(
+      (session ? deps.extractSessionId(session) : null)
+      || sessionRef
+      || sessionName,
+    );
+    const key = sessionId || normalizeSessionRef(sessionName) || normalizeSessionRef(sessionRef);
+
+    if (key) {
+      const cached = cache.get(key);
+      if (cached) {
+        const sessionProvider = typeof session?.provider === "string" && session.provider.trim().length > 0
+          ? session.provider
+          : null;
+        if (
+          (sessionName && cached.sessionName !== sessionName)
+          || (sessionProvider && cached.provider !== sessionProvider)
+        ) {
+          const updatedMetadata = cacheAliases({
+            ...cached,
+            sessionName: cached.sessionName || sessionName,
+            provider: sessionProvider || cached.provider,
+            isLocallyTerminal: cached.isLocallyTerminal || readLocalTerminalState(cached.sessionName || sessionName),
+          });
+          if (session) {
+            sessionObjectCache.set(session, updatedMetadata);
+          }
+          return updatedMetadata;
+        }
+        if (session) {
+          sessionObjectCache.set(session, cached);
+        }
+        return cached;
+      }
+    }
+
+    const latestTaskRunBySessionId = sessionId
+      && deps.executionRepository
+      && typeof deps.executionRepository.getLatestTaskRunBySessionId === "function"
+        ? deps.executionRepository.getLatestTaskRunBySessionId(sessionId)
+        : null;
+    const provider = typeof session?.provider === "string" && session.provider.trim().length > 0
+      ? session.provider
+      : latestTaskRunBySessionId?.provider || latestTaskRunBySessionId?.mode || null;
+    const resolvedSessionName = sessionName
+      || latestTaskRunBySessionId?.sessionName
+      || (sessionRef && sessionRef.startsWith("sessions/") ? sessionRef : null);
+    const isLocallyTerminal = readLocalTerminalState(resolvedSessionName);
+
+    const metadata = cacheAliases({
+      sessionId,
+      sessionName: resolvedSessionName,
+      latestTaskRunBySessionId,
+      provider,
+      isLocallyTerminal,
+    });
+    if (session) {
+      sessionObjectCache.set(session, metadata);
+    }
+    return metadata;
+  };
+
+  return {
+    getForSession: (session) => resolveMetadata(null, session),
+    getForSessionRef: (sessionRef) => resolveMetadata(sessionRef),
+  };
+};
+
 const isForeignSessionMatch = (
-  deps: SessionSyncDependencies,
+  sessionMetadataLookup: SessionMetadataLookup,
   task: Subtask,
   session: JulesSession,
 ): boolean => {
   if (
-    !deps.executionRepository
-    || typeof deps.executionRepository.getLatestTaskRunBySessionId !== "function"
-    || !task.record_id
+    !task.record_id
     || !task.project_id
     || !task.sprint_id
   ) {
     return false;
   }
 
-  const sessionId = deps.extractSessionId(session)
-    || deps.resolveSessionName(session)?.replace(/^sessions\//, "")
-    || null;
-  if (!sessionId) {
-    return false;
-  }
-
-  const existingRun = deps.executionRepository.getLatestTaskRunBySessionId(sessionId);
+  const existingRun = sessionMetadataLookup.getForSession(session).latestTaskRunBySessionId;
   if (!existingRun) {
     return false;
   }
@@ -220,14 +258,12 @@ const isForeignSessionMatch = (
 };
 
 const isRetiredSessionForPendingRetry = (
-  deps: SessionSyncDependencies,
+  sessionMetadataLookup: SessionMetadataLookup,
   task: Subtask,
   session: JulesSession,
 ): boolean => {
   if (
     String(task.status || "").toUpperCase() !== "PENDING"
-    || !deps.executionRepository
-    || typeof deps.executionRepository.getLatestTaskRunBySessionId !== "function"
     || !task.record_id
     || !task.project_id
     || !task.sprint_id
@@ -235,14 +271,7 @@ const isRetiredSessionForPendingRetry = (
     return false;
   }
 
-  const sessionId = deps.extractSessionId(session)
-    || deps.resolveSessionName(session)?.replace(/^sessions\//, "")
-    || null;
-  if (!sessionId) {
-    return false;
-  }
-
-  const existingRun = deps.executionRepository.getLatestTaskRunBySessionId(sessionId);
+  const existingRun = sessionMetadataLookup.getForSession(session).latestTaskRunBySessionId;
   return existingRun?.state === "FAILED"
     && existingRun.projectId === task.project_id
     && existingRun.sprintId === task.sprint_id
@@ -271,16 +300,17 @@ const resolvePrUrl = (session: JulesSession): string | null => {
 
 const resolveTaskSessionId = (task: Subtask): string | null => {
   if (typeof task.session_id === "string" && task.session_id.trim().length > 0) {
-    return task.session_id.replace(/^sessions\//, "");
+    return normalizeSessionRef(task.session_id);
   }
   if (typeof task.session_name === "string" && task.session_name.trim().length > 0) {
-    return task.session_name.replace(/^sessions\//, "");
+    return normalizeSessionRef(task.session_name);
   }
   return null;
 };
 
 const isJulesRecordedSession = (
   deps: SessionSyncDependencies,
+  sessionMetadataLookup: SessionMetadataLookup,
   task: Subtask,
   sessionId: string,
 ): boolean => {
@@ -292,11 +322,10 @@ const isJulesRecordedSession = (
     return false;
   }
 
-  const taskRun = typeof deps.executionRepository.getLatestTaskRunBySessionId === "function"
-    ? deps.executionRepository.getLatestTaskRunBySessionId(sessionId)
-    : deps.sprintRunId
+  const taskRun = sessionMetadataLookup.getForSessionRef(sessionId).latestTaskRunBySessionId
+    || (deps.sprintRunId
       ? deps.executionRepository.getLatestTaskRun(task.record_id, deps.sprintRunId)
-      : deps.executionRepository.getLatestTaskRun(task.record_id);
+      : deps.executionRepository.getLatestTaskRun(task.record_id));
   return taskRun?.provider === "jules" || taskRun?.mode === "jules";
 };
 
@@ -327,16 +356,18 @@ const recoverMissingRecordedSession = (
 
   const providerInvocation = deps.executionRepository.getLatestProviderInvocationUsageBySession(sessionId, "task_coding");
   if (providerInvocation?.status === "running") {
-    failStaleProviderInvocation(
-      deps.executionRepository,
-      providerInvocation,
-      deps.executionRepository.listExecutionInvocationsByProviderInvocationId(providerInvocation.id),
-      {
-        reconciledAt: now,
-        recoveryReason: "session_sync_missing_recorded_session",
-        systemMessage: message,
-      },
-    );
+    if (providerInvocation.provider === "jules") {
+      failStaleProviderInvocation(
+        deps.executionRepository,
+        providerInvocation,
+        deps.executionRepository.listExecutionInvocationsByProviderInvocationId(providerInvocation.id),
+        {
+          reconciledAt: now,
+          recoveryReason: "session_sync_missing_recorded_session",
+          systemMessage: message,
+        },
+      );
+    }
   }
 
   if (taskRun && taskRun.state !== "COMPLETED" && taskRun.state !== "FAILED") {
@@ -380,6 +411,7 @@ const recoverMissingRecordedSession = (
 
 const syncExecutionRunState = async (
   deps: SessionSyncDependencies,
+  sessionMetadataLookup: SessionMetadataLookup,
   task: Subtask,
   session: JulesSession,
   activities: JulesActivity[] | undefined,
@@ -390,9 +422,10 @@ const syncExecutionRunState = async (
 
   let taskRun = deps.executionRepository.getLatestTaskRun(task.record_id, deps.sprintRunId);
   if (!taskRun) {
-    const sessionId = deps.extractSessionId(session) || deps.resolveSessionName(session)?.replace(/^sessions\//, "") || null;
+    const sessionMetadata = sessionMetadataLookup.getForSession(session);
+    const sessionId = sessionMetadata.sessionId;
     const persistedTaskRun = sessionId
-      ? deps.executionRepository.getLatestTaskRunBySessionId(sessionId)
+      ? sessionMetadata.latestTaskRunBySessionId
       : deps.executionRepository.getLatestTaskRun(task.record_id);
 
     if (
@@ -408,7 +441,7 @@ const syncExecutionRunState = async (
       const usage = sessionId
         ? deps.executionRepository.getLatestProviderInvocationUsageBySession(sessionId, "task_coding")
         : null;
-      if (usage) {
+      if (usage && usage.provider === persistedTaskRun.provider) {
         deps.executionRepository.associateProviderInvocationRuntime(usage.id, {
           sprintRunId: deps.sprintRunId,
           dispatchId: taskRun.dispatchId,
@@ -448,7 +481,7 @@ const syncExecutionRunState = async (
 
   if (wasTerminal && wasDispatchTerminal && !sessionReactivated) {
     if (currentDispatch && taskRun.dispatchId) {
-      const expectedStatus = mapTaskRunStateToDispatchStatus(taskRun.state);
+      const expectedStatus = mapTaskRunStateToDispatchStatus(taskRun.state, session.state);
       const expectedErrorMessage = resolveDispatchErrorMessage(currentDispatch.errorMessage, taskRun.state, session.state);
       if (currentDispatch.status !== expectedStatus || currentDispatch.errorMessage !== expectedErrorMessage) {
         deps.executionRepository.updateTaskDispatch(taskRun.dispatchId, {
@@ -463,8 +496,9 @@ const syncExecutionRunState = async (
     return;
   }
 
-  const sessionName = deps.resolveSessionName(session) || taskRun.sessionName;
-  const sessionId = deps.extractSessionId(session) || taskRun.sessionId;
+  const sessionMetadata = sessionMetadataLookup.getForSession(session);
+  const sessionName = sessionMetadata.sessionName || taskRun.sessionName;
+  const sessionId = sessionMetadata.sessionId || taskRun.sessionId;
   const provider = session.provider || taskRun.provider;
   const workerBranch = resolveWorkerBranch(session) || taskRun.workerBranch;
   const prUrl = resolvePrUrl(session) || taskRun.prUrl;
@@ -490,14 +524,14 @@ const syncExecutionRunState = async (
 
   if (taskRun.dispatchId) {
     deps.executionRepository.updateTaskDispatch(taskRun.dispatchId, {
-      status: mergeDispatchStatus(currentDispatch?.status || null, nextRunState),
+      status: mergeDispatchStatus(currentDispatch?.status || null, nextRunState, session.state),
       startedAt: taskRun.startedAt || now,
       finishedAt: nextRunState === "RUNNING" ? null : (currentDispatch?.finishedAt || nextFinishedAt),
       lastHeartbeatAt: now,
       errorMessage: resolveDispatchErrorMessage(currentDispatch?.errorMessage, nextRunState, session.state),
     });
     if (nextRunState !== "RUNNING" && taskRun.sprintRunId) {
-      deps.executionRepository.finalizeSprintRunCancellationIfIdle(taskRun.sprintRunId);
+      deps.sprintRunLifecycleService?.finalizeCancellationIfIdle(taskRun.sprintRunId);
     }
   }
 
@@ -584,7 +618,8 @@ const syncExecutionRunState = async (
         });
       }
 
-      const existingUsage = deps.executionRepository.getLatestProviderInvocationUsageBySession(sessionId || sessionName || taskRun.id, "task_coding");
+      const latestUsage = deps.executionRepository.getLatestProviderInvocationUsageBySession(sessionId || sessionName || taskRun.id, "task_coding");
+      const existingUsage = latestUsage && latestUsage.provider === provider ? latestUsage : null;
 
       if (existingUsage && existingUsage.status !== (nextRunState === "COMPLETED" ? "completed" : "failed")) {
           deps.executionRepository.updateProviderInvocationUsage(existingUsage.id, {
@@ -628,6 +663,7 @@ export const runSessionSyncStep = async (
 ): Promise<{ subtasks: Subtask[]; sessions: JulesSession[] }> => {
   const sessionsResponse = await deps.listSessions();
   const sessions = sessionsResponse.sessions || [];
+  const sessionMetadataLookup = createSessionMetadataLookup(deps);
 
   sessions.sort((a, b) => {
     if (!a.createTime || !b.createTime) return 0;
@@ -650,14 +686,12 @@ export const runSessionSyncStep = async (
         continue;
       }
       const snapshotMatch = sessionMap.get(expectedRunKey);
-      const snapshotSessionId = snapshotMatch
-        ? (deps.extractSessionId(snapshotMatch) || deps.resolveSessionName(snapshotMatch)?.replace(/^sessions\//, "") || null)
-        : null;
+      const snapshotSessionId = snapshotMatch ? sessionMetadataLookup.getForSession(snapshotMatch).sessionId : null;
       const snapshotIsTerminal = snapshotMatch?.state === "COMPLETED" || snapshotMatch?.state === "FAILED";
       if (snapshotSessionId === sessionId && snapshotIsTerminal) {
         continue;
       }
-      if (!isJulesRecordedSession(deps, task, sessionId)) {
+      if (!isJulesRecordedSession(deps, sessionMetadataLookup, task, sessionId)) {
         continue;
       }
       try {
@@ -683,7 +717,7 @@ export const runSessionSyncStep = async (
   const isLocallyTerminal = (sessionName: string, task: Subtask) => {
     if (deps.executionRepository) {
       if (typeof deps.executionRepository.isSessionTerminal === "function") {
-        if (deps.executionRepository.isSessionTerminal(sessionName)) {
+        if (sessionMetadataLookup.getForSessionRef(sessionName).isLocallyTerminal) {
           return true;
         }
       } else if (task.record_id && deps.sprintRunId) {
@@ -700,8 +734,9 @@ export const runSessionSyncStep = async (
     subtasks,
     sessionMap,
     context,
-    deps,
-    isForeignSessionMatch,
+    sessionMetadataLookup,
+    deps.logger,
+    (task, session) => isForeignSessionMatch(sessionMetadataLookup, task, session),
     isLocallyTerminal
   );
 
@@ -710,7 +745,8 @@ export const runSessionSyncStep = async (
     5, // concurrency
     5, // pageSize
     deps.fetchRecentActivities,
-    deps.logger
+    deps.logger,
+    deps.activityFetchTimeoutMs,
   );
 
   for (const task of subtasks) {
@@ -720,29 +756,32 @@ export const runSessionSyncStep = async (
       continue;
     }
 
-    if (isForeignSessionMatch(deps, task, match)) {
+    if (isForeignSessionMatch(sessionMetadataLookup, task, match)) {
+      const sessionMetadata = sessionMetadataLookup.getForSession(match);
       deps.logger.warn("Skipping foreign provider session matched by task run key", {
         taskId: task.record_id || task.id,
         projectId: task.project_id,
         sprintId: task.sprint_id,
-        sessionId: deps.extractSessionId(match),
-        sessionName: deps.resolveSessionName(match),
+        sessionId: sessionMetadata.sessionId,
+        sessionName: sessionMetadata.sessionName,
       });
       continue;
     }
-    if (isRetiredSessionForPendingRetry(deps, task, match)) {
+    if (isRetiredSessionForPendingRetry(sessionMetadataLookup, task, match)) {
+      const sessionMetadata = sessionMetadataLookup.getForSession(match);
       deps.logger.warn("Skipping retired provider session for pending retry task", {
         taskId: task.record_id || task.id,
         projectId: task.project_id,
         sprintId: task.sprint_id,
-        sessionId: deps.extractSessionId(match),
-        sessionName: deps.resolveSessionName(match),
+        sessionId: sessionMetadata.sessionId,
+        sessionName: sessionMetadata.sessionName,
       });
       continue;
     }
 
-    const sessionName = deps.resolveSessionName(match);
-    const sessionId = deps.extractSessionId(match);
+    const sessionMetadata = sessionMetadataLookup.getForSession(match);
+    const sessionName = sessionMetadata.sessionName || undefined;
+    const sessionId = sessionMetadata.sessionId || undefined;
     task.session_name = sessionName;
     task.session_id = sessionId;
     task.session_state = match.state;
@@ -771,6 +810,7 @@ export const runSessionSyncStep = async (
 
     await syncExecutionRunState(
       deps,
+      sessionMetadataLookup,
       task,
       match,
       sessionName ? activitiesMap.get(sessionName) : undefined,
@@ -804,7 +844,7 @@ export const runSessionSyncStep = async (
       continue;
     }
 
-    if (match.state === "FAILED") {
+    if (match.state === "FAILED" || match.state === "CANCELLED") {
       if (retryFailed) {
         applyPendingTaskRuntimeReset(task, {
           preserveProvider: true,

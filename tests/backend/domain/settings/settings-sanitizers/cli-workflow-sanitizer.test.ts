@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sanitizeCliWorkflow } from "../../../../../src/domain/settings/settings-sanitizers/cli-workflow-sanitizer.js";
+import { DEFAULT_DASHBOARD_SETTINGS } from "../../../../../src/repositories/settings-defaults.js";
 
 describe("sanitizeCliWorkflow", () => {
   it("applies fallback execution mode", () => {
@@ -46,6 +47,7 @@ describe("sanitizeCliWorkflow", () => {
     expect(defaults.rateLimitRetryDelaySeconds).toBe(10);
     expect(defaults.maxRateLimitRetries).toBe(5);
     expect(defaults.containerMountGitConfig).toBe(false);
+    expect(defaults.containerInstallPlaywrightBrowsers).toBe(true);
     expect(defaults.containerGitUserName).toBe("Code UX");
     expect(defaults.containerGitUserEmail).toBe("agents@codeux.ai");
     expect(defaults.containerMountGithubAuth).toBe(false);
@@ -61,5 +63,58 @@ describe("sanitizeCliWorkflow", () => {
     });
     expect(clamped.rateLimitRetryDelaySeconds).toBe(1);
     expect(clamped.maxRateLimitRetries).toBe(1);
+  });
+
+  it("sanitizes the Playwright browser install toggle", () => {
+    const disabled = sanitizeCliWorkflow({
+      cliWorkflow: {
+        containerInstallPlaywrightBrowsers: false,
+      },
+    });
+    expect(disabled.containerInstallPlaywrightBrowsers).toBe(false);
+
+    const invalid = sanitizeCliWorkflow({
+      cliWorkflow: {
+        containerInstallPlaywrightBrowsers: "bad" as any,
+      },
+    });
+    expect(invalid.containerInstallPlaywrightBrowsers).toBe(true);
+  });
+
+  it("keeps default container setup behavior enabled for dashboard settings", () => {
+    expect(DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerSetupScriptPath).toBe("");
+    expect(DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerCacheSetupScriptImage).toBe(true);
+    expect(DEFAULT_DASHBOARD_SETTINGS.cliWorkflow.containerInstallPlaywrightBrowsers).toBe(true);
+
+    const defaults = sanitizeCliWorkflow(undefined);
+    expect(defaults.containerSetupScriptPath).toBe("");
+    expect(defaults.containerCacheSetupScriptImage).toBe(true);
+    expect(defaults.containerInstallPlaywrightBrowsers).toBe(true);
+  });
+
+  it("trims custom container setup script paths without requiring the file to exist", () => {
+    const relativePath = sanitizeCliWorkflow({
+      cliWorkflow: {
+        containerSetupScriptPath: "  scripts/missing-container-setup.sh  ",
+      },
+    });
+    expect(relativePath.containerSetupScriptPath).toBe("scripts/missing-container-setup.sh");
+
+    const absolutePath = sanitizeCliWorkflow({
+      cliWorkflow: {
+        containerSetupScriptPath: "  /tmp/code-ux/missing-container-setup.sh  ",
+      },
+    });
+    expect(absolutePath.containerSetupScriptPath).toBe("/tmp/code-ux/missing-container-setup.sh");
+  });
+
+  it("accepts an empty custom container setup script path", () => {
+    const result = sanitizeCliWorkflow({
+      cliWorkflow: {
+        containerSetupScriptPath: "   ",
+      },
+    });
+
+    expect(result.containerSetupScriptPath).toBe("");
   });
 });

@@ -74,6 +74,29 @@ The dashboard editor now initializes that config from the preset, exposes it thr
 
 Agent labels are still stored in the data model for markdown sync and built-in preset conventions, but the dashboard no longer exposes custom label editing. The Agents page displays computed route-assignment tags from effective project settings instead, including tags for built-in fallback selections on Planning agent, Worker, Project manager, and Quality assurance agent.
 
+Built-in Worker and Project manager presets seed `mcp_access_json` with `code_ux` enabled and the default `playwright` custom MCP server linked. Planning and QA presets do not receive that link by default. Existing agents with a user-edited MCP access payload keep their selections; only newly imported/generated defaults or previously unconfigured built-in Worker/Project manager records receive the seeded link.
+
+## Dashboard Interaction Contract
+
+Agent configuration surfaces expose state directly in the UI without changing the preset API contract or avatar schema:
+
+- Preset saves, creates, imports, deletes, sync operations, memory filter edits, MCP access changes, instruction file saves, and avatar edits use persistent status regions for pending, saved, failed, retry, disabled, and unsaved states.
+- Required preset fields and instruction file content validate on blur and submit. Submit attempts mark fields as touched, show helper or error copy, and focus the first invalid field.
+- Selected agents, instruction files, memory categories, MCP tools, and avatar parts include visible `Selected`, `Enabled`, `Disabled`, or equivalent labels so state is not communicated by color or avatar animation alone.
+- Selection movement uses the dashboard `selectionMovement` interaction token, while reduced-motion users still get static labels and badges.
+- Destructive or discard-style actions ask for confirmation and restore focus to the invoking control when the user cancels.
+
+## Avatar Rendering Performance
+
+Agent preset avatars have two rendering tiers:
+
+- `AgentAvatarSvg` is the lightweight static renderer for preset cards, reduced-motion users, and loading fallbacks.
+- `AgentAvatarScene` is the high-fidelity Three.js renderer for large avatar stages after they are visible.
+
+`LazyAgentAvatarScene` is the required boundary for dashboard surfaces that want the 3D avatar. It renders the SVG fallback until an `IntersectionObserver` reports the stage visible, and it keeps reduced-motion users on the static SVG path so ordinary Agents page interactions do not import or initialize the heavy scene. Surfaces that need immediate rendering can opt in explicitly with the wrapper's `eager` prop.
+
+The 3D scene owns WebGL lifecycle cleanup. On unmount, fallback transition, WebGL failure, or reduced-motion changes, it cancels animation frames, removes event listeners, disposes avatar geometries, materials, textures, particle resources, and the renderer, and forces context loss when supported.
+
 Provider and model preferences are intentionally nullable. They only take effect when a provider invocation route uses the `AGENT` strategy; otherwise the agent inherits the configured route, worker, or global defaults.
 
 At runtime, the CLI workflow now reads `AgentMemoryConfig` from the resolved worker agent and post-filters injected memories by configured tier, categories, strength thresholds, and max counts before composing the prompt. When the config is absent, the workflow keeps the default unrestricted memory injection path.

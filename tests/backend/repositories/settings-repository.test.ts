@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
@@ -31,6 +31,8 @@ describe("SettingsRepository", () => {
     expect(system.runtime.consoleLogLevel).toBe("info");
     expect(system.runtime.debugLogFileLevel).toBe("error");
     expect(system.runtime.consoleLogMode).toBe("standard");
+    expect(system.runtime.restartSprintPolicy).toBe("continue");
+    expect(system.runtime.restartInvocationPolicy).toBe("continue");
     expect(system.defaults.automationLevel).toBe("SEMI_AUTO");
     expect(system.defaults.aiProvider.provider).toBe("jules");
     expect(system.defaults.aiProvider.providers.codex.model).toBe("gpt-5.5");
@@ -46,8 +48,11 @@ describe("SettingsRepository", () => {
     expect(system.defaults.agents.qualityAssurance.maxSprintReviewRuns).toBe(3);
     expect(system.defaults.agents.qualityAssurance.exhaustionPolicy).toBe("FINISH_TASK");
     expect(system.defaults.agents.qualityAssurance.taskCompletion.enabled).toBe(true);
+    expect(system.defaults.agents.qualityAssurance.taskCompletion.agentPresetIds).toEqual([]);
     expect(system.defaults.agents.qualityAssurance.sprintCompletion.enabled).toBe(true);
+    expect(system.defaults.agents.qualityAssurance.sprintCompletion.agentPresetIds).toEqual([]);
     expect(system.defaults.agents.qualityAssurance.completedTaskWithoutPr.enabled).toBe(true);
+    expect(system.defaults.agents.qualityAssurance.completedTaskWithoutPr.agentPresetIds).toEqual([]);
     expect(system.defaults.agents.instructionTemplates.planningMissing).toContain("Sprint Planning Missing");
     expect(system.mcpTools.length).toBeGreaterThan(0);
 
@@ -71,6 +76,8 @@ describe("SettingsRepository", () => {
         consoleLogLevel: "debug",
         debugLogFileLevel: "warn",
         consoleLogMode: "full",
+        restartSprintPolicy: "pause",
+        restartInvocationPolicy: "restart",
       },
       integrations: {
         julesApiKey: "sys-jules",
@@ -164,10 +171,12 @@ describe("SettingsRepository", () => {
             },
             sprintCompletion: {
               enabled: true,
-              agentPresetId: "qa-sprint",
+              agentPresetIds: [" qa-sprint ", "qa-peer", "qa-sprint", ""],
+              agentPresetId: "qa-sprint-legacy-ignored",
             },
             completedTaskWithoutPr: {
               enabled: false,
+              agentPresetIds: [],
               agentPresetId: null,
             },
           },
@@ -210,15 +219,21 @@ describe("SettingsRepository", () => {
     expect(effectiveProject.settings.consoleLogLevel).toBe("debug");
     expect(effectiveProject.settings.debugLogFileLevel).toBe("warn");
     expect(effectiveProject.settings.consoleLogMode).toBe("full");
+    expect(effectiveProject.settings.restartSprintPolicy).toBe("pause");
+    expect(effectiveProject.settings.restartInvocationPolicy).toBe("restart");
     expect(effectiveProject.settings.aiProvider.providers.jules.apiKey).toBe("sys-jules");
     expect(effectiveProject.settings.git.githubToken).toBe("sys-gh");
     expect(effectiveProject.settings.automationLevel).toBe("ALWAYS_ASK");
     expect(effectiveProject.settings.git.defaultBranch).toBe("develop");
     expect(effectiveProject.settings.agents.qualityAssurance.enabled).toBe(true);
     expect(effectiveProject.settings.agents.qualityAssurance.maxTaskReviewRuns).toBe(3);
+    expect(effectiveProject.settings.agents.qualityAssurance.taskCompletion.agentPresetIds).toEqual(["qa-task"]);
     expect(effectiveProject.settings.agents.qualityAssurance.taskCompletion.agentPresetId).toBe("qa-task");
+    expect(effectiveProject.settings.agents.qualityAssurance.sprintCompletion.agentPresetIds).toEqual(["qa-sprint", "qa-peer"]);
     expect(effectiveProject.settings.agents.qualityAssurance.sprintCompletion.agentPresetId).toBe("qa-sprint");
     expect(effectiveProject.settings.agents.qualityAssurance.completedTaskWithoutPr.enabled).toBe(false);
+    expect(effectiveProject.settings.agents.qualityAssurance.completedTaskWithoutPr.agentPresetIds).toEqual([]);
+    expect(effectiveProject.settings.agents.qualityAssurance.completedTaskWithoutPr.agentPresetId).toBe(null);
     expect(effectiveProject.sources["automationLevel"]).toBe("project");
     expect(effectiveProject.sources["git.defaultBranch"]).toBe("project");
 
@@ -452,6 +467,113 @@ describe("SettingsRepository", () => {
     expect(p2.settings.git.defaultBranch).toBe("test-branch");
     const p2Cached = resolver.resolveProjectDashboardSettings("project-2");
     expect(p2Cached).toBe(p2);
+  });
+
+  it("caches repeated project effective settings reads until project settings change", async () => {
+    const { repo } = await createRepo();
+    repo.saveProjectSettings("project-1", {
+      git: {
+        defaultBranch: "develop",
+      },
+    });
+
+    const projectLookup = vi.spyOn(repo, "getProjectSettings");
+    const first = repo.resolveProjectDashboardSettings("project-1");
+    const second = repo.resolveProjectDashboardSettings("project-1");
+
+    expect(second).toBe(first);
+    expect(projectLookup).toHaveBeenCalledTimes(1);
+    expect(second.settings.git.defaultBranch).toBe("develop");
+
+    repo.saveProjectSettings("project-1", {
+      git: {
+        defaultBranch: "release",
+      },
+    });
+
+    const afterMutation = repo.resolveProjectDashboardSettings("project-1");
+    expect(afterMutation).not.toBe(first);
+    expect(afterMutation.settings.git.defaultBranch).toBe("release");
+    expect(projectLookup).toHaveBeenCalledTimes(2);
+  });
+
+  it("invalidates cached effective settings when system defaults change", async () => {
+    const { repo } = await createRepo();
+    const system = repo.getSystemSettings();
+    repo.saveSystemSettings({
+      ...system,
+      defaults: {
+        ...system.defaults,
+        git: {
+          ...system.defaults.git,
+          defaultBranch: "develop",
+        },
+      },
+    });
+
+    const first = repo.resolveProjectDashboardSettings("project-1");
+    expect(first.settings.git.defaultBranch).toBe("develop");
+
+    const nextSystem = repo.getSystemSettings();
+    repo.saveSystemSettings({
+      ...nextSystem,
+      defaults: {
+        ...nextSystem.defaults,
+        git: {
+          ...nextSystem.defaults.git,
+          defaultBranch: "release",
+        },
+      },
+    });
+
+    const afterMutation = repo.resolveProjectDashboardSettings("project-1");
+    expect(afterMutation).not.toBe(first);
+    expect(afterMutation.settings.git.defaultBranch).toBe("release");
+  });
+
+  it("caches repeated sprint effective settings reads until sprint settings reset", async () => {
+    const { repo } = await createRepo();
+    repo.saveSprintSettings("sprint-1", repo.getProjectResolvedSettings("project-1"), {
+      sprintLoopSteps: {
+        watchLoop: false,
+      },
+    });
+
+    const projectLookup = vi.spyOn(repo, "getProjectSettings");
+    const sprintLookup = vi.spyOn(repo, "getSprintSettings");
+    const first = repo.resolveSprintDashboardSettings("project-1", "sprint-1");
+    const second = repo.resolveSprintDashboardSettings("project-1", "sprint-1");
+
+    expect(second).toBe(first);
+    expect(projectLookup).toHaveBeenCalledTimes(1);
+    expect(sprintLookup).toHaveBeenCalledTimes(1);
+    expect(second.settings.sprintLoopSteps.watchLoop).toBe(false);
+
+    repo.resetSprintSettings("sprint-1");
+
+    const afterReset = repo.resolveSprintDashboardSettings("project-1", "sprint-1");
+    expect(afterReset).not.toBe(first);
+    expect(afterReset.settings.sprintLoopSteps.watchLoop).toBe(true);
+    expect(projectLookup).toHaveBeenCalledTimes(2);
+    expect(sprintLookup).toHaveBeenCalledTimes(2);
+  });
+
+  it("invalidates scoped resolver caches after repository mutations", async () => {
+    const { repo } = await createRepo();
+    const resolver = repo.createScopedResolver();
+
+    const first = resolver.resolveProjectDashboardSettings("project-1");
+    expect(first.settings.git.defaultBranch).toBe("main");
+
+    repo.saveProjectSettings("project-1", {
+      git: {
+        defaultBranch: "develop",
+      },
+    });
+
+    const afterMutation = resolver.resolveProjectDashboardSettings("project-1");
+    expect(afterMutation).not.toBe(first);
+    expect(afterMutation.settings.git.defaultBranch).toBe("develop");
   });
 
   it("resolves default autoApprovePlan as true, and preserves explicit false", async () => {

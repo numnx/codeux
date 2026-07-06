@@ -51,6 +51,7 @@ describe("DockerRunner", () => {
     vi.mocked(fs.stat).mockResolvedValue({ uid: 1000, gid: 1000 } as any);
     vi.mocked(fs.access).mockRejectedValue(new Error("missing"));
     vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+    vi.mocked(fs.chmod).mockResolvedValue(undefined);
     vi.mocked(runCommandStrict).mockResolvedValue({ ok: true, stdout: "", stderr: "", code: 0, signal: null } as any);
     vi.mocked(runStreamingCommand).mockResolvedValue({
       ok: true,
@@ -83,7 +84,7 @@ describe("DockerRunner", () => {
       sessionId: "session-1",
     });
 
-    expect(createSnapshotWorkspace).toHaveBeenCalledWith("/repo/project", "session-1");
+    expect(createSnapshotWorkspace).toHaveBeenCalledWith("/repo/project", "session-1", undefined);
     expect(result.cwd).toBe("docker-volume://snapshot-1");
     await result.cleanup();
     expect(removeWorktree).toHaveBeenCalledWith("/repo/project", "docker-volume://snapshot-1");
@@ -103,13 +104,34 @@ describe("DockerRunner", () => {
       reuseExisting: true,
     });
 
-    expect(createOrReuseSnapshotWorkspace).toHaveBeenCalledWith("/repo/project", "chat-thread-1");
+    expect(createOrReuseSnapshotWorkspace).toHaveBeenCalledWith("/repo/project", "chat-thread-1", undefined);
     expect(result.cwd).toBe("docker-volume://qwen-session-1");
     await result.cleanup();
     expect(removeWorktree).not.toHaveBeenCalled();
   });
 
+  it("forwards snapshot checkout when preparing Docker workspaces", async () => {
+    const createOrReuseSnapshotWorkspace = vi.spyOn<any, any>(Object.getPrototypeOf((runner as any).workspaceManager), "createOrReuseSnapshotWorkspace")
+      .mockResolvedValue("docker-volume://default-branch");
+
+    await runner.ensureWorkspace({
+      cwd: "/repo/project",
+      repoPath: "/repo/project",
+      sessionId: "chat-thread-1",
+      snapshotCheckout: { branch: "develop" },
+      preserve: true,
+      reuseExisting: true,
+    });
+
+    expect(createOrReuseSnapshotWorkspace).toHaveBeenCalledWith(
+      "/repo/project",
+      "chat-thread-1",
+      { branch: "develop" },
+    );
+  });
+
   it("runs providers inside isolated Docker volumes", async () => {
+    const onSetupImageProgress = vi.fn();
     await runner.runProviderInDocker({
       command: "gemini",
       args: ["--yolo", "--p", "hello"],
@@ -125,6 +147,7 @@ describe("DockerRunner", () => {
       } as any,
       repoPath: "/repo/project",
       onActivity: vi.fn(),
+      onSetupImageProgress,
     });
 
     expect(runStreamingCommand).toHaveBeenCalledWith(
@@ -147,9 +170,16 @@ describe("DockerRunner", () => {
     expect(dockerArgs.some((arg) => arg.includes("type=volume") && arg.includes("source=workspace-1"))).toBe(true);
     expect(dockerArgs.some((arg) => arg.includes("type=volume") && arg.includes("source=workspace-1-runtime") && arg.includes("target=/code-ux-runtime-home"))).toBe(true);
     expect(dockerArgs).toContain("HOME=/code-ux-runtime-home");
+    expect(dockerArgs).toContain("--env-file");
+    expect(dockerArgs[dockerArgs.indexOf("--env-file") + 1]).toBe("/tmp/code-ux-docker-123/provider.env");
+    expect(dockerArgs).toContain("CODE_UX_INSTALL_PLAYWRIGHT=1");
     expect(dockerArgs).not.toContain("HOME=/workspace/.code-ux-home");
     const cacheInstance = vi.mocked(DockerSetupImageCache).mock.results[0]?.value as any;
-    expect(cacheInstance.resolveImage).toHaveBeenCalledWith(expect.objectContaining({ runtimeRoot: "/runtime-root" }));
+    expect(cacheInstance.resolveImage).toHaveBeenCalledWith(expect.objectContaining({
+      installPlaywrightBrowsers: true,
+      runtimeRoot: "/runtime-root",
+      onProgress: onSetupImageProgress,
+    }));
   });
 
   it("kills the backing container directly when an aborted run is cancelled", async () => {
@@ -191,6 +221,47 @@ describe("DockerRunner", () => {
     await runPromise;
   });
 
+  it("reclaims and retries a provider container when Docker reports a stale name conflict", async () => {
+    const conflict = [
+      "docker: Error response from daemon: Conflict.",
+      'The container name "/code-ux-qwen-code-session-1" is already in use by container "abc123".',
+    ].join(" ");
+    vi.mocked(runStreamingCommand)
+      .mockResolvedValueOnce({ ok: false, stdout: "", stderr: conflict, code: 125 } as any)
+      .mockResolvedValueOnce({ ok: true, stdout: "done", stderr: "", code: 0 } as any);
+    vi.spyOn(runner as any, "sleep").mockResolvedValue(undefined);
+    const onActivity = vi.fn();
+
+    const result = await runner.runProviderInDocker({
+      command: "qwen",
+      args: ["--prompt", "plan"],
+      cwd: "docker-volume://workspace-1",
+      providerEnv: {},
+      sessionId: "session-1",
+      providerLabel: "qwen-code",
+      workflowSettings: {
+        executionMode: "DOCKER",
+        containerImage: "node:24",
+        containerSetupScriptPath: "",
+        containerCacheSetupScriptImage: false,
+      } as any,
+      repoPath: "/repo/project",
+      onActivity,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(runStreamingCommand).toHaveBeenCalledTimes(2);
+    expect(runCommandStrict).toHaveBeenCalledWith(
+      "docker",
+      ["rm", "-f", "-v", "code-ux-qwen-code-session-1"],
+      process.cwd(),
+    );
+    expect(onActivity).toHaveBeenCalledWith(
+      "Retrying qwen-code after reclaiming stale Docker container code-ux-qwen-code-session-1.",
+      "provider",
+    );
+  });
+
   it("mounts provider argv from a file so long prompts do not enter the host docker command line", async () => {
     const longPrompt = `plan ${"x".repeat(64_000)} with 'quotes'`;
 
@@ -225,6 +296,34 @@ describe("DockerRunner", () => {
     expect(argvWrite?.[1]).toContain(`plan ${"x".repeat(1024)}`);
     expect(argvWrite?.[1]).toContain(" with ");
     expect(argvWrite?.[1]).toContain("'\"'\"'quotes'\"'\"'");
+  });
+
+  it("passes provider environment through an env-file so API keys do not enter docker argv", async () => {
+    await runner.runProviderInDocker({
+      command: "gemini",
+      args: ["--prompt", "plan"],
+      cwd: "docker-volume://workspace-1",
+      providerEnv: { GEMINI_API_KEY: "secret-key-value", GEMINI_MODEL: "gemini-2.5-pro" },
+      sessionId: "session-1",
+      providerLabel: "gemini",
+      workflowSettings: {
+        executionMode: "DOCKER",
+        containerImage: "node:24",
+        containerSetupScriptPath: "",
+        containerCacheSetupScriptImage: false,
+      } as any,
+      repoPath: "/repo/project",
+      onActivity: vi.fn(),
+    });
+
+    const dockerArgs = vi.mocked(runStreamingCommand).mock.calls[0]?.[1] as string[];
+    expect(dockerArgs).toContain("--env-file");
+    expect(dockerArgs.join(" ")).not.toContain("secret-key-value");
+    expect(dockerArgs.join(" ")).not.toContain("GEMINI_API_KEY=");
+
+    const envWrite = vi.mocked(fs.writeFile).mock.calls.find(([file]) => String(file).endsWith("provider.env"));
+    expect(envWrite?.[1]).toContain("GEMINI_API_KEY=secret-key-value");
+    expect(envWrite?.[2]).toEqual(expect.objectContaining({ mode: 0o600 }));
   });
 
   it("stages generated Gemini MCP config outside runtime home and copies it during bootstrap", async () => {

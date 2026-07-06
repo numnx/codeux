@@ -1,7 +1,9 @@
 /** @vitest-environment happy-dom */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/preact";
-import { useInteractionTokens, INTERACTION_TOKENS } from "../../motion/tokens.js";
+import { useInteractionTokens, INTERACTION_TOKENS, INTERACTION_CONTRACT_NAMES, INTERACTION_CSS_VARIABLES, buildInteractionTransition } from "../../motion/tokens.js";
 import { useGsapInteractionTokens, GSAP_INTERACTION_TOKENS } from "../../motion/constants.js";
 
 // Mock the hook to test both true and false states
@@ -26,6 +28,43 @@ vi.mock("../../../hooks/use-reduced-motion.js", async (importOriginal) => {
 describe("Interaction Tokens", () => {
   beforeEach(() => {
     mockUseReducedMotion.mockReset();
+  });
+
+  it("exports every named CSS and GSAP interaction contract", () => {
+    expect(INTERACTION_CONTRACT_NAMES).toEqual([
+      "controlFeedback",
+      "enterExit",
+      "expansionCollapse",
+      "selectionMovement",
+      "listReveal",
+      "listReorder",
+      "inlineValidation",
+      "asyncFeedback"
+    ]);
+
+    for (const contract of INTERACTION_CONTRACT_NAMES) {
+      expect(INTERACTION_TOKENS[contract].duration).toBeTruthy();
+      expect(INTERACTION_TOKENS[contract].ease).toBeTruthy();
+      expect(GSAP_INTERACTION_TOKENS[contract].duration).toBeTypeOf("number");
+      expect(GSAP_INTERACTION_TOKENS[contract].ease).toBeTruthy();
+      expect(INTERACTION_CSS_VARIABLES[contract].duration).toContain("var(--interaction-");
+    }
+  });
+
+  it("builds transition strings from CSS interaction variables", () => {
+    expect(buildInteractionTransition("controlFeedback", "opacity")).toBe("opacity var(--interaction-control-feedback-duration) var(--interaction-control-feedback-ease)");
+  });
+
+  it("maps explicit app reduced-motion settings to zero-duration tokens and static animation utilities", () => {
+    const tokensCss = readFileSync(resolve(process.cwd(), "dashboard/src/v2/styles/tokens.css"), "utf8");
+    const stylesCss = readFileSync(resolve(process.cwd(), "dashboard/src/styles.css"), "utf8");
+
+    expect(tokensCss).toMatch(/:root\[data-reduced-motion="true"\]/);
+    expect(tokensCss).toMatch(/:root\[data-reduced-motion="REDUCE"\]/);
+    expect(tokensCss).toMatch(/--interaction-async-feedback-duration: var\(--motion-slow\)/);
+    expect(stylesCss).toMatch(/:root\[data-reduced-motion="true"\][\s\S]*animation-duration: 0\.01ms !important/);
+    expect(stylesCss).toMatch(/:root\[data-reduced-motion="REDUCE"\][\s\S]*\.animate-spin/);
+    expect(stylesCss).toMatch(/\.live-duration-badge[\s\S]*var\(--status-static-running-ring\)/);
   });
 
   describe("useInteractionTokens", () => {

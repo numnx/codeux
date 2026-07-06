@@ -23,6 +23,10 @@ describe("SprintPreviewDockerPlanBuilder", () => {
       containerName: "preview-proj-1-sprint-1",
       hostPort: 4444,
       containerAppPort: 3000,
+      portMappings: [
+        { containerPort: 3000, hostPort: 4444, isPrimary: true },
+        { containerPort: 5173, hostPort: 4445 },
+      ],
       containerWorkspacePath: "/workspace",
       containerRuntimeHome: "/home",
       volumeName: "my-volume",
@@ -44,6 +48,7 @@ describe("SprintPreviewDockerPlanBuilder", () => {
     expect(args).toContain("preview-proj-1-sprint-1");
     expect(args).toContain("-p");
     expect(args).toContain("127.0.0.1:4444:39000");
+    expect(args).toContain("127.0.0.1:4445:5173");
     expect(args).toContain("--workdir");
     expect(args).toContain("/workspace");
     expect(args).toContain("--label");
@@ -52,10 +57,50 @@ describe("SprintPreviewDockerPlanBuilder", () => {
     expect(args).toContain("code-ux.sprint-id=sprint-1");
     expect(args).toContain("code-ux.session-id=session-1");
     expect(args).toContain("code-ux.host-port=4444");
+    expect(args).toContain("code-ux.port-mappings=3000:4444,5173:4445");
+    expect(args).toContain("PORT=3000");
+    expect(args).toContain("DASHBOARD_PORT=3000");
+    expect(args).toContain("SPRINT_PREVIEW_PORT=3000");
+    expect(args).toContain("SPRINT_PREVIEW_PRIMARY_CONTAINER_PORT=3000");
+    expect(args).toContain("SPRINT_PREVIEW_PRIMARY_HOST_PORT=4444");
+    expect(args).toContain("SPRINT_PREVIEW_CONTAINER_PORTS=3000,5173");
+    expect(args).toContain("SPRINT_PREVIEW_HOST_PORTS=4444,4445");
+    expect(args).toContain("SPRINT_PREVIEW_PORT_MAPPINGS=3000:4444,5173:4445");
     expect(args).toContain("--user");
     expect(args).toContain("1000:1000");
     expect(args).toContain("node:18");
     expect(args).toContain("preview-runner");
+  });
+
+  it("adds env-file by path without expanding secret variables into docker args", () => {
+    const args = buildSprintPreviewDockerCreateArgs({
+      projectId: "proj-1",
+      sprintId: "sprint-1",
+      sessionId: "session-1",
+      containerName: "preview-proj-1-sprint-1",
+      hostPort: 4444,
+      containerAppPort: 3000,
+      containerWorkspacePath: "/workspace",
+      containerRuntimeHome: "/home",
+      volumeName: "my-volume",
+      userSpec: null,
+      setupScriptSource: null,
+      shouldRunSetupScriptAtRuntime: false,
+      containerGitUserName: "test",
+      containerGitUserEmail: "test@example.com",
+      credentialMounts: [],
+      effectiveInstallCommand: null,
+      buildCommand: null,
+      runCommand: "npm start",
+      sourceCommit: null,
+      envFileSource: "/tmp/provider.env",
+      resolvedImage: "node:18",
+      bootstrapScript: "echo 'bootstrap'",
+    });
+
+    expect(args).toContain("--env-file");
+    expect(args[args.indexOf("--env-file") + 1]).toBe("/tmp/provider.env");
+    expect(args.some((arg) => arg.includes("GEMINI_API_KEY="))).toBe(false);
   });
 
   it("matches snapshot", () => {
@@ -66,6 +111,10 @@ describe("SprintPreviewDockerPlanBuilder", () => {
       containerName: "preview-proj-1-sprint-1",
       hostPort: 4444,
       containerAppPort: 3000,
+      portMappings: [
+        { containerPort: 3000, hostPort: 4444, isPrimary: true },
+        { containerPort: 5173, hostPort: 4445 },
+      ],
       containerWorkspacePath: "/workspace",
       containerRuntimeHome: "/home",
       volumeName: "my-volume",

@@ -12,7 +12,7 @@ describe("TaskExecutionMeta", () => {
   });
 
   it("renders all fields populated correctly", () => {
-    const { getByText, container } = render(
+    const { getByText, getByLabelText, container } = render(
       <TaskExecutionMeta
         time="2m 30s"
         executorType="jules"
@@ -28,10 +28,13 @@ describe("TaskExecutionMeta", () => {
     const chips = container.querySelectorAll(".flex.items-center.gap-1\\.5");
     expect(chips.length).toBe(3);
 
-    // Verify explicit accessible text
-    expect(getByText("Duration:")).toBeTruthy();
-    expect(getByText("Executor:")).toBeTruthy();
-    expect(getByText("Mode:")).toBeTruthy();
+    // Verify explicit accessible labels
+    expect(getByLabelText("Duration: 2m 30s")).toBeTruthy();
+    expect(getByLabelText("Executor: Jules")).toBeTruthy();
+    expect(getByLabelText("Mode: custom")).toBeTruthy();
+    expect(getByText("Runtime duration available: 2m 30s Executor Jules. Mode custom.")).toHaveClass("sr-only");
+    expect(container.firstChild as HTMLElement).toHaveAttribute("data-motion-control", "controlFeedback");
+    expect(container.firstChild as HTMLElement).toHaveAttribute("data-motion-selection", "selectionMovement");
   });
 
   it("renders gracefully with missing time", () => {
@@ -51,7 +54,7 @@ describe("TaskExecutionMeta", () => {
     const { getByText } = render(<TaskExecutionMeta />);
 
     expect(getByText("Not started")).toBeTruthy();
-    expect(getByText("Auto")).toBeTruthy();
+    expect(getByText("Auto")).toHaveClass("sr-only");
     expect(getByText("Standard")).toBeTruthy();
   });
 
@@ -60,6 +63,6 @@ describe("TaskExecutionMeta", () => {
 
     // The first div is the wrapper
     expect((container.firstChild as HTMLElement)?.className).toContain("my-custom-class");
-    expect((container.firstChild as HTMLElement)?.className).toContain("flex gap-2.5 items-center");
+    expect((container.firstChild as HTMLElement)?.className).toContain("flex flex-wrap gap-2.5 items-center");
   });
 });

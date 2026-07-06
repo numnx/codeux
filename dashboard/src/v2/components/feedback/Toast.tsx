@@ -1,9 +1,9 @@
 import { h, type FunctionComponent } from "preact";
-import { useEffect, useRef, useLayoutEffect } from "preact/hooks";
+import { useEffect, useRef, useLayoutEffect, useState } from "preact/hooks";
 import { AlertTriangle, CheckCircle, Info, XCircle, X } from "lucide-preact";
 import gsap from "gsap";
-import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
-import { GSAP_EASINGS, GSAP_DURATIONS } from "../../lib/motion/constants.js";
+import { useGsapInteractionTokens } from "../../lib/motion/constants.js";
+import { useInteractionTokens } from "../../lib/motion/tokens.js";
 
 export type ToastType = "success" | "error" | "warning" | "info";
 
@@ -17,7 +17,7 @@ export interface ToastProps {
   type: ToastType;
   message: string;
   action?: ToastAction;
-  retryAction?: () => void;
+  retryAction?: () => void | Promise<void>;
   retryLabel?: string;
   onDismiss: (id: string) => void;
   autoDismissMs?: number;
@@ -56,9 +56,19 @@ export const Toast: FunctionComponent<ToastProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const actionButtonRef = useRef<HTMLButtonElement>(null);
   const dismissButtonRef = useRef<HTMLButtonElement>(null);
-  const reducedMotion = useReducedMotion();
+  const retryButtonRef = useRef<HTMLButtonElement>(null);
+  const dismissingRef = useRef(false);
+  const retryPendingRef = useRef(false);
+  const retryStatusIdRef = useRef<string | null>(null);
+  if (retryStatusIdRef.current === null) {
+    retryStatusIdRef.current = `toast-retry-status-${Math.random().toString(36).slice(2)}`;
+  }
+  const [retryPending, setRetryPending] = useState(false);
+  const motionTokens = useGsapInteractionTokens();
+  const cssTokens = useInteractionTokens();
   const Icon = icons[type];
   const colorClass = colors[type];
+  const retryText = retryLabel || "Retry";
 
   useLayoutEffect(() => {
     if (!containerRef.current) return;
@@ -71,8 +81,8 @@ export const Toast: FunctionComponent<ToastProps> = ({
           y: 0,
           opacity: 1,
           scale: 1,
-          duration: reducedMotion ? 0 : 0.4,
-          ease: GSAP_EASINGS.smooth, // smooth easing curve
+          duration: motionTokens.asyncFeedback.duration,
+          ease: motionTokens.asyncFeedback.ease,
           onComplete: () => {
           }
         }
@@ -80,7 +90,7 @@ export const Toast: FunctionComponent<ToastProps> = ({
     });
 
     return () => ctx.revert();
-  }, [reducedMotion, type]);
+  }, [motionTokens.asyncFeedback.duration, motionTokens.asyncFeedback.ease, type]);
 
   useEffect(() => {
     if (autoDismissMs === 0 || type === "error") return; // errors may require manual dismissal or action
@@ -92,24 +102,56 @@ export const Toast: FunctionComponent<ToastProps> = ({
     return () => clearTimeout(timer);
   }, [autoDismissMs, type]);
 
-  const handleDismiss = () => {
-    if (document.activeElement === dismissButtonRef.current || document.activeElement === actionButtonRef.current) {
-      const fallback = document.body;
-      if (fallback !== document.body && fallback.tabIndex < 0) fallback.tabIndex = -1;
-      fallback.focus();
-      if (document.activeElement === dismissButtonRef.current || document.activeElement === actionButtonRef.current) {
-          (document.activeElement as HTMLElement).blur();
-      }
+  const moveFocusToFallback = () => {
+    const fallback = document.querySelector<HTMLElement>('[data-feedback-focus-fallback], [data-focus-fallback], [role="main"], main, #root') || document.body;
+    if (fallback.tabIndex < 0) fallback.tabIndex = -1;
+    fallback.focus();
+    if (
+      document.activeElement === dismissButtonRef.current ||
+      document.activeElement === actionButtonRef.current ||
+      document.activeElement === retryButtonRef.current
+    ) {
+      (document.activeElement as HTMLElement).blur();
     }
+  };
+
+  const handleDismiss = () => {
+    if (dismissingRef.current) return;
+    dismissingRef.current = true;
+    const previousActive = document.activeElement;
     if (!containerRef.current) return;
 
     gsap.to(containerRef.current, {
       x: '110%',
       opacity: 0,
-      duration: GSAP_DURATIONS.base,
-      ease: 'power2.in',
-      onComplete: () => onDismiss(id),
+      duration: motionTokens.enterExit.duration,
+      ease: motionTokens.enterExit.ease,
+      onComplete: () => {
+        onDismiss(id);
+        queueMicrotask(() => {
+          const activeWasRemoved = previousActive instanceof HTMLElement && !previousActive.isConnected;
+          const focusWasLost = document.activeElement === document.body || document.activeElement === null;
+          if (activeWasRemoved || focusWasLost) {
+            moveFocusToFallback();
+          }
+        });
+      },
     });
+  };
+
+  const handleRetry = async () => {
+    if (!retryAction || retryPending || retryPendingRef.current) {
+      return;
+    }
+
+    retryPendingRef.current = true;
+    setRetryPending(true);
+    try {
+      await retryAction();
+    } finally {
+      retryPendingRef.current = false;
+      setRetryPending(false);
+    }
   };
 
   useEffect(() => {
@@ -124,6 +166,8 @@ export const Toast: FunctionComponent<ToastProps> = ({
         containerRef.current = el;
         if (toastRef) toastRef(el);
       }}
+      data-toast-type={type}
+      data-motion-contract="asyncFeedback"
       className={`pointer-events-auto flex items-start gap-3 w-full max-w-sm p-4 rounded-2xl shadow-2xl border border-black/[0.08] dark:border-white/[0.08] backdrop-blur-md bg-white/95 dark:bg-void-900/95 ${colorClass} ${className}`}
     >
       <Icon aria-hidden="true" className="w-5 h-5 shrink-0 mt-0.5" />
@@ -134,15 +178,28 @@ export const Toast: FunctionComponent<ToastProps> = ({
         </p>
         {retryAction && (
           <button
+            ref={retryButtonRef}
             type="button"
             onClick={(e) => {
               e.preventDefault();
-              retryAction();
-              handleDismiss();
+              void handleRetry();
             }}
-            className="mt-2 text-xs font-bold uppercase tracking-wider underline hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current rounded mr-3"
+            disabled={retryPending}
+            aria-busy={retryPending ? "true" : undefined}
+            aria-label={retryText}
+            aria-describedby={retryPending ? retryStatusIdRef.current : undefined}
+            style={{ transitionDuration: cssTokens.controlFeedback.duration, transitionTimingFunction: cssTokens.controlFeedback.ease }}
+            className="mt-2 text-xs font-bold uppercase tracking-wider underline hover:opacity-80 transition-opacity motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current rounded mr-3 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {retryLabel || "Retry"}
+            {retryText}
+            <span
+              id={retryStatusIdRef.current}
+              role="status"
+              aria-live="polite"
+              className="sr-only"
+            >
+              {retryPending ? `${retryText} in progress.` : ""}
+            </span>
           </button>
         )}
         {action && (
@@ -154,7 +211,8 @@ export const Toast: FunctionComponent<ToastProps> = ({
               action.onClick();
               handleDismiss();
             }}
-            className="mt-2 text-xs font-bold uppercase tracking-wider underline hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current rounded"
+            style={{ transitionDuration: cssTokens.controlFeedback.duration, transitionTimingFunction: cssTokens.controlFeedback.ease }}
+            className="mt-2 text-xs font-bold uppercase tracking-wider underline hover:opacity-80 transition-opacity motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current rounded"
           >
             {action.label}
           </button>
@@ -167,7 +225,8 @@ export const Toast: FunctionComponent<ToastProps> = ({
           e.preventDefault();
           handleDismiss();
         }}
-        className="shrink-0 p-1 rounded-md opacity-70 hover:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
+        style={{ transitionDuration: cssTokens.controlFeedback.duration, transitionTimingFunction: cssTokens.controlFeedback.ease }}
+        className="shrink-0 p-1 rounded-md opacity-70 hover:opacity-100 transition-opacity motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
         aria-label="Dismiss toast"
       >
         <X className="w-4 h-4" />

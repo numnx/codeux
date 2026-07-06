@@ -2,12 +2,17 @@
 /** @jsx h */
 /** @jsxFrag Fragment */
 import { h, Fragment } from "preact";
-import { render, screen, fireEvent } from "@testing-library/preact";
+import { cleanup, render, screen, fireEvent } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
-import { expect, describe, it } from "vitest";
+import { afterEach, expect, describe, it } from "vitest";
 import { TelemetryLedgerTabs } from "../../../dashboard/src/v2/pages/stats/components/TelemetryLedgerTabs.js";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "../../../dashboard/src/v2/components/ui/Table.js";
 
 expect.extend(matchers);
+
+afterEach(() => {
+  cleanup();
+});
 
 const mockStats = {
   tasks: [
@@ -68,5 +73,55 @@ describe("TelemetryLedgerTabs", () => {
     expect(screen.queryByText("Task Ledger")).not.toBeInTheDocument();
     expect(screen.getByText("Sprint Ledger")).toBeInTheDocument();
     expect(screen.getAllByText("Sprint 1").length).toBeGreaterThan(0);
+  });
+
+  it("uses tab semantics and arrow keys to move through telemetry ledgers", () => {
+    render(<TelemetryLedgerTabs stats={mockStats} />);
+
+    const tablist = screen.getByRole("tablist", { name: "Telemetry ledgers" });
+    const taskTab = screen.getByRole("tab", { name: "Task Telemetry, 1 entry" });
+    const sprintTab = screen.getByRole("tab", { name: "Sprint Telemetry, 1 entry" });
+
+    expect(taskTab).toHaveAttribute("aria-selected", "true");
+    expect(sprintTab).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("tabpanel", { name: "Task Telemetry, 1 entry" })).toHaveAttribute("aria-labelledby", "tab-tasks");
+
+    taskTab.focus();
+    fireEvent.keyDown(tablist, { key: "ArrowRight" });
+
+    expect(sprintTab).toHaveFocus();
+    expect(sprintTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel", { name: "Sprint Telemetry, 1 entry" })).toHaveAttribute("aria-labelledby", "tab-sprints");
+
+    fireEvent.keyDown(tablist, { key: "Home" });
+    expect(taskTab).toHaveFocus();
+    expect(taskTab).toHaveAttribute("aria-selected", "true");
+  });
+});
+
+describe("Stats table accessibility", () => {
+  it("labels sortable headers and announces busy result counts", () => {
+    render(
+      <Table ariaLabel="Stats results" resultCount={2} resultLabel="records" busy>
+        <TableHeader>
+          <TableCell isHeader onSort={() => {}} sortLabel="Tokens" ariaSort="descending">Tokens</TableCell>
+          <TableCell isHeader onSort={() => {}} sortLabel="Latest">Latest</TableCell>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell mobileLabel="Tokens">200</TableCell>
+            <TableCell mobileLabel="Latest">Today</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    );
+
+    expect(screen.getByRole("table", { name: "Stats results" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("Updating results. 2 records shown.");
+    expect(screen.getByRole("columnheader", { name: /Tokens/ })).toHaveAttribute("aria-sort", "descending");
+    expect(screen.getByRole("button", { name: "Tokens, sorted descending" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Latest/ })).toHaveAttribute("aria-sort", "none");
+    expect(screen.getByRole("button", { name: "Latest, not sorted" })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /200 Today/ })).toHaveAttribute("data-reorder-motion", "listReorder");
   });
 });

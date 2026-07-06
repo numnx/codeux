@@ -2,7 +2,7 @@ import type { FunctionComponent, ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import type { SettingsPageState } from "../../../hooks/use-settings-page-state.js";
 import { NoticePanel } from "../SettingsSurface.js";
-import { NumberInput, Row, Toggle, TextInput, TextAreaInput } from "../SettingsFormFields.js";
+import { NumberInput, Row, SecretInput, Toggle, TextInput, TextAreaInput } from "../SettingsFormFields.js";
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
 import { BookOpen, Brain, CalendarClock, Gauge } from "lucide-preact";
 import { fetchMemoryRemediationSchedule, saveMemoryRemediationSchedule } from "../../../lib/scheduler-api.js";
@@ -191,7 +191,7 @@ import type { MemoryRemediationScheduleCadence } from "../../../types.js";
                     type="button"
                     onClick={() => void saveSchedule()}
                     disabled={scheduleLoading || scheduleSaving || !editableSettings.memory.enabled}
-                    className="rounded-lg bg-signal-500 px-3 py-2 text-sm font-black text-white shadow-sm transition hover:bg-signal-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg bg-signal-500 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-signal-600 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {scheduleSaving ? "Saving..." : "Save schedule"}
                   </button>
@@ -322,18 +322,18 @@ import type { MemoryRemediationScheduleCadence } from "../../../types.js";
                 />
               </Row>
               <Row label="Embedding API key" description="Bearer token for the external embedding provider." badge={getFieldBadge("memory.externalEmbedding.apiKey")} last>
-                <input
-                  type="password"
+                <SecretInput
                   value={editableSettings.memory.externalEmbedding.apiKey}
                   disabled={!editableSettings.memory.enabled}
-                  onInput={(event) => updateEditableSettings((current) => ({
+                  onChange={(value) => updateEditableSettings((current) => ({
                     ...current,
                     memory: {
                       ...current.memory,
-                      externalEmbedding: { ...current.memory.externalEmbedding, apiKey: (event.currentTarget as HTMLInputElement).value },
+                      externalEmbedding: { ...current.memory.externalEmbedding, apiKey: value },
                     },
                   }))}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-void-900 dark:text-slate-100"
+                  aria-label="Embedding API key"
+                  mono
                 />
               </Row>
             </>

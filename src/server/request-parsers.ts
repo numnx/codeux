@@ -97,6 +97,9 @@ export function parseCreateProjectInput(body: unknown): CreateProjectInput {
     initMode: parseEnum(input.initMode, ["existing", "new-local", "new-remote"], "initMode"),
     isPrivate: parseOptionalBoolean(input.isPrivate, "isPrivate"),
     remoteProvider: parseEnum(input.remoteProvider, ["github", "gitlab"], "remoteProvider"),
+    settingsOverrides: input.settingsOverrides && typeof input.settingsOverrides === "object"
+      ? input.settingsOverrides as CreateProjectInput["settingsOverrides"]
+      : undefined,
   };
 }
 
@@ -121,8 +124,7 @@ export function parseCreateSprintInput(body: unknown): CreateSprintInput {
   if (!body || typeof body !== "object") throw new Error("Invalid input: body must be an object");
   const input = body as Record<string, unknown>;
 
-  const name = typeof input.name === "string" ? input.name.trim() : "";
-  if (!name) throw new Error("Missing or empty required field: name");
+  const name = parseOptionalString(input.name) || undefined;
   const linkedIssues = input.linkedIssues as SprintLinkedIssueInput[] | undefined;
   const goal = parseOptionalString(input.goal);
 

@@ -1,9 +1,8 @@
-import type { ExecutionRepository } from "../repositories/execution-repository.js";
 import type { Logger } from "../shared/logging/logger.js";
-import { renewSprintRunHeartbeat } from "../domain/sprint/orchestrator/sprint-run-heartbeat.js";
+import type { SprintRunLifecycleService } from "./sprint-run-lifecycle-service.js";
 
 export interface HeartbeatServiceDependencies {
-  executionRepository: Pick<ExecutionRepository, "getSprintRun" | "renewLease" | "updateSprintRun">;
+  sprintRunLifecycleService: Pick<SprintRunLifecycleService, "renewHeartbeat">;
   logger: Logger;
   intervalMs?: number;
 }
@@ -23,7 +22,7 @@ export class HeartbeatService {
 
     const timer = setInterval(() => {
       try {
-        const renewed = renewSprintRunHeartbeat(this.deps.executionRepository, {
+        const renewed = this.deps.sprintRunLifecycleService.renewHeartbeat({
           sprintRunId,
           sprintId,
           leaseToken,
@@ -37,6 +36,9 @@ export class HeartbeatService {
           sprintRunId,
           error: err instanceof Error ? err.message : String(err),
         });
+        if (isLeaseOwnershipError(err)) {
+          this.stopHeartbeat(sprintRunId);
+        }
       }
     }, this.intervalMs);
 
@@ -44,7 +46,11 @@ export class HeartbeatService {
 
     // Do an immediate renewal on start
     try {
-      const renewed = renewSprintRunHeartbeat(this.deps.executionRepository, { sprintRunId, sprintId, leaseToken });
+      const renewed = this.deps.sprintRunLifecycleService.renewHeartbeat({
+        sprintRunId,
+        sprintId,
+        leaseToken,
+      });
       if (!renewed) {
         this.stopHeartbeat(sprintRunId);
       }
@@ -53,6 +59,9 @@ export class HeartbeatService {
         sprintRunId,
         error: err instanceof Error ? err.message : String(err),
       });
+      if (isLeaseOwnershipError(err)) {
+        this.stopHeartbeat(sprintRunId);
+      }
     }
   }
 
@@ -70,4 +79,9 @@ export class HeartbeatService {
     }
     this.activeRuns.clear();
   }
+}
+
+function isLeaseOwnershipError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /Lease token mismatch|Lease already held/.test(message);
 }

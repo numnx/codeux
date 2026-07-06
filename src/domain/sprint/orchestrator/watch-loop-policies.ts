@@ -1,5 +1,6 @@
 import type { MergeFeedbackResult } from "../ci/main-merge-gate.js";
 import type { Subtask, CiIntelligenceSettings } from "../../../contracts/app-types.js";
+import { partitionSubtasksByStatus } from "../task-transition-state.js";
 
 export type WatchLoopDecisionStatus = "wait" | "exit" | "continue";
 
@@ -46,14 +47,14 @@ export function decideMainMergeWaitOrPause(params: {
   // should cause the sprint to pause.
   const humanEscalatedItems = attentionItems.filter(isHumanEscalatedAttentionItem);
   const workerHandledItems = attentionItems.filter((item) => !isHumanEscalatedAttentionItem(item));
-  const hasWorkerHandlingConflict = workerHandledItems.length > 0;
+  const hasWorkerHandlingMainMergeBlocker = workerHandledItems.length > 0;
 
   // Pause only when a human must act: either an explicit escalation item exists, or
   // the merge state itself is blocked without any worker taking over (no attention item
   // was opened because the worker feature is disabled or not yet assigned).
   const shouldPauseForMainMergeBlocker =
     humanEscalatedItems.length > 0 ||
-    (!hasWorkerHandlingConflict && (
+    (!hasWorkerHandlingMainMergeBlocker && (
       mergeFeedback.state === "merge_conflict" ||
       mergeFeedback.state === "failed_checks" ||
       mergeFeedback.state === "review_blocked"
@@ -77,11 +78,11 @@ export function decideMainMergeWaitOrPause(params: {
     };
   }
 
-  // A worker is actively handling the conflict — keep the sprint alive and wait.
-  if (hasWorkerHandlingConflict) {
+  // A worker is actively handling the main-merge blocker — keep the sprint alive and wait.
+  if (hasWorkerHandlingMainMergeBlocker) {
     return {
       status: "wait",
-      reportModifier: "\n⏳ **Sprint Still Active:** A worker is resolving a main-branch merge conflict. Waiting for the worker to complete before finishing the sprint.\n",
+      reportModifier: "\n⏳ **Sprint Still Active:** A worker is resolving the main-branch merge blocker. Waiting for the worker to complete before finishing the sprint.\n",
     };
   }
 
@@ -90,6 +91,7 @@ export function decideMainMergeWaitOrPause(params: {
     (mergeFeedback.state === "missing_pr" ||
       mergeFeedback.state === "pending_checks" ||
       mergeFeedback.state === "ready_for_merge" ||
+      mergeFeedback.state === "automerge_succeeded" ||
       mergeFeedback.state === "automerge_scheduled" ||
       mergeFeedback.state === "automerge_failed");
 
@@ -101,22 +103,6 @@ export function decideMainMergeWaitOrPause(params: {
   }
 
   return null;
-}
-
-function partitionSubtasksByStatus(subtasks: Subtask[]) {
-  const tasksByStatus = new Map<string, Subtask[]>();
-  const statusCounts: Record<string, number> = {};
-  for (const task of subtasks) {
-    const status = task.status || "UNKNOWN";
-    let list = tasksByStatus.get(status);
-    if (!list) {
-      list = [];
-      tasksByStatus.set(status, list);
-    }
-    list.push(task);
-    statusCounts[status] = (statusCounts[status] || 0) + 1;
-  }
-  return { tasksByStatus, statusCounts };
 }
 
 export function decideTerminalCompletion(params: {

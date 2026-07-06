@@ -28,6 +28,7 @@ import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
 import { resolveCiEscalationOwner } from "../ci/feature-pr/ci-autofix-policy.js";
 import type { MemoryCategory, CreateMemoryInput } from "../../../contracts/memory-types.js";
 import { isTaskCodeComplete } from "../task-merge-state.js";
+import { evaluateSprintTransitionState } from "../task-transition-state.js";
 import pLimit from "p-limit";
 import { PROVIDER_IDS } from "../../../repositories/settings-defaults.js";
 import {
@@ -38,6 +39,7 @@ import {
   hasActiveCiFixAttentionAttempt,
   shouldEscalateFeatureMergeConflict,
   collectActiveHumanMergeConflictEscalationTaskIds,
+  collectActiveWorkerCiFixTaskIds,
   collectActiveWorkerMergeConflictTaskIds,
   snapshotTaskState,
   resolveCiStatusCacheTtlMs,
@@ -128,6 +130,7 @@ export class CycleRunner {
           isActionRequiredState: this.deps.isActionRequiredState,
           projectManagementRepository: this.deps.projectManagementRepository,
           executionRepository: this.deps.executionRepository,
+          sprintRunLifecycleService: this.deps.sprintRunLifecycleService,
           sprintRunId: args.sprintRunId,
           logger: this.deps.logger.child({ component: "session-sync-step", projectId: args.executionContext.project.id, sprintId: args.executionContext.sprint.id, sprintRunId: args.sprintRunId }),
           listAllActivities: this.deps.listAllActivities,
@@ -290,7 +293,9 @@ export class CycleRunner {
               ? "completed"
               : task.status === "CODING_COMPLETED"
                 ? "coding_completed"
-                : undefined,
+                : task.status === "RUNNING"
+                  ? "in_progress"
+                  : undefined,
           });
         },
         executionRepository: this.deps.executionRepository,
@@ -320,6 +325,7 @@ export class CycleRunner {
     }
 
     const activeWorkerMergeConflictTaskIds = collectActiveWorkerMergeConflictTaskIds(activeProjectAttentionItems);
+    const activeWorkerCiFixTaskIds = collectActiveWorkerCiFixTaskIds(activeProjectAttentionItems);
     const activeHumanMergeConflictEscalationTaskIds = collectActiveHumanMergeConflictEscalationTaskIds(activeProjectAttentionItems);
     const activeMergeConflictTaskIds = new Set([
       ...activeWorkerMergeConflictTaskIds,
@@ -353,7 +359,16 @@ export class CycleRunner {
       activeMergeConflictTaskIds,
       activeHumanMergeConflictEscalationTaskIds,
       this.mergeConflictDebouncer,
+      activeWorkerCiFixTaskIds,
     );
+    const transitionState = evaluateSprintTransitionState({
+      subtasks,
+      manualMergeTasks: protocolResult.manualMergeTasks,
+      workerEscalatedMergeConflictTasks: protocolResult.workerEscalatedMergeConflictTasks,
+      activeProjectAttentionItems,
+      sprintRunId: args.sprintRunId ?? "",
+      githubMode: args.githubMode,
+    });
 
     const statusTable = args.loopSteps.statusTable ? runStatusTableStep(subtasks) : "";
 
@@ -362,7 +377,7 @@ export class CycleRunner {
       reportText,
       statusTable,
       instructions: protocolResult.instructions,
-      awaitingMerge: protocolResult.awaitingMerge,
+      awaitingMerge: transitionState.mergeRequiredTasks,
       manualMergeTasks: protocolResult.manualMergeTasks,
       workerEscalatedMergeConflictTasks: protocolResult.workerEscalatedMergeConflictTasks,
     };
@@ -686,6 +701,7 @@ export class CycleRunner {
           `\nReviews used: ${qaGate.runsUsed}/${qaGate.maxRuns}. The task is held in QA_REVIEW_FAILED and will not be merged or marked complete until a human resolves it.`,
         ].filter(Boolean).join("\n"),
         payload: {
+          sourceAttentionType: "qa_review",
           taskKey: task.id,
           qaReason: qaGate.reason,
           runsUsed: qaGate.runsUsed,

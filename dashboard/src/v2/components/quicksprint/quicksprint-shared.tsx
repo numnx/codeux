@@ -1,7 +1,9 @@
 import type { FunctionComponent } from "preact";
-import { Sparkles, ShieldCheck, Accessibility, Zap, Bug, Code2, Database, FileSearch, FlaskConical, GitBranch, Globe, Hammer, Heart, Layers, LayoutGrid, Lock, Microscope, Monitor, Paintbrush, RefreshCw, Search, Server, Shield, Terminal, TestTube2, Wrench, Settings2 } from "lucide-preact";
+import { Sparkles, ShieldCheck, Accessibility, Zap, Bug, Code2, Database, FileSearch, FlaskConical, GitBranch, Globe, Hammer, Heart, Layers, LayoutGrid, Lock, Microscope, Monitor, Paintbrush, RefreshCw, Search, Server, Shield, Terminal, TestTube2, Wrench, Settings2, Trash2 } from "lucide-preact";
 import type { LucideProps } from "lucide-preact";
 import type { QuicksprintTemplateRecord } from "../../../../../src/contracts/quicksprint-types.js";
+import { buildInteractionTransition, useInteractionTokens } from "../../lib/motion/tokens.js";
+import { CHIP_CLASS, CONTROL_FOCUS_CLASS, PANEL_CLASS } from "../../pages/stats/components/stats-ui-primitives.js";
 
 export const SUBTASK_SLIDER_MIN = 1;
 export const SUBTASK_SLIDER_MAX = 30;
@@ -81,64 +83,112 @@ export const TemplateCard: FunctionComponent<{
   template: QuicksprintTemplateRecord;
   onSelect: () => void;
   onEdit?: () => void;
-}> = ({ template, onSelect, onEdit }) => {
+  onDelete?: (trigger: HTMLElement) => void;
+  selected?: boolean;
+}> = ({ template, onSelect, onEdit, onDelete, selected = false }) => {
   const Icon = IconMap[template.icon] || Zap;
   const tagColor = template.categoryColor || "slate";
-  const titleId = `quicksprint-template-${template.id}-title`;
+  const tagStyles = getTagStyles(tagColor);
+  const tagAccentStyle = tagStyles.style?.["--accent"]
+    ? { color: "var(--accent)", ...tagStyles.style }
+    : undefined;
+  const sourceDetail = template.isBuiltIn ? "Default Template" : "Custom Template";
   const descriptionId = `quicksprint-template-${template.id}-description`;
+  const metaId = `quicksprint-template-${template.id}-meta`;
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-labelledby={titleId}
-      aria-describedby={descriptionId}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect();
+    <article
+      aria-current={selected ? "true" : undefined}
+      data-selected={selected ? "true" : undefined}
+      className={`${PANEL_CLASS} group grid h-[19rem] cursor-pointer grid-rows-[auto_minmax(0,1fr)_auto] gap-5 !overflow-hidden !rounded-[1.45rem] !p-5 transition-[transform,background-color,border-color,box-shadow] duration-[var(--interaction-selection-movement-duration)] ease-[var(--interaction-selection-movement-ease)] before:absolute before:inset-x-5 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-[color:var(--stats-card-accent,var(--stats-accent-amber))] before:to-transparent before:opacity-30 hover:border-[color:var(--stats-border-strong)] hover:bg-[color:var(--stats-surface-panel-hover)] hover:shadow-[var(--stats-card-shadow-hover)] motion-reduce:transition-none motion-safe:hover:-translate-y-0.5 ${
+        selected
+          ? "!border-signal-500/45 !bg-signal-500/[0.08] shadow-[0_0_0_1px_rgba(0,224,160,0.16),var(--stats-card-shadow-hover)]"
+          : ""
+      }`}
+      onClick={(event) => {
+        if ((event.target as HTMLElement).closest("button")) {
+          return;
         }
+        onSelect();
       }}
-      className="group relative flex h-[16.25rem] min-w-0 cursor-pointer flex-col overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/70 p-5 text-left transition-all hover:border-ember-500/30 hover:shadow-[0_0_24px_rgba(255,107,0,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/[0.06] dark:bg-void-800/60 dark:focus-visible:ring-offset-void-800 dark:hover:border-ember-500/30"
     >
-      {!template.isBuiltIn && onEdit && (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onEdit(); }}
-          aria-label={`Edit ${template.name} template`}
-          className="absolute top-4 right-4 z-10 rounded-lg min-h-[44px] min-w-[44px] p-1.5 text-slate-300 opacity-0 transition-all group-hover:opacity-100 hover:bg-ember-500/10 hover:text-ember-500 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-slate-500 dark:focus-visible:ring-offset-void-800"
-          title="Edit template"
-        >
-          <Settings2 className="h-3.5 w-3.5" />
-        </button>
-      )}
-
-      <div className="mb-3 flex min-w-0 items-center gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ember-500/[0.08] text-ember-500 transition-colors group-hover:bg-ember-500/[0.14]">
-          <Icon className="h-4.5 w-4.5" />
+      <div className="relative z-10 flex min-w-0 items-start gap-3.5">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border border-[color:var(--stats-card-border)] bg-[color:var(--stats-accent-amber-fill)] text-[color:var(--stats-accent-amber)] shadow-[var(--stats-subpanel-shadow)] transition-colors group-hover:bg-[color:var(--stats-surface-control-active-strong)]">
+          <Icon className="h-5 w-5" strokeWidth={2.2} />
         </div>
-        <h3 id={titleId} className="line-clamp-2 min-w-0 flex-1 pr-6 text-sm font-bold leading-tight text-slate-900 dark:text-white">{template.name}</h3>
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--stats-label-color)]">
+            {sourceDetail}
+          </div>
+          <h3 className="mt-2 line-clamp-3 min-w-0 text-base font-semibold leading-[1.08] tracking-tight text-[color:var(--stats-value-color)]">
+            {template.name}
+          </h3>
+        </div>
       </div>
 
-      <p id={descriptionId} className="line-clamp-4 min-h-0 flex-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{template.description}</p>
+      <p id={descriptionId} className="relative z-10 line-clamp-4 min-w-0 text-[13px] leading-relaxed text-[color:var(--stats-detail-color)]">
+        {template.description}
+      </p>
 
-      <div className="mt-4 flex min-w-0 items-center justify-between gap-3">
-        <span
-          className={`inline-flex min-w-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${getTagStyles(tagColor).bg} ${getTagStyles(tagColor).text}`}
-          style={getTagStyles(tagColor).style?.["--accent"] ? { backgroundColor: "color-mix(in srgb, var(--accent) 15%, transparent)", color: "var(--accent)", ...getTagStyles(tagColor).style } : undefined}
-        >
+      <div className="relative z-10 grid gap-3 border-t border-[color:var(--stats-card-border)] pt-3.5">
+        <div id={metaId} className="flex min-w-0 flex-wrap items-center gap-2">
           <span
-            className={`block h-1.5 w-1.5 shrink-0 rounded-full ${getTagStyles(tagColor).dot}`}
-            style={getTagStyles(tagColor).style?.["--accent"] ? { backgroundColor: "var(--accent)", ...getTagStyles(tagColor).style } : undefined}
-          />
-          <span className="truncate">{template.category}</span>
-        </span>
-        <span className="shrink-0 text-[10px] font-medium text-slate-400">
-          {template.defaultTaskCount} subtask{template.defaultTaskCount !== 1 ? "s" : ""}
-        </span>
+            className={`inline-flex min-w-0 max-w-[13rem] items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase leading-tight tracking-[0.1em] ${CHIP_CLASS} ${tagStyles.text}`}
+            style={tagAccentStyle}
+            title={template.category}
+          >
+            <span
+              className={`block h-1.5 w-1.5 shrink-0 rounded-full ${tagStyles.dot}`}
+              style={tagStyles.style?.["--accent"] ? { backgroundColor: "var(--accent)", ...tagStyles.style } : undefined}
+            />
+            <span className="truncate">{template.category}</span>
+          </span>
+          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] ${CHIP_CLASS}`}>
+            {template.defaultTaskCount} subtask{template.defaultTaskCount !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            aria-label={template.name}
+            aria-describedby={`${descriptionId} ${metaId}`}
+            aria-pressed={selected ? "true" : undefined}
+            onClick={(event) => { event.stopPropagation(); onSelect(); }}
+            className={`inline-flex min-h-11 min-w-0 flex-1 items-center justify-between gap-3 rounded-[var(--stats-control-radius)] border border-[color:var(--stats-control-border-active)] bg-[color:var(--stats-surface-control-active)] px-3.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--stats-control-text-active)] shadow-[var(--stats-control-shadow)] transition-[background-color,border-color,box-shadow,color] hover:bg-[color:var(--stats-surface-control-active-strong)] hover:text-[color:var(--stats-control-text-active-strong)] ${CONTROL_FOCUS_CLASS}`}
+          >
+            <span className="min-w-0 truncate">Launch</span>
+            <span className="shrink-0 text-[color:var(--stats-detail-color)]">Enter</span>
+          </button>
+          {(onEdit || onDelete) && (
+            <div className="flex shrink-0 items-center gap-1 rounded-[var(--stats-control-radius)] border border-[color:var(--stats-card-border)] bg-[color:var(--stats-surface-chip)] p-1.5 shadow-[var(--stats-subpanel-shadow)]">
+              {!template.isBuiltIn && onEdit && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                  aria-label={`Edit ${template.name} template`}
+                  className={`inline-flex min-h-8 min-w-8 items-center justify-center rounded-[calc(var(--stats-control-radius)-0.25rem)] text-[color:var(--stats-detail-color)] transition-colors hover:bg-[color:var(--stats-surface-control-active)] hover:text-[color:var(--stats-control-text-active)] ${CONTROL_FOCUS_CLASS}`}
+                  title="Edit template"
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onDelete(e.currentTarget); }}
+                  aria-label={`Delete ${template.name} template`}
+                  className={`inline-flex min-h-8 min-w-8 items-center justify-center rounded-[calc(var(--stats-control-radius)-0.25rem)] text-[color:var(--stats-detail-color)] transition-colors hover:bg-[color:var(--stats-accent-rose-fill)] hover:text-[color:var(--stats-negative-text)] ${CONTROL_FOCUS_CLASS}`}
+                  title="Delete template"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </article>
   );
 };
 
@@ -152,9 +202,21 @@ export const SubtaskSlider: FunctionComponent<{
 }> = ({ value, onChange, disabled = false }) => {
   const displayValue = clampSubtaskSliderValue(value);
   const pct = ((displayValue - SUBTASK_SLIDER_MIN) / (SUBTASK_SLIDER_MAX - SUBTASK_SLIDER_MIN)) * 100;
+  const interactionTokens = useInteractionTokens();
+  const sliderMotionStyle = {
+    "--interaction-control-feedback-duration": interactionTokens.controlFeedback.duration,
+    "--interaction-control-feedback-ease": interactionTokens.controlFeedback.ease,
+    "--interaction-selection-movement-duration": interactionTokens.selectionMovement.duration,
+    "--interaction-selection-movement-ease": interactionTokens.selectionMovement.ease,
+    "--qs-slider-track-transition": buildInteractionTransition("selectionMovement", "width"),
+    "--qs-slider-track-color-transition": buildInteractionTransition("controlFeedback", "background-color"),
+    "--qs-slider-thumb-transition": buildInteractionTransition("selectionMovement", "left"),
+    "--qs-slider-notch-transition": buildInteractionTransition("controlFeedback", "background-color, height, width"),
+    "--qs-slider-feedback-transition": buildInteractionTransition("controlFeedback", "box-shadow, border-color, background-color, opacity, transform"),
+  } as import("preact").JSX.CSSProperties;
 
   return (
-    <div className={`select-none ${disabled ? "opacity-55" : ""}`}>
+    <div className={`select-none ${disabled ? "opacity-55" : ""}`} style={sliderMotionStyle}>
       {/* Large number display */}
       <div className="flex items-baseline gap-2 mb-6">
         <span className={`font-mono text-[3.5rem] font-black leading-none tracking-tighter tabular-nums ${
@@ -184,10 +246,10 @@ export const SubtaskSlider: FunctionComponent<{
           className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
         />
         {/* Background track */}
-        <div className="pointer-events-none absolute top-1/2 left-0 right-0 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.06]">
+        <div className="pointer-events-none absolute top-1/2 left-0 right-0 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-black/[0.06] [transition:var(--qs-slider-track-color-transition)] dark:bg-white/[0.06] motion-reduce:transition-none">
           {/* Fill */}
           <div
-            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-ember-500 to-ember-400 transition-[width] duration-75"
+            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-ember-500 to-ember-400 [transition:var(--qs-slider-track-transition)] motion-reduce:transition-none"
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -201,7 +263,7 @@ export const SubtaskSlider: FunctionComponent<{
             return (
               <div
                 key={n}
-                className={`rounded-full transition-all ${
+                className={`rounded-full [transition:var(--qs-slider-notch-transition)] motion-reduce:transition-none ${
                   isMajor ? "h-3 w-1" : "h-1.5 w-0.5"
                 } ${isActive ? "bg-ember-500/60" : "bg-black/[0.08] dark:bg-white/[0.08]"}`}
               />
@@ -211,14 +273,18 @@ export const SubtaskSlider: FunctionComponent<{
 
         {/* Thumb */}
         <div
-          className="pointer-events-none absolute top-1/2 -translate-y-1/2 -translate-x-1/2 transition-[left] duration-75"
+          className="pointer-events-none absolute top-1/2 -translate-y-1/2 -translate-x-1/2 [transition:var(--qs-slider-thumb-transition)] motion-reduce:transition-none"
           style={{ left: `${pct}%` }}
         >
           <div className="relative">
-            <div className={`h-6 w-6 rounded-full border-[3px] bg-white shadow-[0_0_12px_rgba(255,107,0,0.3)] dark:bg-void-800 ${
+            <div className={`h-6 w-6 rounded-full border-[3px] bg-white shadow-[0_0_12px_rgba(255,107,0,0.3)] [transition:var(--qs-slider-feedback-transition)] dark:bg-void-800 motion-reduce:transition-none ${
               disabled ? "border-slate-300 dark:border-slate-600" : "border-ember-500"
             }`} />
-            <div className="absolute -inset-2 rounded-full bg-ember-500/10 animate-pulse" style={{ animationDuration: "2s" }} />
+            <div
+              className={`absolute -inset-2 rounded-full bg-ember-500/10 [transition:var(--qs-slider-feedback-transition)] motion-reduce:transition-none ${
+                disabled ? "opacity-0" : "opacity-100"
+              }`}
+            />
           </div>
         </div>
       </div>

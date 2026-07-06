@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProviderTelemetryWatcher } from "../../../../../src/infrastructure/providers/cli/provider-telemetry-watcher.js";
 import { collectProviderUsageTelemetry } from "../../../../../src/infrastructure/providers/cli/provider-usage.js";
+import { runWithCorrelationId } from "../../../../../src/shared/logging/correlation-id.js";
 import * as fs from "fs/promises";
 
 vi.mock("../../../../../src/infrastructure/providers/cli/provider-usage.js", () => ({
@@ -10,11 +11,33 @@ vi.mock("../../../../../src/infrastructure/providers/cli/provider-usage.js", () 
 vi.mock("fs/promises", async () => {
   return {
     rm: vi.fn().mockResolvedValue(undefined),
+    stat: vi.fn().mockResolvedValue({ size: 0, mtimeMs: 0 }),
   };
 });
 
 describe("ProviderTelemetryWatcher", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(collectProviderUsageTelemetry).mockResolvedValue({
+      inputTokens: 1,
+      cachedInputTokens: 0,
+      outputTokens: 1,
+      reasoningOutputTokens: 0,
+      totalTokens: 2,
+      usageSource: "estimated",
+      rawUsageJson: null,
+      transcriptText: "ok",
+      nativeSessionId: "native-1",
+      conversation: [],
+    } as any);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("stops on abort and cleans up temp db path", async () => {
+    const controller = new AbortController();
     const opts = {
       provider: "antigravity" as const,
       model: "test-model",
@@ -22,6 +45,7 @@ describe("ProviderTelemetryWatcher", () => {
       cwd: "/cwd",
       startedMs: 123,
       workflowSettings: { executionMode: "HOST" as const },
+      signal: controller.signal,
       getAccumulatedRawStdout: () => "",
       getAccumulatedStderr: () => "",
       nativeSessionId: null,
@@ -41,9 +65,389 @@ describe("ProviderTelemetryWatcher", () => {
     // We mock temp db creation simulation
     (watcher as any).tempDbPath = "/tmp/agy-temp-watcher-native-1-uuid.db";
 
+    watcher.start();
+    controller.abort();
     await watcher.stop();
 
     expect(fs.rm).toHaveBeenCalledWith("/tmp/agy-temp-watcher-native-1-uuid.db", { force: true });
+    await watcher.stop();
+    expect(fs.rm).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips expensive reads when source metadata is unchanged after a successful emission", async () => {
+    const controller = new AbortController();
+    const opts = {
+      provider: "codex" as const,
+      model: "test-model",
+      prompt: "test",
+      cwd: "/cwd",
+      startedMs: 123,
+      workflowSettings: { executionMode: "HOST" as const },
+      signal: controller.signal,
+      getAccumulatedRawStdout: () => "",
+      getAccumulatedStderr: () => "",
+      nativeSessionId: "native-1",
+      sessionId: "sess-1",
+      antigravityLogPath: null,
+      readClaudeSessionJsonl: vi.fn(),
+      getCodexLatestSessionJsonMetadata: vi.fn().mockResolvedValue("rollout.jsonl:12:100"),
+      readCodexLatestSessionJson: vi.fn().mockResolvedValue("codex transcript"),
+      readQwenLogData: vi.fn(),
+      parseAntigravityConversationId: vi.fn(),
+      readAntigravityTranscript: vi.fn(),
+      resolveAntigravityDatabase: vi.fn(),
+      onTelemetry: vi.fn(),
+    };
+
+    const watcher = new ProviderTelemetryWatcher(opts as any);
+    watcher.start();
+
+    await new Promise(r => setTimeout(r, 1200));
+    await new Promise(r => setTimeout(r, 1700));
+
+    expect(opts.getCodexLatestSessionJsonMetadata).toHaveBeenCalledTimes(2);
+    expect(opts.readCodexLatestSessionJson).toHaveBeenCalledTimes(1);
+    expect(collectProviderUsageTelemetry).toHaveBeenCalledTimes(1);
+    expect(opts.onTelemetry).toHaveBeenCalledTimes(1);
+
+    controller.abort();
+    await watcher.stop();
+  });
+
+  it.each([
+    {
+      provider: "claude-code" as const,
+      metadataKey: "getClaudeSessionJsonlMetadata",
+      readKey: "readClaudeSessionJsonl",
+      metadata: "claude.jsonl:12:100",
+      readResult: "claude transcript",
+    },
+    {
+      provider: "qwen-code" as const,
+      metadataKey: "getQwenLogDataMetadata",
+      readKey: "readQwenLogData",
+      metadata: "qwen-log:12:100",
+      readResult: { usage: null, conversation: [] },
+    },
+  ])("skips expensive $provider reads when metadata is unchanged", async ({ provider, metadataKey, readKey, metadata, readResult }) => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const opts = {
+      provider,
+      model: "test-model",
+      prompt: "test",
+      cwd: "/cwd",
+      startedMs: 123,
+      workflowSettings: { executionMode: "HOST" as const },
+      signal: controller.signal,
+      getAccumulatedRawStdout: () => "",
+      getAccumulatedStderr: () => "",
+      nativeSessionId: "native-1",
+      sessionId: "sess-1",
+      antigravityLogPath: null,
+      getClaudeSessionJsonlMetadata: vi.fn().mockResolvedValue(metadata),
+      readClaudeSessionJsonl: vi.fn().mockResolvedValue(readResult),
+      getCodexLatestSessionJsonMetadata: vi.fn(),
+      readCodexLatestSessionJson: vi.fn(),
+      getQwenLogDataMetadata: vi.fn().mockResolvedValue(metadata),
+      readQwenLogData: vi.fn().mockResolvedValue(readResult),
+      parseAntigravityConversationId: vi.fn(),
+      readAntigravityTranscript: vi.fn(),
+      resolveAntigravityDatabase: vi.fn(),
+      onTelemetry: vi.fn(),
+    };
+
+    const watcher = new ProviderTelemetryWatcher(opts as any);
+    watcher.start();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1500);
+
+    expect(opts[metadataKey]).toHaveBeenCalledTimes(2);
+    expect(opts[readKey]).toHaveBeenCalledTimes(1);
+    expect(collectProviderUsageTelemetry).toHaveBeenCalledTimes(1);
+    expect(opts.onTelemetry).toHaveBeenCalledTimes(1);
+
+    controller.abort();
+    await watcher.stop();
+  });
+
+  it("runs expensive reads when provider metadata changes", async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const opts = {
+      provider: "codex" as const,
+      model: "test-model",
+      prompt: "test",
+      cwd: "/cwd",
+      startedMs: 123,
+      workflowSettings: { executionMode: "HOST" as const },
+      signal: controller.signal,
+      getAccumulatedRawStdout: () => "",
+      getAccumulatedStderr: () => "",
+      nativeSessionId: "native-1",
+      sessionId: "sess-1",
+      antigravityLogPath: null,
+      readClaudeSessionJsonl: vi.fn(),
+      getCodexLatestSessionJsonMetadata: vi.fn()
+        .mockResolvedValueOnce("rollout.jsonl:12:100")
+        .mockResolvedValueOnce("rollout.jsonl:24:200"),
+      readCodexLatestSessionJson: vi.fn()
+        .mockResolvedValueOnce("codex transcript")
+        .mockResolvedValueOnce("codex transcript updated"),
+      readQwenLogData: vi.fn(),
+      parseAntigravityConversationId: vi.fn(),
+      readAntigravityTranscript: vi.fn(),
+      resolveAntigravityDatabase: vi.fn(),
+      onTelemetry: vi.fn(),
+    };
+
+    const watcher = new ProviderTelemetryWatcher(opts as any);
+    watcher.start();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1500);
+
+    expect(opts.getCodexLatestSessionJsonMetadata).toHaveBeenCalledTimes(2);
+    expect(opts.readCodexLatestSessionJson).toHaveBeenCalledTimes(2);
+    expect(collectProviderUsageTelemetry).toHaveBeenCalledTimes(2);
+    expect(opts.onTelemetry).toHaveBeenCalledTimes(2);
+
+    controller.abort();
+    await watcher.stop();
+  });
+
+  it("logs successful telemetry polls with invocation metadata and active correlation id", async () => {
+    vi.useFakeTimers();
+    vi.mocked(collectProviderUsageTelemetry).mockResolvedValue({
+      inputTokens: 10,
+      cachedInputTokens: 2,
+      outputTokens: 4,
+      reasoningOutputTokens: 1,
+      totalTokens: 17,
+      usageSource: "reported",
+      rawUsageJson: { totals: "present" },
+      transcriptText: "final answer",
+      nativeSessionId: "native-1",
+      conversation: [
+        { kind: "tool_call", text: "", toolName: "read_file", toolCallId: "call-1", toolArguments: "{}" },
+        { kind: "assistant", text: "final answer" },
+      ],
+    } as any);
+    const controller = new AbortController();
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const opts = {
+      provider: "codex" as const,
+      model: "test-model",
+      prompt: "test",
+      cwd: "/cwd",
+      startedMs: 123,
+      workflowSettings: { executionMode: "HOST" as const },
+      signal: controller.signal,
+      logger,
+      invocationId: "exec-inv-1",
+      providerInvocationId: "provider-inv-1",
+      purpose: "task_coding",
+      getAccumulatedRawStdout: () => "",
+      getAccumulatedStderr: () => "",
+      nativeSessionId: "native-1",
+      sessionId: "sess-1",
+      antigravityLogPath: null,
+      readClaudeSessionJsonl: vi.fn(),
+      readCodexLatestSessionJson: vi.fn().mockResolvedValue("transcript with apiKey=super-secret"),
+      readQwenLogData: vi.fn(),
+      parseAntigravityConversationId: vi.fn(),
+      readAntigravityTranscript: vi.fn(),
+      resolveAntigravityDatabase: vi.fn(),
+      onTelemetry: vi.fn(),
+    };
+
+    const watcher = runWithCorrelationId("corr-telemetry-success", () => {
+      const created = new ProviderTelemetryWatcher(opts as any);
+      created.start();
+      return created;
+    });
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(logger.debug).toHaveBeenCalledWith("Provider telemetry watcher poll", expect.objectContaining({
+      logPurpose: "invocation",
+      eventType: "provider_telemetry_poll_succeeded",
+      provider: "codex",
+      purpose: "task_coding",
+      sessionId: "sess-1",
+      invocationId: "exec-inv-1",
+      providerInvocationId: "provider-inv-1",
+      nativeSessionId: "native-1",
+      correlationId: "corr-telemetry-success",
+      transcriptChars: "final answer".length,
+      conversationTurnCount: 2,
+      toolCallCount: 1,
+      totalTokens: 17,
+      hasRawUsageJson: true,
+    }));
+    expect(JSON.stringify(logger.debug.mock.calls)).not.toContain("super-secret");
+
+    controller.abort();
+    await watcher.stop();
+  });
+
+  it("logs partial telemetry polls when usage is estimated", async () => {
+    vi.useFakeTimers();
+    vi.mocked(collectProviderUsageTelemetry).mockResolvedValue({
+      inputTokens: 1,
+      cachedInputTokens: 0,
+      outputTokens: 1,
+      reasoningOutputTokens: 0,
+      totalTokens: 2,
+      usageSource: "estimated",
+      rawUsageJson: null,
+      transcriptText: "",
+      nativeSessionId: "native-1",
+      conversation: [],
+    } as any);
+    const controller = new AbortController();
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const opts = {
+      provider: "codex" as const,
+      model: "test-model",
+      prompt: "test",
+      cwd: "/cwd",
+      startedMs: 123,
+      workflowSettings: { executionMode: "HOST" as const },
+      signal: controller.signal,
+      logger,
+      invocationId: "exec-inv-1",
+      providerInvocationId: "provider-inv-1",
+      purpose: "task_coding",
+      getAccumulatedRawStdout: () => "",
+      getAccumulatedStderr: () => "",
+      nativeSessionId: "native-1",
+      sessionId: "sess-1",
+      antigravityLogPath: null,
+      readClaudeSessionJsonl: vi.fn(),
+      readCodexLatestSessionJson: vi.fn().mockResolvedValue(null),
+      readQwenLogData: vi.fn(),
+      parseAntigravityConversationId: vi.fn(),
+      readAntigravityTranscript: vi.fn(),
+      resolveAntigravityDatabase: vi.fn(),
+      onTelemetry: vi.fn(),
+    };
+
+    const watcher = new ProviderTelemetryWatcher(opts as any);
+    watcher.start();
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(logger.debug).toHaveBeenCalledWith("Provider telemetry watcher poll", expect.objectContaining({
+      eventType: "provider_telemetry_poll_partial",
+      provider: "codex",
+      usageSource: "estimated",
+      totalTokens: 2,
+    }));
+
+    controller.abort();
+    await watcher.stop();
+  });
+
+  it("logs no-new-data telemetry polls without rereading unchanged provider transcripts", async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const opts = {
+      provider: "codex" as const,
+      model: "test-model",
+      prompt: "test",
+      cwd: "/cwd",
+      startedMs: 123,
+      workflowSettings: { executionMode: "HOST" as const },
+      signal: controller.signal,
+      logger,
+      invocationId: "exec-inv-1",
+      providerInvocationId: "provider-inv-1",
+      purpose: "task_coding",
+      getAccumulatedRawStdout: () => "",
+      getAccumulatedStderr: () => "",
+      nativeSessionId: "native-1",
+      sessionId: "sess-1",
+      antigravityLogPath: null,
+      readClaudeSessionJsonl: vi.fn(),
+      getCodexLatestSessionJsonMetadata: vi.fn().mockResolvedValue("rollout.jsonl:12:100"),
+      readCodexLatestSessionJson: vi.fn().mockResolvedValue("codex transcript"),
+      readQwenLogData: vi.fn(),
+      parseAntigravityConversationId: vi.fn(),
+      readAntigravityTranscript: vi.fn(),
+      resolveAntigravityDatabase: vi.fn(),
+      onTelemetry: vi.fn(),
+    };
+
+    const watcher = new ProviderTelemetryWatcher(opts as any);
+    watcher.start();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1500);
+    await vi.advanceTimersByTimeAsync(1500);
+
+    expect(opts.readCodexLatestSessionJson).toHaveBeenCalledTimes(1);
+    expect(logger.debug).toHaveBeenCalledWith("Provider telemetry watcher poll", expect.objectContaining({
+      eventType: "provider_telemetry_poll_no_new_data",
+      provider: "codex",
+      purpose: "task_coding",
+      sessionId: "sess-1",
+      invocationId: "exec-inv-1",
+      providerInvocationId: "provider-inv-1",
+      nativeSessionId: "native-1",
+    }));
+
+    controller.abort();
+    await watcher.stop();
+  });
+
+  it("keeps skipping expensive Antigravity reads after resolving the native session id later", async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const opts = {
+      provider: "antigravity" as const,
+      model: "test-model",
+      prompt: "test",
+      cwd: "/cwd",
+      startedMs: 123,
+      workflowSettings: { executionMode: "HOST" as const },
+      signal: controller.signal,
+      getAccumulatedRawStdout: () => "",
+      getAccumulatedStderr: () => "",
+      nativeSessionId: null,
+      sessionId: "sess-1",
+      antigravityLogPath: "/log",
+      getAntigravityLogMetadata: vi.fn().mockResolvedValue("log:12:100"),
+      getAntigravityTranscriptMetadata: vi.fn().mockResolvedValue("transcript:20:101"),
+      getAntigravityDatabaseMetadata: vi.fn().mockResolvedValue("database:30:102"),
+      readClaudeSessionJsonl: vi.fn(),
+      readCodexLatestSessionJson: vi.fn(),
+      readQwenLogData: vi.fn(),
+      parseAntigravityConversationId: vi.fn().mockResolvedValue("native-1"),
+      readAntigravityTranscript: vi.fn().mockResolvedValue("antigravity transcript"),
+      resolveAntigravityDatabase: vi.fn().mockResolvedValue(true),
+      onTelemetry: vi.fn(),
+    };
+
+    const watcher = new ProviderTelemetryWatcher(opts as any);
+    watcher.start();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1500);
+
+    expect(opts.parseAntigravityConversationId).toHaveBeenCalledTimes(1);
+    expect(opts.getAntigravityLogMetadata).toHaveBeenCalledTimes(3);
+    expect(opts.getAntigravityTranscriptMetadata).toHaveBeenCalledTimes(2);
+    expect(opts.getAntigravityDatabaseMetadata).toHaveBeenCalledTimes(2);
+    expect(opts.readAntigravityTranscript).toHaveBeenCalledTimes(1);
+    expect(opts.resolveAntigravityDatabase).toHaveBeenCalledTimes(1);
+    expect(collectProviderUsageTelemetry).toHaveBeenCalledTimes(1);
+    expect(opts.onTelemetry).toHaveBeenCalledTimes(1);
+
+    controller.abort();
+    await watcher.stop();
   });
 
   it("does not reject when a polling read fails", async () => {
@@ -82,6 +486,106 @@ describe("ProviderTelemetryWatcher", () => {
     expect(callCount).toBeGreaterThan(0);
     expect(opts.onTelemetry).not.toHaveBeenCalled(); // due to mocked collector dependency or empty
     await watcher.stop();
+  });
+
+  it("logs repeated read failures with provider and session context without failing the watcher", async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const logger = { warn: vi.fn() };
+    const opts = {
+      provider: "codex" as const,
+      model: "test-model",
+      prompt: "test",
+      cwd: "/cwd",
+      startedMs: 123,
+      workflowSettings: { executionMode: "HOST" as const },
+      signal: controller.signal,
+      logger,
+      invocationId: "exec-inv-1",
+      providerInvocationId: "provider-inv-1",
+      purpose: "task_coding",
+      getAccumulatedRawStdout: () => "",
+      getAccumulatedStderr: () => "",
+      nativeSessionId: "native-1",
+      sessionId: "sess-1",
+      antigravityLogPath: null,
+      readClaudeSessionJsonl: vi.fn(),
+      readCodexLatestSessionJson: vi.fn().mockRejectedValue(new Error("File read error apiKey=super-secret")),
+      readQwenLogData: vi.fn(),
+      parseAntigravityConversationId: vi.fn(),
+      readAntigravityTranscript: vi.fn(),
+      resolveAntigravityDatabase: vi.fn(),
+      onTelemetry: vi.fn(),
+    };
+
+    const watcher = runWithCorrelationId("corr-telemetry-failure", () => {
+      const created = new ProviderTelemetryWatcher(opts as any);
+      created.start();
+      return created;
+    });
+
+    await vi.advanceTimersByTimeAsync(1000 + 9 * 1500);
+
+    expect(opts.readCodexLatestSessionJson).toHaveBeenCalledTimes(10);
+    expect(logger.warn).toHaveBeenCalledWith("Provider telemetry watcher read failed", expect.objectContaining({
+      provider: "codex",
+      purpose: "task_coding",
+      sessionId: "sess-1",
+      invocationId: "exec-inv-1",
+      providerInvocationId: "provider-inv-1",
+      nativeSessionId: "native-1",
+      correlationId: "corr-telemetry-failure",
+      failureCount: 2,
+      error: "File read error apiKey=[REDACTED]",
+    }));
+    expect(logger.warn.mock.calls.map((call) => call[1].failureCount)).toEqual([1, 2, 5, 10]);
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain("super-secret");
+    expect(opts.onTelemetry).not.toHaveBeenCalled();
+
+    controller.abort();
+    await watcher.stop();
+  });
+
+  it("cleans up an Antigravity watcher temp db path once after an aborted error path", async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const opts = {
+      provider: "antigravity" as const,
+      model: "test-model",
+      prompt: "test",
+      cwd: "/cwd",
+      startedMs: 123,
+      workflowSettings: { executionMode: "HOST" as const },
+      signal: controller.signal,
+      getAccumulatedRawStdout: () => "",
+      getAccumulatedStderr: () => "",
+      nativeSessionId: null,
+      sessionId: "sess-1",
+      antigravityLogPath: "/log",
+      getAntigravityLogMetadata: vi.fn().mockResolvedValue("log:12:100"),
+      getAntigravityTranscriptMetadata: vi.fn().mockResolvedValue("transcript:20:101"),
+      getAntigravityDatabaseMetadata: vi.fn().mockResolvedValue("database:30:102"),
+      readClaudeSessionJsonl: vi.fn(),
+      readCodexLatestSessionJson: vi.fn(),
+      readQwenLogData: vi.fn(),
+      parseAntigravityConversationId: vi.fn().mockResolvedValue("native-1"),
+      readAntigravityTranscript: vi.fn().mockResolvedValue("antigravity transcript"),
+      resolveAntigravityDatabase: vi.fn().mockRejectedValue(new Error("db unavailable")),
+      onTelemetry: vi.fn(),
+    };
+
+    const watcher = new ProviderTelemetryWatcher(opts as any);
+    watcher.start();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    controller.abort();
+    await watcher.stop();
+    await watcher.stop();
+
+    expect(opts.resolveAntigravityDatabase).toHaveBeenCalledTimes(1);
+    expect(fs.rm).toHaveBeenCalledTimes(1);
+    expect(fs.rm).toHaveBeenCalledWith(expect.stringMatching(/^\/tmp\/agy-temp-watcher-native-1-.+\.db$/), { force: true });
+    expect(opts.onTelemetry).not.toHaveBeenCalled();
   });
 
   it("forwards collected telemetry, including structured conversation turns, to the callback", async () => {

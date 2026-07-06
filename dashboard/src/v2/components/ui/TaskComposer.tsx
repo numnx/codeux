@@ -135,7 +135,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                 {state.isEditing ? "Edit Task" : "Task Composer"}
               </div>
               <div className="space-y-3">
-                <h2 className="font-display text-[2rem] font-black leading-none tracking-tight text-slate-900 dark:text-white sm:text-[2.35rem]">
+                <h2 className="font-display text-2xl font-semibold leading-none tracking-tight text-slate-900 dark:text-white sm:text-3xl">
                   {state.isEditing ? "Refine The Task." : "Create A New Task."}
                 </h2>
                 <p className="max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400 sm:text-[15px]">
@@ -171,9 +171,9 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
               </select>
             </FieldWrapper>
 
-            <div className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Status</div>
+            <fieldset className="rounded-[1.4rem] border border-black/[0.06] bg-black/[0.025] p-4 dark:border-white/[0.06] dark:bg-white/[0.03]">
+              <legend className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Status</legend>
+              <div className="mt-2 flex items-center gap-2 mb-2">
                 {(state.hasAttemptedSubmit || state.touchedFields.status) && state.statusError && (
                   <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">{state.statusError}</div>
                 )}
@@ -186,7 +186,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                     onClick={() => state.setStatus(option)}
                     className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.14em] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-900 ${
                       state.status === option
-                        ? "bg-signal-500 text-void-900 shadow-[0_2px_12px_rgba(0,224,160,0.3)]"
+                        ? "bg-signal-500 text-white dark:text-void-900 shadow-[0_2px_12px_rgba(0,224,160,0.3)]"
                         : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                     }`}
                   >
@@ -194,7 +194,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                   </button>
                 ))}
               </div>
-            </div>
+            </fieldset>
           </div>
 
           <div data-composer-stagger className="mt-8 block space-y-2">
@@ -206,7 +206,7 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                 onInput={(event) => state.setTitle((event.target as HTMLInputElement).value)}
                 onBlur={() => state.setFieldTouched('title')}
                 placeholder="Fix navigation layout shift"
-                className="w-full border-0 border-b-2 bg-transparent pb-3 font-display text-[1.65rem] font-black leading-none tracking-tight text-slate-900 outline-none transition-colors placeholder:text-slate-200 focus:border-signal-500 dark:text-white dark:placeholder:text-slate-700 sm:text-[1.9rem] border-black/[0.08] dark:border-white/[0.08]"
+                className="w-full border-0 border-b-2 bg-transparent pb-3 font-display text-xl font-semibold leading-none tracking-tight text-slate-900 outline-none transition-colors placeholder:text-slate-200 focus:border-signal-500 dark:text-white dark:placeholder:text-slate-700 sm:text-[1.9rem] border-black/[0.08] dark:border-white/[0.08]"
                 required
                 autoFocus
               />
@@ -285,13 +285,13 @@ export const TaskComposer: FunctionComponent<TaskComposerProps> = ({
                       }`}
                     >
                       <div className="min-w-0 flex-1 pr-2">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{task.id}</span>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider ${task.priority === 'critical' ? 'bg-red-500/10 text-red-500' : task.priority === 'high' ? 'bg-orange-500/10 text-orange-500' : 'bg-slate-500/10 text-slate-500'}`}>
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className="min-w-0 break-all text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{task.id}</span>
+                          <span className={`break-words text-[9px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider ${task.priority === 'critical' ? 'bg-red-500/10 text-red-500' : task.priority === 'high' ? 'bg-orange-500/10 text-orange-500' : 'bg-slate-500/10 text-slate-500'}`}>
                             {task.priority}
                           </span>
                         </div>
-                        <div className="text-sm font-semibold truncate leading-tight">{task.title}</div>
+                        <div className="text-sm font-semibold break-words leading-tight">{task.title}</div>
                       </div>
                       <span className={`w-4 h-4 rounded-full border ${active ? "border-ember-500 bg-ember-500" : "border-slate-300 dark:border-slate-600"}`} />
                     </button>

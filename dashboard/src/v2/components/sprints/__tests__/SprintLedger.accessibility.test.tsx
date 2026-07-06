@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/preact";
+import { cleanup, render, screen, waitFor } from "@testing-library/preact";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import * as matchers from "@testing-library/jest-dom/matchers";
@@ -24,11 +24,12 @@ const mockSprint: Sprint = {
   endDate: null,
   featureBranch: null,
   baseCommitSha: null,
-    latestReview: undefined,
+  latestReview: undefined,
   id: "sprint-1",
   number: 1,
   slug: "spr-1",
   name: "Frontend Onboarding",
+  isGeneratedName: false,
   status: "running",
   goal: "Onboard new developers",
   tasksCount: 10,
@@ -110,7 +111,8 @@ describe("SprintLedger Accessibility", () => {
     expect(menuBtn).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("announces sorting state via aria-sort and sort buttons", () => {
+  it("announces sorting state via aria-sort, sort buttons, and live text", async () => {
+    const user = userEvent.setup();
     render(
       <SprintLedger
         sprints={[mockSprint]}
@@ -135,16 +137,19 @@ describe("SprintLedger Accessibility", () => {
       />
     );
 
-    const createdBtns = screen.getAllByRole("button", { name: /Sort by Created, currently sorted/i });
+    const createdBtns = screen.getAllByRole("button", { name: /Sort by Created/i });
     const createdBtn = createdBtns[0];
     expect(createdBtn).toBeInTheDocument();
 
     const activeCell = createdBtn.closest("th");
     expect(activeCell).toHaveAttribute("aria-sort", "descending");
 
-    const nameBtns = screen.getAllByRole("button", { name: /Sort by Sprint, currently unsorted/i });
+    const nameBtns = screen.getAllByRole("button", { name: /Sort by Sprint/i });
     const inactiveCell = nameBtns[0].closest("th");
-    expect(inactiveCell).not.toHaveAttribute("aria-sort");
+    expect(inactiveCell).toHaveAttribute("aria-sort", "none");
+
+    await user.click(nameBtns[0]);
+    expect(inactiveCell).toHaveAttribute("aria-sort", "ascending");
   });
 
   it("provides explicit names for row controls including the sprint name", () => {
@@ -287,13 +292,128 @@ describe("SprintLedger Accessibility", () => {
     await vi.waitFor(() => expect(screen.getByText(/1 of 1 selected/i)).toBeInTheDocument());
 
     // Click bulk delete
-    const bulkDeleteBtns = screen.getAllByRole("button", { name: /^Delete selected sprints$/i });
+    const bulkDeleteBtns = screen.getAllByRole("button", { name: /Delete 1 selected sprints\. Permanent action\./i });
     const bulkDeleteBtn = bulkDeleteBtns[0];
     await user.click(bulkDeleteBtn);
 
     // Check for confirmation dialog
-    expect(await screen.findByText(/Delete Sprints\?/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Delete 1 Selected Sprint\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/You are deleting 1 selected sprint/i)).toBeInTheDocument();
     expect(screen.getByText(/This action is permanent and will cascade/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(bulkDeleteBtn).toHaveFocus());
+    expect(screen.getByText(/Bulk delete canceled\. Selected sprints were not deleted\./i)).toBeInTheDocument();
+  });
+
+  it("announces bulk action completion after pending state clears", async () => {
+    const user = userEvent.setup();
+    const onBulkStart = vi.fn();
+    const { rerender } = render(
+      <SprintLedger
+        sprints={[mockSprint]}
+        listWindow={10}
+        onListWindowChange={vi.fn()}
+        activeRunsBySprintId={new Map()}
+        pauseResumeRunsBySprintId={new Map()}
+        interventionBySprintId={new Map()}
+        pendingActionIds={new Set()}
+        onToggleShowcase={vi.fn()}
+        onSprintToggle={vi.fn()}
+        onSprintPauseResume={vi.fn()}
+        onBulkStart={onBulkStart}
+        onBulkDelete={vi.fn()}
+        onEditSprint={vi.fn()}
+        onExportSprint={vi.fn()}
+        onOverridesSprint={vi.fn()}
+        onMarkCompletedSprint={vi.fn()}
+        onDeleteSprint={vi.fn()}
+        onBulkShowcaseEnable={vi.fn()}
+        onBulkShowcaseDisable={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getAllByRole("button", { name: /Select sprint Frontend Onboarding/i })[0]);
+    await user.click(screen.getByRole("button", { name: /Start 1 selected sprints/i }));
+    expect(onBulkStart).toHaveBeenCalledWith(["sprint-1"]);
+
+    rerender(
+      <SprintLedger
+        sprints={[mockSprint]}
+        listWindow={10}
+        onListWindowChange={vi.fn()}
+        activeRunsBySprintId={new Map()}
+        pauseResumeRunsBySprintId={new Map()}
+        interventionBySprintId={new Map()}
+        pendingActionIds={new Set(["sprint-start:sprint-1"])}
+        onToggleShowcase={vi.fn()}
+        onSprintToggle={vi.fn()}
+        onSprintPauseResume={vi.fn()}
+        onBulkStart={onBulkStart}
+        onBulkDelete={vi.fn()}
+        onEditSprint={vi.fn()}
+        onExportSprint={vi.fn()}
+        onOverridesSprint={vi.fn()}
+        onMarkCompletedSprint={vi.fn()}
+        onDeleteSprint={vi.fn()}
+        onBulkShowcaseEnable={vi.fn()}
+        onBulkShowcaseDisable={vi.fn()}
+      />
+    );
+    expect(screen.getByRole("button", { name: /Starting 1 selected sprints/i })).toBeDisabled();
+
+    rerender(
+      <SprintLedger
+        sprints={[mockSprint]}
+        listWindow={10}
+        onListWindowChange={vi.fn()}
+        activeRunsBySprintId={new Map()}
+        pauseResumeRunsBySprintId={new Map()}
+        interventionBySprintId={new Map()}
+        pendingActionIds={new Set()}
+        onToggleShowcase={vi.fn()}
+        onSprintToggle={vi.fn()}
+        onSprintPauseResume={vi.fn()}
+        onBulkStart={onBulkStart}
+        onBulkDelete={vi.fn()}
+        onEditSprint={vi.fn()}
+        onExportSprint={vi.fn()}
+        onOverridesSprint={vi.fn()}
+        onMarkCompletedSprint={vi.fn()}
+        onDeleteSprint={vi.fn()}
+        onBulkShowcaseEnable={vi.fn()}
+        onBulkShowcaseDisable={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Start completed for 1 selected sprint\./i)).toBeInTheDocument();
+  });
+
+  it("surfaces mark-completed pending state on the target row", () => {
+    render(
+      <table>
+        <tbody>
+          <SprintLedgerRow
+            sprint={mockSprint}
+            isSelected={false}
+            isEven={false} activeRun={undefined} pauseResumeRun={undefined} humanIntervention={null} isAnyBulkPending={false}
+            pendingActionIds={new Set(["sprint-mark-completed:sprint-1"])}
+            onToggleRow={vi.fn()}
+            onToggleShowcase={vi.fn()}
+            onSprintToggle={vi.fn()}
+            onSprintPauseResume={vi.fn()}
+            onEdit={vi.fn()}
+            onExport={vi.fn()}
+            onOverrides={vi.fn()}
+            onMarkCompleted={vi.fn()}
+            onDelete={vi.fn()}
+          />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByText("Completion pending")).toBeInTheDocument();
+    expect(screen.getAllByRole("row")[0]).toHaveAttribute("aria-busy", "true");
   });
 
   it("reveals and collapses bulk actions based on selection count", () => {

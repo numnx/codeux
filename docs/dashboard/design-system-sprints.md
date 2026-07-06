@@ -13,8 +13,11 @@ This document outlines the design system for the Sprints page and related planni
 ### Sprints Page Header & Layout
 
 *   The header should establish the workspace context clearly.
-*   Gallery visibility controls should be easily accessible but not dominate the primary actions.
+*   Gallery visibility controls should be easily accessible but not dominate the primary actions. The gallery toggle belongs at the far left of the top header action row, before the sprint summary pills, while import/quicksprint/new commands sit in the lower command row on narrow screens.
 *   Empty states and placeholders must guide users toward the next logical step (e.g., selecting a project, creating a sprint) with a polished, on-brand visual treatment.
+*   Organic sprint gallery cells use the same shared ambient shadow underlay as dashboard project cells: `ORGANIC_CELL_SHADOW_CLASS` from `dashboard/src/v2/components/ui/organic-cell-styles.ts`. Keep the underlay animated with the same organic motion class as the cell body so the sprint and project gallery cells keep identical background depth.
+*   Organic sprint cell action rails may reveal on hover, but they must also reveal on `focus-within` and remain visible when reduced motion resolves animation timing to zero. Status, intervention, review, blocked, running, and completion cues need static text, borders, badges, or icons so motion is never the only signal.
+*   Sprint gallery start/stop controls use `controlFeedback` for hover/focus changes and `asyncFeedback` for pending loaders. Pending controls expose target-specific labels such as "Start sprint <name> is pending", set `aria-busy`, suppress duplicate clicks, and keep fixed icon/button slots while the loader replaces the icon.
 
 ### Sprint Ledger (Table/List)
 
@@ -23,26 +26,44 @@ This document outlines the design system for the Sprints page and related planni
 *   **Metadata Hierarchy:** Prioritize sprint names and status. Secondary metadata (dates, task counts) should be styled as supporting information (e.g., smaller text, muted colors).
 *   **Interactive Elements:** Row action menus and bulk actions should have clear active/hover states, unified menu padding, and consistent icon scaling.
 *   **Badges & Indicators:** Status badges, linked issue tags, and progress indicators should use consistent border radii, padding, and semantic color schemes.
+*   **Selection, Sorting, And Bulk Actions:** Row selection uses visible check controls plus polite live-region summaries for selected counts and specific select-all, deselect-all, filter-pruning, sort, bulk-start, bulk-completion, and destructive-confirmation outcomes. Select-all applies to the full filtered ledger result, not only the rendered window. Sort headers always expose explicit `aria-sort` values (`ascending`, `descending`, or `none`), keep stable column labels, and use fixed-size visible direction text/icons. Selected rows use `selectionMovement`; sort/filter/window changes use `listReorder`; the bulk action bar uses expansion/collapse motion and stays usable under reduced motion by retaining static selected-count and pending-action copy.
+*   **Pending Actions:** Bulk start, pin, unpin, and delete controls disable duplicate submissions, keep fixed label/icon slots while showing `aria-busy`, expose disabled reasons through visible status text/title, and keep row action triggers discoverable even when disabled by pending delete or row-level work. Row start/stop and pause/resume controls keep their action labels stable, add visible pending reason text, set `aria-busy` on the target button, and leave sprint status/progress badges visible while work is pending. Row mark-complete/delete/pin work uses row-level busy state plus static pending badges so reduced-motion users do not depend on spinner movement.
+*   **Focus And Confirmation:** Bulk delete opens the shared destructive `ConfirmDialog`, announces confirmed deletion or cancellation through the ledger live region, and restores focus after dialog teardown to the initiating delete control or the ledger fallback if the control is no longer available. Destructive cancellation copy must explicitly state that selected sprints were not deleted; confirmation copy must state that deletion has been confirmed and is in progress.
 
 ### Sprint Action State Management
 
 *   **Async Operations:** For dashboard v2 asynchronous sprint actions (like starting, pausing, toggling showcase, or completing sprints), use the shared `SprintPageActionRunner` to handle pending states, optimistic UI updates, and data refresh cycles, preventing duplicated async state management.
+*   **Delete Flow Ownership:** Sprint card and ledger action menus do not own their own destructive delete confirmation. The menu item closes the menu and delegates to the page-owned sprint delete dialog so the user sees one shared destructive confirm flow per delete action.
+*   **Interaction Contracts:** Sprint cards and ledger controls use `controlFeedback` for hover/focus/button transitions, `selectionMovement` for row and select-all selection changes, `listReorder` for sort/filter/window changes, `expansionCollapse` for bulk action bar disclosure, and `asyncFeedback` for pending loaders and busy-state transitions. Do not introduce one-off timing constants for these surfaces.
 
 ### Quicksprint Panel
 
 *   The panel should present templates clearly with a balanced layout.
-*   Large template catalogs must use horizontally scrollable template rails grouped by purpose or source. Rails should preserve a three-row card layout by default and continue horizontally for additional templates instead of expanding into unbounded vertical lists.
+*   Large template catalogs must use horizontally scrollable template rails grouped by purpose or source. Rails should preserve a two-row card layout by default and continue horizontally for additional templates instead of expanding into unbounded vertical lists.
 *   Template cards should use stable dimensions across hover, focus, selected, and loading states. Icon, title, description, tag, and metadata content must wrap or truncate within the card without resizing neighboring cards.
 *   Left and right rail controls should be icon buttons with accessible names, visible focus states, disabled states when no further scrolling is available, and hit targets appropriate for touch and pointer input.
-*   Rails must not clip cards, focus rings, or scroll controls on desktop, tablet, or mobile. Overflow should be owned by the rail, not the page, so the rest of the Sprints layout remains fixed to the viewport width.
+*   Rails must not clip cards, focus rings, or scroll controls on desktop, tablet, or mobile. Horizontal overflow should be owned by the rail, not the page, so the rest of the Sprints layout remains fixed to the viewport width. The Quicksprint panel must not introduce a nested vertical scroll trap; vertical wheel input over the panel or rail must scroll the surrounding page instead of being consumed by the horizontal rail or an internal panel scroller.
 *   Icons and template tags should adhere to the shared color palette and scale.
 *   Focus and hover states should align with the global interaction patterns.
+*   Phase movement between browse, configure, and editor states uses `enterExit`, `listReveal`, `selectionMovement`, and `controlFeedback`. Phase changes update a polite status region, configure headings receive focus with `preventScroll`, and selected/open states have static labels or borders when reduced motion resolves timing to zero.
 
 ### Sprint Composer
 
 *   Visual alignment with the rest of the sprints workspace.
 *   Consistent treatment for async feedback states, planning ETA indicators, and linked issue chips.
 *   The expanded task append flows should transition smoothly and maintain context.
+*   Planning, replan, append, and prompt-improvement requests use client request IDs and `ActionFeedbackRegion`. The composer form sets `aria-busy` while a request is active, disables duplicate controls, preserves current field values, and exposes a `PlanningProgressOverlay` with cancel and "New Sprint" recovery actions when available.
+*   Pending planning uses polite live-region feedback and `asyncFeedback`; blocking request failures use persistent assertive errors with retry actions; operator cancellation uses a non-auto-dismissing warning. On validation failure, custom validation runs because native validation is disabled, and focus moves to the first missing required field.
+*   Composer entry and field stagger use modal/list reveal timing and resolve to instant state changes under reduced motion. Reduced motion must not remove required progress, cancel, warning, or error copy.
+*   Quicksprint planning buttons expose `aria-busy` for the active request, describe disabled controls through the visible busy status, and keep the combined prompt expansion available through `aria-expanded`/`aria-controls`.
+
+### Task Cards And Active Streams
+
+*   Kanban task cards use `controlFeedback` for hover/focus/action controls and `listReorder` for card drag/reorder movement. Status and drag GSAP feedback stays in the task-card motion helper.
+*   Cards expose task ID, title, status, priority, dependency blockers, QA review state, session metadata, PR links, and live duration without hover-only disclosure. Status changes and live duration updates use polite announcements; exact text remains visible/static for reduced-motion users.
+*   Overview Active Streams task rows keep a compact operational density: duration is visible at rest, row actions use icon-only controls with accessible names and titles, and desktop controls reveal on hover or keyboard focus without expanding into labeled pills. Mobile layouts may keep the compact icon group visible to preserve touch access.
+*   Pointer drag is pointer-only. In reduced motion, draggable reordering is disabled and the card exposes static "drag disabled" copy instead of relying on movement.
+*   Destructive task deletion opens `ConfirmDialog` before invoking delete callbacks and restores focus through the shared confirmation flow.
 
 ### Action Menus & Import Surfaces
 
@@ -56,3 +77,13 @@ All asynchronous sprint actions (such as starting, pausing, toggling showcase st
 *   **Preventing Duplicate Submissions:** Automatically filters out actions that are already pending using `pendingActionIds`.
 *   **Optimistic UI:** Safely applies and reverts optimistic visual statuses.
 *   **Error Handling and Cleanup:** Centralizes `try/catch/finally` blocks, ensuring data grids refresh (via `refresh()` and `refreshExecution()`) before surfaces display errors via `setError`, keeping the system state perfectly aligned with backend truth.
+
+## Verification Notes
+
+For documentation-only updates, run `pnpm run lint` and confirm discoverability with:
+
+```bash
+rg "interaction|reduced motion|aria-busy|asyncFeedback" docs/dashboard docs/index.md docs/SUMMARY.md
+```
+
+For Sprints UI changes, the focused dashboard coverage currently includes `dashboard/src/v2/components/ui/__tests__/SprintComposer.test.tsx`, `dashboard/src/v2/components/sprints/__tests__/SprintLedger.accessibility.test.tsx`, and `dashboard/src/v2/components/tasks/__tests__/KanbanTaskCard.integration.test.tsx`. Run those directly with `pnpm exec vitest run <files>` when changing those components, because `pnpm run test:dashboard -- <files>` runs the full `tests/dashboard` tree first.

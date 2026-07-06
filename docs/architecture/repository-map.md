@@ -17,6 +17,10 @@ This map explains where major responsibilities live.
 
 ## Backend (`src/`)
 
+Source trees are intentionally kept free of editor and merge backup artifacts. Files ending in
+`.orig` are ignored under `src/` and `dashboard/src/`, and repository hygiene tests fail if those
+backup files appear there.
+
 - `index.ts`
   - Minimal bootstrap (`dotenv`, app config, server launch).
 - `config/`
@@ -42,9 +46,11 @@ This map explains where major responsibilities live.
   - Express routes for dashboard APIs and static assets.
 - `repositories/`
   - `execution-repository.ts`
-  - Delegates snapshot projection to `execution/project-execution-snapshot-query.ts` while keeping validation boundary.
+  - Delegates snapshot projection to `execution/project-execution-snapshot-query.ts` while keeping validation boundary. The snapshot query owns shared sprint-run/task ID deduplication before invoking bounded slice queries and usage/wall-time enrichment.
   - `execution/execution-invocations-query.ts`
-  - Focused query module separating invocation and message lists from write concerns.
+  - Focused query module separating invocation and message lists from write concerns. Its live snapshot slice merges bounded project-recent, selected-sprint, and expanded-run rows by invocation ID while preserving recency order.
+  - `execution/execution-runtime-events-query.ts`
+  - Focused runtime-event live snapshot slice that merges bounded project-recent, selected-sprint, and expanded-run event rows by event ID without changing the dashboard response contract.
   - `execution/execution-stats-types.ts`
   - Dedicated module for stats query types to decouple queries from the main execution repository.
   - `settings-repository.ts`

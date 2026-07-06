@@ -1,10 +1,7 @@
 import type { FunctionComponent } from "preact";
-import { useLayoutEffect, useRef, useState, useMemo } from "preact/hooks";
+import { useRef, useState, useMemo } from "preact/hooks";
 import gsap from "gsap";
 import { AlertCircle, Bot, Check, ChevronUp, Cloud, FolderOpen, GitBranch, FolderInput, Globe, Home, Info, Link2, Loader2, Lock, PlaySquare, Plus, RefreshCw, ShieldCheck, Sparkles, Workflow, X } from "lucide-preact";
-import { useFocusTrap } from "../../hooks/use-focus-trap.js";
-import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
-import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
 import { FormError } from "../forms/FormError.js";
 import { Modal } from "./Modal.js";
 import { ActionFeedbackRegion } from "./ActionFeedbackRegion.js";
@@ -60,15 +57,29 @@ type DirectoryPickerTarget = 'localPath' | 'cloneDir';
 
 const fieldLabelClass = "text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 group-focus-within/field:text-ember-600 dark:group-focus-within/field:text-ember-400 transition-colors";
 
-const projectNameInputClass = "mt-2.5 w-full rounded-[1.35rem] border border-black/[0.06] bg-black/[0.025] px-4 py-3.5 font-display text-[1.55rem] font-black leading-none tracking-tight text-slate-900 outline-none transition-all duration-250 placeholder:text-slate-200 focus:border-ember-500/45 focus:bg-white focus:shadow-[0_0_0_1px_rgba(255,184,0,0.18),0_14px_34px_rgba(255,184,0,0.12)] focus-visible:outline-none dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-white dark:placeholder:text-slate-700 dark:focus:border-ember-500/50 dark:focus:bg-white/[0.055] dark:focus:shadow-[0_0_0_1px_rgba(255,184,0,0.22),0_16px_38px_rgba(255,184,0,0.1)] aria-[invalid=true]:border-status-red/60 aria-[invalid=true]:shadow-[0_0_0_1px_rgba(211,47,47,0.14)]";
+const projectNameInputClass = "mt-2.5 w-full rounded-[1.35rem] border border-black/[0.06] bg-black/[0.025] px-4 py-3.5 font-display text-xl font-semibold leading-none tracking-tight text-slate-900 outline-none transition-all duration-250 placeholder:text-slate-200 focus:border-ember-500/45 focus:bg-white focus:shadow-[0_0_0_1px_rgba(255,184,0,0.18),0_14px_34px_rgba(255,184,0,0.12)] focus-visible:outline-none dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-white dark:placeholder:text-slate-700 dark:focus:border-ember-500/50 dark:focus:bg-white/[0.055] dark:focus:shadow-[0_0_0_1px_rgba(255,184,0,0.22),0_16px_38px_rgba(255,184,0,0.1)] aria-[invalid=true]:border-status-red/60 aria-[invalid=true]:shadow-[0_0_0_1px_rgba(211,47,47,0.14)]";
 
 const detailInputSurfaceClass = "w-full rounded-[1.15rem] border border-black/[0.06] bg-black/[0.025] px-4 py-3 text-sm font-mono font-semibold text-slate-700 outline-none transition-all duration-250 placeholder:text-slate-300 focus:border-ember-500/45 focus:bg-white focus:shadow-[0_0_0_1px_rgba(255,184,0,0.16),0_12px_28px_rgba(255,184,0,0.1)] focus-visible:outline-none dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-slate-300 dark:placeholder:text-slate-600 dark:focus:border-ember-500/50 dark:focus:bg-white/[0.055] aria-[invalid=true]:border-status-red/60 aria-[invalid=true]:shadow-[0_0_0_1px_rgba(211,47,47,0.14)]";
 const detailInputClass = `mt-2.5 ${detailInputSurfaceClass}`;
-const modalMinHeight = "min(640px, calc(100vh - 2rem))";
+const modalMinHeight = "min(640px, calc(100dvh - 2rem))";
+
+function focusFirstInvalidField(formId: string, scrollContainerId: string): void {
+    const firstInvalid = document.getElementById(formId)?.querySelector('[aria-invalid="true"]');
+    if (!(firstInvalid instanceof HTMLElement)) return;
+
+    firstInvalid.focus({ preventScroll: true });
+    const container = document.getElementById(scrollContainerId);
+    if (!container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const elementRect = firstInvalid.getBoundingClientRect();
+    const targetTop = elementRect.top - containerRect.top + container.scrollTop - 20;
+    const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    container.scrollTo({ top: Math.min(Math.max(targetTop, 0), maxTop), behavior: 'smooth' });
+}
 
 export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClose, onAdd, initialSourceType }) => {
-    const cardRef     = useRef<HTMLDivElement>(null);
-    const fieldsRef   = useRef<HTMLDivElement>(null);
+    const fieldsRef   = useRef<HTMLFormElement>(null);
 
     const [name, setName]           = useState('');
     const [gitUrlSlug, setGitUrlSlug] = useState('');
@@ -94,23 +105,22 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
     const [directoryPickerError, setDirectoryPickerError] = useState<string | null>(null);
     const [isDirectoryPickerLoading, setIsDirectoryPickerLoading] = useState(false);
 
-    const reducedMotion = useReducedMotion();
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isClosing, setIsClosing] = useState(false);
     const nameInputRef = useRef<HTMLInputElement>(null);
-    const [touched, setTouched] = useState({ name: false, path: false });
+    const [touched, setTouched] = useState({ name: false, path: false, slug: false });
 
     const validationErrors = useMemo(() => {
         const errors: Record<string, string> = {};
         if (!name.trim()) errors.name = "Project Name is required.";
 
-        if (sourceType === 'git') {
-            if (!gitUrl.trim()) {
-                errors.path = "Repository URL is required.";
-            }
+        if (sourceType === 'git' && !gitUrl.trim()) {
+            errors.path = "Repository URL is required.";
+        }
+        if (sourceType === 'new_project' && newInitMode === 'new-remote' && !gitUrlSlug.trim()) {
+            errors.slug = "Git URL Slug is required.";
         }
         return errors;
-    }, [name, gitUrl, sourceType]);
+    }, [gitUrl, gitUrlSlug, localPath, name, newInitMode, sourceType]);
 
 
     const handleClose = () => {
@@ -123,7 +133,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
     const submitProject = async () => {
         setIsSubmitting(true);
         setSubmitError(null);
-        setTouched(prev => ({ ...prev, path: true }));
+        setTouched(prev => ({ ...prev, path: true, slug: true }));
         try {
             if (sourceType === 'new_project') {
                 await Promise.resolve(onAdd({
@@ -166,22 +176,9 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
 
         e.preventDefault();
 
-        setTouched(prev => ({ ...prev, path: true }));
         if (Object.keys(validationErrors).length > 0) {
-            setTouched({ name: true, path: sourceType === 'new_project' ? newInitMode === 'new-local' : true });
-            setTimeout(() => {
-                const firstInvalid = document.getElementById('add-project-form')?.querySelector('[aria-invalid="true"]');
-                if (firstInvalid instanceof HTMLElement) {
-                    firstInvalid.focus({ preventScroll: true });
-                    const container = document.getElementById('add-project-form-body');
-                    if (container) {
-                        const containerRect = container.getBoundingClientRect();
-                        const elementRect = firstInvalid.getBoundingClientRect();
-                        const offset = elementRect.top - containerRect.top + container.scrollTop - 20;
-                        container.scrollTo({ top: offset, behavior: 'smooth' });
-                    }
-                }
-            }, 0);
+            setTouched({ name: true, path: sourceType === 'git', slug: sourceType === 'new_project' && newInitMode === 'new-remote' });
+            setTimeout(() => focusFirstInvalidField('add-project-form', 'add-project-form-body'), 0);
             return;
         }
 
@@ -391,7 +388,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                     </div>
                     <div className="relative z-10">
                         <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25 font-mono mb-1.5">Source</div>
-                        <div className="text-lg font-black text-white font-mono tracking-tight leading-snug">
+                        <div className="text-base font-semibold text-white font-mono tracking-tight leading-snug">
                             {sourceType === 'new_project' ? 'New Project' : sourceType === 'git' ? 'Git Repo' : 'Local Project'}
                         </div>
                         <div className="mt-3 w-8 h-[2px] bg-ember-500/50" />
@@ -403,7 +400,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                     {/* Header */}
                     <div className="flex items-start justify-between shrink-0 p-5 sm:p-7 lg:px-8 lg:pt-8 lg:pb-6 border-b border-black/[0.04] dark:border-white/[0.04]">
                         <div>
-                            <h2 id="add-project-modal-title" className="text-[2rem] font-black text-slate-900 dark:text-white tracking-tight font-display leading-none">
+                            <h2 id="add-project-modal-title" className="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight font-display leading-none">
                                 Add Project.
                             </h2>
                             <p className="text-xs font-medium text-slate-400 mt-2 tracking-wide">
@@ -425,7 +422,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
 
                     {/* Form */}
                     <div className="flex-1 overflow-y-auto p-5 sm:p-7 lg:px-8 lg:py-6" id="add-project-form-body">
-                        <form id="add-project-form" onSubmit={handleSubmit} className="flex flex-col flex-1 gap-5 lg:gap-6">
+                        <form ref={fieldsRef} id="add-project-form" onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 gap-5 lg:gap-6">
 
 
                             {submitError && (
@@ -453,8 +450,8 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                     placeholder="My Awesome Project"
                                     className={projectNameInputClass}
                                     autoComplete="off"
-                                    aria-invalid={!!validationErrors.name && touched.name}
-                                    aria-errormessage="project-name-error"
+                                    aria-invalid={validationErrors.name && touched.name ? "true" : undefined}
+                                    aria-errormessage={validationErrors.name && touched.name ? "project-name-error" : undefined}
                                     aria-describedby={validationErrors.name && touched.name ? "project-name-error" : undefined}
                                     aria-required="true"
                                     onBlur={() => setTouched(prev => ({ ...prev, name: true }))}
@@ -495,7 +492,8 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                             {sourceType === 'local' && (
                                 <div className="group/field">
                                     <label htmlFor="add-project-path" className={`${fieldLabelClass} flex items-center gap-1.5`}>
-                                        <FolderInput className="w-3 h-3" /> Directory Path <span className="sr-only">(required)</span>
+                                        <FolderInput className="w-3 h-3" /> Directory Path
+                                        <span className="ml-1 text-slate-300 dark:text-slate-600 normal-case font-medium tracking-normal">(optional)</span>
                                     </label>
                                     <div className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:items-stretch">
                                         <input
@@ -504,15 +502,15 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                             value={localPath}
                                             onInput={(e) => {
                                                 setLocalPath((e.target as HTMLInputElement).value);
+                                                setTouched(prev => ({ ...prev, path: true }));
                                                 if (submitError) setSubmitError(null);
                                             }}
                                             placeholder="/home/user/projects/my-project"
                                             className={`${detailInputSurfaceClass} min-w-0 flex-1`}
                                             autoComplete="off"
-                                            aria-invalid={!!validationErrors.path && touched.path}
-                                            aria-errormessage="project-path-error"
+                                            aria-invalid={validationErrors.path && touched.path ? "true" : undefined}
+                                            aria-errormessage={validationErrors.path && touched.path ? "project-path-error" : undefined}
                                             aria-describedby={validationErrors.path && touched.path ? "project-path-error" : undefined}
-                                            aria-required="true"
                                             onBlur={() => setTouched(prev => ({ ...prev, path: true }))}
                                         />
                                         <button
@@ -544,14 +542,15 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                             value={gitUrl}
                                             onInput={(e) => {
                                                 setGitUrl((e.target as HTMLInputElement).value);
+                                                setTouched(prev => ({ ...prev, path: true }));
                                                 if (submitError) setSubmitError(null);
                                             }}
                                             placeholder="https://github.com/user/repo.git"
                                             className={detailInputClass}
                                             required
                                             autoComplete="url"
-                                            aria-invalid={!!validationErrors.path && touched.path}
-                                            aria-errormessage="project-git-error"
+                                            aria-invalid={validationErrors.path && touched.path ? "true" : undefined}
+                                            aria-errormessage={validationErrors.path && touched.path ? "project-git-error" : undefined}
                                             aria-describedby={validationErrors.path && touched.path ? "project-git-error" : undefined}
                                             aria-required="true"
                                             onBlur={() => setTouched(prev => ({ ...prev, path: true }))}
@@ -611,7 +610,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                                 className="sr-only"
                                             />
                                             <span className="min-w-0">
-                                                <span className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white">
+                                                <span className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                                                     <Sparkles className="h-4 w-4 text-ember-500" />
                                                     Initialize with Project Setup Agent
                                                 </span>
@@ -629,7 +628,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                                     <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-ember-600 dark:text-ember-400">
                                                         Setup Scope
                                                     </div>
-                                                    <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">
+                                                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
                                                         Choose project assets
                                                     </div>
                                                 </div>
@@ -728,11 +727,13 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                                     value={localPath}
                                                     onInput={(e) => {
                                                         setLocalPath((e.target as HTMLInputElement).value);
+                                                        setTouched(prev => ({ ...prev, path: true }));
                                                         if (submitError) setSubmitError(null);
                                                     }}
                                                     placeholder="/home/user/projects/my-project"
                                                     className={`${detailInputSurfaceClass} min-w-0 flex-1`}
-                                                    aria-invalid={!!validationErrors.path && touched.path}
+                                                    aria-invalid={validationErrors.path && touched.path ? "true" : undefined}
+                                                    aria-errormessage={validationErrors.path && touched.path ? "project-new-path-error" : undefined}
                                                     aria-describedby={validationErrors.path && touched.path ? "project-new-path-error" : undefined}
                                                     onBlur={() => setTouched(prev => ({ ...prev, path: true }))}
                                                 />
@@ -749,7 +750,7 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                                 </button>
                                             </div>
                                             {renderDirectoryPicker('localPath')}
-                                            {validationErrors.path && touched.path && <div id="project-new-path-error" className="text-xs text-red-500 mt-1 font-medium">{validationErrors.path}</div>}
+                                            <FormError id="project-new-path-error" error={touched.path ? validationErrors.path : undefined} />
                                         </div>
                                     ) : (
                                         <>
@@ -764,12 +765,19 @@ export const AddProjectModal: FunctionComponent<AddProjectModalProps> = ({ onClo
                                                     onInput={(e) => {
                                                         setGitUrlSlug((e.target as HTMLInputElement).value);
                                                         setIsSlugEdited(true);
+                                                        setTouched(prev => ({ ...prev, slug: true }));
                                                         if (submitError) setSubmitError(null);
                                                     }}
                                                     placeholder="my-awesome-project"
                                                     className={detailInputClass}
-                                                    required
+                                                    autoComplete="off"
+                                                    aria-invalid={validationErrors.slug && touched.slug ? "true" : undefined}
+                                                    aria-errormessage={validationErrors.slug && touched.slug ? "project-git-slug-error" : undefined}
+                                                    aria-describedby={validationErrors.slug && touched.slug ? "project-git-slug-error" : undefined}
+                                                    aria-required="true"
+                                                    onBlur={() => setTouched(prev => ({ ...prev, slug: true }))}
                                                 />
+                                                <FormError id="project-git-slug-error" error={touched.slug ? validationErrors.slug : undefined} />
                                             </div>
                                             <div className="group/field">
                                                 <div className="flex items-center justify-between gap-3">

@@ -1,6 +1,61 @@
 import type { GitTrackingStatus, JulesActivity, Subtask } from "../contracts/app-types.js";
 import type { Logger } from "../shared/logging/logger.js";
 
+const DEFAULT_LIVE_ACTIVITY_FETCH_TIMEOUT_MS = 30_000;
+
+class ActivityFetchTimeoutError extends Error {
+  readonly timeoutMs: number;
+
+  constructor(sessionName: string, timeoutMs: number) {
+    super(`Timed out fetching live activities for ${sessionName} after ${timeoutMs}ms`);
+    this.name = "ActivityFetchTimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+
+const getFetchFailureMetadata = (
+  sessionName: string,
+  error: unknown,
+  cacheFallbackState: "empty" | "stale",
+  cachedActivityCount: number
+) => {
+  const isTimeout = error instanceof ActivityFetchTimeoutError;
+  return {
+    sessionName,
+    failureCause: isTimeout ? "timeout" : "error",
+    errorName: error instanceof Error ? error.name : typeof error,
+    cacheFallbackState,
+    cachedActivityCount,
+    ...(isTimeout ? { timeoutMs: error.timeoutMs } : {}),
+  };
+};
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  sessionName: string
+): Promise<T> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return promise;
+  }
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeout = setTimeout(() => {
+          reject(new ActivityFetchTimeoutError(sessionName, timeoutMs));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
 async function pMap<T, R>(
   items: T[],
   mapper: (item: T) => Promise<R>,
@@ -46,7 +101,8 @@ export class ActivityCacheService {
     private readonly gitStatusCacheMs: number,
     private readonly activityPageSize: number,
     private readonly activityFetchConcurrency: number = 3,
-    private readonly negativeActivityCacheMs: number = 2000
+    private readonly negativeActivityCacheMs: number = 2000,
+    private readonly liveActivityFetchTimeoutMs: number = DEFAULT_LIVE_ACTIVITY_FETCH_TIMEOUT_MS
   ) {}
 
   invalidateGitStatusCache(): void {
@@ -107,20 +163,35 @@ export class ActivityCacheService {
           missingSessions,
           async (sessionName) => {
             try {
-              const activities = await this.deps.fetchRecentActivities(sessionName, this.activityPageSize);
-              return { sessionName, activities, isNegative: activities.length === 0 };
-            } catch {
-              this.deps.logger?.warn("Could not fetch live activities", { sessionName });
-              return { sessionName, activities: [], isNegative: true };
+              const activities = await withTimeout(
+                this.deps.fetchRecentActivities(sessionName, this.activityPageSize),
+                this.liveActivityFetchTimeoutMs,
+                sessionName
+              );
+              return { sessionName, activities, isNegative: activities.length === 0, failed: false };
+            } catch (error) {
+              const cached = this.liveActivitiesCache.get(sessionName);
+              if (cached && !cached.isNegative) {
+                this.deps.logger?.warn("Could not fetch live activities; returning stale cached activities", {
+                  ...getFetchFailureMetadata(sessionName, error, "stale", cached.data.length),
+                });
+                return { sessionName, activities: cached.data, isNegative: false, failed: true };
+              }
+              this.deps.logger?.warn("Could not fetch live activities", {
+                ...getFetchFailureMetadata(sessionName, error, "empty", 0),
+              });
+              return { sessionName, activities: [], isNegative: false, failed: true };
             }
           },
           this.activityFetchConcurrency
         );
 
         const fetchTimestamp = Date.now();
-        for (const { sessionName, activities, isNegative } of fetchResults) {
+        for (const { sessionName, activities, isNegative, failed } of fetchResults) {
           result[sessionName] = activities;
-          this.liveActivitiesCache.set(sessionName, { timestamp: fetchTimestamp, data: activities, isNegative });
+          if (!failed) {
+            this.liveActivitiesCache.set(sessionName, { timestamp: fetchTimestamp, data: activities, isNegative });
+          }
         }
       }
 

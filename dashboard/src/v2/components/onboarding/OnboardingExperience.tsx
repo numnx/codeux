@@ -35,6 +35,8 @@ import { ONBOARDING_OPEN_EVENT, ONBOARDING_STORAGE_KEY, startDashboardTour } fro
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 import { useOnboardingState } from "../../hooks/useOnboardingState.js";
 import { MODAL_MOTION } from "../../lib/motion/modal-motion.js";
+import { useGsapInteractionTokens } from "../../lib/motion/constants.js";
+import { useInteractionTokens } from "../../lib/motion/tokens.js";
 import { OnboardingIntro } from "./OnboardingIntro.js";
 import { ProviderBrandIcon } from "../providers/ProviderBrandIcon.js";
 import { ProviderInstanceCard } from "../settings/ProviderInstanceCard.js";
@@ -45,12 +47,10 @@ import { SectionCard } from "../settings/panels/SharedPanelComponents.js";
 import { JiraIcon } from "../icons/JiraIcon.js";
 
 type IntroPhase = "intro" | "transitioning" | "onboarding";
-import type { OnboardingProviderCredentialStatus, OnboardingRuntimeReadiness, ProviderConfigId, ProviderId, ProjectSettings, SystemSettings } from "../../../types.js";
+import type { OnboardingProviderCredentialStatus, ProviderConfigId, ProviderId, ProjectSettings, SystemSettings } from "../../../types.js";
 import { getSafeUrl } from "../../lib/safe-url.js";
 import {
   buildProviderConfigId,
-  getFirstCliProviderConfigId,
-  getProviderInitialSelection,
   getSystemProvidersByType,
   syncProjectProvidersToIntegrationCatalog
 } from "../../lib/onboarding-settings-draft.js";
@@ -61,8 +61,22 @@ import {
   getProviderTypeLabel,
   sortProviderConfigEntries,
 } from "../../lib/settings-view-models.js";
+import {
+  cloneSystemSettings,
+  onboardingProviderTypes,
+  useOnboardingStepFlow,
+  type StepId,
+} from "./use-onboarding-step-flow.js";
 
 const CODEUX_REPO_URL = "https://github.com/codeux-ai/codeux";
+
+type OnboardingValidationResult = {
+  valid: true;
+} | {
+  valid: false;
+  message: string;
+  focusSelector?: string;
+};
 
 const LICENSE_TEXT = `MIT License
 
@@ -90,20 +104,6 @@ const DeepOceanBackground = lazy(async () => {
   const mod = await import("../chat/DeepOceanBackground.js");
   return { default: mod.DeepOceanBackground as FunctionComponent<{ forceDark?: boolean; className?: string }> };
 });
-
-type StepId = "installation" | "introduction" | "providers" | "provider-setup" | "git" | "jira" | "defaults" | "automation" | "appearance";
-
-const steps: Array<{ id: StepId; label: string; icon: typeof Settings }> = [
-  { id: "installation", label: "Installation", icon: Box },
-  { id: "introduction", label: "Introduction", icon: ShieldCheck },
-  { id: "providers", label: "Select Providers", icon: Cpu },
-  { id: "provider-setup", label: "Providers", icon: Settings },
-  { id: "git", label: "Git", icon: GitBranch },
-  { id: "jira", label: "Jira", icon: ClipboardList },
-  { id: "defaults", label: "Default providers", icon: Layers },
-  { id: "automation", label: "Automation", icon: Sparkles },
-  { id: "appearance", label: "Appearance", icon: Monitor },
-];
 
 const DEFAULT_JIRA_SETTINGS: SystemSettings["integrations"]["jira"] = {
   host: "",
@@ -133,7 +133,7 @@ const providerLabels: Record<ProviderId, string> = {
   antigravity: "Antigravity",
 };
 
-const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "antigravity", "codex", "claude-code", "qwen-code", "opencode"];
+const PROVIDER_TYPES = onboardingProviderTypes;
 
 const providerDescriptions: Record<ProviderId, string> = {
   jules: "Google Jules API service for agent session and workspace orchestration.",
@@ -154,19 +154,6 @@ const getProviderWatermark = (providerId: ProviderId): string => (
             : providerId === "antigravity" ? "AGY"
               : "CLD"
 );
-
-const defaultReadiness: OnboardingRuntimeReadiness = {
-  checkedAt: "",
-  cluster: {
-    status: "not_ready",
-    label: "Checking",
-    detail: "Runtime checks are loading.",
-  },
-  dependencies: [],
-  providers: [],
-};
-
-const cloneSettings = (settings: SystemSettings): SystemSettings => JSON.parse(JSON.stringify(settings)) as SystemSettings;
 
 const platform = (typeof window !== "undefined" && window.codeUxDesktop?.platform) || "linux";
 
@@ -217,15 +204,32 @@ export const OnboardingExperience: FunctionComponent = () => {
   const shellRef = useRef<HTMLElement>(null);
   const sideRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
-  const [activeStep, setActiveStep] = useState(0);
-  const [readiness, setReadiness] = useState<OnboardingRuntimeReadiness>(defaultReadiness);
-  const [settings, setSettings] = useState<SystemSettings | null>(null);
-  const [selectedProviders, setSelectedProviders] = useState<ProviderId[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const {
+    dispatch,
+    open,
+    activeStep,
+    lastStep,
+    readiness,
+    settings,
+    selectedProviders,
+    selectedProviderTypes,
+    saving,
+    error,
+    activeStepData: active,
+    setActiveStep,
+    goToNextStep,
+    goToPreviousStep,
+    steps,
+    updateSettings,
+  } = useOnboardingStepFlow();
   const [introPhase, setIntroPhase] = useState<IntroPhase>("intro");
+  const [checkingReadiness, setCheckingReadiness] = useState(false);
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const reducedMotion = useReducedMotion();
+  const gsapTokens = useGsapInteractionTokens();
+  const interactionTokens = useInteractionTokens();
+  const validationRef = useRef<HTMLDivElement>(null);
   const {
     state: onboardingUserState,
     loading: onboardingStateLoading,
@@ -237,14 +241,13 @@ export const OnboardingExperience: FunctionComponent = () => {
     if (onboardingStateLoading) {
       return;
     }
-    setOpen(!onboardingUserState.completed);
+    dispatch({ type: "set-open", open: !onboardingUserState.completed });
   }, [onboardingStateLoading, onboardingUserState.completed]);
 
   useEffect(() => {
     const handleOpen = () => {
-      setActiveStep(0);
       void resetOnboardingState();
-      setOpen(true);
+      dispatch({ type: "reset-and-open" });
       setIntroPhase("intro");
     };
     window.addEventListener(ONBOARDING_OPEN_EVENT, handleOpen);
@@ -259,7 +262,7 @@ export const OnboardingExperience: FunctionComponent = () => {
       if (e.key === "Escape") {
         void markOnboardingCompleted("cancel");
         window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-        setOpen(false);
+        dispatch({ type: "close" });
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -275,17 +278,17 @@ export const OnboardingExperience: FunctionComponent = () => {
   };
 
   const load = async () => {
+    setCheckingReadiness(true);
     try {
       const [nextReadiness, nextSettings] = await Promise.all([
         fetchOnboardingReadiness(),
         fetchSystemSettings(),
       ]);
-      setReadiness(nextReadiness);
-      setSettings(nextSettings);
-      setSelectedProviders((current) => current.length > 0 ? current : getProviderInitialSelection(nextReadiness.providers, nextSettings));
-      setError(null);
+      dispatch({ type: "load-success", readiness: nextReadiness, settings: nextSettings });
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : String(loadError));
+      dispatch({ type: "load-failure", error: loadError instanceof Error ? loadError.message : String(loadError) });
+    } finally {
+      setCheckingReadiness(false);
     }
   };
 
@@ -338,29 +341,34 @@ export const OnboardingExperience: FunctionComponent = () => {
     if (!contentRef.current) {
       return;
     }
+    const direction = activeStep >= lastStep ? 1 : -1;
     const ctx = gsap.context(() => {
       gsap.fromTo(
         contentRef.current!.querySelectorAll("[data-onboarding-card]"),
-        { opacity: 0, y: reducedMotion ? 0 : 22, scale: reducedMotion ? 1 : 0.985 },
-        { opacity: 1, y: 0, scale: 1, duration: reducedMotion ? 0 : 0.55, stagger: reducedMotion ? 0 : 0.055, ease: "power3.out" },
+        { opacity: reducedMotion ? 1 : 0, y: reducedMotion ? 0 : 18 * direction, scale: 1 },
+        { opacity: 1, y: 0, scale: 1, duration: gsapTokens.enterExit.duration, stagger: reducedMotion ? 0 : 0.045, ease: gsapTokens.enterExit.ease },
       );
     });
     return () => ctx.revert();
-  }, [activeStep, selectedProviders.length, settings, reducedMotion]);
+  }, [activeStep, lastStep, selectedProviders.length, settings, reducedMotion, gsapTokens.enterExit.duration, gsapTokens.enterExit.ease]);
 
-  const active = steps[activeStep] ?? steps[0]!;
+  useEffect(() => {
+    setValidationMessage(null);
+  }, [activeStep]);
+
+  useEffect(() => {
+    if (!open || introPhase !== "onboarding") {
+      return;
+    }
+    window.setTimeout(() => {
+      stepHeadingRef.current?.focus({ preventScroll: true });
+    }, 0);
+  }, [activeStep, introPhase, open]);
+
   const readinessByProvider = useMemo(
     () => Object.fromEntries(readiness.providers.map((provider) => [provider.provider, provider])) as Partial<Record<ProviderId, OnboardingProviderCredentialStatus>>,
     [readiness.providers],
   );
-  const selectedProviderTypes = useMemo(
-    () => PROVIDER_TYPES.filter((provider) => selectedProviders.includes(provider)),
-    [readiness.providers, selectedProviders],
-  );
-
-  const updateSettings = (recipe: (current: SystemSettings) => SystemSettings) => {
-    setSettings((current) => current ? recipe(cloneSettings(current)) : current);
-  };
 
   const updateAppearance = (updates: Partial<SystemSettings["defaults"]["appearance"]>) => {
     updateSettings((current) => {
@@ -380,15 +388,10 @@ export const OnboardingExperience: FunctionComponent = () => {
   };
 
   const toggleProvider = (provider: ProviderId) => {
-    setSelectedProviders((current) => {
-      const nextSelected = current.includes(provider)
-        ? current.filter((item) => item !== provider)
-        : [...current, provider];
-      if (!current.includes(provider)) {
-        ensureProviderInstance(provider);
-      }
-      return nextSelected;
-    });
+    if (!selectedProviders.includes(provider)) {
+      ensureProviderInstance(provider);
+    }
+    dispatch({ type: "toggle-provider", provider });
   };
 
   const updateIntegrationProviders = (
@@ -436,7 +439,7 @@ export const OnboardingExperience: FunctionComponent = () => {
       ...providers,
       [providerConfigId]: createSystemProviderDraft(provider, providerName),
     }));
-    setSelectedProviders((current) => current.includes(provider) ? current : [...current, provider]);
+    dispatch({ type: "select-provider", provider });
   };
 
   const removeProviderInstance = (providerConfigId: ProviderConfigId): void => {
@@ -536,18 +539,80 @@ export const OnboardingExperience: FunctionComponent = () => {
 
   const gitMode = settings?.defaults.cliWorkflow.gitMode === "local" ? "local" : "remote";
 
+  const enabledProviderInstances = settings
+    ? sortProviderConfigEntries(Object.entries(settings.defaults.aiProvider.providers))
+      .filter(([, provider]) => provider.enabled)
+    : [];
+
+  const getValidationResult = (): OnboardingValidationResult => {
+    if (!settings) {
+      return { valid: true };
+    }
+    if (active.id === "jira") {
+      const jiraHasAnyValue = Boolean(jiraSettings.host.trim() || jiraSettings.email.trim() || jiraSettings.apiToken.trim() || jiraSettings.defaultProject.trim());
+      if (jiraHasAnyValue && !jiraSettings.host.trim()) {
+        return {
+          valid: false,
+          message: "Enter a Jira site URL, or clear the Jira fields to configure it later.",
+          focusSelector: '[aria-label="Jira site URL"]',
+        };
+      }
+      if (jiraHasAnyValue && !jiraSettings.apiToken.trim()) {
+        return {
+          valid: false,
+          message: "Enter a Jira API token, or clear the Jira fields to configure it later.",
+          focusSelector: '[aria-label="Jira API token"]',
+        };
+      }
+    } else if (active.id === "defaults" && enabledProviderInstances.length === 0) {
+      return {
+        valid: false,
+        message: "Enable at least one provider instance before choosing defaults.",
+        focusSelector: '[aria-label="Go to Providers"]',
+      };
+    }
+    return { valid: true };
+  };
+
+  const validateActiveStep = (): boolean => {
+    const result = getValidationResult();
+    if (result.valid) {
+      return true;
+    }
+    setValidationMessage(result.message);
+    window.setTimeout(() => {
+      const focusTarget = result.focusSelector
+        ? contentRef.current?.querySelector<HTMLElement>(result.focusSelector)
+          || shellRef.current?.querySelector<HTMLElement>(result.focusSelector)
+        : null;
+      const target = focusTarget || validationRef.current;
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView?.({ block: "nearest", behavior: reducedMotion ? "auto" : "smooth" });
+    }, 0);
+    return false;
+  };
+
+  const handleContinue = () => {
+    if (validateActiveStep()) {
+      goToNextStep();
+    }
+  };
+
   const applyAndClose = async () => {
+    if (!validateActiveStep()) {
+      return;
+    }
     if (!settings) {
       await markOnboardingCompleted("complete");
       window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-      setOpen(false);
+      dispatch({ type: "close" });
       await navigate({ to: "/" });
       window.setTimeout(startDashboardTour, 260);
       return;
     }
-    setSaving(true);
+    dispatch({ type: "set-saving", saving: true });
     try {
-      let nextSettings = cloneSettings(settings);
+      let nextSettings = cloneSystemSettings(settings);
       for (const provider of selectedProviderTypes) {
         if (!Object.values(nextSettings.integrations.providers).some((entry) => entry.provider === provider)) {
           nextSettings.integrations.providers[provider] = createSystemProviderDraft(provider, providerLabels[provider]);
@@ -608,16 +673,16 @@ export const OnboardingExperience: FunctionComponent = () => {
         nextSettings.integrations.providers[providerConfigId] = sanitizeSystemProviderConfig(integrationProvider);
       }
       nextSettings = await saveSystemSettings(nextSettings);
-      setSettings(nextSettings);
+      dispatch({ type: "set-settings", settings: nextSettings });
       await markOnboardingCompleted("complete");
       window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-      setOpen(false);
+      dispatch({ type: "close" });
       await navigate({ to: "/" });
       window.setTimeout(startDashboardTour, 260);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : String(saveError));
+      dispatch({ type: "set-error", error: saveError instanceof Error ? saveError.message : String(saveError) });
     } finally {
-      setSaving(false);
+      dispatch({ type: "set-saving", saving: false });
     }
   };
 
@@ -630,10 +695,6 @@ export const OnboardingExperience: FunctionComponent = () => {
   const clusterReady = readiness.cluster.status === "ready";
   const dockerExecutionEnabled = settings?.defaults.cliWorkflow.executionMode === "DOCKER";
   const jiraSettings = settings?.integrations.jira || DEFAULT_JIRA_SETTINGS;
-  const enabledProviderInstances = settings
-    ? sortProviderConfigEntries(Object.entries(settings.defaults.aiProvider.providers))
-      .filter(([, provider]) => provider.enabled)
-    : [];
   const providerInstanceOptions = enabledProviderInstances.map(([providerConfigId, provider]) => ({
     value: providerConfigId,
     label: getProviderInstanceLabel(provider),
@@ -646,6 +707,27 @@ export const OnboardingExperience: FunctionComponent = () => {
       label: getProviderInstanceLabel(provider),
       icon: <ProviderBrandIcon id={provider.provider} />,
     }));
+  const stepProgressValue = Math.round(((activeStep + 1) / steps.length) * 100);
+  const stepProgressLabel = `Step ${activeStep + 1} of ${steps.length}: ${active.label}`;
+  const saveStatusText = saving
+    ? "Saving onboarding settings"
+    : error
+      ? "Onboarding save failed. Review the error and retry."
+      : checkingReadiness
+        ? "Checking runtime readiness"
+        : "Draft changes are ready to save when onboarding is finished.";
+  const motionStyle = {
+    "--onboarding-enter-exit-duration": interactionTokens.enterExit.duration,
+    "--onboarding-enter-exit-ease": interactionTokens.enterExit.ease,
+    "--onboarding-selection-duration": interactionTokens.selectionMovement.duration,
+    "--onboarding-selection-ease": interactionTokens.selectionMovement.ease,
+    "--onboarding-validation-duration": interactionTokens.inlineValidation.duration,
+    "--onboarding-validation-ease": interactionTokens.inlineValidation.ease,
+    "--onboarding-control-duration": interactionTokens.controlFeedback.duration,
+    "--onboarding-control-ease": interactionTokens.controlFeedback.ease,
+    "--onboarding-async-duration": interactionTokens.asyncFeedback.duration,
+    "--onboarding-async-ease": interactionTokens.asyncFeedback.ease,
+  };
 
   return (
     <>
@@ -653,7 +735,7 @@ export const OnboardingExperience: FunctionComponent = () => {
         <OnboardingIntro onExitStart={handleIntroExitStart} onComplete={handleIntroComplete} />
       )}
       {introPhase !== "intro" && (
-    <div ref={backdropRef} className="fixed inset-0 z-[200] flex items-center justify-center overflow-hidden bg-[#060A0D] px-3 py-4 md:px-6 md:py-8">
+    <div ref={backdropRef} style={motionStyle} className="fixed inset-0 z-[200] flex items-center justify-center overflow-hidden bg-[#060A0D] px-3 py-4 md:px-6 md:py-8">
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <Suspense fallback={<div className="absolute inset-0 bg-[#060A0D]" />}>
           <DeepOceanBackground forceDark className="opacity-75 saturate-[0.86] contrast-[0.92]" />
@@ -688,7 +770,7 @@ export const OnboardingExperience: FunctionComponent = () => {
               <Compass className="h-5 w-5 text-signal-300" />
             </div>
             <div data-sidebar-copy className="mt-8 text-[10px] font-bold uppercase tracking-[0.24em] text-signal-300">Code UX Setup</div>
-            <h2 data-sidebar-copy id="onboarding-title" className="mt-3 font-display text-5xl font-black leading-[0.9] tracking-tight text-white">
+            <h2 data-sidebar-copy id="onboarding-title" className="mt-3 font-display text-4xl font-semibold leading-[0.95] tracking-tight text-white">
               Make the runtime ready.
             </h2>
             <div data-sidebar-copy className="mt-5 text-sm font-medium leading-relaxed text-slate-300">
@@ -697,7 +779,7 @@ export const OnboardingExperience: FunctionComponent = () => {
             <div data-sidebar-copy className="mt-6 grid grid-cols-2 gap-2">
               <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
                 <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Providers</div>
-                <div className="mt-1 text-2xl font-black text-white">{selectedProviders.length}</div>
+                <div className="mt-1 text-xl font-semibold text-white">{selectedProviders.length}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
                 <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Cluster</div>
@@ -777,6 +859,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                     className={`group flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-[background-color,border-color,transform] hover:translate-x-1 ${
                       activeItem ? "border-white/30 bg-white text-slate-950 shadow-[0_16px_40px_rgba(0,0,0,0.18)]" : "border-white/0 text-slate-300 hover:border-white/10 hover:bg-white/8 hover:text-white"
                     }`}
+                    style={{ transitionDuration: "var(--onboarding-selection-duration)", transitionTimingFunction: "var(--onboarding-selection-ease)" }}
                   >
                     <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${activeItem ? "bg-signal-500/14 text-signal-700" : complete ? "bg-signal-400/15 text-signal-300" : "bg-white/8 text-slate-300"}`}>
                       {complete ? <Check className="h-4 w-4" /> : <StepIcon className="h-4 w-4" />}
@@ -799,14 +882,20 @@ export const OnboardingExperience: FunctionComponent = () => {
                   : activeStep >= 3 && activeStep <= 6 ? `Step 4 of 6 (${activeStep - 2}/4)`
                   : `Step ${activeStep - 2} of 6`}
               </div>
-              <h3 className="mt-1 font-display text-2xl font-black tracking-tight text-slate-900 dark:text-white">{active.label}</h3>
+              <h3 ref={stepHeadingRef} tabIndex={-1} className="mt-1 font-display text-xl font-semibold tracking-tight text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-signal-500/40 dark:text-white">{active.label}</h3>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/[0.08]" role="progressbar" aria-label={stepProgressLabel} aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={activeStep + 1}>
+                <div
+                  className="h-full rounded-full bg-signal-500 transition-[width] motion-reduce:transition-none"
+                  style={{ width: `${stepProgressValue}%`, transitionDuration: "var(--onboarding-selection-duration)", transitionTimingFunction: "var(--onboarding-selection-ease)" }}
+                />
+              </div>
             </div>
             <button
               type="button"
               onClick={async () => {
                 await markOnboardingCompleted("cancel");
                 window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
-                setOpen(false);
+                dispatch({ type: "close" });
               }}
               className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-black/[0.05] hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 dark:hover:bg-white/[0.06] dark:hover:text-white"
               aria-label="Close onboarding"
@@ -816,9 +905,24 @@ export const OnboardingExperience: FunctionComponent = () => {
           </header>
 
           <div ref={contentRef} className="dashboard-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 dark:text-slate-100 md:px-8">
+            <div className="sr-only" role="status" aria-live="polite">{stepProgressLabel}. {saveStatusText}</div>
             {error ? (
-              <div className="mb-4 rounded-2xl border border-status-red/20 bg-status-red/10 px-4 py-3 text-sm font-semibold text-status-red">
-                {error}
+              <div className="mb-4 rounded-2xl border border-status-red/20 bg-status-red/10 px-4 py-3 text-sm font-semibold text-status-red" role="alert">
+                <div>{error}</div>
+                <button type="button" onClick={() => void applyAndClose()} className="mt-3 rounded-xl border border-status-red/30 px-3 py-1.5 text-xs font-black uppercase tracking-[0.12em]">
+                  Retry save
+                </button>
+              </div>
+            ) : null}
+            {validationMessage ? (
+              <div
+                ref={validationRef}
+                tabIndex={-1}
+                role="alert"
+                className="mb-4 rounded-2xl border border-status-red/25 bg-status-red/10 px-4 py-3 text-sm font-semibold text-status-red outline-none transition-[border-color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-status-red/40"
+                style={{ transitionDuration: "var(--onboarding-validation-duration)", transitionTimingFunction: "var(--onboarding-validation-ease)" }}
+              >
+                {validationMessage}
               </div>
             ) : null}
 
@@ -831,7 +935,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                       {clusterReady ? <Check className="h-6 w-6" /> : <Info className="h-6 w-6" />}
                     </div>
                     <div aria-live="polite">
-                      <div className="text-lg font-black text-slate-900 dark:text-white">{readiness.cluster.label}</div>
+                      <div className="text-base font-semibold text-slate-900 dark:text-white">{readiness.cluster.label}</div>
                       <div className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{readiness.cluster.detail}</div>
                     </div>
                   </div>
@@ -891,9 +995,9 @@ export const OnboardingExperience: FunctionComponent = () => {
                     </div>
                   ))}
                 </div>
-                <button type="button" onClick={() => void load()} className="inline-flex items-center gap-2 rounded-2xl border border-black/[0.08] bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-200">
-                  <RefreshCw className="h-4 w-4" />
-                  Recheck
+                <button type="button" onClick={() => void load()} disabled={checkingReadiness} aria-describedby="onboarding-status" className="inline-flex items-center gap-2 rounded-2xl border border-black/[0.08] bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-200">
+                  <RefreshCw className={`h-4 w-4 ${checkingReadiness ? "animate-spin motion-reduce:animate-none" : ""}`} />
+                  {checkingReadiness ? "Checking" : "Recheck"}
                 </button>
               </div>
             ) : null}
@@ -907,7 +1011,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                       <Sparkles className="h-3.5 w-3.5" strokeWidth={2.4} />
                       Agentic runtime
                     </div>
-                    <h4 className="mt-4 font-display text-3xl font-black leading-none tracking-tight text-slate-950 dark:text-white">Welcome to Code UX.</h4>
+                    <h4 className="mt-4 font-display text-2xl font-semibold leading-none tracking-tight text-slate-950 dark:text-white">Welcome to Code UX.</h4>
                     <p className="mt-3 text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-300">
                       Code UX is an advanced containerized agentic workspace for turning projects into guided sprints, executable tasks, live previews, and measurable delivery. It coordinates provider CLIs inside isolated Docker runtimes, keeps credentials inside the intended tools, and gives you one polished control surface for agents, memory, knowledge base, browser sessions, and automation.
                     </p>
@@ -957,7 +1061,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <ShieldCheck className="h-4 w-4 text-signal-600 dark:text-signal-300" strokeWidth={2.4} />
-                        <div className="text-sm font-black uppercase tracking-[0.16em] text-slate-700 dark:text-slate-200">License</div>
+                        <div className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700 dark:text-slate-200">License</div>
                       </div>
                       <a
                         href={getSafeUrl(`${CODEUX_REPO_URL}/blob/main/LICENSE`)}
@@ -1000,11 +1104,14 @@ export const OnboardingExperience: FunctionComponent = () => {
                     return (
                       <button
                         data-onboarding-card
-                        key={providerId}
-                        type="button"
-                        onClick={() => toggleProvider(providerId)}
-                        className={`group relative overflow-hidden rounded-3xl border p-4 text-left shadow-[0_14px_34px_rgba(15,23,42,0.04)] transition-[border-color,background-color,transform,box-shadow] hover:-translate-y-1 ${selected ? "border-signal-500/30 bg-signal-500/10 shadow-[0_18px_46px_rgba(0,224,160,0.08)]" : "border-black/[0.06] bg-white/75 hover:border-black/[0.12] dark:border-white/[0.06] dark:bg-white/[0.04]"}`}
-                      >
+	                        key={providerId}
+	                        type="button"
+	                        aria-pressed={selected}
+	                        aria-label={`${selected ? "Deselect" : "Select"} ${providerLabels[providerId]} provider`}
+	                        onClick={() => toggleProvider(providerId)}
+	                        className={`group relative overflow-hidden rounded-3xl border p-4 text-left shadow-[0_14px_34px_rgba(15,23,42,0.04)] transition-[border-color,background-color,transform,box-shadow] hover:-translate-y-1 ${selected ? "border-signal-500/30 bg-signal-500/10 shadow-[0_18px_46px_rgba(0,224,160,0.08)]" : "border-black/[0.06] bg-white/75 hover:border-black/[0.12] dark:border-white/[0.06] dark:bg-white/[0.04]"}`}
+	                        style={{ transitionDuration: "var(--onboarding-selection-duration)", transitionTimingFunction: "var(--onboarding-selection-ease)" }}
+	                      >
                         <div aria-hidden className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full transition-opacity ${selected ? "bg-signal-500 opacity-100" : "bg-slate-300 opacity-0 group-hover:opacity-100 dark:bg-slate-600"}`} />
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
@@ -1051,11 +1158,13 @@ export const OnboardingExperience: FunctionComponent = () => {
                             </div>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => addProviderInstance(providerId)}
-                          className="inline-flex items-center gap-2 rounded-2xl border border-signal-500/20 bg-signal-500/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-signal-700 hover:bg-signal-500/15 dark:text-signal-200"
-                        >
+	                        <button
+	                          type="button"
+	                          aria-label={`Add ${providerLabels[providerId]} provider instance`}
+	                          onClick={() => addProviderInstance(providerId)}
+	                          className="inline-flex items-center gap-2 rounded-2xl border border-signal-500/20 bg-signal-500/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-signal-700 hover:bg-signal-500/15 dark:text-signal-200"
+	                          style={{ transitionDuration: "var(--onboarding-control-duration)", transitionTimingFunction: "var(--onboarding-control-ease)" }}
+	                        >
                           <Plus className="h-3.5 w-3.5" />
                           Add instance
                         </button>
@@ -1129,20 +1238,22 @@ export const OnboardingExperience: FunctionComponent = () => {
                     <div data-onboarding-card>
                       <SectionCard title="GitHub" watermark="GIT" icon={<Github strokeWidth={2.4} />}>
                         <Row label="GitHub token" description="System token used for GitHub repository, pull request, and CI integration.">
-                          <TextInput
-                            value={settings.integrations.githubToken || ""}
+	                          <TextInput
+	                            aria-label="GitHub token"
+	                            value={settings.integrations.githubToken || ""}
                             onChange={(value) => updateSettings((current) => ({ ...current, integrations: { ...current.integrations, githubToken: value } }))}
                             mono
                           />
                         </Row>
                         <Row label="Mount GitHub auth" description="Copy the host `gh` credential directory into Docker.">
-                          <Toggle aria-label="Toggle setting"                             value={settings.defaults.cliWorkflow.containerMountGithubAuth}
+	                          <Toggle aria-label="Mount GitHub auth"                             value={settings.defaults.cliWorkflow.containerMountGithubAuth}
                             onChange={() => updateCliWorkflow({ containerMountGithubAuth: !settings.defaults.cliWorkflow.containerMountGithubAuth })}
                           />
                         </Row>
                         <Row label="GitHub auth path" description="Host path copied into the Docker runtime for GitHub CLI auth." last>
-                          <TextInput
-                            value={settings.defaults.cliWorkflow.containerGithubAuthPath}
+	                          <TextInput
+	                            aria-label="GitHub auth path"
+	                            value={settings.defaults.cliWorkflow.containerGithubAuthPath}
                             onChange={(value) => updateCliWorkflow({ containerGithubAuthPath: value })}
                             disabled={!settings.defaults.cliWorkflow.containerMountGithubAuth}
                             mono
@@ -1153,8 +1264,9 @@ export const OnboardingExperience: FunctionComponent = () => {
                     <div data-onboarding-card>
                       <SectionCard title="GitLab" watermark="GLB" icon={<GitBranch strokeWidth={2.4} />}>
                         <Row label="GitLab token" description="System token used for GitLab repository, merge request, and CI integration." last>
-                          <TextInput
-                            value={settings.integrations.gitlabToken || ""}
+	                          <TextInput
+	                            aria-label="GitLab token"
+	                            value={settings.integrations.gitlabToken || ""}
                             onChange={(value) => updateSettings((current) => ({ ...current, integrations: { ...current.integrations, gitlabToken: value } }))}
                             mono
                           />
@@ -1166,22 +1278,24 @@ export const OnboardingExperience: FunctionComponent = () => {
                 <div data-onboarding-card>
                   <SectionCard title="Git identity" watermark="ID" icon={<GitBranch strokeWidth={2.4} />}>
                     <Row label="Copy local git config" description="Use the host `.gitconfig` in Docker instead of the configured Code UX git identity." last={settings.defaults.cliWorkflow.containerMountGitConfig}>
-                      <Toggle aria-label="Toggle setting"                         value={settings.defaults.cliWorkflow.containerMountGitConfig}
+	                      <Toggle aria-label="Copy local git config"                         value={settings.defaults.cliWorkflow.containerMountGitConfig}
                         onChange={() => updateCliWorkflow({ containerMountGitConfig: !settings.defaults.cliWorkflow.containerMountGitConfig })}
                       />
                     </Row>
                     {!settings.defaults.cliWorkflow.containerMountGitConfig ? (
                       <>
                         <Row label="Git user name" description="Git author name configured inside provider containers.">
-                          <TextInput
-                            value={settings.defaults.cliWorkflow.containerGitUserName}
+	                          <TextInput
+	                            aria-label="Git user name"
+	                            value={settings.defaults.cliWorkflow.containerGitUserName}
                             onChange={(value) => updateCliWorkflow({ containerGitUserName: value })}
                             placeholder="Code UX"
                           />
                         </Row>
                         <Row label="Git email" description="Git author email configured inside provider containers." last>
-                          <TextInput
-                            value={settings.defaults.cliWorkflow.containerGitUserEmail}
+	                          <TextInput
+	                            aria-label="Git email"
+	                            value={settings.defaults.cliWorkflow.containerGitUserEmail}
                             onChange={(value) => updateCliWorkflow({ containerGitUserEmail: value })}
                             placeholder="agents@codeux.ai"
                             mono
@@ -1212,22 +1326,22 @@ export const OnboardingExperience: FunctionComponent = () => {
                 <div data-onboarding-card>
                   <SectionCard title="Jira Configuration" watermark="JRA" icon={<ClipboardList strokeWidth={2.4} />}>
                     <Row label="Jira site URL" description="Base URL for Jira Cloud or Data Center, for example `https://company.atlassian.net`.">
-                      <TextInput value={jiraSettings.host} onChange={(value) => updateJira({ host: value })} mono />
+                      <TextInput aria-label="Jira site URL" value={jiraSettings.host} onChange={(value) => updateJira({ host: value })} mono />
                     </Row>
                     <Row label="Account email" description="Email used with Jira Cloud API tokens. Leave empty for bearer-token Jira deployments.">
-                      <TextInput value={jiraSettings.email} onChange={(value) => updateJira({ email: value })} mono />
+                      <TextInput aria-label="Jira account email" value={jiraSettings.email} onChange={(value) => updateJira({ email: value })} mono />
                     </Row>
                     <Row label="API token" description="Jira API token used for issue search, issue context loading, and transitions.">
-                      <TextInput value={jiraSettings.apiToken} onChange={(value) => updateJira({ apiToken: value })} mono />
+                      <TextInput aria-label="Jira API token" value={jiraSettings.apiToken} onChange={(value) => updateJira({ apiToken: value })} mono />
                     </Row>
                     <Row label="Default project" description="Project key used to prefill the Jira import JQL.">
-                      <TextInput value={jiraSettings.defaultProject} onChange={(value) => updateJira({ defaultProject: value.toUpperCase() })} mono />
+                      <TextInput aria-label="Jira default project" value={jiraSettings.defaultProject} onChange={(value) => updateJira({ defaultProject: value.toUpperCase() })} mono />
                     </Row>
                     <Row label="Close transition" description="Transition name used when auto-closing linked Jira issues after sprint completion.">
-                      <TextInput value={jiraSettings.closeTransitionName} onChange={(value) => updateJira({ closeTransitionName: value })} />
+                      <TextInput aria-label="Jira close transition" value={jiraSettings.closeTransitionName} onChange={(value) => updateJira({ closeTransitionName: value })} />
                     </Row>
                     <Row label="Auto-close Jira issues" description="Move linked Jira issues through the configured transition after the sprint completes." last>
-                      <Toggle aria-label="Toggle setting" value={jiraSettings.autoCloseLinkedIssues} onChange={() => updateJira({ autoCloseLinkedIssues: !jiraSettings.autoCloseLinkedIssues })} />
+	                      <Toggle aria-label="Auto-close Jira issues" value={jiraSettings.autoCloseLinkedIssues} onChange={() => updateJira({ autoCloseLinkedIssues: !jiraSettings.autoCloseLinkedIssues })} />
                     </Row>
                   </SectionCard>
                 </div>
@@ -1270,7 +1384,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                     <h4 className="text-xs font-black uppercase tracking-[0.2em] text-signal-400">Core Display</h4>
 
                     <div className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                      <div className="text-sm font-black text-slate-900 dark:text-white">Theme</div>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Theme</div>
                       <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Select light, dark, or sync with your system.</div>
                       <div className="mt-4">
                         <PillChoiceGroup
@@ -1286,22 +1400,22 @@ export const OnboardingExperience: FunctionComponent = () => {
                     </div>
 
                     <div className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                      <div className="text-sm font-black text-slate-900 dark:text-white">Navigation Mode</div>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Navigation Mode</div>
                       <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Choose between floating dock or sidebar.</div>
                       <div className="mt-4">
                         <PillChoiceGroup
                           value={settings.defaults.appearance.navigationMode}
                           onChange={(value) => updateAppearance({ navigationMode: value as any })}
                           options={[
-                            { value: "DOCK", label: "Dock" },
                             { value: "SIDEBAR", label: "Sidebar" },
+                            { value: "DOCK", label: "Dock" },
                           ]}
                         />
                       </div>
                     </div>
 
                     <div className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                      <div className="text-sm font-black text-slate-900 dark:text-white">Reduced Motion</div>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Reduced Motion</div>
                       <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Limit interface animations.</div>
                       <div className="mt-4">
                         <PillChoiceGroup
@@ -1318,7 +1432,7 @@ export const OnboardingExperience: FunctionComponent = () => {
 
                     {typeof window !== "undefined" && Boolean(window.codeUxDesktop?.setZoom) && (
                       <div className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                        <div className="text-sm font-black text-slate-900 dark:text-white">Zoom Level</div>
+                        <div className="text-sm font-semibold text-slate-900 dark:text-white">Zoom Level</div>
                         <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Scale the desktop interface size.</div>
                         <div className="mt-4">
                           <SelectInput
@@ -1345,7 +1459,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                     <h4 className="text-xs font-black uppercase tracking-[0.2em] text-signal-400">Background & Styling</h4>
 
                     <div className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                      <div className="text-sm font-black text-slate-900 dark:text-white">Background Mode</div>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Background Mode</div>
                       <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Select animated textures or a flat color.</div>
                       <div className="mt-4">
                         <PillChoiceGroup
@@ -1361,7 +1475,7 @@ export const OnboardingExperience: FunctionComponent = () => {
 
                     {(settings.defaults.appearance.backgroundMode || "ANIMATED") === "STATIC" && (
                       <div className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-                        <div className="text-sm font-black text-slate-900 dark:text-white">Static Color</div>
+                        <div className="text-sm font-semibold text-slate-900 dark:text-white">Static Color</div>
                         <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Choose a solid solid back color.</div>
                         <div className="mt-4 flex items-center gap-3">
                           <input
@@ -1441,7 +1555,7 @@ export const OnboardingExperience: FunctionComponent = () => {
                             <div className="flex min-w-0 items-center gap-3">
                               <ProviderBrandIcon id={provider.provider} />
                               <div className="min-w-0">
-                                <div className="truncate text-sm font-black text-slate-900 dark:text-white">{provider.name}</div>
+                                <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{provider.name}</div>
                                 <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{getProviderTypeLabel(provider.provider)}</div>
                               </div>
                             </div>
@@ -1470,13 +1584,16 @@ export const OnboardingExperience: FunctionComponent = () => {
             <button
               type="button"
               disabled={activeStep === 0}
-              onClick={() => setActiveStep((step) => Math.max(0, step - 1))}
+              onClick={goToPreviousStep}
               className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold text-slate-500 transition-colors hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.06]"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </button>
-            <div className="flex items-center gap-2">
+            <div id="onboarding-status" role="status" aria-live="polite" className="hidden min-w-0 flex-1 truncate text-center text-xs font-semibold text-slate-500 dark:text-slate-400 sm:block">
+              {saveStatusText}
+            </div>
+            <div className="flex items-center gap-2" aria-label="Onboarding step shortcuts">
               {[
                 { active: activeStep === 0, onClick: () => setActiveStep(0), label: "Installation" },
                 { active: activeStep === 1, onClick: () => setActiveStep(1), label: "Introduction" },
@@ -1485,13 +1602,14 @@ export const OnboardingExperience: FunctionComponent = () => {
                 { active: activeStep === 7, onClick: () => setActiveStep(7), label: "Automation" },
                 { active: activeStep === 8, onClick: () => setActiveStep(8), label: "Appearance" },
               ].map((dot, idx) => (
-                <button
-                  key={`dot-${idx}`}
-                  type="button"
-                  aria-label={`Go to ${dot.label}`}
-                  onClick={dot.onClick}
-                  className={`h-2 rounded-full transition-all ${dot.active ? "w-8 bg-signal-500" : "w-2 bg-slate-300 dark:bg-slate-700"}`}
-                />
+	                <button
+	                  key={`dot-${idx}`}
+	                  type="button"
+	                  aria-label={`Go to ${dot.label}`}
+	                  onClick={dot.onClick}
+	                  className={`h-2 rounded-full transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 ${dot.active ? "w-8 bg-signal-500" : "w-2 bg-slate-300 dark:bg-slate-700"}`}
+	                  style={{ transitionDuration: "var(--onboarding-selection-duration)", transitionTimingFunction: "var(--onboarding-selection-ease)" }}
+	                />
               ))}
             </div>
             {activeStep === steps.length - 1 ? (
@@ -1499,16 +1617,18 @@ export const OnboardingExperience: FunctionComponent = () => {
                 type="button"
                 onClick={() => void applyAndClose()}
                 disabled={saving}
+                aria-describedby="onboarding-status"
                 className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] transition-colors hover:bg-slate-700 disabled:opacity-60 dark:bg-white dark:text-void-900"
               >
-                {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                Finish
+	                {saving ? <RefreshCw className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Check className="h-4 w-4" />}
+                {saving ? "Saving" : "Finish"}
               </button>
             ) : (
               <button
                 type="button"
                 disabled={!canGoNext}
-                onClick={() => setActiveStep((step) => Math.min(steps.length - 1, step + 1))}
+                onClick={handleContinue}
+                aria-describedby="onboarding-status"
                 className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] transition-colors hover:bg-slate-700 disabled:opacity-60 dark:bg-white dark:text-void-900"
               >
                 Next
@@ -1531,14 +1651,16 @@ const Choice: FunctionComponent<{
   onChange: (value: string) => void;
 }> = ({ title, value, options, onChange }) => (
   <div data-onboarding-card className="rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
-    <div className="text-sm font-black text-slate-900 dark:text-white">{title}</div>
-    <div className="mt-4 flex flex-wrap gap-2">
+    <div className="text-sm font-semibold text-slate-900 dark:text-white">{title}</div>
+    <div className="mt-4 flex flex-wrap gap-2" aria-label={title}>
       {options.map(([optionValue, label]) => (
         <button
           key={optionValue}
           type="button"
+          aria-pressed={value === optionValue}
           onClick={() => onChange(optionValue)}
           className={`inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-bold transition-colors ${value === optionValue ? "border-signal-500/30 bg-signal-500/12 text-signal-700 dark:text-signal-200" : "border-black/[0.06] bg-white text-slate-500 hover:text-slate-800 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300"}`}
+          style={{ transitionDuration: "var(--onboarding-selection-duration)", transitionTimingFunction: "var(--onboarding-selection-ease)" }}
         >
           {value === optionValue ? <Check className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           {label}
@@ -1556,14 +1678,16 @@ const ToggleRow: FunctionComponent<{
 }> = ({ title, description, checked, onChange }) => (
   <div data-onboarding-card className="flex items-center justify-between gap-4 rounded-3xl border border-black/[0.06] bg-white/75 p-5 shadow-[0_16px_42px_rgba(15,23,42,0.04)] dark:border-white/[0.06] dark:bg-white/[0.04]">
     <div>
-      <div className="text-sm font-black text-slate-900 dark:text-white">{title}</div>
+      <div className="text-sm font-semibold text-slate-900 dark:text-white">{title}</div>
       <div className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{description}</div>
     </div>
     <button
       type="button"
+      aria-label={title}
       onClick={() => onChange(!checked)}
       className={`relative h-7 w-12 shrink-0 overflow-hidden rounded-full border transition-colors ${checked ? "border-signal-500/30 bg-signal-500" : "border-black/[0.12] bg-slate-200 dark:border-white/[0.12] dark:bg-white/[0.08]"}`}
       aria-pressed={checked}
+      style={{ transitionDuration: "var(--onboarding-control-duration)", transitionTimingFunction: "var(--onboarding-control-ease)" }}
     >
       <span className={`absolute left-1 top-1 block h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} />
     </button>

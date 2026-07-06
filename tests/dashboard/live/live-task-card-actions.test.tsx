@@ -1,9 +1,9 @@
 /** @jsx h */
 // @vitest-environment happy-dom
 import { h } from "preact";
-import { render, screen, cleanup, waitFor } from "@testing-library/preact";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { LiveSessionPage } from "../../../dashboard/src/v2/LiveSessionPage.js";
 
@@ -11,10 +11,21 @@ expect.extend(matchers);
 
 const forceCompleteLiveTaskMock = vi.fn();
 
+async function holdForceCompleteConfirmation(): Promise<void> {
+  const confirmButton = await screen.findByRole("button", { name: "Hold to Force Complete" });
+  vi.useFakeTimers();
+  fireEvent.pointerDown(confirmButton, { button: 0, pointerId: 1 });
+  await act(async () => {
+    vi.advanceTimersByTime(1000);
+    await Promise.resolve();
+  });
+  vi.useRealTimers();
+}
+
 vi.mock("gsap", () => ({
   default: {
     to: vi.fn(),
-    fromTo: vi.fn(), timeline: vi.fn(() => ({ to: vi.fn().mockReturnThis() })),
+    fromTo: vi.fn(), timeline: vi.fn(() => ({ to: vi.fn().mockReturnThis(), fromTo: vi.fn().mockReturnThis() })),
     set: vi.fn(),
     killTweensOf: vi.fn(),
     context: vi.fn((cb?: () => void) => {
@@ -140,9 +151,14 @@ vi.mock("../../../dashboard/src/v2/hooks/use-live-session-actions.js", () => ({
 describe("live task card actions", () => {
   beforeEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.clearAllMocks();
     forceCompleteLiveTaskMock.mockResolvedValue(undefined);
     window.history.replaceState({}, "", "/live");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("shows edit and force-complete controls and disables force-complete for completed tasks", () => {
@@ -166,7 +182,11 @@ describe("live task card actions", () => {
   it("force-completes successfully and refreshes live data", async () => {
     render(<LiveSessionPage />);
     const buttons = screen.getAllByRole("button", { name: /Force complete task/ });
-    await userEvent.click(buttons[0]!);
+    fireEvent.click(buttons[0]!);
+
+    expect(forceCompleteLiveTaskMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Force Complete Task" })).toHaveTextContent(/Ship task controls/i);
+    await holdForceCompleteConfirmation();
 
     await waitFor(() => {
       expect(forceCompleteLiveTaskMock).toHaveBeenCalledWith("project-1", "task-record-1");
@@ -176,6 +196,35 @@ describe("live task card actions", () => {
       expect(refreshGitStatusMock).toHaveBeenCalled();
     });
     expect(await screen.findByText("Task marked as completed.")).toBeInTheDocument();
+  });
+
+  it("shows inline optimistic pending feedback and suppresses duplicate force-complete activation", async () => {
+    let resolveForceComplete: (() => void) | null = null;
+    forceCompleteLiveTaskMock.mockReturnValueOnce(new Promise<void>((resolve) => {
+      resolveForceComplete = resolve;
+    }));
+
+    render(<LiveSessionPage />);
+    const forceButton = screen.getAllByRole("button", { name: /Force complete task T1/ })[0]!;
+    const card = forceButton.closest('[tabindex="0"]') as HTMLElement;
+
+    fireEvent.click(forceButton);
+    await holdForceCompleteConfirmation();
+
+    expect(forceCompleteLiveTaskMock).toHaveBeenCalledTimes(1);
+    expect(within(card).getAllByText(/Marking this task complete/).length).toBeGreaterThan(0);
+    expect(within(card).getByText("Completed")).toBeInTheDocument();
+    const pendingButton = within(card).getByRole("button", { name: /Force complete task T1/ });
+    expect(pendingButton).toHaveAttribute("aria-busy", "true");
+    expect(pendingButton).toHaveAttribute("aria-disabled", "true");
+
+    fireEvent.click(pendingButton);
+    expect(forceCompleteLiveTaskMock).toHaveBeenCalledTimes(1);
+
+    resolveForceComplete?.();
+    await waitFor(() => {
+      expect(refreshRuntimeStatusMock).toHaveBeenCalled();
+    });
   });
 
   it("uses responsive flex wrapping on task header", () => {
@@ -192,7 +241,11 @@ describe("live task card actions", () => {
     forceCompleteLiveTaskMock.mockRejectedValueOnce(new Error("force complete failed"));
     render(<LiveSessionPage />);
     const buttons = screen.getAllByRole("button", { name: /Force complete task/ });
-    await userEvent.click(buttons[0]!);
+    const card = buttons[0]!.closest('[tabindex="0"]') as HTMLElement;
+    fireEvent.click(buttons[0]!);
+    await holdForceCompleteConfirmation();
     expect(await screen.findByText("force complete failed")).toBeInTheDocument();
+    expect(within(card).getByText("Running")).toBeInTheDocument();
+    expect(within(card).queryByText(/Marking this task complete/)).not.toBeInTheDocument();
   });
 });

@@ -33,15 +33,20 @@ export const SprintStreamRow: FunctionComponent<SprintStreamRowProps> = ({
     : state.isActive
       ? "bg-status-green"
       : "bg-slate-400 dark:bg-slate-500";
+  const statusLabel = state.isPaused ? "Paused" : state.isActive ? "Running" : "Idle";
 
   return (
-    <div className="group/sprint relative flex flex-col gap-4 rounded-[1.5rem] border border-black/[0.06] bg-gradient-to-r from-signal-500/[0.05] via-white/40 to-transparent px-5 py-4 backdrop-blur-sm dark:border-white/[0.07] dark:from-signal-500/[0.07] dark:via-void-800/40 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      className="group/sprint relative flex flex-col gap-4 rounded-[1.5rem] border border-black/[0.06] bg-gradient-to-r from-signal-500/[0.05] via-white/40 to-transparent px-5 py-4 backdrop-blur-sm dark:border-white/[0.07] dark:from-signal-500/[0.07] dark:via-void-800/40 sm:flex-row sm:items-center sm:justify-between"
+      role="region"
+      aria-label={`${sprint.name} active stream. ${statusLabel}. ${completion}% complete.`}
+    >
       <div className="flex min-w-0 items-center gap-4">
         <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-signal-500/20 bg-signal-500/10 text-signal-600 dark:text-signal-400">
           <Layers className="h-4 w-4" strokeWidth={2.1} />
-          <span className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-void-800 ${accent}`}>
+          <span className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-void-800 ${accent}`} aria-hidden="true">
             {state.isActive && !state.isPaused && (
-              <span className="absolute inset-0 animate-ping rounded-full bg-status-green opacity-70" />
+              <span className="absolute inset-0 animate-ping rounded-full bg-status-green opacity-70 motion-reduce:animate-none" />
             )}
           </span>
         </div>
@@ -68,9 +73,16 @@ export const SprintStreamRow: FunctionComponent<SprintStreamRowProps> = ({
             <span>Progress</span>
             <span className="font-mono text-slate-600 dark:text-slate-300">{completion}%</span>
           </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.08]">
+          <div
+            className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.08]"
+            role="progressbar"
+            aria-label={`${sprint.name} progress`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={completion}
+          >
             <div
-              className="h-full rounded-full bg-gradient-to-r from-signal-500 to-status-green transition-[width] duration-700 ease-out"
+              className="h-full rounded-full bg-gradient-to-r from-signal-500 to-status-green transition-[width] duration-700 ease-out motion-reduce:transition-none"
               style={{ width: `${completion}%` }}
             />
           </div>
@@ -84,6 +96,7 @@ export const SprintStreamRow: FunctionComponent<SprintStreamRowProps> = ({
             isPauseResumePending={state.pauseResumeBusy}
             onStartStop={onStartStop}
             onPauseResume={onPauseResume}
+            sprintName={sprint.name}
           />
         </div>
       </div>

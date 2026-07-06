@@ -82,6 +82,146 @@ afterEach(async () => {
       const snapshot = executionRepository.getProjectExecutionSnapshot(project.id);
       expect(snapshot).toBeDefined();
     });
+
+    it("logs provider invocation usage update shape without raw usage or secret-like values", async () => {
+      const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-execution-repo-"));
+      tempDirs.push(dir);
+      const storage = new AppDbStorage(path.join(dir, "app.db"));
+      const logger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        child: vi.fn(),
+      };
+      logger.child.mockReturnValue(logger);
+      const projectRepository = new ProjectManagementRepository(storage);
+      const executionRepository = new ExecutionRepository(storage, undefined, logger as any);
+      const project = projectRepository.createProject({
+        name: "Telemetry Update Shape Project",
+        sourceType: "local",
+        sourceRef: "/workspace/telemetry-update-shape",
+      });
+      const usage = executionRepository.createProviderInvocationUsage({
+        projectId: project.id,
+        sessionId: "telemetry-session-1",
+        provider: "codex",
+        purpose: "task_coding",
+        status: "running",
+        startedAt: "2026-01-01T00:00:00.000Z",
+      });
+
+      const updated = executionRepository.updateProviderInvocationUsage(usage.id, {
+        status: "running",
+        model: "gpt-test",
+        nativeSessionId: "native-1",
+        durationMs: 1200,
+        transcriptChars: 48,
+        inputTokens: 10,
+        cachedInputTokens: 2,
+        outputTokens: 4,
+        reasoningOutputTokens: 1,
+        totalTokens: 17,
+        toolCallCount: 3,
+        usageSource: "reported",
+        rawUsageJson: { apiKey: "super-secret", transcript: "raw provider transcript" },
+      });
+
+      expect(updated.rawUsageJson).toEqual({ apiKey: "super-secret", transcript: "raw provider transcript" });
+      expect(logger.info).toHaveBeenCalledWith("Provider invocation usage updated", expect.objectContaining({
+        logPurpose: "invocation",
+        eventType: "provider_invocation_usage_updated",
+        providerInvocationId: usage.id,
+        projectId: project.id,
+        sessionId: "telemetry-session-1",
+        nativeSessionId: "native-1",
+        provider: "codex",
+        purpose: "task_coding",
+        status: "running",
+        model: "gpt-test",
+        durationMs: 1200,
+        transcriptChars: 48,
+        inputTokens: 10,
+        cachedInputTokens: 2,
+        outputTokens: 4,
+        reasoningOutputTokens: 1,
+        totalTokens: 17,
+        toolCallCount: 3,
+        usageSource: "reported",
+        rawUsageJsonPresent: true,
+        updatedFields: [
+          "cachedInputTokens",
+          "durationMs",
+          "inputTokens",
+          "model",
+          "nativeSessionId",
+          "outputTokens",
+          "rawUsageJson",
+          "reasoningOutputTokens",
+          "status",
+          "toolCallCount",
+          "totalTokens",
+          "transcriptChars",
+          "usageSource",
+        ],
+      }));
+      const loggedMetadata = JSON.stringify(logger.info.mock.calls);
+      expect(loggedMetadata).not.toContain("super-secret");
+      expect(loggedMetadata).not.toContain("raw provider transcript");
+    });
+
+    it("claims provider invocation slots through the repository facade", async () => {
+      const { projectRepository, executionRepository } = await createRepositories();
+      const project = projectRepository.createProject({
+        name: "Provider Slot Project",
+        sourceType: "local",
+        sourceRef: "/workspace/provider-slot",
+      });
+
+      const claimed = executionRepository.tryCreateProviderInvocationUsage({
+        projectId: project.id,
+        sessionId: "slot-session-1",
+        provider: "codex",
+        purpose: "task_coding",
+        status: "running",
+      }, 1);
+      const blocked = executionRepository.tryCreateProviderInvocationUsage({
+        projectId: project.id,
+        sessionId: "slot-session-2",
+        provider: "codex",
+        purpose: "task_coding",
+        status: "running",
+      }, 1);
+
+      expect(claimed).toMatchObject({
+        projectId: project.id,
+        sessionId: "slot-session-1",
+        provider: "codex",
+        status: "running",
+      });
+      expect(blocked).toBeNull();
+      expect(executionRepository.listRunningProviderInvocationUsages(["codex"])).toHaveLength(1);
+    });
+
+    it("validates provider invocation runtime associations through the repository facade", async () => {
+      const { projectRepository, executionRepository } = await createRepositories();
+      const project = projectRepository.createProject({
+        name: "Provider Runtime Validation Project",
+        sourceType: "local",
+        sourceRef: "/workspace/provider-runtime-validation",
+      });
+      const usage = executionRepository.createProviderInvocationUsage({
+        projectId: project.id,
+        sessionId: "runtime-validation-session",
+        provider: "codex",
+        purpose: "task_coding",
+        status: "running",
+      });
+
+      expect(() => executionRepository.associateProviderInvocationRuntime(usage.id, {
+        dispatchId: "missing-dispatch",
+      })).toThrowError("Task dispatch not found: missing-dispatch");
+    });
   });
 
 describe("ExecutionRepository", () => {
@@ -121,6 +261,61 @@ describe("ExecutionRepository", () => {
     expect(usageSprintRunSpy).not.toHaveBeenCalled();
     expect(wallTimeTaskSpy).not.toHaveBeenCalled();
     expect(wallTimeSprintRunSpy).not.toHaveBeenCalled();
+  });
+
+  it("only treats queued dispatches as pending virtual-worker candidates", async () => {
+    const { projectRepository, executionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Pending Dispatch Project",
+      sourceType: "local",
+      sourceRef: "/workspace/pending-dispatch",
+    });
+    const sprint = projectRepository.createSprint(project.id, {
+      name: "Dispatch Sprint",
+      goal: "Exercise dispatch candidate filtering.",
+    });
+    const runningTask = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      taskKey: "T01",
+      title: "Running task",
+      promptMarkdown: "Already running.",
+      status: "in_progress",
+    });
+    const queuedTask = projectRepository.createTask(project.id, {
+      sprintId: sprint.id,
+      taskKey: "T02",
+      title: "Queued task",
+      promptMarkdown: "Ready to claim.",
+      status: "pending",
+    });
+    const sprintRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: sprint.id,
+      status: "running",
+      executorMode: "mixed",
+    });
+
+    executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: runningTask.id,
+      sprintRunId: sprintRun.id,
+      executorType: "docker_cli",
+      status: "running",
+    });
+
+    expect(executionRepository.listProjectIdsWithPendingDispatches()).toEqual([]);
+
+    executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskId: queuedTask.id,
+      sprintRunId: sprintRun.id,
+      executorType: "docker_cli",
+      status: "queued",
+    });
+
+    expect(executionRepository.listProjectIdsWithPendingDispatches()).toEqual([project.id]);
   });
 
   it("keeps every active sprint run expanded for live invocation feeds", async () => {
@@ -1267,6 +1462,228 @@ describe("ExecutionRepository", () => {
     });
   });
 
+  it("batches multi-run execution snapshot reads while preserving invocation and runtime shape", async () => {
+    const { projectRepository, executionRepository } = await createRepositories();
+    const project = projectRepository.createProject({
+      name: "Batched Snapshot Project",
+      sourceType: "local",
+      sourceRef: "/workspace/batched-snapshot-project",
+    });
+    const selectedSprint = projectRepository.createSprint(project.id, {
+      name: "Selected Historical Sprint",
+      number: 4,
+    });
+    const runningSprint = projectRepository.createSprint(project.id, {
+      name: "Running Runtime Sprint",
+      number: 5,
+    });
+    const pausedSprint = projectRepository.createSprint(project.id, {
+      name: "Paused Runtime Sprint",
+      number: 6,
+    });
+    const selectedRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: selectedSprint.id,
+      status: "completed",
+      startedAt: "2026-03-01T08:00:00.000Z",
+      finishedAt: "2026-03-01T08:30:00.000Z",
+    });
+    const runningRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: runningSprint.id,
+      status: "running",
+      startedAt: "2026-03-02T08:00:00.000Z",
+    });
+    const pausedRun = executionRepository.createSprintRun({
+      projectId: project.id,
+      sprintId: pausedSprint.id,
+      status: "paused",
+      startedAt: "2026-03-03T08:00:00.000Z",
+    });
+
+    const selectedTask = projectRepository.createTask(project.id, {
+      sprintId: selectedSprint.id,
+      taskKey: "SEL",
+      title: "Selected historical task",
+    });
+    const runningTask = projectRepository.createTask(project.id, {
+      sprintId: runningSprint.id,
+      taskKey: "RUN",
+      title: "Running task",
+    });
+    const pausedTask = projectRepository.createTask(project.id, {
+      sprintId: pausedSprint.id,
+      taskKey: "PAU",
+      title: "Paused task",
+    });
+
+    const runningDispatch = executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: runningSprint.id,
+      taskId: runningTask.id,
+      sprintRunId: runningRun.id,
+      executorType: "docker_cli",
+      status: "running",
+      priority: 8,
+      queuedAt: "2026-03-02T08:01:00.000Z",
+    });
+    const pausedDispatch = executionRepository.createTaskDispatch({
+      projectId: project.id,
+      sprintId: pausedSprint.id,
+      taskId: pausedTask.id,
+      sprintRunId: pausedRun.id,
+      executorType: "mcp_worker",
+      status: "queued",
+      priority: 3,
+      queuedAt: "2026-03-03T08:01:00.000Z",
+    });
+    const runningTaskRun = executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: runningSprint.id,
+      taskId: runningTask.id,
+      sprintRunId: runningRun.id,
+      dispatchId: runningDispatch.id,
+      provider: "codex",
+      state: "RUNNING",
+      startedAt: "2026-03-02T08:02:00.000Z",
+    });
+    const pausedTaskRun = executionRepository.createTaskRun({
+      projectId: project.id,
+      sprintId: pausedSprint.id,
+      taskId: pausedTask.id,
+      sprintRunId: pausedRun.id,
+      dispatchId: pausedDispatch.id,
+      provider: "claude-code",
+      state: "QUEUED",
+      startedAt: "2026-03-03T08:02:00.000Z",
+    });
+
+    executionRepository.appendTaskRunEvent(runningTaskRun.id, "provider_activity", "agent", {
+      preview: "Running task activity",
+    }, {
+      createdAt: "2026-03-02T08:03:00.000Z",
+      sourceEventKey: "batched-running-activity",
+    });
+    executionRepository.appendTaskRunEvent(pausedTaskRun.id, "worker_dispatch_started", "system", {
+      worker: "paused-worker",
+    }, {
+      createdAt: "2026-03-03T08:03:00.000Z",
+      sourceEventKey: "batched-paused-dispatch",
+    });
+
+    const selectedProviderUsage = executionRepository.createProviderInvocationUsage({
+      projectId: project.id,
+      sprintId: selectedSprint.id,
+      taskId: selectedTask.id,
+      sprintRunId: selectedRun.id,
+      sessionId: "selected-old-session",
+      provider: "codex",
+      purpose: "task_coding",
+      status: "completed",
+      startedAt: "2026-03-01T08:05:00.000Z",
+      promptChars: 20,
+    });
+    const selectedInvocation = executionRepository.createExecutionInvocation({
+      projectId: project.id,
+      providerInvocationId: selectedProviderUsage.id,
+      type: "task_coding",
+      status: "completed",
+      provider: "codex",
+      startedAt: "2026-03-01T08:05:00.000Z",
+    });
+    const runningProviderUsage = executionRepository.createProviderInvocationUsage({
+      projectId: project.id,
+      sprintId: runningSprint.id,
+      taskId: runningTask.id,
+      sprintRunId: runningRun.id,
+      dispatchId: runningDispatch.id,
+      taskRunId: runningTaskRun.id,
+      sessionId: "running-old-session",
+      provider: "codex",
+      purpose: "task_coding",
+      status: "running",
+      startedAt: "2026-03-02T08:05:00.000Z",
+      promptChars: 40,
+    });
+    const runningInvocation = executionRepository.createExecutionInvocation({
+      projectId: project.id,
+      providerInvocationId: runningProviderUsage.id,
+      type: "task_coding",
+      status: "running",
+      provider: "codex",
+      startedAt: "2026-03-02T08:05:00.000Z",
+    });
+
+    for (let index = 0; index < 30; index += 1) {
+      executionRepository.createExecutionInvocation({
+        projectId: project.id,
+        type: "planning",
+        status: "completed",
+        provider: "codex",
+        startedAt: `2026-04-01T00:${String(index).padStart(2, "0")}:00.000Z`,
+      });
+    }
+
+    const db = (executionRepository as unknown as {
+      db: { prepare: (sql: string) => unknown };
+    }).db;
+    const usageTaskSpy = vi.spyOn(executionRepository as any, "getUsageTotalsByTaskIds");
+    const usageSprintRunSpy = vi.spyOn(executionRepository as any, "getUsageTotalsBySprintRunIds");
+    const wallTimeTaskSpy = vi.spyOn((executionRepository as any).wallTimeQuery, "getWallTimeTotalsByTaskIds");
+    const wallTimeSprintRunSpy = vi.spyOn((executionRepository as any).wallTimeQuery, "getWallTimeTotalsBySprintRunIds");
+    const prepareSpy = vi.spyOn(db, "prepare");
+
+    const snapshot = executionRepository.getProjectExecutionSnapshot(project.id, {
+      selectedSprintId: selectedSprint.id,
+    });
+
+    expect(snapshot.sprintRuns.map((run) => run.id)).toEqual([
+      runningRun.id,
+      pausedRun.id,
+      selectedRun.id,
+    ]);
+    expect(snapshot.taskDispatches.map((dispatch) => dispatch.id)).toEqual([
+      runningDispatch.id,
+      pausedDispatch.id,
+    ]);
+    expect(snapshot.taskDispatches.find((dispatch) => dispatch.id === runningDispatch.id)).toMatchObject({
+      taskId: runningTask.id,
+      taskKey: "RUN",
+      taskRunId: runningTaskRun.id,
+      taskRunState: "RUNNING",
+      provider: "codex",
+    });
+    expect(snapshot.recentEvents.map((event) => event.eventType)).toEqual([
+      "worker_dispatch_started",
+      "provider_activity",
+    ]);
+    expect(snapshot.recentInvocations?.some((invocation) => invocation.id === selectedInvocation.id)).toBe(true);
+    expect(snapshot.recentInvocations?.find((invocation) => invocation.id === selectedInvocation.id)).toMatchObject({
+      sprintId: selectedSprint.id,
+      taskId: selectedTask.id,
+      sprintRunId: selectedRun.id,
+      taskKey: "SEL",
+    });
+    expect(snapshot.recentInvocations?.some((invocation) => invocation.id === runningInvocation.id)).toBe(true);
+    expect(snapshot.recentInvocations?.find((invocation) => invocation.id === runningInvocation.id)).toMatchObject({
+      sprintId: runningSprint.id,
+      taskId: runningTask.id,
+      sprintRunId: runningRun.id,
+      dispatchId: runningDispatch.id,
+    });
+
+    const invocationSnapshotReads = prepareSpy.mock.calls.filter(([sql]) => {
+      const text = String(sql);
+      return text.includes("FROM execution_invocations")
+        && text.includes("WHERE execution_invocations.project_id = ?");
+    });
+    expect(invocationSnapshotReads).toHaveLength(4);
+    expect(usageTaskSpy).toHaveBeenCalledTimes(1);
+    expect(usageSprintRunSpy).toHaveBeenCalledTimes(1);
+    expect(wallTimeTaskSpy).toHaveBeenCalledTimes(1);
+    expect(wallTimeSprintRunSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("deduplicates task run events by source event key within the same task run", async () => {
     const { projectRepository, executionRepository } = await createRepositories();
     const project = projectRepository.createProject({
@@ -1393,7 +1810,7 @@ describe("ExecutionRepository", () => {
     expect(snapshot.recentEvents.some((event) => event.eventType === "provider_activity")).toBe(true);
   });
 
-  it("keeps full current sprint-run dispatch and event history for completed tasks", async () => {
+  it("keeps current sprint-run dispatches while bounding runtime event history", async () => {
     const { projectRepository, executionRepository } = await createRepositories();
     const project = projectRepository.createProject({
       name: "Current Sprint History Project",
@@ -1489,10 +1906,11 @@ describe("ExecutionRepository", () => {
 
     expect(snapshot.taskDispatches).toHaveLength(26);
     expect(snapshot.taskDispatches.some((dispatch) => dispatch.id === earlyDispatch.id)).toBe(true);
-    expect(snapshot.recentEvents.length).toBeGreaterThan(240);
+    expect(snapshot.recentEvents).toHaveLength(120);
     expect(snapshot.recentEvents.some((event) => (
       event.taskId === earlyTask.id && event.eventType === "cli_git_no_changes"
-    ))).toBe(true);
+    ))).toBe(false);
+    expect(snapshot.recentEvents.some((event) => event.sourceEventKey === "later-25-9")).toBe(true);
   });
 
   it("keeps full dispatch and event history for every active sprint run when sprints run in parallel", async () => {
@@ -2762,6 +3180,25 @@ describe("ExecutionRepository", () => {
 
       res = executionRepository.queryProjectInvocations({ projectId: project.id, limit: 1, offset: 0 });
       expect(res.items.length).toBe(1);
+    });
+
+    it("does not cap query results when no limit is supplied", async () => {
+      const { projectRepository, executionRepository } = await createRepositories();
+      const project = projectRepository.createProject({ name: "Proj", sourceType: "git", sourceRef: "https://foo" });
+
+      for (let index = 0; index < 105; index += 1) {
+        executionRepository.createExecutionInvocation({
+          projectId: project.id,
+          type: "dashboard_reply",
+          status: "completed",
+          startedAt: new Date(Date.UTC(2026, 2, 10, 12, 0, index)).toISOString(),
+        });
+      }
+
+      const res = executionRepository.queryProjectInvocations({ projectId: project.id });
+
+      expect(res.totalCount).toBe(105);
+      expect(res.items.length).toBe(105);
     });
   });
 

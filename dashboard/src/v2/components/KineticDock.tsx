@@ -18,13 +18,13 @@ const RIGHT_ITEMS = [
     { icon: Layers,     label: "Sprints",  path: "/sprints", color: "text-ember-500"  },
     { icon: ListChecks, label: "Tasks",    path: "/tasks",   color: "text-signal-400" },
     { icon: Cpu,        label: "Agents",   path: "/agents",  color: "text-signal-400" },
-    { icon: BarChart3,  label: "Stats",    path: "/stats",   color: "text-amber-500"  },
+    { icon: BarChart3,  label: "Stats",    path: "/stats",   color: "text-signal-500" },
     { icon: CalendarDays, label: "Schedule", path: "/scheduler", color: "text-signal-500" },
-    { icon: Inbox,    label: "Memory",   path: "/memory",  color: "text-ember-400"  },
+    { icon: Inbox,    label: "Memory",   path: "/memory",  color: "text-signal-500" },
     { icon: Library,  label: "Knowledge", path: "/knowledge", color: "text-signal-500" },
     { icon: Compass,  label: "Browser",  path: "/browser", color: "text-signal-500" },
-    { icon: FolderTree, label: "Files",  path: "/files",   color: "text-violet-400" },
-    { icon: Zap,      label: "Live",     path: "/live",    color: "text-status-red" },
+    { icon: FolderTree, label: "Files",  path: "/files",   color: "text-signal-500" },
+    { icon: Zap,      label: "Live",     path: "/live",    color: "text-signal-500" },
     { icon: Settings, label: "Config",   path: "/config",  color: "text-slate-400 dark:text-slate-400" },
 ] as const;
 
@@ -69,7 +69,8 @@ export const KineticDock: FunctionComponent = () => {
 
     const matches     = useRouterState({ select: (s) => s.matches });
     const currentPath = (matches && matches.length > 0) ? (matches[matches.length - 1]?.pathname || "/") : "/";
-    const activeIndex = Math.max(0, allItems.findIndex(i => i.path === currentPath));
+    const activeIndex = Math.max(0, allItems.findIndex((item) => item.path === currentPath || (item.path !== "/" && currentPath.startsWith(`${item.path}/`))));
+    const activeItem = allItems[activeIndex];
 
     /* Active indicator position update */
     const updateIndicatorPosition = useCallback(() => {
@@ -199,17 +200,26 @@ export const KineticDock: FunctionComponent = () => {
             <Link
                 key={item.label}
                 to={item.path}
+                aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
+                data-active={isActive ? "true" : "false"}
                 ref={(el: HTMLAnchorElement | null) => { itemRefs.current[globalIndex] = el; }}
                 onMouseEnter={() => prefetchRoute(item.path)}
                 onPointerDown={() => prefetchRoute(item.path)}
                 onFocus={() => prefetchRoute(item.path)}
                 data-tour-id={`nav-${item.label.toLowerCase()}`}
-                className="relative group flex flex-col items-center justify-center w-[52px] h-[52px] min-w-[44px] min-h-[44px] shrink-0 snap-center rounded-[1.4rem] transition-colors duration-300 decoration-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-void-800"
+                className={`relative group flex flex-col items-center justify-center w-[52px] h-[52px] min-w-[44px] min-h-[44px] shrink-0 snap-center rounded-[1.4rem] transition-[background-color,border-color,box-shadow] motion-reduce:transition-none duration-300 decoration-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F9F8F4] dark:focus-visible:ring-offset-void-800 ${
+                    isActive
+                        ? "bg-signal-500/[0.12] shadow-[inset_0_0_0_1px_rgba(0,224,160,0.32),0_10px_24px_rgba(0,224,160,0.12)]"
+                        : "bg-transparent active:bg-black/[0.06] dark:active:bg-white/[0.08]"
+                }`}
             >
-                <div className="absolute inset-0 bg-transparent group-hover:bg-black/[0.04] dark:group-hover:bg-white/[0.05] group-focus-visible:bg-black/[0.04] dark:group-focus-visible:bg-white/[0.05] rounded-[1.4rem] pointer-events-none transition-colors duration-300" />
+                <div className={`absolute inset-0 rounded-[1.4rem] pointer-events-none transition-colors duration-300 motion-reduce:transition-none ${isActive ? "bg-signal-500/[0.08]" : "bg-transparent group-hover:bg-black/[0.04] dark:group-hover:bg-white/[0.05] group-focus-visible:bg-black/[0.04] dark:group-focus-visible:bg-white/[0.05]"}`} />
 
                 <DockItemIcon item={item} isActive={isActive} />
+                {isActive ? (
+                    <span aria-hidden="true" className="absolute bottom-1.5 h-1.5 w-1.5 rounded-full bg-signal-500 shadow-[0_0_10px_rgba(0,224,160,0.85)]" />
+                ) : null}
 
                 {/* Tooltip */}
                 <span className="absolute -top-11 px-2.5 py-1
@@ -221,7 +231,7 @@ export const KineticDock: FunctionComponent = () => {
                                  group-focus-visible:opacity-100 group-focus-visible:scale-100
                                  -translate-y-1 group-hover:-translate-y-0 group-focus-visible:-translate-y-0
                                  pointer-events-none
-                                 transition-all duration-200 ease-out
+                                 transition-all motion-reduce:transition-none duration-200 ease-out
                                  shadow-xl backdrop-blur-md whitespace-nowrap">
                     {item.label}
                 </span>
@@ -230,9 +240,16 @@ export const KineticDock: FunctionComponent = () => {
     };
 
     return (
-        <div style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} className="fixed bottom-0 left-0 right-0 z-50 flex justify-center items-end h-[calc(7rem+env(safe-area-inset-bottom))] pointer-events-none px-4">
+        <div
+            style={{
+                height: 'calc(7rem + env(safe-area-inset-bottom) + 20px)',
+                paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)',
+            }}
+            className="fixed bottom-0 left-0 right-0 z-50 flex justify-center items-end pointer-events-none px-4 max-w-[100vw] overflow-hidden"
+        >
             <nav
                 aria-label="Dock navigation"
+                aria-describedby="dock-route-status"
                 ref={dockRef}
                 onPointerMove={handlePointerMove}
                 onPointerLeave={handlePointerLeave}
@@ -241,7 +258,7 @@ export const KineticDock: FunctionComponent = () => {
                 className="relative pointer-events-auto flex items-center gap-1.5 p-2.5
                            bg-white/90 dark:bg-void-800/90 backdrop-blur-xl
                            border border-black/[0.06] dark:border-white/[0.08]
-                           rounded-[2rem] max-w-full overflow-x-auto scroll-px-2.5 scrollbar-hide touch-pan-x snap-x snap-mandatory
+                           rounded-[2rem] max-w-[calc(100vw-2rem)] overflow-x-auto overflow-y-visible overscroll-x-contain scroll-px-4 scrollbar-hide touch-pan-x snap-x snap-mandatory
                            shadow-[0_20px_50px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]
                            before:absolute before:inset-0 before:rounded-[2rem]
                            before:shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] dark:before:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]"
@@ -268,6 +285,9 @@ export const KineticDock: FunctionComponent = () => {
 
                 {/* Right edge scroll spacer */}
                 <div className="w-[1px] shrink-0" aria-hidden="true" />
+                <span id="dock-route-status" role="status" aria-live="polite" className="sr-only">
+                    Active route: {activeItem?.label ?? "Overview"}
+                </span>
             </nav>
         </div>
     );

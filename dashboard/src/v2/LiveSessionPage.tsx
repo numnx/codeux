@@ -2,12 +2,7 @@ import type { FunctionComponent } from "preact";
 import { lazy, Suspense } from "preact/compat";
 import { useLayoutEffect, useRef, useState, useEffect, useMemo } from "preact/hooks";
 import gsap from "gsap";
-import {
-    Zap, Clock, CheckCircle2, XCircle,
-    ChevronDown, Radio,
-    Play, RotateCcw, Bot, Workflow, PauseCircle,
-    Ship, BarChart3,
-} from "lucide-preact";
+import { Play } from "lucide-preact";
 import { SprintStatsDeck, useLiveTaskTimingSummaries } from "./components/SprintStatsDeck.js";
 
 
@@ -15,34 +10,32 @@ import { useDashboardRuntimeData } from "../hooks/use-dashboard-runtime-data.js"
 import { useProjectGitStatus } from "./hooks/use-project-git-status.js";
 import { usePreviewSessions } from "./hooks/use-preview-sessions.js";
 import { useLiveSessionActions } from "./hooks/use-live-session-actions.js";
-import { formatTime } from "../lib/time.js";
-import { renderMarkdown } from "../lib/markdown.js";
-import type { Subtask, ExecutionRuntimeEventSummary } from "../types.js";
+import type { Subtask } from "../types.js";
 import { deriveLiveSessionRuntimeState } from "./lib/live-session-runtime.js";
-import { getTaskProgressPhase, getLiveTaskProgressPhase } from "../lib/task-progress.js";
-import { pickLatestTaskDispatch, projectLiveTask, findActiveQuotaWait } from "./lib/live-task-runtime.js";
-import { CollapsiblePanel } from "./components/ui/CollapsiblePanel.js";
-import { ExecutionTimelineProvider } from "../hooks/ExecutionTimelineContext.js";
-import { ExecutionTimeline } from "./components/ExecutionTimeline.js";
-import { AttentionLedger } from "./components/AttentionLedger.js";
-import { ExecutionRuntimePanel } from "./components/live-session/ExecutionRuntimePanel.js";
-import { InvocationFeedPanel } from "./components/live-session/InvocationFeedPanel.js";
+import {
+    deriveFilteredLiveSessionTasks,
+    deriveHasLiveDurationTicker,
+    deriveLiveSessionStats,
+    deriveLiveSessionSnapshotSurface,
+    deriveLiveSessionTaskCardItems,
+    deriveLiveTransportBannerViewModel,
+    deriveProjectedLiveSessionTasks,
+    deriveScopedLiveSessionRuntime,
+    type LiveSessionTaskFilter,
+} from "./lib/live-session-view-model.js";
 import { StatsHeader } from "./components/StatsHeader.js";
 import { IdleRuntimeState } from "./components/ui/IdleRuntimeState.js";
 import { SkeletonPanel } from "./components/layout/SkeletonLoader.js";
 import { PageContainer } from "./components/layout/PageContainer.js";
 import { SectionDivider } from "./components/ui/SectionDivider.js";
-import {
-    EMPTY_RUNTIME_STATS,
-} from "./lib/live-session-config.js";
-import { LiveTaskCard, TaskDuration, QuotaCountdown } from "./components/LiveTaskCard.js";
+import { LiveTaskCard } from "./components/LiveTaskCard.js";
 import { LiveTransportBanner } from "./components/live-session/LiveTransportBanner.js";
-import { RuntimeEventFeed } from "./components/RuntimeEventFeed.js";
-import { GitCIStatusPanel } from "./components/GitCIStatusPanel.js";
-import { deriveLiveDurationDisplay } from "./lib/live-duration-display.js";
+import { LiveTaskFilterStrip } from "./components/live-session/LiveTaskFilterStrip.js";
+import { LiveSessionRuntimeSidebar } from "./components/live-session/LiveSessionRuntimeSidebar.js";
 import { useProjectData } from "./context/project-data.js";
 import { useProjectEffectiveSettings } from "./hooks/use-project-effective-settings.js";
 import { useReducedMotion } from "./hooks/use-reduced-motion.js";
+import { useInteractionTokens } from "./lib/motion/tokens.js";
 import { fetchAgentPresets } from "./lib/agent-preset-api.js";
 import type { AgentPreset } from "./types.js";
 import { useConfirmDialog } from "./hooks/use-confirm-dialog.js";
@@ -62,14 +55,6 @@ type HeaderView = "stats" | "race" | "dag";
 
 /* ─── Filter Type ────────────────────────────────────────────────────────── */
 
-type TaskFilter = "All" | "Running" | "Completed" | "Failed" | "Pending";
-
-const FILTER_STATUS_MAP: Record<TaskFilter, string | null> = {
-    All: null, Running: "RUNNING", Completed: "COMPLETED", Failed: "FAILED", Pending: "PENDING",
-};
-
-const TASK_FILTERS: TaskFilter[] = ["All", "Running", "Completed", "Failed", "Pending"];
-const EMPTY_RUNTIME_EVENTS: ExecutionRuntimeEventSummary[] = [];
 const EMPTY_LIVE_SESSION_RUNTIME_STATE = {
     liveSprintRun: null,
     pausedInterventionRun: null,
@@ -83,6 +68,7 @@ export const LiveSessionPage: FunctionComponent = () => {
 
     const contentRef = useRef<HTMLDivElement>(null);
     const prefersReducedMotion = useReducedMotion();
+    const interactionTokens = useInteractionTokens();
     const { selectedProjectId, loading: projectsLoading } = useProjectData();
     const { data: effectiveSettings } = useProjectEffectiveSettings(selectedProjectId);
     const sprintKeyPrefix = effectiveSettings?.settings?.git?.sprintKeyPrefix || "SPR";
@@ -142,7 +128,7 @@ export const LiveSessionPage: FunctionComponent = () => {
         handleDismissAttentionItem,
     } = useLiveSessionActions(refreshRuntimeStatus, refreshGitStatus, requestConfirm);
 
-    const [activeFilter, setFilter] = useState<TaskFilter>("All");
+    const [activeFilter, setFilter] = useState<LiveSessionTaskFilter>("All");
     const [headerView, setHeaderView] = useState<HeaderView>("dag");
     const [forceCompletePendingIds, setForceCompletePendingIds] = useState<Set<string>>(new Set());
     const [forceCompleteErrorByTaskId, setForceCompleteErrorByTaskId] = useState<Map<string, string>>(new Map());
@@ -170,7 +156,7 @@ export const LiveSessionPage: FunctionComponent = () => {
         () => sprintScopeReady
             ? deriveLiveSessionRuntimeState(status, execution, sprintScopeId)
             : EMPTY_LIVE_SESSION_RUNTIME_STATE,
-        [execution.attentionItems.length, execution.sprintRuns, execution.taskDispatches.length, status.sprint_id, status.subtasks?.length, status.timestamp, execution, sprintScopeId, sprintScopeReady, status],
+        [execution, sprintScopeId, sprintScopeReady, status],
     );
     const liveSprintRun = runtimeState.liveSprintRun;
     const pausedInterventionRun = runtimeState.pausedInterventionRun;
@@ -187,67 +173,27 @@ export const LiveSessionPage: FunctionComponent = () => {
     const showStatusPanel = !hasLiveSprint && (sprintStatusPresentation.isManualPause || sprintStatusPresentation.isSystemStop);
 
     const rawHasSprintContext = runtimeState.hasSprintContext;
-    const sprintDispatches = useMemo(() => {
-        if (!sprintScopeReady) {
-            return [];
-        }
-        return sprintScopeId
-            ? execution.taskDispatches.filter((d) => d.sprintId === sprintScopeId)
-            : execution.taskDispatches;
-    }, [execution.taskDispatches, sprintScopeId, sprintScopeReady]);
-
-    const sprintEvents = useMemo(() => {
-        if (!sprintScopeReady) {
-            return [];
-        }
-        return sprintScopeId
-            ? execution.recentEvents.filter((e) => e.sprintId === sprintScopeId)
-            : execution.recentEvents;
-    }, [execution.recentEvents, sprintScopeId, sprintScopeReady]);
-
-    const sprintRuns = useMemo(() => {
-        if (!sprintScopeReady) {
-            return [];
-        }
-        return sprintScopeId
-            ? execution.sprintRuns.filter((r) => r.sprintId === sprintScopeId)
-            : execution.sprintRuns;
-    }, [execution.sprintRuns, sprintScopeId, sprintScopeReady]);
-
-    const sprintInvocations = useMemo(() => {
-        if (!sprintScopeReady) {
-            return [];
-        }
-        const invocations = execution.recentInvocations ?? [];
-        return sprintScopeId
-            ? invocations.filter((invocation) => invocation.sprintId === sprintScopeId)
-            : invocations;
-    }, [execution.recentInvocations, sprintScopeId, sprintScopeReady]);
+    const scopedRuntime = useMemo(
+        () => deriveScopedLiveSessionRuntime(execution, sprintScopeId, sprintScopeReady),
+        [execution, sprintScopeId, sprintScopeReady],
+    );
+    const sprintDispatches = scopedRuntime.dispatches;
+    const sprintEvents = scopedRuntime.events;
+    const sprintRuns = scopedRuntime.sprintRuns;
+    const sprintInvocations = scopedRuntime.invocations;
 
     const visibleTasksWithLiveActivities = useMemo(() => (
-        tasksWithLiveActivities.map((task) => projectLiveTask(task, sprintDispatches, sprintEvents))
+        deriveProjectedLiveSessionTasks(tasksWithLiveActivities, sprintDispatches, sprintEvents)
     ), [sprintDispatches, sprintEvents, tasksWithLiveActivities]);
 
     const hasSprintContext = rawHasSprintContext || visibleTasksWithLiveActivities.length > 0;
 
     const [nowIso, setNowIso] = useState(() => new Date().toISOString());
 
-    const visibleStats = useMemo(() => {
-        if (!hasSprintContext) return EMPTY_RUNTIME_STATS;
-        return {
-            total: visibleTasksWithLiveActivities.length,
-            running: visibleTasksWithLiveActivities.filter((task) => task.status === "RUNNING").length,
-            codingCompleted: visibleTasksWithLiveActivities.filter((task) => task.status === "CODING_COMPLETED").length,
-            completed: visibleTasksWithLiveActivities.filter((task) => task.status === "COMPLETED").length,
-            failed: visibleTasksWithLiveActivities.filter((task) => task.status === "FAILED").length,
-            ci: visibleTasksWithLiveActivities.filter((task) => task.merge_indicator === "CI").length,
-            qa: visibleTasksWithLiveActivities.filter((task) => task.merge_indicator === "QA_PENDING").length,
-            automerge: visibleTasksWithLiveActivities.filter((task) => task.merge_indicator === "AUTOMERGE").length,
-            merged: visibleTasksWithLiveActivities.filter((task) => task.merge_indicator === "MERGED" || task.is_merged).length,
-            mergeBlocked: visibleTasksWithLiveActivities.filter((task) => task.merge_indicator === "MERGE_BLOCKED").length,
-            mergeConflicts: visibleTasksWithLiveActivities.filter((task) => task.merge_indicator === "MERGE_CONFLICT").length,
-        };
-    }, [hasSprintContext, visibleTasksWithLiveActivities]);
+    const visibleStats = useMemo(
+        () => deriveLiveSessionStats(visibleTasksWithLiveActivities, hasSprintContext),
+        [hasSprintContext, visibleTasksWithLiveActivities],
+    );
 
     const { sprintTiming, taskTimings, taskTimingMap } = useLiveTaskTimingSummaries({
         tasks: visibleTasksWithLiveActivities,
@@ -257,20 +203,10 @@ export const LiveSessionPage: FunctionComponent = () => {
         nowIso,
     });
 
-    const hasLiveDurationTicker = useMemo(() => (
-        taskTimings.some((taskTiming) => (
-            deriveLiveDurationDisplay({ taskTiming }).mode === "live"
-        ))
-        || sprintDispatches.some((dispatch) => (
-            deriveLiveDurationDisplay({
-                dispatchTiming: {
-                    startedAt: dispatch.startedAt,
-                    finishedAt: dispatch.finishedAt,
-                    status: dispatch.status,
-                },
-            }).mode === "live"
-        ))
-    ), [sprintDispatches, taskTimings]);
+    const hasLiveDurationTicker = useMemo(
+        () => deriveHasLiveDurationTicker(taskTimings, sprintDispatches),
+        [sprintDispatches, taskTimings],
+    );
 
     useEffect(() => {
         setNowIso(new Date().toISOString());
@@ -283,123 +219,47 @@ export const LiveSessionPage: FunctionComponent = () => {
         return () => window.clearInterval(timer);
     }, [hasLiveDurationTicker]);
 
-    const taskEventsByRecordId = useMemo(() => {
-        const byRecordId = new Map<string, ExecutionRuntimeEventSummary[]>();
-        const byTaskKey = new Map<string, ExecutionRuntimeEventSummary[]>();
-        for (const event of sprintEvents) {
-            if (event.taskId) {
-                const existing = byRecordId.get(event.taskId) || [];
-                existing.push(event);
-                byRecordId.set(event.taskId, existing);
-            }
-            if (event.taskKey) {
-                const existing = byTaskKey.get(event.taskKey) || [];
-                existing.push(event);
-                byTaskKey.set(event.taskKey, existing);
-            }
-        }
-        return { byRecordId, byTaskKey };
-    }, [sprintEvents]);
-
-    const { filteredTasks, taskCounts } = useMemo(() => {
-        const filteredTasks: Subtask[] = [];
-        const targetStatus = FILTER_STATUS_MAP[activeFilter];
-        let pendingCount = 0;
-
-        for (const task of visibleTasksWithLiveActivities) {
-            const phase = getTaskProgressPhase(task);
-            const isPending = phase === "PENDING" || phase === "BLOCKED" || phase === "QUOTA";
-
-            if (isPending) {
-                pendingCount += 1;
-            }
-
-            if (
-                activeFilter === "All"
-                || (activeFilter === "Pending" && isPending)
-                || (activeFilter !== "Pending" && targetStatus !== null && phase === targetStatus)
-            ) {
-                filteredTasks.push(task);
-            }
-        }
-
-        return {
-            filteredTasks,
-            taskCounts: {
-                All: visibleTasksWithLiveActivities.length,
-                Running: visibleStats.running,
-                Completed: visibleStats.completed,
-                Failed: visibleStats.failed,
-                Pending: pendingCount,
-            } satisfies Record<TaskFilter, number>,
-        };
-    }, [activeFilter, visibleStats, visibleTasksWithLiveActivities]);
+    const { filteredTasks, taskCounts, announcement: filterResultAnnouncement } = useMemo(
+        () => deriveFilteredLiveSessionTasks(visibleTasksWithLiveActivities, visibleStats, activeFilter),
+        [activeFilter, visibleStats, visibleTasksWithLiveActivities],
+    );
+    const selectionMovementStyle = useMemo(() => ({
+        transitionDuration: interactionTokens.selectionMovement.duration,
+        transitionTimingFunction: interactionTokens.selectionMovement.ease,
+    }), [interactionTokens.selectionMovement.duration, interactionTokens.selectionMovement.ease]);
+    const listReorderStyle = useMemo(() => ({
+        transitionDuration: interactionTokens.listReorder.duration,
+        transitionTimingFunction: interactionTokens.listReorder.ease,
+    }), [interactionTokens.listReorder.duration, interactionTokens.listReorder.ease]);
 
     const taskCardItems = useMemo(() => (
-        filteredTasks.map((task) => {
-            const taskRuntimeId = task.record_id || task.id;
-            const optimisticTask: Subtask = optimisticallyCompletedTaskIds.has(taskRuntimeId)
-                ? { ...task, status: "COMPLETED" as const }
-                : task;
-            const latestDispatch = pickLatestTaskDispatch(task, sprintDispatches);
-            const taskIdentity = new Set([taskRuntimeId, task.id, task.record_id].filter(Boolean));
-            const taskInvocations = sprintInvocations.filter((invocation) => (
-                (invocation.taskId && taskIdentity.has(invocation.taskId))
-                || (invocation.taskKey && taskIdentity.has(invocation.taskKey))
-                || (latestDispatch?.id && invocation.dispatchId === latestDispatch.id)
-                || (latestDispatch?.taskRunId && invocation.taskRunId === latestDispatch.taskRunId)
-            ));
-            const taskEvents = (task.record_id && taskEventsByRecordId.byRecordId.get(task.record_id))
-                || taskEventsByRecordId.byTaskKey.get(task.id)
-                || EMPTY_RUNTIME_EVENTS;
-            // Resolve the live phase from the latest dispatch so states the task record
-            // hasn't caught up to yet — notably QUOTA while waiting on a provider reset —
-            // surface on the card instead of lingering as "Running". Preserve the optimistic
-            // force-complete state when one is pending.
-            const dispatchPhase = optimisticallyCompletedTaskIds.has(taskRuntimeId)
-                ? "COMPLETED" as const
-                : getLiveTaskProgressPhase({ task: optimisticTask, dispatch: latestDispatch });
-            // When `retryOnQuotaReset` is on, the provider sleeps in-process and the dispatch
-            // stays "running"; detect that wait from runtime events so the card still shows
-            // QUOTA + a countdown rather than a misleading "Running" while we wait on quota.
-            // IMPORTANT: Only look at events belonging to the *current* dispatch to prevent
-            // stale quota-wait events from a previous run (which may still have a future
-            // retryAfterIso) from incorrectly showing QUOTA during a fresh rerun.
-            const currentDispatchEvents = latestDispatch
-                ? taskEvents.filter((e) =>
-                    (latestDispatch.taskRunId && e.taskRunId === latestDispatch.taskRunId)
-                    || (latestDispatch.id && e.dispatchId === latestDispatch.id),
-                  )
-                : [];
-            const activeQuotaWait = ["FAILED", "BLOCKED", "QUOTA", "COMPLETED"].includes(dispatchPhase)
-                ? null
-                : findActiveQuotaWait(currentDispatchEvents);
-            const taskPhase = activeQuotaWait ? "QUOTA" as const : dispatchPhase;
-            const showDispatchError = activeQuotaWait
-                ? `Provider quota exhausted — waiting for reset. [RETRY_AFTER:${activeQuotaWait.retryAfterIso}]`
-                : latestDispatch && ["FAILED", "BLOCKED", "QUOTA"].includes(taskPhase)
-                    ? latestDispatch.errorMessage
-                    : null;
-
-            return {
-                key: taskRuntimeId,
-                task: optimisticTask,
-                phase: taskPhase,
-                taskTiming: taskTimingMap.get(taskRuntimeId) || taskTimingMap.get(task.id) || null,
-                events: taskEvents,
-                invocations: taskInvocations,
-                isRerunning: rerunningIds.has(taskRuntimeId),
-                isForceCompleting: forceCompletePendingIds.has(taskRuntimeId),
-                forceCompleteError: forceCompleteErrorByTaskId.get(taskRuntimeId) || null,
-                dispatchInfo: (latestDispatch || activeQuotaWait) ? {
-                    errorMessage: showDispatchError,
-                    startedAt: latestDispatch?.startedAt ?? null,
-                    finishedAt: latestDispatch?.finishedAt ?? null,
-                    status: latestDispatch?.status ?? null,
-                } : null,
-            };
+        deriveLiveSessionTaskCardItems({
+            filteredTasks,
+            dispatches: sprintDispatches,
+            events: sprintEvents,
+            invocations: sprintInvocations,
+            taskTimingMap,
+            rerunningIds,
+            forceCompletePendingIds,
+            forceCompleteErrorByTaskId,
+            optimisticallyCompletedTaskIds,
         })
-    ), [sprintInvocations, filteredTasks, forceCompleteErrorByTaskId, forceCompletePendingIds, optimisticallyCompletedTaskIds, rerunningIds, sprintDispatches, taskEventsByRecordId, taskTimingMap]);
+    ), [filteredTasks, forceCompleteErrorByTaskId, forceCompletePendingIds, optimisticallyCompletedTaskIds, rerunningIds, sprintDispatches, sprintEvents, sprintInvocations, taskTimingMap]);
+
+    const transportBannerViewModel = useMemo(
+        () => deriveLiveTransportBannerViewModel({ transportState, isRecovering, error, snapshotUpdatedAt }),
+        [error, isRecovering, snapshotUpdatedAt, transportState],
+    );
+    const snapshotSurface = useMemo(
+        () => deriveLiveSessionSnapshotSurface({
+            transportState,
+            isRecovering,
+            snapshotUpdatedAt,
+            transportBannerTitle: transportBannerViewModel?.title ?? null,
+            error,
+        }),
+        [error, isRecovering, snapshotUpdatedAt, transportBannerViewModel?.title, transportState],
+    );
 
     const handleEditTask = (task: Subtask): void => {
         const search = new URLSearchParams();
@@ -413,6 +273,18 @@ export const LiveSessionPage: FunctionComponent = () => {
     const handleForceCompleteTask = async (task: Subtask): Promise<void> => {
         const taskRuntimeId = task.record_id || task.id;
         if (!realtimeProjectId || !taskRuntimeId) {
+            return;
+        }
+        if (forceCompletePendingIds.has(taskRuntimeId)) {
+            return;
+        }
+        const confirmed = await requestConfirm({
+            title: "Force Complete Task",
+            body: `Mark task "${task.title || task.id}" as completed? This bypasses the normal runtime completion path.`,
+            confirmLabel: "Force Complete",
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
         setForceCompletePendingIds((prev) => new Set(prev).add(taskRuntimeId));
@@ -451,7 +323,7 @@ export const LiveSessionPage: FunctionComponent = () => {
 
 
     return (
-        <PageContainer aria-label="Live Session" className="gap-16">
+        <PageContainer aria-label="Live Session" className="gap-16" aria-busy={!initialLoadComplete ? "true" : undefined}>
             <h1 className="sr-only">Live Session</h1>
             <ConfirmDialog isOpen={isConfirmOpen} options={confirmOptions} onConfirm={handleConfirm} onCancel={handleCancel} />
             <LiveTransportBanner
@@ -459,6 +331,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                 isRecovering={isRecovering}
                 snapshotUpdatedAt={snapshotUpdatedAt}
                 error={error}
+                viewModel={transportBannerViewModel}
             />
 
             <ActionFeedbackRegion status={feedback.status} message={feedback.message} onDismiss={clearFeedback} clearError={clearError} />
@@ -478,6 +351,9 @@ export const LiveSessionPage: FunctionComponent = () => {
                 selectedSession={selectedSession}
                 statusTimestamp={status.timestamp}
             />
+            <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                {headerView === "stats" ? "Stats view selected." : headerView === "race" ? "Race view selected." : "DAG view selected."}
+            </div>
 
             {/* ── Header View: Stats or Boat Race ─────────────────────── */}
             {headerView === "stats" ? (
@@ -489,7 +365,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                 />
             ) : headerView === "race" ? (
                 /* ── Boat Race View ───────────────────────────────── */
-                <Suspense fallback={<SkeletonPanel />}>
+                <Suspense fallback={<div role="status" aria-live="polite" aria-busy="true"><span className="sr-only">Loading sprint race.</span><SkeletonPanel /></div>}>
                     <SprintBoatRace
                         tasks={visibleTasksWithLiveActivities}
                         dispatches={sprintDispatches}
@@ -497,7 +373,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                     />
                 </Suspense>
             ) : (
-                <Suspense fallback={<SkeletonPanel />}>
+                <Suspense fallback={<div role="status" aria-live="polite" aria-busy="true"><span className="sr-only">Loading sprint DAG.</span><SkeletonPanel /></div>}>
                     <SprintDag
                         tasks={visibleTasksWithLiveActivities}
                         dispatches={sprintDispatches}
@@ -510,57 +386,23 @@ export const LiveSessionPage: FunctionComponent = () => {
             <SectionDivider label="Task Pipeline" />
 
             {/* ── Filter Strip ────────────────────────────────────────── */}
-            <div className="flex flex-wrap gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl w-fit" role="tablist" aria-label="Task status filters">
-                {TASK_FILTERS.map((filter, index) => (
-                    <button
-                        key={filter}
-                        role="tab"
-                        aria-selected={activeFilter === filter}
-                        tabIndex={activeFilter === filter ? 0 : -1}
-                        onClick={() => setFilter(filter)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                                e.preventDefault();
-                                const nextFilter = TASK_FILTERS[(index + 1) % TASK_FILTERS.length];
-                                setFilter(nextFilter);
-                                const nextTab = e.currentTarget.parentElement?.children[(index + 1) % TASK_FILTERS.length] as HTMLElement;
-                                nextTab?.focus();
-                            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                                e.preventDefault();
-                                const prevIndex = index - 1 < 0 ? TASK_FILTERS.length - 1 : index - 1;
-                                const prevFilter = TASK_FILTERS[prevIndex];
-                                setFilter(prevFilter);
-                                const prevTab = e.currentTarget.parentElement?.children[prevIndex] as HTMLElement;
-                                prevTab?.focus();
-                            }
-                        }}
-                        className={`text-xs font-semibold tracking-wide px-4 py-1.5 rounded-lg
-                                   transition-all duration-200 flex items-center gap-2
-                                   ${activeFilter === filter
-                                       ? "bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
-                                       : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                                   }`}
-                    >
-                        {filter}
-                        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md
-                            ${activeFilter === filter
-                                ? "bg-signal-500/[0.12] text-signal-600 dark:text-signal-400"
-                                : "bg-black/[0.06] dark:bg-white/[0.06] text-slate-400"
-                            }`}>
-                            {taskCounts[filter]}
-                        </span>
-                    </button>
-                ))}
-            </div>
+            <LiveTaskFilterStrip
+                activeFilter={activeFilter}
+                taskCounts={taskCounts}
+                announcement={filterResultAnnouncement}
+                onFilterChange={setFilter}
+                selectionMovementStyle={selectionMovementStyle}
+            />
 
             {/* ── Main Content Grid ───────────────────────────────────── */}
             <div ref={contentRef} className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-10 xl:gap-16">
 
                 {/* Task cards */}
-                <div className="xl:col-span-8 flex flex-col gap-5 min-w-0">
+                <div className="xl:col-span-8 flex flex-col gap-5 min-w-0" style={listReorderStyle}>
                     {!hasSprintContext && !initialLoadComplete ? (
-                        /* Initial load in progress — render nothing to avoid flashing idle placeholder */
-                        null
+                        <div role="status" aria-label="Loading live session telemetry" aria-live="polite" aria-busy="true" className="sr-only">
+                            Loading live session telemetry.
+                        </div>
                     ) : !hasSprintContext ? (
                         <IdleRuntimeState
                             title={showStatusPanel ? sprintStatusPresentation.title : "Waiting for Sprint Start"}
@@ -569,9 +411,9 @@ export const LiveSessionPage: FunctionComponent = () => {
                                 : "Launch a sprint to activate live task telemetry, protocol output, and runtime activity for this project."}
                         />
                     ) : taskCardItems.length === 0 ? (
-                        <div className="group relative overflow-hidden bg-white/70 dark:bg-void-800/60 backdrop-blur-2xl border-2 border-dashed border-black/[0.06] dark:border-white/[0.06] rounded-[1.75rem] p-16 text-center">
+                        <div role="status" aria-live="polite" className="group relative overflow-hidden rounded-[1.75rem] border-2 border-dashed border-black/[0.06] bg-white/70 p-16 text-center backdrop-blur-2xl dark:border-white/[0.06] dark:bg-void-800/60">
                             <div className="relative z-10">
-                                <Play className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-4" strokeWidth={1} />
+                                <Play className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-4" strokeWidth={1} aria-hidden="true" />
                                 <p className="text-sm text-slate-400 dark:text-slate-600 font-medium">
                                     {activeFilter === "All"
                                         ? "Awaiting sprint decomposition..."
@@ -605,8 +447,15 @@ export const LiveSessionPage: FunctionComponent = () => {
 
                 {/* Sidebar */}
                 <div className="xl:col-span-4 flex flex-col gap-5 min-w-0">
-                    <ExecutionTimelineProvider
+                    <LiveSessionRuntimeSidebar
                         execution={execution}
+                        snapshotSurface={snapshotSurface}
+                        hasSprintContext={hasSprintContext}
+                        invocations={sprintInvocations}
+                        sprintKeyPrefix={sprintKeyPrefix}
+                        gitStatus={gitStatus}
+                        gitStatusError={gitStatusError}
+                        pendingActionIds={pendingActionIds}
                         onOrchestrateSprint={handleOrchestrateSprint}
                         onPauseSprintRun={handlePauseSprintRun}
                         onCancelSprintRun={handleCancelSprintRun}
@@ -617,22 +466,7 @@ export const LiveSessionPage: FunctionComponent = () => {
                         onClaimAttentionItem={handleClaimAttentionItem}
                         onResolveAttentionItem={handleResolveAttentionItem}
                         onDismissAttentionItem={handleDismissAttentionItem}
-                        pendingActionIds={pendingActionIds}
-                    >
-                        <InvocationFeedPanel
-                            collapsible
-                            defaultOpen={hasSprintContext}
-                            invocations={sprintInvocations}
-                            sprintKeyPrefix={sprintKeyPrefix}
-                        />
-                        <ExecutionTimeline collapsible defaultOpen={hasSprintContext} />
-                        <GitCIStatusPanel status={gitStatus} error={gitStatusError} />
-                        <AttentionLedger collapsible defaultOpen={hasSprintContext} />
-                        <ExecutionRuntimePanel
-                            collapsible
-                            defaultOpen={hasSprintContext}
-                        />
-                    </ExecutionTimelineProvider>
+                    />
                 </div>
             </div>
         </PageContainer>

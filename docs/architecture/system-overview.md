@@ -24,8 +24,9 @@ This project is a Model Context Protocol (MCP) server with an integrated dashboa
   - Instantiate repositories, services, handlers, orchestrator.
   - Register MCP request handlers via `src/server/mcp-request-router.ts`.
   - Start dashboard HTTP server.
-  - Start MCP stdio transport.
+  - Start MCP stdio transport only for an attached MCP pipe/socket or explicit `CODE_UX_ENABLE_MCP_STDIO=1`; daemon stdin such as `/dev/null` keeps stdio disabled.
   - Serve cached dashboard live activity and git status via `src/server/activity-cache-service.ts`.
+- Dashboard dependency composition lives in `src/app/dependency-factory/dashboard-factory.ts`. When two dashboard services must be constructed before both concrete instances exist, the factory uses `LateBoundDependency<T>` from `src/shared/late-bound-dependency.ts` and links it synchronously before returning dependencies. Consumers resolve these holders at action time so missing links fail with an explicit late-bound dependency error instead of placeholder objects or private-field mutation.
 
 ### 2. MCP tool handlers
 - `src/mcp/core-tool-handler.ts`
@@ -38,6 +39,7 @@ This project is a Model Context Protocol (MCP) server with an integrated dashboa
 - `src/domain/sprint/orchestrator/*`
 - `src/domain/sprint/ci/*`
 - Atomic step modules in `src/sprint/steps/*`
+- Git-mode behavior is split at the final merge gate. REMOTE mode waits for the hosted completion PR to be observed as merged before marking a run complete. LOCAL mode performs the final `feature -> default` merge in the host repository, restores the user's prior checkout afterward, and keeps the run active or paused with merge attention when the local merge fails.
 
 ### 4. Instruction template system
 - `src/instructions/instruction-template-service.ts`
@@ -48,6 +50,7 @@ This project is a Model Context Protocol (MCP) server with an integrated dashboa
 ### 5. Dashboard server and frontend
 - API host: `src/server/dashboard-server.ts`
 - Frontend app: `dashboard/src/*`
+- Settings view-models: `dashboard/src/v2/lib/settings-view-models.ts` is a compatibility barrel over focused helpers in `dashboard/src/v2/lib/settings/`. Provider instance/auth helpers, model option catalogs, model pricing refs, project override/source helpers, display metadata, and branch naming helpers are kept in separate typed modules so dashboard components can share behavior without changing settings API contracts or saved settings shapes.
 
 ### 6. Data and settings repositories
 - Subtasks: `src/repositories/subtask-repository.ts`
@@ -59,6 +62,7 @@ This project is a Model Context Protocol (MCP) server with an integrated dashboa
 - `src/services/cli-process-runner.ts`
 - `src/services/cli-docker-utils.ts`
 - `src/services/cli-workflow-text-utils.ts`
+- Docker-backed project setup and dashboard chat invocations seed their provider workspace from the effective default branch snapshot. The checkout contract asks `WorkspaceManager` for the configured branch, which prefers `origin/<defaultBranch>` and falls back to the local branch when the remote tracking ref is unavailable; HOST-mode invocations continue to use their existing cwd behavior.
 
 ### 8. Shared logging and correlation
 - `src/shared/logging/logger.ts`
@@ -110,6 +114,8 @@ Priority order:
 - Branch preflight can block plan/orchestrate until local and remote sprint branch exist.
 - Planning preflight can block status/orchestrate until subtask files exist.
 - CI Intelligence settings add protocol-level merge guidance for comments/check gates.
+- `pnpm run ci` starts with the local quality guardrail script, which blocks stale artifacts, unsafe dependency placeholders, realtime snapshot persistence regressions, duplicate optimistic task insertion, and substantial duplicate implementation blocks before broader validation runs.
+- Hot realtime, execution projection, provider telemetry, session sync, and dashboard rendering paths must follow the [Code Quality And Performance Contracts](./code-quality-performance-contracts.md), including bounded snapshot slices and owner-specific verification commands.
 
 ## Extensibility Model
 

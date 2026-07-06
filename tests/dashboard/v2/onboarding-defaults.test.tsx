@@ -119,24 +119,32 @@ describe("Onboarding automation defaults", () => {
     });
 
     expect(getChoiceButton("Feature PR automerge", "Always").className).toContain("border-signal-500/30");
-    expect(getChoiceButton("Main PR automerge", "Create PR").className).toContain("border-signal-500/30");
+    expect(getChoiceButton("Main PR automerge", "Always").className).toContain("border-signal-500/30");
     expect(getToggleInRow("Resolve main merge conflicts")).toHaveAttribute("aria-pressed", "true");
     expect(getToggleInRow("Resolve feature merge conflicts")).toHaveAttribute("aria-pressed", "true");
     expect(getToggleInRow("Memory system")).toHaveAttribute("aria-pressed", "true");
     expect(getToggleInRow("Enable QA agent")).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(getChoiceButton("Feature PR automerge", "Off"));
-    fireEvent.click(getChoiceButton("Main PR automerge", "Always"));
+    fireEvent.click(getChoiceButton("Main PR automerge", "Create PR"));
     fireEvent.click(getToggleInRow("Resolve main merge conflicts"));
     fireEvent.click(getToggleInRow("Resolve feature merge conflicts"));
     fireEvent.click(getToggleInRow("Memory system"));
     fireEvent.click(getToggleInRow("Enable QA agent"));
 
     expect(getChoiceButton("Feature PR automerge", "Off").className).toContain("border-signal-500/30");
-    expect(getChoiceButton("Main PR automerge", "Always").className).toContain("border-signal-500/30");
+    expect(getChoiceButton("Main PR automerge", "Create PR").className).toContain("border-signal-500/30");
     expect(getToggleInRow("Resolve main merge conflicts")).toHaveAttribute("aria-pressed", "false");
     expect(getToggleInRow("Resolve feature merge conflicts")).toHaveAttribute("aria-pressed", "false");
     expect(getToggleInRow("Memory system")).toHaveAttribute("aria-pressed", "false");
     expect(getToggleInRow("Enable QA agent")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("defaults the appearance pattern overlay to none", () => {
+    expect(DEFAULT_DASHBOARD_SETTINGS.appearance.backgroundPattern).toBe("NONE");
+  });
+
+  it("defaults navigation to the sidebar", () => {
+    expect(DEFAULT_DASHBOARD_SETTINGS.appearance.navigationMode).toBe("SIDEBAR");
   });
 });

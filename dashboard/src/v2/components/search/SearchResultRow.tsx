@@ -1,20 +1,33 @@
 import { FunctionComponent } from "preact";
-import { Target, ListChecks, Cpu, Compass, ArrowRight } from "lucide-preact";
+import { Target, ListChecks, Cpu, Compass, ArrowRight, Ban } from "lucide-preact";
 import { Link } from "@tanstack/react-router";
 import { AgentAvatarSvg } from "../agents/AgentAvatarSvg.js";
-import type { SearchItem } from "./SearchOverlay";
-import { INTERACTION_TOKENS } from "../../lib/motion/tokens.js";
-import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
+import type { AgentSearchItem, ContainerSearchItem, SearchCategoryId, SearchItem, SprintSearchItem, TaskSearchItem } from "./SearchOverlay";
+import { useInteractionTokens } from "../../lib/motion/tokens.js";
 
 interface SearchResultRowProps {
     item: SearchItem;
-    categoryType: string;
+    categoryType: SearchCategoryId;
     searchQuery: string;
     globalItemIndex: number;
     isFocused: boolean;
     onFocus: () => void;
-    activeItemRef: preact.Ref<HTMLButtonElement> | null;
+    activeItemRef: preact.Ref<HTMLAnchorElement> | null;
     onClick?: () => void;
+}
+
+const disabledStatuses = new Set(["unavailable", "disabled"]);
+
+function getDisabledReason(item: SearchItem): string | undefined {
+    if (!item.status || !disabledStatuses.has(item.status)) return undefined;
+    return item.status === "disabled" ? "Disabled" : "Unavailable";
+}
+
+function getDisabledExplanation(item: SearchItem): string | undefined {
+    if (!item.status || !disabledStatuses.has(item.status)) return undefined;
+    return item.status === "disabled"
+        ? "This result is disabled and cannot be opened."
+        : "This result is unavailable and cannot be opened.";
 }
 
 export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
@@ -27,64 +40,77 @@ export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
     activeItemRef,
     onClick,
 }) => {
-    const reducedMotion = useReducedMotion();
-    const transitionDuration = reducedMotion ? "0ms" : INTERACTION_TOKENS.selectionMovement.duration;
-    const transitionTimingFunction = reducedMotion ? "none" : INTERACTION_TOKENS.selectionMovement.ease;
-    // Determine icon and specific formatting based on category
+    const interactionTokens = useInteractionTokens();
+    const transitionDuration = interactionTokens.selectionMovement.duration;
+    const transitionTimingFunction = interactionTokens.selectionMovement.ease;
+    const avatarConfig = "avatarConfig" in item ? item.avatarConfig : null;
+    const disabledReason = getDisabledReason(item);
+    const disabledExplanation = getDisabledExplanation(item);
+    const isDisabled = Boolean(disabledReason);
+    const disabledDescriptionId = isDisabled ? `search-result-${item.id}-disabled-reason` : undefined;
     let Icon = Target;
     let itemId = item.id;
     let title = 'title' in item ? item.title : item.name;
+    let typeLabel = 'Result';
     let badgeText = '';
     let badgeColorClass = 'text-slate-400 bg-black/5 dark:bg-white/5';
     let showDot = false;
     let dotColorClass = 'bg-slate-400';
+    let dotMotionClass = '';
+    let dotAuraMotionClass = '';
 
     let targetTo = "";
     let targetSearch = {};
 
     if (categoryType === 'sprints') {
+        const sprintItem = item as SprintSearchItem;
         Icon = Target;
+        typeLabel = 'Sprint';
         targetTo = "/sprints";
-        // The TopNav formats title as `SPR-XX: Name`, let's extract it
-        const match = title?.match(/^(SPR-\d+):\s*(.*)$/);
-        if (match) {
-            itemId = match[1];
-            title = match[2];
-        } else {
-             // fallback if format isn't matched
-            itemId = 'SPR';
-        }
-        targetSearch = { sprintId: item.id };
-        badgeText = item.status || 'Active';
-        if (item.status === 'completed') badgeColorClass = 'text-status-green bg-status-green/10';
-        else if (item.status === 'active') badgeColorClass = 'text-signal-500 bg-signal-500/10';
+        itemId = sprintItem.displayKey;
+        title = sprintItem.title;
+        targetSearch = { sprintId: sprintItem.routeSprintId, sprintKey: sprintItem.sprintKey };
+        badgeText = sprintItem.status || 'Active';
+        if (sprintItem.status === 'completed') badgeColorClass = 'text-status-green bg-status-green/10';
+        else if (sprintItem.status === 'active') badgeColorClass = 'text-signal-500 bg-signal-500/10';
     } else if (categoryType === 'tasks') {
+        const taskItem = item as TaskSearchItem;
         Icon = ListChecks;
+        typeLabel = 'Task';
         targetTo = "/tasks";
-        targetSearch = { taskId: item.id, sprintId: item.sprintId };
-        // Typically tsk-something
-        itemId = item.id.substring(0, 8);
-        badgeText = item.status || 'Open';
-        if (item.status === 'done') badgeColorClass = 'text-status-green bg-status-green/10';
-        else if (item.status === 'in_progress') badgeColorClass = 'text-signal-500 bg-signal-500/10';
+        targetSearch = { taskId: taskItem.routeTaskId, sprintId: taskItem.routeSprintId };
+        itemId = taskItem.id;
+        badgeText = taskItem.status || 'Open';
+        if (taskItem.status === 'done') badgeColorClass = 'text-status-green bg-status-green/10';
+        else if (taskItem.status === 'in_progress') badgeColorClass = 'text-signal-500 bg-signal-500/10';
     } else if (categoryType === 'agents') {
+        const agentItem = item as AgentSearchItem;
         Icon = Cpu;
+        typeLabel = 'Agent';
         targetTo = "/agents";
-        targetSearch = { agentId: item.id };
+        targetSearch = { agentId: agentItem.routeAgentId };
         showDot = true;
-        itemId = item.id.split('-')[0] || 'AGT'; // Or however it's formatted
-        badgeText = item.status || 'Offline';
-        if (item.status === 'idle') dotColorClass = 'bg-slate-400';
-        else if (item.status === 'running' || item.status === 'active') dotColorClass = 'bg-status-green animate-pulse';
+        itemId = agentItem.id;
+        badgeText = agentItem.status || 'Offline';
+        if (agentItem.status === 'idle') dotColorClass = 'bg-slate-400';
+        else if (agentItem.status === 'running' || agentItem.status === 'active') {
+            dotColorClass = 'bg-status-green';
+            dotMotionClass = 'motion-safe:animate-pulse motion-reduce:animate-none motion-reduce:ring-2 motion-reduce:ring-status-green/25';
+            dotAuraMotionClass = 'motion-safe:animate-ping motion-reduce:animate-none motion-reduce:ring-2 motion-reduce:ring-status-green/20';
+        }
     } else if (categoryType === 'containers') {
+        const containerItem = item as ContainerSearchItem;
         Icon = Compass;
+        typeLabel = 'Preview';
         targetTo = "/browser";
-        targetSearch = { containerId: item.id };
+        targetSearch = { containerId: containerItem.routeContainerId };
         showDot = true;
-        itemId = item.id.substring(0, 8);
-        badgeText = item.status || 'Stopped';
-        if (item.status === 'running') {
-            dotColorClass = 'bg-status-green animate-pulse';
+        itemId = containerItem.id;
+        badgeText = containerItem.status || 'Stopped';
+        if (containerItem.status === 'running') {
+            dotColorClass = 'bg-status-green';
+            dotMotionClass = 'motion-safe:animate-pulse motion-reduce:animate-none motion-reduce:ring-2 motion-reduce:ring-status-green/25';
+            dotAuraMotionClass = 'motion-safe:animate-ping motion-reduce:animate-none motion-reduce:ring-2 motion-reduce:ring-status-green/20';
             badgeText = 'Running';
         } else {
              dotColorClass = 'bg-status-red';
@@ -117,75 +143,145 @@ export const SearchResultRow: FunctionComponent<SearchResultRowProps> = ({
         <Link
             to={targetTo as any}
             search={targetSearch as any}
-            onClick={item.status === 'unavailable' || item.status === 'disabled' ? (e: any) => e.preventDefault() : onClick}
+            onMouseDown={(e: MouseEvent) => {
+                if (isDisabled) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }}
+            onPointerDown={(e: PointerEvent) => {
+                if (isDisabled) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }}
+            onKeyDown={(e: KeyboardEvent) => {
+                if (isDisabled && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }}
+            onClick={(e: MouseEvent) => {
+                if (isDisabled) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                onClick?.();
+            }}
             id={`search-result-${item.id}`}
             ref={activeItemRef as any}
-            onMouseEnter={onFocus}
-            aria-disabled={item.status === 'unavailable' || item.status === 'disabled' ? 'true' : undefined}
-            aria-label={`${categoryType} result: ${title}`}
+            onMouseEnter={() => {
+                if (!isDisabled) onFocus();
+            }}
+            tabIndex={-1}
+            data-result-index={globalItemIndex}
+            data-selected={isFocused ? "true" : undefined}
+            aria-disabled={isDisabled ? 'true' : undefined}
+            aria-describedby={disabledDescriptionId}
+            aria-label={`${categoryType} result: ${itemId} ${title}${badgeText ? `, ${badgeText}` : ''}${disabledReason ? `, ${disabledReason}` : ''}`}
+            title={disabledExplanation}
             role="option"
             aria-selected={isFocused}
             style={{ transitionDuration, transitionTimingFunction }}
-            className={`group relative flex items-center justify-between w-full text-left px-4 py-3 rounded-[1.25rem] transition-all overflow-hidden ${
-                isFocused
-                    ? 'bg-signal-500/8 dark:bg-signal-500/10 border-signal-500/20 shadow-[0_0_20px_rgba(0,224,160,0.08)] backdrop-blur-2xl'
-                    : 'bg-white/50 dark:bg-void-800/40 hover:bg-white/80 dark:hover:bg-void-700/60 border-black/5 dark:border-white/5 backdrop-blur-xl'
-            } border aria-disabled:opacity-50 aria-disabled:pointer-events-none`}
+            className={`group relative flex w-full min-w-0 items-stretch overflow-hidden text-left rounded-[1.25rem] border px-3.5 py-3 transition-[background-color,border-color,box-shadow,color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-void-800 sm:px-4 ${
+                isDisabled
+                    ? isFocused
+                        ? 'border-status-red/35 bg-status-red/[0.055] text-slate-600 shadow-[0_10px_26px_rgba(227,0,15,0.08),inset_0_0_0_1px_rgba(227,0,15,0.08)] dark:bg-status-red/[0.08] dark:text-slate-400'
+                        : 'border-black/[0.06] bg-black/[0.025] text-slate-500 shadow-none dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-slate-500'
+                    : isFocused
+                    ? 'translate-y-[-1px] border-signal-500/55 bg-signal-500/[0.09] shadow-[0_12px_32px_rgba(0,224,160,0.13),inset_0_0_0_1px_rgba(0,224,160,0.14)] backdrop-blur-2xl motion-reduce:translate-y-0 dark:bg-signal-500/[0.11]'
+                    : 'border-black/[0.06] bg-white/58 backdrop-blur-xl hover:border-black/[0.1] hover:bg-white/86 dark:border-white/[0.06] dark:bg-white/[0.035] dark:hover:border-white/[0.11] dark:hover:bg-white/[0.06]'
+            } aria-disabled:cursor-not-allowed aria-disabled:opacity-75`}
         >
-            {/* Hover/Focus Background Glow */}
-            {isFocused && (
-                <div className="absolute inset-0 bg-gradient-to-r from-signal-500/5 to-transparent pointer-events-none" />
-            )}
+            <span
+                aria-hidden="true"
+                className={`pointer-events-none absolute inset-y-3 left-2 w-1 rounded-full transition-[background-color,opacity] ${
+                    isFocused && isDisabled ? 'bg-status-red opacity-100' : isFocused ? 'bg-signal-500 opacity-100' : 'bg-signal-500 opacity-0 group-focus-visible:opacity-80'
+                }`}
+                style={{ transitionDuration, transitionTimingFunction }}
+            />
+            <span
+                aria-hidden="true"
+                className={`pointer-events-none absolute inset-0 transition-opacity ${
+                    isFocused && isDisabled ? 'bg-status-red/[0.04] opacity-100' : isFocused ? 'bg-signal-500/[0.045] opacity-100' : 'bg-signal-500/[0.045] opacity-0'
+                }`}
+                style={{ transitionDuration, transitionTimingFunction }}
+            />
 
-            <div className="flex items-center gap-4 relative z-10 w-full overflow-hidden">
-                <div className={`p-2 rounded-xl transition-colors duration-200 shrink-0 ${
-                    isFocused ? 'bg-signal-500/15 text-signal-500' : 'bg-black/5 dark:bg-white/5 text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
-                }`}>
-                    {item.avatarConfig ? (
-                        <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                            <AgentAvatarSvg config={item.avatarConfig} expression="happy" size={20} static />
+            <div className="relative z-10 flex w-full min-w-0 items-start gap-3">
+                <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors ${
+                    isDisabled ? isFocused ? 'border-status-red/25 bg-status-red/10 text-status-red' : 'border-black/[0.05] bg-black/[0.035] text-slate-400 dark:border-white/[0.05] dark:bg-white/[0.035] dark:text-slate-500' : isFocused ? 'border-signal-500/25 bg-signal-500/12 text-signal-500' : 'border-black/[0.05] bg-black/[0.04] text-slate-500 group-hover:text-slate-700 dark:border-white/[0.06] dark:bg-white/[0.05] dark:text-slate-400 dark:group-hover:text-slate-200'
+                }`} style={{ transitionDuration, transitionTimingFunction }}>
+                    {avatarConfig ? (
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center">
+                            <AgentAvatarSvg config={avatarConfig} expression="happy" size={20} static />
                         </div>
                     ) : (
-                        <Icon className="w-5 h-5" strokeWidth={isFocused ? 2 : 1.5} />
+                        <Icon className="h-[18px] w-[18px]" strokeWidth={isFocused ? 2 : 1.5} aria-hidden="true" />
                     )}
                 </div>
 
-                <div className="flex flex-col min-w-0 flex-1 gap-0.5">
-                    <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-semibold text-slate-400 dark:text-slate-500 shrink-0">
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <span className="shrink-0 rounded-md border border-black/[0.06] bg-black/[0.035] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-400">
+                            {typeLabel}
+                        </span>
+                        <span className="min-w-0 max-w-full truncate rounded-md bg-black/[0.045] px-1.5 py-0.5 font-mono text-[11px] font-semibold text-slate-500 dark:bg-white/[0.05] dark:text-slate-400">
                             {itemId}
                         </span>
-                        <span className={`font-semibold break-words whitespace-normal transition-colors duration-200 ${
-                            isFocused ? 'text-signal-600 dark:text-signal-400' : 'text-slate-800 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white'
-                        }`}>
-                            {renderTitle()}
-                        </span>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-0.5">
-                        {showDot && (
-                            <span className="relative flex h-2 w-2 shrink-0">
-                                <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${dotColorClass} ${dotColorClass.includes('animate-pulse') ? 'animate-ping' : ''}`}></span>
-                                <span className={`relative inline-flex rounded-full h-2 w-2 ${dotColorClass.replace('animate-pulse', '')}`}></span>
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                            <span className={`block min-w-0 break-words text-sm font-semibold leading-5 transition-colors [overflow-wrap:anywhere] ${
+                                isDisabled ? 'text-slate-500 dark:text-slate-500' : isFocused ? 'text-signal-700 dark:text-signal-400' : 'text-slate-800 group-hover:text-slate-950 dark:text-slate-200 dark:group-hover:text-white'
+                            }`} style={{ transitionDuration, transitionTimingFunction }}>
+                                {renderTitle()}
                             </span>
-                        )}
-                        {badgeText && !showDot && (
-                            <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest rounded-full ${badgeColorClass} border border-black/5 dark:border-white/5 shrink-0`}>
-                                {badgeText}
-                            </span>
-                        )}
-                        {showDot && badgeText && (
-                            <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                                {badgeText}
-                            </span>
-                        )}
-                    </div>
-                </div>
+                            {disabledExplanation && (
+                                <span
+                                    id={disabledDescriptionId}
+                                    className="mt-1 block text-xs font-medium leading-5 text-slate-500 dark:text-slate-400"
+                                >
+                                    {disabledExplanation}
+                                </span>
+                            )}
+                        </div>
 
-                <div className={`shrink-0 transition-all duration-300 ${
-                    isFocused ? 'opacity-100 translate-x-0 text-signal-500' : 'opacity-0 -translate-x-2 text-slate-400'
-                }`}>
-                    <ArrowRight className="w-5 h-5" strokeWidth={2} />
+                        <div className="flex shrink-0 items-center gap-2 pt-0.5">
+                            {showDot && (
+                                <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
+                                    <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${dotColorClass} ${dotAuraMotionClass}`}></span>
+                                    <span className={`relative inline-flex h-2 w-2 rounded-full ${dotColorClass} ${dotMotionClass}`}></span>
+                                </span>
+                            )}
+                            {badgeText && !showDot && (
+                                <span className={`shrink-0 rounded-full border border-black/[0.05] px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest dark:border-white/[0.06] ${badgeColorClass}`}>
+                                    {badgeText}
+                                </span>
+                            )}
+                            {showDot && badgeText && (
+                                <span className="max-w-24 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                                    {badgeText}
+                                </span>
+                            )}
+                            {disabledReason && (
+                                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-status-red/20 bg-status-red/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-status-red">
+                                    <Ban className="h-3 w-3" aria-hidden="true" />
+                                    {disabledReason}
+                                </span>
+                            )}
+                            <span
+                                className={`shrink-0 transition-[color,opacity,transform] ${
+                                    isDisabled ? 'text-slate-300 opacity-35 dark:text-slate-600' : isFocused ? 'translate-x-0 text-signal-500 opacity-100' : 'translate-x-0 text-slate-400 opacity-60 group-hover:opacity-80'
+                                } motion-reduce:translate-x-0`}
+                                style={{ transitionDuration, transitionTimingFunction }}
+                            >
+                                <ArrowRight className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </Link>

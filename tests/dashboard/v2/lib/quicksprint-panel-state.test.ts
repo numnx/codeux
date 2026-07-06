@@ -5,6 +5,7 @@ import {
   getBuiltinPurposeOptions,
   getActiveBuiltinPurpose,
   getVisibleBuiltinTemplates,
+  getBrowseTemplates,
   getCombinedPrompt,
 } from "../../../../dashboard/src/v2/lib/quicksprint-panel-state.js";
 import type { QuicksprintTemplateRecord } from "../../../../src/contracts/quicksprint-types.js";
@@ -103,6 +104,15 @@ describe("Quicksprint Panel State", () => {
     });
   });
 
+  describe("getBrowseTemplates", () => {
+    it("combines visible built-in templates and custom templates into one browse rail", () => {
+      const builtIn = createTemplate({ id: "builtin", isBuiltIn: true });
+      const custom = createTemplate({ id: "custom", isBuiltIn: false });
+
+      expect(getBrowseTemplates([builtIn], [custom]).map((template) => template.id)).toEqual(["builtin", "custom"]);
+    });
+  });
+
   describe("getCombinedPrompt", () => {
     it("returns empty string if no template selected", () => {
       expect(getCombinedPrompt(null, [], "", 5)).toBe("");
@@ -140,6 +150,18 @@ describe("Quicksprint Panel State", () => {
       expect(result).toContain("## Additional Instructions");
       expect(result).toContain("Extra bits.");
       expect(result).toContain("Produce exactly 3 subtasks.");
+    });
+
+    it("trims run-specific prompt text before the preview exposes it", () => {
+      const template = createTemplate({
+        agentInstructionMarkdown: "Template instructions.",
+      });
+
+      const result = getCombinedPrompt(template, [], "  Keep the preview readable.  ", 2);
+
+      expect(result).toContain("## Additional Instructions\n\nKeep the preview readable.");
+      expect(result).not.toContain("  Keep the preview readable.");
+      expect(result).toContain("Produce exactly 2 subtasks.");
     });
 
     it("uses an unlimited-task instruction when noTaskLimit is enabled", () => {

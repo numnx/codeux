@@ -48,3 +48,89 @@ export function shouldRunSprintQaReview(args: EvaluateSprintQaReviewNeedArgs): b
 
   return hasMeaningfulChanges || args.isRecoveredStaleRun;
 }
+
+export type SprintQaReviewDecision =
+  | { action: "run_review"; reason: "no_prior_review" | "needs_review" }
+  | { action: "block_completion"; reason: "review_running" | "awaiting_follow_up" }
+  | { action: "skip_review"; reason: "already_passed" | "retry_budget_exhausted" };
+
+export interface EvaluateSprintQaReviewDecisionArgs {
+  latestRun: QaReviewRunRecord | null;
+  maxSprintReviewRuns: number;
+  shouldRunReview: boolean;
+}
+
+export function evaluateSprintQaReviewDecision(
+  args: EvaluateSprintQaReviewDecisionArgs,
+): SprintQaReviewDecision {
+  const { latestRun } = args;
+
+  if (!latestRun) {
+    return { action: "run_review", reason: "no_prior_review" };
+  }
+
+  if (latestRun.status === "running") {
+    return { action: "block_completion", reason: "review_running" };
+  }
+
+  if (latestRun.outcome === "pass") {
+    return { action: "skip_review", reason: "already_passed" };
+  }
+
+  const retryBudgetExhausted = typeof latestRun.runIndex === "number"
+    && latestRun.runIndex >= args.maxSprintReviewRuns
+    && latestRun.status === "completed";
+
+  if (retryBudgetExhausted) {
+    return { action: "skip_review", reason: "retry_budget_exhausted" };
+  }
+
+  if (
+    (latestRun.outcome === "changes_requested" || latestRun.status === "failed")
+    && !args.shouldRunReview
+  ) {
+    return { action: "block_completion", reason: "awaiting_follow_up" };
+  }
+
+  return { action: "run_review", reason: "needs_review" };
+}
+
+export interface EvaluateSprintQaReviewCycleDecisionArgs {
+  latestRuns: QaReviewRunRecord[];
+  maxSprintReviewRuns: number;
+  shouldRunReview: boolean;
+}
+
+export function evaluateSprintQaReviewCycleDecision(
+  args: EvaluateSprintQaReviewCycleDecisionArgs,
+): SprintQaReviewDecision {
+  const latestRun = args.latestRuns[0] ?? null;
+  if (!latestRun) {
+    return { action: "run_review", reason: "no_prior_review" };
+  }
+
+  if (args.latestRuns.some((run) => run.status === "running")) {
+    return { action: "block_completion", reason: "review_running" };
+  }
+
+  if (args.latestRuns.length > 0 && args.latestRuns.every((run) => run.status === "completed" && run.outcome === "pass")) {
+    return { action: "skip_review", reason: "already_passed" };
+  }
+
+  if (
+    args.latestRuns.some((run) => run.outcome === "changes_requested" || run.status === "failed")
+    && !args.shouldRunReview
+  ) {
+    return { action: "block_completion", reason: "awaiting_follow_up" };
+  }
+
+  const retryBudgetExhausted = typeof latestRun.runIndex === "number"
+    && latestRun.runIndex >= args.maxSprintReviewRuns
+    && args.latestRuns.every((run) => run.status === "completed" || run.status === "failed");
+
+  if (retryBudgetExhausted) {
+    return { action: "block_completion", reason: "awaiting_follow_up" };
+  }
+
+  return { action: "run_review", reason: "needs_review" };
+}

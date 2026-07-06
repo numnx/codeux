@@ -162,6 +162,15 @@ export interface LocalDirectoryBrowserResponse {
   directories: LocalDirectoryBrowserEntry[];
 }
 
+export interface LocalFileBrowserEntry {
+  name: string;
+  path: string;
+}
+
+export interface LocalFileBrowserResponse extends LocalDirectoryBrowserResponse {
+  files: LocalFileBrowserEntry[];
+}
+
 /**
  * The authoritative contract for the Live page snapshot.
  *
@@ -858,6 +867,7 @@ export interface CliWorkflowSettings {
   containerImage: string;
   containerSetupScriptPath: string;
   containerCacheSetupScriptImage: boolean;
+  containerInstallPlaywrightBrowsers: boolean;
   containerMountGitConfig: boolean;
   containerGitUserName: string;
   containerGitUserEmail: string;
@@ -890,6 +900,7 @@ export interface SprintPreviewSettings {
   hostPortRangeStart: number;
   hostPortRangeEnd: number;
   containerAppPort: number;
+  containerAppPorts: number[];
   startupScriptPath: string;
 }
 
@@ -903,6 +914,7 @@ export interface WorkerSettings {
 
 export interface QualityAssuranceTriggerSettings {
   enabled: boolean;
+  agentPresetIds: string[];
   agentPresetId: string | null;
 }
 
@@ -1002,6 +1014,8 @@ export interface CustomMcpServer {
 
 export type RuntimeLogLevel = "off" | "debug" | "info" | "warn" | "error";
 export type ConsoleLogMode = "standard" | "full";
+export type RestartSprintPolicy = "continue" | "pause" | "cancel";
+export type RestartInvocationPolicy = "continue" | "cancel" | "restart";
 
 export interface ModelPricingSettings {
   /** Per-model user price overrides, keyed by canonical models.dev id ("<provider>/<model>"). */
@@ -1016,6 +1030,8 @@ export interface DashboardSettings {
   dbAutoVacuumOnStartup: boolean;
   dbPruningEnabled: boolean;
   dbRetentionDays: number;
+  restartSprintPolicy: RestartSprintPolicy;
+  restartInvocationPolicy: RestartInvocationPolicy;
   appearance: AppearanceSettings;
   automationLevel: AutomationLevel;
   automationInterventions: AutomationInterventionsSettings;
@@ -1257,6 +1273,13 @@ export type SprintPreviewSessionStatus = "stopped" | "starting" | "running" | "e
 export type SprintPreviewHealthStatus = "unknown" | "healthy" | "unreachable";
 export type SprintPreviewStartupMode = "auto" | "script";
 
+export interface SprintPreviewPortMapping {
+  containerPort: number;
+  hostPort: number | null;
+  label?: string;
+  isPrimary?: boolean;
+}
+
 export interface SprintPreviewSession {
   id: string;
   projectId: string;
@@ -1267,6 +1290,7 @@ export interface SprintPreviewSession {
   status: SprintPreviewSessionStatus;
   hostPort: number | null;
   containerAppPort: number;
+  portMappings: SprintPreviewPortMapping[];
   containerId: string | null;
   containerName: string | null;
   worktreePath: string | null;

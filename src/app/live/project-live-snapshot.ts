@@ -1,3 +1,4 @@
+import { performance } from "node:perf_hooks";
 import type {
   ProjectLiveDashboardSnapshot,
   DashboardStatus,
@@ -5,19 +6,45 @@ import type {
   GitTrackingStatus,
 } from "../../contracts/app-types.js";
 import type { ProjectManagementRepository } from "../../repositories/project-management-repository.js";
-import type { ProjectRuntimeRepository } from "../../repositories/project-runtime-repository.js";
 import type { ProjectExecutionSnapshotOptions } from "../../repositories/execution/project-execution-snapshot-query.js";
 import type { Logger } from "../../shared/logging/logger.js";
 
+type MaybePromise<T> = T | Promise<T>;
+
+interface ProjectLiveSnapshotRuntimeRepository {
+  getProjectStatus(projectId: string, explicitSprintId?: string | null): MaybePromise<DashboardStatus>;
+}
+
 export interface ProjectLiveSnapshotDeps {
   projectManagementRepository: ProjectManagementRepository;
-  projectRuntimeRepository: ProjectRuntimeRepository;
+  projectRuntimeRepository: ProjectLiveSnapshotRuntimeRepository;
   getProjectExecutionSnapshot: (
     projectId: string,
     options?: ProjectExecutionSnapshotOptions,
-  ) => ExecutionDashboardSnapshot;
+  ) => MaybePromise<ExecutionDashboardSnapshot>;
   getGitStatus: () => Promise<GitTrackingStatus>;
   logger: Logger;
+}
+
+function monotonicNowMs(): number {
+  return performance.now();
+}
+
+function elapsedMs(startedAt: number): number {
+  return Math.max(0, Math.round(monotonicNowMs() - startedAt));
+}
+
+interface TimedRead<T> {
+  value: T;
+  durationMs: number;
+}
+
+async function runTimedRead<T>(read: () => MaybePromise<T>): Promise<TimedRead<T>> {
+  const startedAt = monotonicNowMs();
+  return {
+    value: await Promise.resolve().then(read),
+    durationMs: elapsedMs(startedAt),
+  };
 }
 
 /**
@@ -47,7 +74,7 @@ export async function getProjectLiveSnapshot(
   // dedicated channel (`project.git.updated` / `/api/git-status`). The realtime live tick and the
   // shared `/api/live` payload build with `includeGit: false` so the hot path stays small.
   const includeGit = options?.includeGit !== false;
-  const startedAt = Date.now();
+  const startedAt = monotonicNowMs();
   const projectId = typeof projectIdHint === "string" && projectIdHint.trim().length > 0
     ? projectIdHint.trim()
     : deps.projectManagementRepository.getSelectedProjectId();
@@ -80,32 +107,38 @@ export async function getProjectLiveSnapshot(
     };
   }
 
-  const tMgmt = Date.now();
-  const listSprintsResult = deps.projectManagementRepository.listSprints(projectId);
-  const projectMgmtMs = Date.now() - tMgmt;
+  const tMgmt = monotonicNowMs();
+  const selectedSprintId = deps.projectManagementRepository.getSelectedSprintId(projectId) ?? null;
+  const selectedSprintBelongsToProject = selectedSprintId
+    ? deps.projectManagementRepository.sprintBelongsToProject(projectId, selectedSprintId)
+    : true;
+  const projectMgmtMs = elapsedMs(tMgmt);
 
-  const selectedSprintId = listSprintsResult.selectedSprintId ?? null;
+  const gitStatusPromise: Promise<TimedRead<{ result: GitTrackingStatus | null; error: string | null }>> = includeGit
+    ? runTimedRead(async () => {
+        try {
+          return { result: await deps.getGitStatus(), error: null };
+        } catch (error) {
+          return {
+            result: null,
+            error: error instanceof Error ? error.message : "Unable to load git/ci/pr tracking.",
+          };
+        }
+      })
+    : Promise.resolve({ value: { result: null, error: null }, durationMs: 0 });
+  const statusPromise = runTimedRead(() => deps.projectRuntimeRepository.getProjectStatus(projectId, selectedSprintId));
+  const executionPromise = runTimedRead(() => deps.getProjectExecutionSnapshot(projectId, { selectedSprintId }));
 
-  const tGit = Date.now();
-  const gitStatusPromise: Promise<{ result: GitTrackingStatus | null; error: string | null }> = includeGit
-    ? deps.getGitStatus()
-        .then((result) => ({ result, error: null }))
-        .catch((error) => ({
-          result: null,
-          error: error instanceof Error ? error.message : "Unable to load git/ci/pr tracking.",
-        }))
-    : Promise.resolve({ result: null, error: null });
-
-  const tRuntime = Date.now();
-  const status = deps.projectRuntimeRepository.getProjectStatus(projectId, selectedSprintId);
-  const runtimeMs = Date.now() - tRuntime;
-
-  const tExecution = Date.now();
-  const execution = deps.getProjectExecutionSnapshot(projectId, { selectedSprintId });
-  const executionMs = Date.now() - tExecution;
-
-  const { result: gitStatus, error: gitStatusError } = await gitStatusPromise;
-  const gitMs = Date.now() - tGit;
+  const [
+    { value: status, durationMs: runtimeMs },
+    { value: execution, durationMs: executionMs },
+    { value: gitStatusResult, durationMs: gitMs },
+  ] = await Promise.all([
+    statusPromise,
+    executionPromise,
+    gitStatusPromise,
+  ]);
+  const { result: gitStatus, error: gitStatusError } = gitStatusResult;
 
   if (!selectedSprintId && execution.sprintRuns.some(r => r.status === 'running' || r.status === 'queued')) {
     deps.logger.warn("selected_sprint_missing_while_active", {
@@ -114,7 +147,7 @@ export async function getProjectLiveSnapshot(
     });
   }
 
-  if (selectedSprintId && !listSprintsResult.sprints.some(s => s.id === selectedSprintId)) {
+  if (selectedSprintId && !selectedSprintBelongsToProject) {
     deps.logger.warn("selected_sprint_outside_project", {
       projectId,
       selectedSprintId,
@@ -149,7 +182,7 @@ export async function getProjectLiveSnapshot(
 
   deps.logger.info("project_live_snapshot_assembled", {
     projectId,
-    buildTimeMs: Date.now() - startedAt,
+    buildTimeMs: elapsedMs(startedAt),
     projectMgmtMs,
     runtimeMs,
     executionMs,

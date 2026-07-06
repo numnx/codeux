@@ -1,6 +1,6 @@
 import { runCompletionStep } from "../../../sprint/steps/completion-step.js";
 import type { SprintAgentArgs } from "../../../sprint/sprint-types.js";
-import { deleteBranchLocally, getCheckedOutRef, mergeBranchLocally, restoreCheckedOutRef } from "../../../infrastructure/git/local-merge.js";
+import { deleteBranchLocally, mergeBranchLocallyInTemporaryWorktree, type LocalMergeResult } from "../../../infrastructure/git/local-merge.js";
 import { determineNextState, WatchLoopState } from "./watch-loop-state-machine.js";
 import type { Subtask,
   AutomationInterventionsSettings,
@@ -18,23 +18,24 @@ import type { QualityAssuranceService } from "../../../services/quality-assuranc
 import type { Logger } from "../../../shared/logging/logger.js";
 import type { ExecutionRepository } from "../../../repositories/execution-repository.js";
 import type { ProjectAttentionService } from "../../workers/project-attention-service.js";
+import { resolveTransientMergeAttentionHandoffs } from "../../workers/project-attention-cleanup.js";
 import type { CycleRunner } from "./cycle-runner.js";
 import type { SprintExecutionContext } from "../../../services/sprint-execution-state-service.js";
 import type { MergeFeedbackResult } from "../ci/main-merge-gate.js";
 import type { ProjectAttentionItemRecord } from "../../../contracts/project-attention-types.js";
-import { isCompletedTaskSettled } from "../task-merge-state.js";
-import { transitionSprintRun } from "./sprint-run-transitions.js";
 import { buildTaskAttentionPayload } from "./attention-payload-builder.js";
 import { decideMainMergeWaitOrPause, decideTerminalCompletion, isHumanEscalatedAttentionItem } from "./watch-loop-policies.js";
 import { decideFinalizationTransition } from "./watch-loop-finalization-policy.js";
 import { buildConflictSummaryMarkdown, selectMergedTaskContexts } from "./conflict-summary-utils.js";
 import { WorkspaceManager } from "../../../infrastructure/providers/cli/workspace-manager.js";
 import { evaluateSprintRunState, isMainMergeAttentionItem } from "./sprint-state-evaluator.js";
+import { evaluateSprintTransitionState } from "../task-transition-state.js";
 import type { HeartbeatService } from "../../../services/heartbeat-service.js";
 import type { SprintIssueService } from "../../../services/sprint-issue-service.js";
+import type { SprintRunLifecycleService } from "../../../services/sprint-run-lifecycle-service.js";
 
 
-export type WatchLoopExecutionDependencies = Pick<ExecutionRepository, "appendSprintRunEvent" | "finalizeSprintRunCancellationIfIdle" | "getSprintRun" | "getTaskRunByDispatchId" | "listTaskDispatches" | "listTaskRunEvents" | "updateSprintRun" | "renewLease">;
+export type WatchLoopExecutionDependencies = Pick<ExecutionRepository, "appendSprintRunEvent" | "getSprintRun" | "getTaskRunByDispatchId" | "listTaskDispatches" | "listTaskRunEvents">;
 export type WatchLoopAttentionDependencies = Pick<ProjectAttentionService, "listActiveProjectItems" | "openItems" | "resolveItemsForSprintRun" | "resolveItem">;
 
 export interface WatchLoopDependencies {
@@ -50,6 +51,7 @@ export interface WatchLoopDependencies {
   qualityAssuranceService?: QualityAssuranceService;
   sprintIssueService?: SprintIssueService;
   executionRepository: WatchLoopExecutionDependencies;
+  sprintRunLifecycleService: Pick<SprintRunLifecycleService, "transition" | "finalizeCancellationIfIdle">;
   projectAttentionService: WatchLoopAttentionDependencies;
   heartbeatService: HeartbeatService;
   workspaceManager: WorkspaceManager;
@@ -231,6 +233,7 @@ export class WatchLoopRunner {
         runningTasks,
         readyTasks,
         activeMainMergeAttentionItems,
+        settledTasks,
         allTerminal,
         noMoreActionPossible,
         needsManualMerge,
@@ -272,6 +275,7 @@ export class WatchLoopRunner {
             readyTasks,
             manualMergeTasks,
             needsManualMerge,
+            allTasksSettled: subtasks.length > 0 && settledTasks.length === subtasks.length,
             allTerminal,
             noMoreActionPossible,
             activeMainMergeAttentionItems,
@@ -387,7 +391,7 @@ export class WatchLoopRunner {
       return { status: "exit", report: "\n⏸️ **Sprint Paused:** Dashboard control paused this sprint run.\n" };
     }
     if (controlledRun?.status === "cancel_requested") {
-      const finalized = this.deps.executionRepository.finalizeSprintRunCancellationIfIdle(sprintRunId);
+      const finalized = this.deps.sprintRunLifecycleService.finalizeCancellationIfIdle(sprintRunId);
       return {
         status: "exit",
         report: finalized
@@ -462,6 +466,7 @@ export class WatchLoopRunner {
     readyTasks: Subtask[];
     manualMergeTasks: Subtask[];
     needsManualMerge: boolean;
+    allTasksSettled?: boolean;
     allTerminal: boolean;
     noMoreActionPossible: boolean;
     activeMainMergeAttentionItems: Array<{ id: string; sprintRunId: string | null; attentionType: string; ownerType?: string; status?: string; summaryMarkdown: string; payload: Record<string, unknown> | null }>;
@@ -469,10 +474,21 @@ export class WatchLoopRunner {
     const {
       scopedExecutionContext, sprintRunId, repoPath, defaultFeatureBranch, defaultBranch,
       featureBranchPrefix, githubMode, ciIntelligence, subtasks, runningTasks, readyTasks,
-      manualMergeTasks, needsManualMerge, allTerminal, noMoreActionPossible, activeMainMergeAttentionItems
+      manualMergeTasks, needsManualMerge, allTasksSettled, allTerminal, noMoreActionPossible, activeMainMergeAttentionItems
     } = params;
 
     let report = "";
+    const allTasksSettledForFinalization = allTasksSettled ?? (
+      subtasks.length > 0
+      && evaluateSprintTransitionState({
+        subtasks,
+        manualMergeTasks,
+        workerEscalatedMergeConflictTasks: [],
+        activeProjectAttentionItems: [],
+        sprintRunId,
+        githubMode,
+      }).settledTasks.length === subtasks.length
+    );
 
     this.deps.projectAttentionService.resolveItemsForSprintRun(
       scopedExecutionContext.project.id,
@@ -500,7 +516,7 @@ export class WatchLoopRunner {
       report += await this.deps.renderInstruction("watchNoMoreActions", {}, repoPath);
     }
 
-    if (subtasks.length > 0 && subtasks.every((task) => isCompletedTaskSettled(task, { githubMode }))) {
+    if (allTasksSettledForFinalization) {
       try {
         if (this.deps.qualityAssuranceService) {
           const qaOutcome = await this.deps.qualityAssuranceService.reviewSprintCompletion({
@@ -646,7 +662,11 @@ export class WatchLoopRunner {
               featureBranchTaskContexts: selectMergedTaskContexts(subtasks, { limit: 8 }),
             },
           })]);
-        } else if (ciIntelligence.resolveMainMergeFailedChecks && !mergeFeedback.hasFailedChecks) {
+        } else if (
+          ciIntelligence.resolveMainMergeFailedChecks
+          && !mergeFeedback.hasFailedChecks
+          && mergeFeedback.state !== "pending_checks"
+        ) {
           resolveMainMergeAttentionItems(
             this.deps.projectAttentionService,
             scopedExecutionContext.project.id,
@@ -671,22 +691,21 @@ export class WatchLoopRunner {
           sprintNumber: scopedExecutionContext.sprintNumber,
         });
 
-        if (decision && !(githubMode === "LOCAL" && subtasks.every(task => isCompletedTaskSettled(task, { githubMode }) && task.is_merged))) {
+        if (decision && !(githubMode === "LOCAL" && allTasksSettledForFinalization && subtasks.every(task => task.is_merged))) {
           report += completionGuidance;
           report += mergeFeedback.text;
 
           if (decision.status === "exit" && decision.terminalState === "paused" && decision.pauseReason === "main_merge_blocked") {
-            transitionSprintRun(
-              this.deps.executionRepository,
+            this.deps.sprintRunLifecycleService.transition({
               sprintRunId,
-              "paused",
-              "sprint_paused",
-              {
+              status: "paused",
+              eventType: "sprint_paused",
+              eventPayload: {
                 reason: "main_merge_blocked",
                 ...decision.pausePayload,
               },
-              `sprint-paused:${sprintRunId}:main-merge-blocked:${mergeFeedback.state}:${mergeFeedback.prNumber || "none"}`
-            );
+              sourceEventKey: `sprint-paused:${sprintRunId}:main-merge-blocked:${mergeFeedback.state}:${mergeFeedback.prNumber || "none"}`,
+            });
           }
 
           if (decision.reportModifier) {
@@ -697,18 +716,51 @@ export class WatchLoopRunner {
         }
 
         if (githubMode === "LOCAL") {
+          if (activeMainMergeAttentionItems.length > 0) {
+            const humanMustAct = activeMainMergeAttentionItems.some((item) => isHumanEscalatedAttentionItem(item));
+            if (!humanMustAct) {
+              return {
+                status: "wait",
+                report: report + `- ⏳ **Local Merge Conflict:** Existing main-merge attention is still assigned to a worker for \`${defaultFeatureBranch}\` → \`${defaultBranch}\`. Sprint remains active.\n`,
+              };
+            }
+
+            this.deps.sprintRunLifecycleService.transition({
+              sprintRunId,
+              status: "paused",
+              eventType: "sprint_paused",
+              eventPayload: {
+                reason: "main_merge_blocked",
+                message: `Local merge conflict merging ${defaultFeatureBranch} into ${defaultBranch} still requires human attention.`,
+              },
+              sourceEventKey: `sprint-paused:${sprintRunId}:local-main-merge-attention-active`,
+            });
+            return {
+              status: "exit",
+              report: report + `- ⏸️ **Local Merge Conflict:** Existing main-merge attention requires a human before \`${defaultFeatureBranch}\` can merge into \`${defaultBranch}\`. Resolve conflicts locally.\n`,
+            };
+          }
+
           this.deps.logger.info(`LOCAL Mode: Merging feature branch ${defaultFeatureBranch} into default branch ${defaultBranch}`);
-          // Restore whichever branch the user had checked out — the host repo is their
-          // working directory, so finalizing the sprint must not silently park it on the
-          // default branch.
-          const originalRef = await getCheckedOutRef(repoPath);
-          const mainMerge = await mergeBranchLocally({
-            repoPath,
-            targetBranch: defaultBranch,
-            sourceBranch: defaultFeatureBranch,
-            commitMessage: `Merge branch '${defaultFeatureBranch}' into ${defaultBranch}`,
-          });
-          await restoreCheckedOutRef(repoPath, originalRef);
+          let mainMerge: LocalMergeResult = {
+            ok: false,
+            conflict: false,
+            error: "Local merge did not run.",
+          };
+          try {
+            mainMerge = await mergeBranchLocallyInTemporaryWorktree({
+              repoPath,
+              targetBranch: defaultBranch,
+              sourceBranch: defaultFeatureBranch,
+              commitMessage: `Merge branch '${defaultFeatureBranch}' into ${defaultBranch}`,
+            });
+          } catch (err) {
+            mainMerge = {
+              ok: false,
+              conflict: false,
+              error: err instanceof Error ? err.message : String(err),
+            };
+          }
 
           if (mainMerge.ok) {
             report += `- ✅ **Merged locally:** Sprint feature branch \`${defaultFeatureBranch}\` merged into default branch \`${defaultBranch}\`.\n`;
@@ -785,17 +837,16 @@ export class WatchLoopRunner {
               };
             }
 
-            transitionSprintRun(
-              this.deps.executionRepository,
+            this.deps.sprintRunLifecycleService.transition({
               sprintRunId,
-              "paused",
-              "sprint_paused",
-              {
+              status: "paused",
+              eventType: "sprint_paused",
+              eventPayload: {
                 reason: "main_merge_blocked",
                 message: `Local merge conflict merging ${defaultFeatureBranch} into ${defaultBranch}. Resolve conflicts locally.`,
               },
-              `sprint-paused:${sprintRunId}:local-main-merge-blocked`
-            );
+              sourceEventKey: `sprint-paused:${sprintRunId}:local-main-merge-blocked`,
+            });
 
             return {
               status: "exit",
@@ -803,18 +854,50 @@ export class WatchLoopRunner {
             };
           }
         }
+        if (githubMode === "REMOTE" && mergeFeedback.state !== "merged") {
+          report += completionGuidance;
+          report += mergeFeedback.text;
+
+          const remoteFinalMergeCanProgress =
+            ciIntelligence.mainBranchAutoMergeMode === "WHEN_GREEN"
+            || ciIntelligence.mainBranchAutoMergeMode === "ALWAYS";
+
+          if (remoteFinalMergeCanProgress) {
+            return {
+              status: "wait",
+              report: report + "\n⏳ **Sprint Still Active:** Waiting for GitHub to report the final completion PR as merged before completing the sprint.\n",
+            };
+          }
+
+          this.deps.sprintRunLifecycleService.transition({
+            sprintRunId,
+            status: "paused",
+            eventType: "sprint_paused",
+            eventPayload: {
+              reason: "main_merge_blocked",
+              mainMergeState: mergeFeedback.state,
+              prNumber: mergeFeedback.prNumber,
+              prUrl: mergeFeedback.prUrl,
+            },
+            sourceEventKey: `sprint-paused:${sprintRunId}:remote-main-merge-not-merged:${mergeFeedback.state}:${mergeFeedback.prNumber || "none"}`,
+          });
+
+          return {
+            status: "exit",
+            report: report + "\n⏸️ **Sprint Paused:** Final completion PR is not merged. Merge the PR into the default branch, then resume the sprint.\n",
+          };
+        }
         this.deps.completedSprints.add(`${scopedExecutionContext.project.id}:${scopedExecutionContext.sprint.id}`);
-        transitionSprintRun(
-          this.deps.executionRepository,
+        this.deps.sprintRunLifecycleService.transition({
           sprintRunId,
-          "completed",
-          "sprint_completed",
-          {
+          status: "completed",
+          eventType: "sprint_completed",
+          eventPayload: {
             sprintNumber: scopedExecutionContext.sprintNumber,
             taskCount: subtasks.length,
           },
-          `sprint-completed:${sprintRunId}`
-        );
+          sourceEventKey: `sprint-completed:${sprintRunId}`,
+        });
         // The sprint has finished merging — reap any merge attention items that
         // are still open for this run (e.g. a transient escalation the auto-merge
         // gate raised then superseded). Left behind, they keep the project pinned
@@ -823,6 +906,12 @@ export class WatchLoopRunner {
           scopedExecutionContext.project.id,
           sprintRunId,
           ["merge_required", "merge_conflict"],
+          "sprint_completed",
+        );
+        resolveTransientMergeAttentionHandoffs(
+          this.deps.projectAttentionService,
+          scopedExecutionContext.project.id,
+          sprintRunId,
           "sprint_completed",
         );
         this.triggerMemoryRemediation({
@@ -865,14 +954,13 @@ export class WatchLoopRunner {
 
       switch (finalizationTransition.type) {
         case "failed": {
-          transitionSprintRun(
-            this.deps.executionRepository,
+          this.deps.sprintRunLifecycleService.transition({
             sprintRunId,
-            "failed",
-            "sprint_failed",
-            { failedTaskCount: finalizationTransition.failedTaskCount },
-            `sprint-failed:${sprintRunId}`
-          );
+            status: "failed",
+            eventType: "sprint_failed",
+            eventPayload: { failedTaskCount: finalizationTransition.failedTaskCount },
+            sourceEventKey: `sprint-failed:${sprintRunId}`,
+          });
           await this.cleanupTerminalSprintCliWorkspaces({
             projectId: scopedExecutionContext.project.id,
             sprintId: scopedExecutionContext.sprint.id,
@@ -883,29 +971,27 @@ export class WatchLoopRunner {
           break;
         }
         case "paused_awaiting_merge": {
-          transitionSprintRun(
-            this.deps.executionRepository,
+          this.deps.sprintRunLifecycleService.transition({
             sprintRunId,
-            "paused",
-            "sprint_paused",
-            {
+            status: "paused",
+            eventType: "sprint_paused",
+            eventPayload: {
               reason: "awaiting_merge",
               awaitingMergeCount: finalizationTransition.awaitingMergeCount,
             },
-            `sprint-paused:${sprintRunId}:awaiting-merge`
-          );
+            sourceEventKey: `sprint-paused:${sprintRunId}:awaiting-merge`,
+          });
           report += await this.deps.renderInstruction("cleanupDeferred", {}, repoPath);
           break;
         }
         case "cancelled_empty": {
-          transitionSprintRun(
-            this.deps.executionRepository,
+          this.deps.sprintRunLifecycleService.transition({
             sprintRunId,
-            "cancelled",
-            "sprint_cancelled",
-            { reason: "empty" },
-            `sprint-cancelled:${sprintRunId}:empty`
-          );
+            status: "cancelled",
+            eventType: "sprint_cancelled",
+            eventPayload: { reason: "empty" },
+            sourceEventKey: `sprint-cancelled:${sprintRunId}:empty`,
+          });
           await this.cleanupTerminalSprintCliWorkspaces({
             projectId: scopedExecutionContext.project.id,
             sprintId: scopedExecutionContext.sprint.id,
@@ -916,14 +1002,13 @@ export class WatchLoopRunner {
           break;
         }
         case "paused_manual_attention": {
-          transitionSprintRun(
-            this.deps.executionRepository,
+          this.deps.sprintRunLifecycleService.transition({
             sprintRunId,
-            "paused",
-            "sprint_paused",
-            { reason: "manual_attention" },
-            `sprint-paused:${sprintRunId}:manual-attention`
-          );
+            status: "paused",
+            eventType: "sprint_paused",
+            eventPayload: { reason: "manual_attention" },
+            sourceEventKey: `sprint-paused:${sprintRunId}:manual-attention`,
+          });
           this.deps.projectAttentionService.openItems([buildTaskAttentionPayload({
             projectId: scopedExecutionContext.project.id,
             sprintId: scopedExecutionContext.sprint.id,

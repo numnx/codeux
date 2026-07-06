@@ -74,9 +74,10 @@ export const ModelCombobox: FunctionComponent<{
   disabled?: boolean;
   placeholder?: string;
   "aria-label"?: string;
+  "aria-describedby"?: string;
   /** Scopes the browsable model list to a single models.dev provider id, paired with an API provider field. */
   providerId?: string;
-}> = ({ value, onChange, disabled = false, placeholder = "Search models…", "aria-label": ariaLabel, providerId }) => {
+}> = ({ value, onChange, disabled = false, placeholder = "Search models…", "aria-label": ariaLabel, "aria-describedby": ariaDescribedby, providerId }) => {
   const catalog = useModelCatalog();
 
   const options = useMemo<SelectOption[]>(() => {
@@ -114,7 +115,7 @@ export const ModelCombobox: FunctionComponent<{
   }, [catalog, value, providerId]);
 
   return (
-    <div className="min-w-[220px]">
+    <div className="min-w-0 w-full sm:min-w-[220px]">
       <AvantgardeSelect
         value={value}
         onChange={onChange}
@@ -125,6 +126,7 @@ export const ModelCombobox: FunctionComponent<{
         allowCustomValue
         maxVisibleOptions={providerId ? 100 : undefined}
         aria-label={ariaLabel}
+        aria-describedby={ariaDescribedby}
       />
     </div>
   );

@@ -94,7 +94,8 @@ export const TelemetryLedgerTabs: FunctionComponent<TelemetryLedgerTabsProps> = 
 
           if (e.key === "ArrowRight" || e.key === "ArrowLeft" || e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") {
             e.preventDefault();
-            const currentIndex = tabs.findIndex(t => t.id === activeTab);
+            const focusedIndex = tabs.findIndex((tab) => tabRefs.current[tab.id] === document.activeElement);
+            const currentIndex = focusedIndex >= 0 ? focusedIndex : tabs.findIndex(t => t.id === activeTab);
             let nextIndex = currentIndex;
             if (e.key === "Home") {
               nextIndex = 0;
@@ -134,14 +135,14 @@ export const TelemetryLedgerTabs: FunctionComponent<TelemetryLedgerTabsProps> = 
             >
               <Icon className="h-4 w-4 shrink-0" strokeWidth={2.2} aria-hidden="true" />
               <span className="min-w-0">
-                <span className="block truncate text-[11px] font-black uppercase tracking-[0.14em]">{tab.label}</span>
+                <span className="block truncate text-[11px] font-semibold uppercase tracking-[0.14em]">{tab.label}</span>
                 <span className={`mt-0.5 block truncate text-[10px] font-bold normal-case tracking-normal ${
                   isActive ? TEXT_DETAIL_CLASS : TEXT_DETAIL_CLASS
                 }`}>
                   {tab.detail}
                 </span>
               </span>
-              <span className={`inline-flex min-w-10 justify-center rounded-full px-2 py-1 text-[10px] font-black tabular-nums tracking-wider ${CHIP_CLASS} ${
+              <span className={`inline-flex min-w-10 justify-center rounded-full px-2 py-1 text-[10px] font-semibold tabular-nums tracking-wider ${CHIP_CLASS} ${
                   isActive ? TAB_COUNT_ACTIVE_CLASS : TAB_COUNT_IDLE_CLASS
               }`}>
                 {formatCompactCount(tab.count)}

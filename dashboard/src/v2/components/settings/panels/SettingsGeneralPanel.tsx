@@ -1,37 +1,149 @@
 import type { FunctionComponent, ComponentChildren } from "preact";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import type { SettingsPageState } from "../../../hooks/use-settings-page-state.js";
 import { ActionButton, NoticePanel } from "../SettingsSurface.js";
+import { ActionFeedbackRegion } from "../../ui/ActionFeedbackRegion.js";
 import { NumberInput, Row, Toggle, TextInput, PillChoiceGroup } from "../SettingsFormFields.js";
+import { LocalFilePickerField } from "../LocalFilePickerField.js";
 import type { ProjectSettings } from "../../../../../../src/contracts/settings-scope-types.js";
 import { SectionCard, getBadge as getBadgeHelper, getFieldBadge as getFieldBadgeHelper } from "./SharedPanelComponents.js";
-import { Bot, Cog, Database, FolderOpen, Sparkles } from "lucide-preact";
+import { Bot, Cog, Database, FolderOpen, RotateCcw, Sparkles } from "lucide-preact";
 import { openOnboarding } from "../../../lib/onboarding-control.js";
+import { useProjectData } from "../../../context/project-data.js";
 
+const toRestartSprintPolicy = (value: string) => (
+  value === "pause" || value === "cancel" ? value : "continue"
+);
+
+const toRestartInvocationPolicy = (value: string) => (
+  value === "cancel" || value === "restart" ? value : "continue"
+);
 
 const ProjectContextCard: FunctionComponent<{
   projectName: string;
   projectId: string;
   baseDir: string;
   sourceType: string;
-}> = ({ projectName, projectId, baseDir, sourceType }) => (
-  <SectionCard title="Project Context" watermark="PRJ" icon={<FolderOpen strokeWidth={2.4} />}>
-    <Row label="Project" description="The selected project receives its own override document and inherits all other values from system defaults.">
-      <div className="rounded-xl bg-black/[0.04] px-3 py-2 text-sm font-semibold text-slate-700 dark:bg-white/[0.04] dark:text-slate-200">
-        {projectName}
-      </div>
-    </Row>
-    <Row label="Project id" description="Stable identifier used by the API and runtime." >
-      <div className="rounded-xl bg-black/[0.04] px-3 py-2 font-mono text-sm text-slate-600 dark:bg-white/[0.04] dark:text-slate-300">
-        {projectId}
-      </div>
-    </Row>
-    <Row label="Base directory" description="Workers and local execution enter this directory before acting." >
-      <div className="max-w-[28rem] rounded-xl bg-black/[0.04] px-3 py-2 font-mono text-sm text-slate-600 dark:bg-white/[0.04] dark:text-slate-300">
-        {baseDir}
-      </div>
-    </Row>
-  </SectionCard>
-);
+}> = ({ projectName, projectId, baseDir, sourceType }) => {
+  const { updateProject } = useProjectData();
+  const [projectNameDraft, setProjectNameDraft] = useState(projectName);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setProjectNameDraft(projectName);
+    setSaveState("idle");
+    setSaveMessage(null);
+  }, [projectId, projectName]);
+
+  const trimmedProjectName = projectNameDraft.trim();
+  const isInvalidProjectName = trimmedProjectName.length === 0;
+  const isDirtyProjectName = trimmedProjectName !== projectName.trim();
+  const isSavingProjectName = saveState === "saving";
+  const saveDisabledReason = isSavingProjectName
+    ? "Project name is saving."
+    : isInvalidProjectName
+      ? "Enter a project name before saving."
+      : !isDirtyProjectName
+        ? "No project name changes to save."
+        : undefined;
+  const sourceTypeLabel = useMemo(() => sourceType === "git" ? "Git repository" : "Local workspace", [sourceType]);
+
+  const saveProjectName = async (): Promise<void> => {
+    if (isInvalidProjectName) {
+      setSaveState("error");
+      setSaveMessage("Project name cannot be empty.");
+      return;
+    }
+    if (!isDirtyProjectName) {
+      setProjectNameDraft(projectName);
+      setSaveState("idle");
+      setSaveMessage(null);
+      return;
+    }
+
+    setSaveState("saving");
+    setSaveMessage(null);
+    try {
+      const updatedProject = await updateProject(projectId, { name: trimmedProjectName });
+      setProjectNameDraft(updatedProject.name);
+      setSaveState("saved");
+      setSaveMessage("Project name updated.");
+    } catch (error) {
+      setSaveState("error");
+      setSaveMessage(error instanceof Error ? error.message : "Failed to update project name.");
+    }
+  };
+
+  const resetProjectName = (): void => {
+    setProjectNameDraft(projectName);
+    setSaveState("idle");
+    setSaveMessage(null);
+  };
+
+  return (
+    <SectionCard title="Project Context" watermark="PRJ" icon={<FolderOpen strokeWidth={2.4} />}>
+      <Row label="Project name" description="Rename the selected project. Settings, tasks, and runtime history stay attached to the same project id.">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1 sm:min-w-[18rem]">
+              <TextInput
+                value={projectNameDraft}
+                onChange={(value) => {
+                  setProjectNameDraft(value);
+                  setSaveState("idle");
+                  setSaveMessage(null);
+                }}
+                invalid={saveState === "error" && isInvalidProjectName}
+                helperText="The project id, settings, tasks, and runtime history stay unchanged."
+                errorText={isInvalidProjectName ? "Project name cannot be empty." : undefined}
+                forceValidation={saveState === "error"}
+                disabled={isSavingProjectName}
+                aria-label="Project name"
+              />
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <ActionButton
+                label="Save Name"
+                tone="primary"
+                busy={isSavingProjectName}
+                disabled={!isDirtyProjectName || isInvalidProjectName}
+                disabledReason={saveDisabledReason}
+                onClick={() => { void saveProjectName(); }}
+              />
+              <ActionButton
+                label="Reset"
+                disabled={!isDirtyProjectName || isSavingProjectName}
+                disabledReason={isSavingProjectName ? "Project name is saving." : "No project name changes to reset."}
+                onClick={resetProjectName}
+              />
+            </div>
+          </div>
+          <ActionFeedbackRegion
+            status={saveState === "error" ? "error" : saveState === "saving" ? "pending" : saveState === "saved" ? "success" : isDirtyProjectName ? "warning" : "idle"}
+            message={saveMessage || (saveState === "saving" ? "Saving project name..." : isDirtyProjectName ? "Project name has unsaved changes." : null)}
+            autoDismiss={false}
+          />
+        </div>
+      </Row>
+      <Row label="Project id" description="Stable identifier used by the API and runtime.">
+        <div className="rounded-xl bg-black/[0.04] px-3 py-2 font-mono text-sm text-slate-600 dark:bg-white/[0.04] dark:text-slate-300">
+          {projectId}
+        </div>
+      </Row>
+      <Row label="Source type" description="How this project is mounted for local execution.">
+        <div className="rounded-xl bg-black/[0.04] px-3 py-2 text-sm font-semibold text-slate-700 dark:bg-white/[0.04] dark:text-slate-200">
+          {sourceTypeLabel}
+        </div>
+      </Row>
+      <Row label="Base directory" description="Workers and local execution enter this directory before acting.">
+        <div className="max-w-[28rem] rounded-xl bg-black/[0.04] px-3 py-2 font-mono text-sm text-slate-600 dark:bg-white/[0.04] dark:text-slate-300">
+          {baseDir}
+        </div>
+      </Row>
+    </SectionCard>
+  );
+};
 
 const AutomationCard: FunctionComponent<{
   settings: ProjectSettings;
@@ -62,50 +174,6 @@ const AutomationCard: FunctionComponent<{
         }))}
       />
     </Row>
-    <Row label="Auto-answer clarifications" description="Answer routine clarification requests automatically when the configured template is sufficient." badge={getFieldBadge("automationInterventions.autoAnswerClarification")}>
-      <Toggle aria-label="Toggle setting"         value={settings.automationInterventions.autoAnswerClarification}
-        onChange={() => update((current) => ({
-          ...current,
-          automationInterventions: {
-            ...current.automationInterventions,
-            autoAnswerClarification: !current.automationInterventions.autoAnswerClarification,
-          },
-        }))}
-      />
-    </Row>
-    {settings.automationInterventions.autoAnswerClarification && (
-      <Row label="Clarification answer mode" description="Choose whether to use a static template or let a worker generate a contextual answer." badge={getFieldBadge("automationInterventions.autoAnswerClarificationMode")}>
-        <PillChoiceGroup
-          value={settings.automationInterventions.autoAnswerClarificationMode}
-          onChange={(value) => update((current) => ({
-            ...current,
-            automationInterventions: {
-              ...current.automationInterventions,
-              autoAnswerClarificationMode: value as ProjectSettings["automationInterventions"]["autoAnswerClarificationMode"],
-            },
-          }))}
-          options={[
-            { value: "TEMPLATE", label: "Template", hint: "Fast static reply." },
-            { value: "WORKER", label: "Worker", hint: "Contextual provider-generated reply." },
-          ]}
-        />
-      </Row>
-    )}
-    {(!settings.automationInterventions.autoAnswerClarification || settings.automationInterventions.autoAnswerClarificationMode === "TEMPLATE") && (
-      <Row label="Clarification answer template" description="Template used when project automation answers a clarification request." badge={getFieldBadge("automationInterventions.clarificationAnswerTemplate")}>
-        <TextInput
-          value={settings.automationInterventions.clarificationAnswerTemplate}
-          onChange={(value) => update((current) => ({
-            ...current,
-            automationInterventions: {
-              ...current.automationInterventions,
-              clarificationAnswerTemplate: value,
-            },
-          }))}
-          placeholder="Respond with the usual clarification template..."
-        />
-      </Row>
-    )}
     <Row label="Auto-resume paused runs" description="Resume a project automatically when a transient pause clears." badge={getFieldBadge("automationInterventions.autoResumePaused")} last>
       <Toggle aria-label="Toggle setting"         value={settings.automationInterventions.autoResumePaused}
         onChange={() => update((current) => ({
@@ -141,7 +209,8 @@ const DockerRuntimeCard: FunctionComponent<{
       />
     </Row>
     <Row label="Container setup script" description="Optional setup script run inside the container before task execution." badge={getFieldBadge("cliWorkflow.containerSetupScriptPath")}>
-      <TextInput
+      <LocalFilePickerField
+        label="Container setup script"
         value={settings.cliWorkflow.containerSetupScriptPath}
         onChange={(value) => update((current) => ({
           ...current,
@@ -150,15 +219,25 @@ const DockerRuntimeCard: FunctionComponent<{
             containerSetupScriptPath: value,
           },
         }))}
-        mono
+        helperText="Type a relative path or browse to an absolute local script."
+        placeholder=".code-ux/container/setup.sh"
       />
     </Row>
-    <Row label="Cache setup as image" description="Build and reuse a derived Docker image from the base image plus setup script contents." badge={getFieldBadge("cliWorkflow.containerCacheSetupScriptImage")} last>
+    <Row label="Cache setup as image" description="Build and reuse a derived Docker image from the base image plus setup script contents." badge={getFieldBadge("cliWorkflow.containerCacheSetupScriptImage")}>
       <Toggle aria-label="Toggle setting" value={settings.cliWorkflow.containerCacheSetupScriptImage} onChange={() => update((current) => ({
         ...current,
         cliWorkflow: {
           ...current.cliWorkflow,
           containerCacheSetupScriptImage: !current.cliWorkflow.containerCacheSetupScriptImage,
+        },
+      }))} />
+    </Row>
+    <Row label="Preinstall Playwright browsers" description="Install Chromium and OS dependencies for browser checks inside coding containers." badge={getFieldBadge("cliWorkflow.containerInstallPlaywrightBrowsers")} last>
+      <Toggle aria-label="Toggle setting" value={settings.cliWorkflow.containerInstallPlaywrightBrowsers} onChange={() => update((current) => ({
+        ...current,
+        cliWorkflow: {
+          ...current.cliWorkflow,
+          containerInstallPlaywrightBrowsers: !current.cliWorkflow.containerInstallPlaywrightBrowsers,
         },
       }))} />
     </Row>
@@ -256,6 +335,43 @@ export const SettingsGeneralPanel: FunctionComponent<{ state: SettingsPageState 
                 options={[
                   { value: "standard", label: "Standard", hint: "Important runtime activity." },
                   { value: "full", label: "Full", hint: "Includes HTTP requests." },
+                ]}
+              />
+            </Row>
+          </SectionCard>
+
+          <SectionCard title="Restart Behavior" watermark="RST" icon={<RotateCcw strokeWidth={2.4} />}>
+            <Row label="After app restart" description="Choose what Code UX does with sprint runs that were active when the runtime stopped.">
+              <PillChoiceGroup
+                value={systemSettings?.runtime.restartSprintPolicy ?? "continue"}
+                onChange={(value) => updateSystem((current) => ({
+                  ...current,
+                  runtime: {
+                    ...current.runtime,
+                    restartSprintPolicy: toRestartSprintPolicy(value),
+                  },
+                }))}
+                options={[
+                  { value: "continue", label: "Continue", hint: "Resume active sprint watch loops." },
+                  { value: "pause", label: "Pause", hint: "Hold active sprints for manual resume." },
+                  { value: "cancel", label: "Cancel", hint: "Stop active sprint runs on startup." },
+                ]}
+              />
+            </Row>
+            <Row label="Interrupted invocations" description="When sprints continue after restart, choose how interrupted provider, QA, and task invocations are reconciled." last>
+              <PillChoiceGroup
+                value={systemSettings?.runtime.restartInvocationPolicy ?? "continue"}
+                onChange={(value) => updateSystem((current) => ({
+                  ...current,
+                  runtime: {
+                    ...current.runtime,
+                    restartInvocationPolicy: toRestartInvocationPolicy(value),
+                  },
+                }))}
+                options={[
+                  { value: "continue", label: "Continue", hint: "Keep live provider runtimes attached when possible." },
+                  { value: "cancel", label: "Cancel", hint: "Mark interrupted work cancelled." },
+                  { value: "restart", label: "Restart", hint: "Retry interrupted work from preserved state." },
                 ]}
               />
             </Row>
