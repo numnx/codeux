@@ -102,7 +102,7 @@ The REST API and MCP `manage_quicksprints` tool expose these actions:
 - `create_template`: Create a custom template with `name`, `description`, `icon`, `category`, and `agentInstructionMarkdown`. Optional fields include `categoryColor`, and `defaultTaskCount`.
 - `update_template`: Update custom template fields.
 - `delete_template`: Remove a custom template or hide a built-in template for a project. Requires explicit approval via MCP.
-- `execute`: Plans a quicksprint. Payload supports `taskCount`, `noTaskLimit`, `submitMode`, `routeOverride`, and `modelOverride`. Defaults to `submitMode: "plan_only"`.
+- `execute`: Plans a quicksprint. Payload supports `taskCount`, `noTaskLimit`, `submitMode`, `routeOverride`, `modelOverride`, `agentPresetId`, `additionalPrompt`, and `planningOverrides`. Defaults to `submitMode: "plan_only"`.
 - `start`: Alias for execution defaulting to `submitMode: "plan_and_start"`.
 
 Current built-in purpose set:

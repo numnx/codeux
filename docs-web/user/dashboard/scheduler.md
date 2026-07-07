@@ -33,10 +33,11 @@ labels and compact summaries instead of appearing as chat messages. The dashboar
 remains limited to Sprint, Quicksprint, Message, and Memory remediation entries; MCP-created
 agent wakeups and task reruns can still be paused, resumed, or deleted from the list.
 
-## Recurrence
+## Timing and Recurrence
 
-An entry can run once at a specific time or repeat on a **recurrence rule** (for example daily or
-weekly). The page previews the next occurrences so you can confirm the cadence before saving.
+Entries support two timing modes: absolute date/time or after a sprint ends (anchored with `after_sprint_end`).
+
+An absolute entry can run once at a specific time (with optional `timezone`) or repeat on a **recurrence rule** (for example `none`, `minutely`, etc). Recurrences can run endlessly (`never`), for a fixed number of runs (`after_count`), or until a specific date (`on_date`). The page previews the next occurrences so you can confirm the cadence before saving. Anchored entries do not support recurrence.
 
 ## Managing entries
 
@@ -44,8 +45,8 @@ From the page you can:
 
 - **Create** an entry — pick a target, set the time, and choose a recurrence rule.
 - **Edit** a dashboard-created entry's target, time, or recurrence.
-- **Pause / resume** an entry without deleting it.
-- **Delete** an entry.
+- **Pause / resume** an entry without deleting it. Pausing sets its status to `paused`; resuming sets it to `scheduled`. Executed entries resolve to `completed` (if one-time) or `cancelled`.
+- **Delete** an entry. When managing entries via the MCP tool, deleting requires explicit human confirmation (`approval: { confirmed: true }`). MCP target fields can be flattened or nested.
 
 Scheduler changes broadcast over the dashboard's realtime channel, so the calendar stays in sync
 across open clients. Scheduled runs appear in the [Live Session](./live-session.md) and
