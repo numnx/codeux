@@ -215,6 +215,7 @@ export const SprintsPage: FunctionComponent = () => {
     activeRunsBySprintId,
     pauseResumeRunsBySprintId,
     interventionBySprintId,
+    quotaWaitBySprintId,
     showCreateComposer, setShowCreateComposer,
     editingSprint, setEditingSprint,
     showImportModal, setShowImportModal,
@@ -738,6 +739,7 @@ export const SprintsPage: FunctionComponent = () => {
                         isPaused={isPaused}
                         pauseResumeBusy={pauseResumeBusy}
                         humanIntervention={interventionBySprintId.get(sprint.id) || null}
+                        quotaWait={quotaWaitBySprintId.get(sprint.id) || null}
                         onPrimaryAction={() => { handleSprintToggle(sprint.id); }}
                         onPauseResume={pauseResumeRun ? () => { handleSprintPauseResume(sprint.id); } : undefined}
                         onAddTasks={() => { void handleOpenAppendTasks(sprint); }}
