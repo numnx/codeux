@@ -4,8 +4,9 @@ This guide gets the MCP server and dashboard running locally with minimal setup.
 
 ## Prerequisites
 
-- Node.js 22+
-- pnpm 10.33.0 (only for building from source)
+- Node.js >=22
+- pnpm@10.33.0 (only for building from source)
+- Docker (recommended for virtual worker execution, required for preview containers)
 - A valid Jules API key
 - Optional for remote git intelligence: GitHub CLI (`gh`) authenticated
 
@@ -24,31 +25,35 @@ Use one of these methods:
 
 1. CLI argument (highest priority)
 ```bash
-node dist/index.js --api-key YOUR_KEY
+node dist/index.js --api-key <YOUR_JULES_API_KEY>
 ```
 
 2. Environment variable
 ```bash
-export JULES_API_KEY=YOUR_KEY
+export JULES_API_KEY=<YOUR_JULES_API_KEY>
 pnpm start
 ```
 
 3. `.env` file in project root
 ```env
-JULES_API_KEY=YOUR_KEY
+JULES_API_KEY=<YOUR_JULES_API_KEY>
 ```
 
 4. `.code-ux/settings.json` (project or home)
 ```json
 {
-  "julesApiKey": "YOUR_KEY"
+  "julesApiKey": "<YOUR_JULES_API_KEY>"
 }
 ```
 
 ## Run in Development
 
 ```bash
+# Starts both the backend server and Vite dashboard watcher (node scripts/dev.mjs)
 pnpm run dev
+
+# Starts only the source backend server (node --import ./scripts/tsnode-register.mjs src/index.ts)
+pnpm run dev:server-only
 ```
 
 This starts the server directly from TypeScript source through Node's `ts-node` ESM register hook, so local development uses the same `.js` import specifiers as the production build without requiring a precompile step.
@@ -56,7 +61,10 @@ This starts the server directly from TypeScript source through Node's `ts-node` 
 ## Run Compiled Server
 
 ```bash
+# Compiles via node scripts/build.mjs
 pnpm run build
+
+# Runs compiled node dist/index.js
 pnpm start
 ```
 
@@ -66,7 +74,7 @@ Default URL:
 - `http://localhost:4444`
 
 The dashboard starts automatically when the server starts.
-If `4444` is occupied, startup automatically retries `4445`, `4446`, and so on.
+If port `4444` is occupied, startup automatically falls back to the next free port (`4445`, `4446`, etc.).
 
 ## Verify Health via API Endpoints
 
@@ -96,7 +104,7 @@ curl http://localhost:4444/api/git-status
 
 ### Advanced Start Options
 
-For local headless runs, you can pass `--headless` or `--no-dashboard`. For authenticated MCP-only server processes, use `--server-mode` or `CODE_UX_SERVER_MODE=true` with an explicit MCP HTTP bearer token. MCP HTTP gateway flags (`--mcp-https`, `--mcp-https-port`, etc.; legacy names) remain supported. See the [Installation CLI Flags](../docs-web/user/installation.md#cli-flags) reference for the complete list.
+For local headless runs without binding the dashboard, you can pass `--headless`. For authenticated MCP-only server processes, use `--server-mode` with an explicit MCP HTTP bearer token (`--mcp-http-auth-token`). MCP HTTP gateway flags (e.g., `--mcp-http-port`, or the legacy `--mcp-https` flags) remain supported. See the [Installation CLI Flags](../docs-web/user/installation.md#cli-flags) reference for the complete list.
 - Remote mode has no PR/CI data
   - Verify `gh` is installed and authenticated.
 

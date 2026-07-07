@@ -307,9 +307,9 @@ Use source builds when developing Code UX itself or when you need to inspect/mod
 ### Requirements
 
 - Node.js >=22.
-- pnpm 10.33.0 or newer.
+- pnpm@10.33.0.
 - Git 2.30 or newer.
-- Docker, recommended for virtual worker execution and required for preview containers.
+- Docker (recommended for virtual worker execution, required for preview containers).
 - Provider credentials are optional for installation and local startup; configure them later in the dashboard when you are ready to dispatch work.
 
 ### Clone and install
@@ -330,16 +330,22 @@ Codex, Claude Code, Qwen Code, OpenCode, and Antigravity CLI.
 ### Run in development
 
 ```bash
+# Starts both the backend server and Vite dashboard watcher (node scripts/dev.mjs)
 pnpm run dev
+
+# Starts only the source backend server (node --import ./scripts/tsnode-register.mjs src/index.ts)
 pnpm run dev:server-only
 ```
 
-Then open `http://localhost:4444`.
+Then open `http://localhost:4444`. If port 4444 is occupied, it automatically falls back to the next free port (4445, 4446, etc.).
 
 ### Build and run
 
 ```bash
+# Compiles via node scripts/build.mjs
 pnpm run build
+
+# Runs compiled node dist/index.js
 pnpm start
 ```
 
