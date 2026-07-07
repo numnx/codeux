@@ -70,6 +70,8 @@ system  →  project  →  sprint
 
 System settings act as the base (with built-in defaults folded into them). A field unspecified at higher scopes inherits from lower scopes. The merge is **deep** for object-valued fields (e.g. `aiProvider.providers.codex` only overrides the keys you set, not the whole object).
 
+Project saves are diffed against the current system defaults rather than hardcoded app defaults. Sprint settings act as sparse temporary overrides on top of the resolved project settings. In-process cache invalidation uses a process-wide settings resolution revision; any settings save or reset increments this revision and clears the local cache to ensure subsequent reads reflect the update.
+
 ### Where defaults live
 
 `src/repositories/settings-defaults.ts`:
@@ -94,7 +96,10 @@ There is no need to restart the process for settings changes.
 
 ### Effective resolution endpoints
 
+- `GET /api/system-settings` — base system settings.
+- `GET /api/projects/:projectId/settings` — project sparse overrides.
 - `GET /api/projects/:projectId/settings/effective` — merged at project scope.
+- `GET /api/sprints/:sprintId/settings` — sprint sparse overrides.
 - `GET /api/projects/:projectId/sprints/:sprintId/settings/effective` — merged at sprint scope.
 - `manage_settings` → `resolve_project_effective` / `resolve_sprint_effective`.
 
@@ -128,11 +133,11 @@ Invalid writes are rejected atomically with a precise JSON path in the error.
 
 ## Database backend
 
-The default backend is **SQLite** at `~/.code-ux/database.sqlite`. A migration plan to Postgres exists; when shipped, it will be controlled by an env variable (`DATABASE_URL` or similar). The repository layer abstracts the backend so switching is mechanical.
+The default backend is **SQLite** with separate databases for runtime state (`~/.code-ux/app.db`) and scoped settings (`~/.code-ux/settings.db`). A migration plan to Postgres exists; when shipped, it will be controlled by an env variable (`DATABASE_URL` or similar). The repository layer abstracts the backend so switching is mechanical.
 
 ## Reset semantics
 
-- **Per-project reset** (`DELETE /api/projects/:projectId/settings` or `reset_project_settings`) clears the project's override row; effective values revert to `system`.
-- **Per-sprint reset** (`DELETE /api/sprints/:sprintId/settings` or `reset_sprint_settings`) clears the sprint's override; effective values revert to `project → system`.
-- **System reset** (no dedicated action; use `replace_system_settings` with a default tree) requires explicit replacement.
+- **Per-project reset** (`DELETE /api/projects/:projectId/settings`) clears the project's override row; effective values revert to `system`.
+- **Per-sprint reset** (`DELETE /api/sprints/:sprintId/settings`) clears the sprint's override; effective values revert to `project → system`.
+- **System reset** (no dedicated action; use `PUT /api/system-settings` with a default tree) requires explicit replacement.
 - **Database reset** (`POST /api/system/reset-database`) wipes everything; use only as a last resort.

@@ -50,7 +50,7 @@ For `.code-ux/settings.json` (used primarily for credential hints during initial
 - project root
 - home directory
 
-Note: `.code-ux/settings.json` is not the primary configuration source; Code UX reads its execution settings from the SQLite `settings.db`.
+Note: `.code-ux/settings.json` is not the primary configuration source; Code UX reads its execution settings from the SQLite `settings.db` and runtime state from `app.db`.
 
 ## Scoped Settings Persistence
 
@@ -64,9 +64,11 @@ Storage:
   - `system_settings`
   - `project_settings`
   - `sprint_settings`
+  - `user_preferences`
   - `app_settings` is retained only as a one-time legacy migration source for development data that predates the scoped model
 - provider session DB at `~/.code-ux/session-tracking.db`
 - Code UX app DB at `~/.code-ux/app.db`
+  - handles global runtime state, project tracking, sprint execution records, and session history
   - includes project planning tables (sprints with `original_prompt` and `goal`) plus sprint-scoped runtime projection in `app_settings`, `task_runs`, and `task_run_events`
   - runtime context rows are keyed by sprint (`runtime_context:<projectId>:<sprintId>`); legacy unscoped project-level runtime rows are deprecated and are no longer used for explicit sprint reads or rerun context
   - also stores sprint preview runtime state in `sprint_preview_sessions`
@@ -77,7 +79,7 @@ Runtime resolution:
 - project settings inherit live system defaults; they do not snapshot them
 - project saves are diffed against the current system defaults, not hardcoded app defaults
 - sprint settings are sparse temporary overrides on top of resolved project settings
-- effective system, project, and sprint resolution uses an in-process typed cache owned by `SettingsRepository` and implemented in `SettingsResolutionService`. Cache entries are keyed by scope plus a process-wide settings resolution revision. Any system save, project save/reset, sprint save/reset, or test data reset increments that revision and clears the writer's local cache, so other repository instances can no longer hit entries created before the write. The cache is bounded by the repository service lifetime and does not retain provider secrets beyond the existing settings service lifetime.
+- effective system, project, and sprint resolution uses an in-process typed cache owned by `SettingsRepository` and implemented in `SettingsResolutionService`. Cache entries are keyed by scope plus a process-wide settings resolution revision. Any system save, project save/reset, sprint save/reset, or test data reset increments that revision (cache invalidation by settings revision) and clears the writer's local cache, so other repository instances can no longer hit entries created before the write. The cache is bounded by the repository service lifetime and does not retain provider secrets beyond the existing settings service lifetime.
 - orchestration, worker dispatch, and selected-project CI tracking resolve effective settings for the active project or sprint at runtime instead of using only the startup system snapshot
 - `git.defaultBranch` resolves with the following precedence:
   1. Sprint setting override (Dashboard)
@@ -123,7 +125,7 @@ Runtime resolution:
 - When Code UX has to create a missing feature branch, it prefers `origin/<defaultBranch>` over the local `<defaultBranch>` ref when the remote-tracking base branch exists.
 - When a sprint does not yet have a persisted feature branch, the generated branch name is treated as a candidate. Code UX checks both local refs and `origin` before creating it, and appends a numeric suffix such as `-1` when the candidate already exists from an earlier deleted or abandoned sprint.
 - `main` is only the final fallback when no sprint, project, or system base branch is configured. Normal sprint and task flows use the resolved `git.defaultBranch` value from scoped settings.
-- the old global `/api/settings` contract is removed in favor of explicit scoped endpoints
+- the old global `/api/settings` contract is removed in favor of explicit scoped endpoints (like `/api/system-settings`, `/api/projects/:projectId/settings/effective`, etc.)
 - dashboard v2 settings queries clear both cached and in-flight effective-settings requests whenever system/project settings are saved or reset, which prevents stale AI model options immediately after integration updates.
 - Settings actions that mutate state (replace, patch, reset) require human confirmation. Mutating settings actions first return an approval-required response; only the exact same action and payload may execute once with `approval.confirmed: true` within 15 minutes. Get/resolve actions are read-only.
 
@@ -131,7 +133,7 @@ Runtime resolution:
 
 `system_settings` fields:
 - `runtime`
-  - `dashboardPort`
+  - `dashboardPort` (default `4444`)
   - `consoleLogLevel` (`info` by default; one of `off`, `debug`, `info`, `warn`, `error`)
   - `debugLogFileLevel` (`error` by default for `.code-ux/debug.log`; `off` disables file logging)
   - `consoleLogMode` (`standard` by default; `full` also prints routine dashboard HTTP request logs)

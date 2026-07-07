@@ -80,7 +80,7 @@ Files inside the directory:
 
 | File | Contents |
 | --- | --- |
-| `settings.json` | Provider keys, override settings (read-only / informational; primary settings live in the SQLite DB `settings.db`). |
+| `settings.json` | Provider keys, override settings (read-only / informational; primary settings live in the SQLite DB `settings.db`, while runtime state uses `app.db`). |
 | `config.json` | Dashboard port and other runtime config. |
 | `agents/<id>.md` | Agent preset markdown sources. |
 | `sprints/sprint-<n>/` | Sprint markdown directory. |
@@ -155,7 +155,7 @@ Detected hints surface in **Settings → AI providers** as **Use detected value*
 
 - `.code-ux/` directories are migrated automatically from any `.jules-subagents/` siblings on first run.
 - `POST /api/system/reset-database` clears the DB but preserves on-disk markdown, allowing re-import.
-- Manual reset: stop the server, `rm -rf ~/.code-ux/database.sqlite`, restart.
+- Manual reset: stop the server, `rm ~/.code-ux/app.db ~/.code-ux/settings.db`, restart.
 
 ## Logging
 
