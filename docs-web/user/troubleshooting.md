@@ -12,9 +12,9 @@ You launched without a Jules key and without enabling a virtual worker provider.
 
 ### Port 4444 already in use
 
-Another process holds the dashboard port.
+Another process holds the dashboard port (default 4444) or the MCP service port (which defaults to `dashboardPort + 1`, e.g., 4445).
 
-**Fix:** set `DASHBOARD_PORT` to a free port, or kill the offender. On Linux: `lsof -i :4444`.
+**Fix:** set `DASHBOARD_PORT` or `MCP_HTTP_PORT` to a free port, or kill the offender. On Linux: `lsof -i :4444` or `lsof -i :4445`.
 
 ### Permission denied on Git operations
 
@@ -23,6 +23,12 @@ The user running Code UX cannot write to the repo.
 **Fix:** Ensure the process has write permissions to the project's `repository path` and to the `.code-ux/` directory therein.
 
 ## Dashboard issues
+
+### Duplicate runtime lock errors
+
+A `RuntimeProcessLockError` occurs on startup when another project-manager runtime is already running for the active environment.
+
+**Fix:** check for a running pid recorded in `~/.code-ux/runtime/project-manager.lock`. Stop the conflicting Code UX process before starting another. If the error occurs during rapid restart of a slow-shutting process, you can optionally increase `CODE_UX_RUNTIME_LOCK_WAIT_MS` to allow more time for the previous lock to release.
 
 ### Dashboard loads but data is empty
 
@@ -64,13 +70,13 @@ This is normal. `listen` is a long-poll: it blocks until a message is available 
 
 `--server-mode` or `CODE_UX_SERVER_MODE=true` is set without a valid explicit bearer token.
 
-**Fix:** set `MCP_HTTP_AUTH_TOKEN` or `MCP_HTTPS_AUTH_TOKEN`, or pass `--mcp-http-auth-token` / `--mcp-https-auth-token`. Use at least 32 bearer-safe characters. Server mode does not use the generated local user token.
+**Fix:** set `MCP_HTTP_AUTH_TOKEN` or `MCP_HTTPS_AUTH_TOKEN`, or pass `--mcp-http-auth-token` / `--mcp-https-auth-token`. Use at least 32 bearer-safe characters. Server mode does not use the generated local user token. Also ensure MCP HTTP auth-token issues are resolved before continuing.
 
 ### HTTP gateway returns 401
 
 The client did not send `Authorization: Bearer <token>`, sent the wrong token, sent duplicate authorization headers, or is still using the old token after rotation.
 
-**Fix:** update the client secret, reconnect, and avoid diagnostics that print authorization headers. Tokens are case-sensitive.
+**Fix:** update the client secret, reconnect, and avoid diagnostics that print authorization headers. Tokens are case-sensitive. Ensure that the MCP HTTP auth-token matches the configured server token exactly.
 
 ### HTTP gateway returns 400 "must be initialize"
 
@@ -80,9 +86,9 @@ You called the endpoint without an `mcp-session-id` header, but with a non-`init
 
 ### `/health` passes but `/ready` fails
 
-The MCP HTTP listener is alive, but runtime readiness has not completed or the server is degraded.
+The `/health` endpoint acts as a liveness probe, while `/ready` acts as a readiness probe. They report on the `settingsDb`, `dashboardBind`, and `mcpService` components (using `UP`/`DOWN` statuses for each). If `/health` passes but `/ready` fails, the HTTP listener is alive, but runtime readiness has not completed or one of the required components is degraded.
 
-**Fix:** wait for startup recovery to finish, then inspect structured logs. Use `/ready` for load balancer readiness gates.
+**Fix:** wait for startup recovery to finish, then inspect structured logs to identify which component is `DOWN` or `NOT_READY`. Use `/ready` for load balancer readiness gates.
 
 ### Worker connects but does not claim work
 
@@ -116,6 +122,12 @@ A dependency is `COMPLETED` but `is_merged: false`. Code UX gates on merge, not 
 
 **Fix:** open the dependency's PR; merge it. Then set `merged: true` in the subtask file (or use auto-merge so this is automated).
 
+### Stuck sprints
+
+A sprint or task may remain stuck even when dependencies appear resolved, blocking normal progression.
+
+**Fix:** operators can use the **force complete** action (exposed via UI/MCP) to bypass stuck states. This explicitly bypasses graceful steps and pending checks to forcefully transition the task to a completed state.
+
 ### Task dispatch fails during branch refresh
 
 CLI-backed tasks refresh the remote branch before preparing the worker branch. That refresh is mandatory so local branch state cannot drift from the remote.
@@ -140,7 +152,7 @@ A `VirtualWorkerService` doing `ci_fix` tasks keeps trying and failing.
 
 Your API key hit a rate or token quota.
 
-**Fix:** wait, raise the quota, or route the affected invocation to a different provider via Settings → Routing. Tasks in `QUOTA` are retried automatically each cycle.
+**Fix:** wait, raise the quota, or route the affected invocation to a different provider via Settings → Routing. Alternatively, use the **reset-usage-limit** runtime action (accessible via the dashboard's InvocationFeedPanel) to clear the active quota/rate-limit invocation retry timestamp and wake the active provider retry loop immediately. Tasks in `QUOTA` are otherwise retried automatically each cycle. Ensure your MCP HTTP auth-tokens are also correctly configured if applicable.
 
 ### "Provider auth not detected" badge in settings
 
@@ -152,7 +164,7 @@ The CLI is installed but not logged in.
 
 The Docker daemon is unreachable, or the worker image cannot be pulled.
 
-**Fix:** verify `docker ps` works. Pre-pull the image: `docker pull node:24-bookworm`. For preview/file-browser issues specifically, triage routes through preview host middleware (`src/server/preview-host-middleware.ts`) and cleanup/rebuild/restart steps. Ensure any commands used are safe and avoid exposing local DB contents, tokens, hostnames, or private paths.
+**Fix:** check the dashboard for Docker runtime warnings. Pre-pull the image: `docker pull node:24-bookworm`. Avoid using destructive commands like `docker system prune -a`. For stale preview or file-browser containers, use the safe rebuild/stop commands available directly from the dashboard UI (which route through `src/server/preview-routes.ts`). Ensure any custom commands used are safe and avoid exposing local DB contents, tokens, hostnames, or private paths.
 
 If the header Docker status control shows the red `Runtime not ready` warning, open the Docker status menu for the dependency list. The warning is tied to `GET /api/onboarding/readiness` and reflects required Docker CLI, Docker daemon, and Git CLI checks; it clears only after the runtime reports those required checks as ready.
 
