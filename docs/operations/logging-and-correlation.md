@@ -124,10 +124,11 @@ pnpm run test:dashboard -- tests/dashboard/lib/dashboard-realtime-client.test.ts
 
 ## Operational Notes
 
-- For cross-system tracing, pass `x-correlation-id` on dashboard requests.
+- For cross-system tracing, pass `x-correlation-id` on dashboard requests. Dashboard routes, realtime events, and MCP tool dispatch share this context so logs remain traceable across transports.
 - In production, parse log lines as JSON and index `correlationId` for request-level traceability.
 - The CLI entrypoint installs a bootstrap warning filter before server modules load, suppressing Node's SQLite experimental warning. Dotenv is loaded in quiet mode so startup output is owned by the structured logger.
 - Treat `logPurpose` as required for new server, tool, provider, realtime, request, and security logs. The stable labels (`HTTP`, `INVK`, `LIVE`, `SEC`, and the other labels in the table above) are used by operators and tests to separate workflow concerns without string-matching free-form messages.
+- Output verbosity is managed by `consoleLogLevel` and `debugLogFileLevel` in settings.
 - Keep provider invocation records and realtime event logs metadata-only. Persisted provider usage rows may retain raw usage JSON for diagnostics, but structured logs, realtime event metadata, and debug-file output must expose only bounded counters, identifiers, event types, sizes, `rawUsageJsonPresent`, `errorName`, and `correlationId`.
 - Security validation failures should log through `logPurpose: "security"` with sanitized reason metadata. Do not include request bodies, authorization headers, API keys, token values, raw websocket frames, provider prompts, subprocess argv, or transcript text.
 - `DEBUG_LOG_FILE_LEVEL` increases `.code-ux/debug.log` detail only; it does not relax redaction or metadata-only provider logging.

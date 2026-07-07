@@ -19,6 +19,10 @@ Code UX is designed to run as a **single-user trusted process** on a developer's
 
 If you need multi-tenant authorisation or hostile-client isolation, run separate Code UX instances per tenant.
 
+## Quality Guardrails
+
+During the CI process, dependencies are evaluated with `pnpm run audit` alongside normal tests and builds. GitHub Actions workflows use `pnpm install --frozen-lockfile --ignore-scripts` to prevent arbitrary code execution during dependency resolution.
+
 ## Network surface
 
 Two listeners:
@@ -34,6 +38,7 @@ Two listeners:
 - Bind only to loopback in production (the default).
 - If exposing remotely, **front with a reverse proxy** that handles auth (basic auth, OAuth proxy, mTLS, …).
 - The WebSocket inherits the same security posture.
+- Runtime data routes (`/api/*`, `/health`, and `/ready`) enforce strict `Host` and `X-Forwarded-Host` header validation against a trusted loopback allowlist. These endpoints explicitly apply cache control `no-store` to prevent caching of sensitive state.
 
 ### MCP HTTP gateway
 
@@ -47,6 +52,11 @@ Two listeners:
 ### Stdio transport
 
 The stdio transport exists only when stdin is not a TTY. Since the MCP client launches the process, the trust boundary is the same as the launching client.
+
+### Custom MCP Servers
+- Persisted custom MCP server settings are sanitized before usage. URL schemes must be `http://` or `https://` without credentials.
+- The standard I/O (stdio) transport restricts shell metacharacters.
+- Sensitive headers like `Host`, `Connection`, and `Upgrade` are dropped to prevent HTTP request smuggling and connection tampering.
 
 ## Authentication & authorisation
 
