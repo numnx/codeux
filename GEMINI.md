@@ -12,6 +12,8 @@ each running in isolated Docker workspaces, plus Jules (hosted) — with the rep
 (branching, dependency ordering, CI polling, merge gates, conflict repair) moved into deterministic
 software instead of model reasoning.
 
+> Historical note: this began as an MCP server. The **Code UX runtime** is a multi-provider, container-first agentic coding runtime. It now supports several local CLI providers (Gemini, Codex, Claude Code, Qwen, OpenCode, Antigravity) that run in Docker-backed workspaces. Jules remains available as a hosted provider. Do not treat the codebase as Jules-specific.
+
 The runtime ships three ways from one codebase: the **CLI/server** (`codeux`), an **Electron desktop
 app**, and an **MCP server** (stdio + optional HTTPS worker gateway).
 
@@ -22,6 +24,15 @@ app**, and an **MCP server** (stdio + optional HTTPS worker gateway).
 ### Backend (Node.js / ESM)
 - **Runtime**: Node.js **22+** (strict ESM, `"type": "module"`, NodeNext resolution).
 - **Package manager**: **pnpm** (`pnpm@10.33.0`) — use `pnpm`, not `npm`.
+  - `pnpm run dev`: Starts both the backend server and Vite dashboard watcher (`node scripts/dev.mjs`).
+  - `pnpm run dev:server-only`: Starts only the source backend server (`node --import ./scripts/tsnode-register.mjs src/index.ts`).
+  - `pnpm run build`: server `tsc` + dashboard typecheck + `vite build`.
+  - `pnpm run typecheck` / `pnpm run lint`: strict `tsc --noEmit` (the two are the same command).
+  - `pnpm run test:*`: `pnpm run test` (full Vitest run), `pnpm run test:backend`, `pnpm run test:dashboard`, `pnpm run test:watch`, `pnpm run test:coverage`.
+  - `pnpm run ci`: local CI equivalent (`quality:guardrails -> audit -> lint -> test:backend:coverage -> test:dashboard -> build`).
+  - `pnpm run audit`: `pnpm audit --audit-level=high`.
+  - `pnpm run check:docs-web`: check docs-web publication output.
+  - Electron: `pnpm run electron:dev`, `pnpm run electron:dist[:linux|:mac|:win]`.
 - **Language**: TypeScript 5.9 (strict, `ES2022` target).
 - **Protocol**: Model Context Protocol via `@modelcontextprotocol/sdk`.
 - **HTTP**: Express 5 for the dashboard/API; Axios for Jules + Jira REST.
@@ -163,9 +174,7 @@ Before a task is complete, all of these MUST pass (`ci` = quality:guardrails -> 
   temp/scratch files are present in the workspace.
 - **Credentials**: never hardcode `JULES_API_KEY` or other provider keys; never commit `.env`. Most
   provider config is set from the dashboard and stored in the DB, not env vars.
-- **Docs**: source of truth is `docs/` (entrypoint `docs/index.md`, index `docs/SUMMARY.md`);
-  `docs-web/` holds the published user/developer/architecture docs. Update affected pages on behavior
-  changes; add + link a new page for new subsystems.
+- **Docs**: If a new feature or subsystem is introduced, add a dedicated page under the correct `docs/` section and link it from both `docs/index.md` and `docs/SUMMARY.md`. Update both canonical `docs/` and public `docs-web/` consistently. No `docs-release/` directory should be used.
 
 ---
 
