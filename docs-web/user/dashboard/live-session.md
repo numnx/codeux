@@ -13,12 +13,12 @@ The page is composed of stacked panels:
    - Title, dependency badges, current provider.
    - Live activity preview (the latest line of agent output).
    - Duration and ETA.
-   - Buttons to stop, retry, or open the detail panel.
+   - Buttons to stop, retry, rerun, force-complete, or open the detail panel.
 3. **Live Session Runtime Sidebar** — Contains the following collapsible panels:
    - **Invocation feed panel** — A real-time log of individual provider invocations with restart and cancel controls.
    - **Execution timeline** — A horizontal timeline of every event in the run: cycle starts, task transitions, PR opens, merges, attention items.
    - **Git CI status panel** — PR status table for the feature branch: open PRs, CI status, merge conflicts.
-   - **Attention ledger** — A dedicated queue for managing human-intervention attention items.
+   - **Attention queue** — A dedicated queue for managing human-intervention attention items.
    - **Execution runtime panel** — Core runtime metrics, build statuses, and summary badges.
 
 ## Real-time updates
@@ -33,7 +33,7 @@ If the project has no active sprint run, the page shows the **Idle Runtime State
 
 ## Attention items
 
-When the engine cannot proceed without input, an attention item is created. It appears as a row in the **Attention ledger** sidebar panel with:
+When the engine cannot proceed without input, an attention item is created. It appears as a row in the **Attention queue** sidebar panel with:
 
 - Category — `merge_conflict`, `ci_failure`, `action_required`, `qa_review_failed`.
 - Linked task and PR.
@@ -51,14 +51,14 @@ Two large buttons in the page header:
 - **Pause** — emits a control message; the watch loop exits cleanly at the next checkpoint.
 - **Cancel** — graceful cancellation; live dispatches are signalled to stop.
 
-A **Force cancel** option is hidden behind a confirm dialog.
+A **Force cancel** option is hidden behind a confirm dialog. You can also cancel, force-cancel, or retry individual task dispatches from the live view.
 
 ### Invocation restart/cancel
 
 Individual provider invocations can be managed directly from the **Invocation feed panel** in the sidebar:
 - **Cancel** — Stops a running provider invocation.
 - **Restart / Continue** — Restarts a failed planning invocation or continues a disconnected session.
-- **Reset timer** — Resets the rate-limit timeout for a quota-blocked invocation.
+- **Reset usage limit** — Resets the rate-limit timeout for a quota-blocked invocation.
 
 ## Finalisation
 
