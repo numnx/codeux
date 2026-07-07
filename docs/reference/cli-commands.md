@@ -24,6 +24,7 @@ There are two supported entry points:
 ```bash
 codeux <domain> <action> [flags]
 codeux manage --payload-json '{"domain":"projects","action":"list","payload":{}}'
+codeux manage --payload-json '{"domain":"settings","action":"reset_project_settings","payload":{"projectId":"proj-1"},"approval":{"confirmed":true}}'
 ```
 
 The direct domain form is the preferred shell interface. The generic `manage` form is useful when you already have an MCP-shaped payload or want to forward a full JSON request without re-mapping the fields by hand.
@@ -35,7 +36,7 @@ The direct domain form is the preferred shell interface. The generic `manage` fo
 - If required flags are missing in non-interactive mode, the command fails instead of guessing.
 - `--json` prints the raw management envelope returned by the handler.
 - `--payload-json` properties merge with explicitly passed command-line flags. For the `manage` passthrough, it can carry `domain`, `action`, `payload`, and `approval`. For direct domain commands, it acts as a base payload.
-- Destructive actions require an approval retry. The first call returns an approval request, and the exact same action must be sent again with approval confirmation via `--payload-json '{"approval":{"confirmed":true}}'`.
+- Destructive actions require an approval retry. The first call returns an approval request, and the exact same action and payload must be sent again with approval confirmation via `--payload-json '{"approval":{"confirmed":true}}'`.
 
 ## Startup Behavior
 
@@ -49,6 +50,7 @@ The CLI parser automatically coerces certain flags into appropriate types before
 - **Booleans**: Flags like `--auto-start`, `--replan`, or `--no-task-limit` will be parsed as true/false depending on value (e.g. `true`, `yes`, `1`, `on` vs `false`, `no`, `0`, `off`).
 - **Numbers**: Numeric flags like `--tasks` (`taskCount`), `--limit`, or `--min-similarity` are parsed as finite numbers.
 - **Arrays**: Certain flags accept array values by repeating the flag multiple times. For example: `--memory-ids mem-1 --memory-ids mem-2` will be merged into an array `["mem-1", "mem-2"]`.
+- **Action Aliases**: Action names are automatically normalized, converting dashes to underscores.
 
 ## Common Aliases
 
@@ -80,6 +82,8 @@ These aliases are accepted and normalized before dispatch:
 - `replace-sprint-settings` -> `replace_sprint_settings`
 - `patch-sprint-setting` -> `patch_sprint_setting`
 - `reset-sprint-settings` -> `reset_sprint_settings`
+- `export-settings-bundle` -> `export_settings_bundle`
+- `apply-settings-bundle` -> `apply_settings_bundle`
 - `start-session` -> `start_session`
 - `rebuild-session` -> `rebuild_session`
 - `stop-session` -> `stop_session`
@@ -125,9 +129,10 @@ Use these core flags most often:
 
 - Projects: `--project` for `get`, `update`, `select`, `setup`, and `delete`; `--name` for `create`
 - Sprints: `--project` for `list`, `import_issues`, and `plan`; `--project` plus `--sprint` for `start` and `inspect_run`; `--sprint` for `get`, `update`, and `delete`
+- Tasks: `--project` for `list`; `--task` for `get`, `update`, `delete`, `start`, `stop`, `force_stop`, `pause`, and `inspect_run`; `--project` and `--sprint` for `create`
 - Quicksprints: `--project` for `list_templates`; `--project` plus `--template` for `get_template`, `update_template`, `delete_template`, `start`, and `execute`; `create_template` also requires `--name`, `--description`, `--icon`, `--category`, and `--agent-instruction-markdown`
 - Scheduler: `--project` plus `--scheduled-for` for `create` and `schedule_*`; add `--sprint`, `--template`, or `--body-markdown` depending on the target type; generic `create` also needs `--target-type` or a payload with `targetType`; `--entry` for `update` and `delete`
-- Settings: `--settings-json` for replace actions; `--project` and `--sprint` when the scope is project or sprint specific; `--path` and `--value` for patch actions; `reset_project_settings` needs `--project` and `reset_sprint_settings` needs `--sprint`
+- Settings: `--settings-json` for replace actions; `--project` and `--sprint` when the scope is project or sprint specific; `--path` and `--value` for patch actions; `reset_project_settings` needs `--project` and `reset_sprint_settings` needs `--sprint`; `apply_settings_bundle` needs `--bundle-json`
 - Agents: `--project` for `list`, `create`, and `sync`; `--project` plus `--preset` for `get`, `update`, and `delete`
 - Memory: `--project` plus `--query` for `search`; `--project` plus `--content` for `create`; `--project` plus `--memory-ids` for `promote`; `--memory` for `get`, `update`, and `delete`; claim actions use `--project` plus `--claim-id` where applicable and are easiest to automate with `--payload-json` for numeric fields such as `confidence`, `durability`, and evidence `weight`
 - Preview: `--project` for `list_sessions`; `--project` plus `--sprint` for `start_session` and `get_script`; `--session` for `rebuild_session`, `stop_session`, `remove_session`, `get_logs`, and `get_url`
@@ -142,7 +147,7 @@ Some commands intentionally block on approval before they mutate state:
 - `replace_*` settings actions
 - selected scheduler delete operations
 
-When one of those commands runs without approval, Code UX returns an approval request instead of mutating anything. Re-run the same command with `--payload-json '{"approval":{"confirmed":true}}'` once the user approves the change.
+When one of those commands runs without approval, Code UX returns an approval request instead of mutating anything. Re-run the exact same action and payload, adding `--payload-json '{"approval":{"confirmed":true}}'` once the user approves the change.
 
 ## Domain Examples
 
@@ -160,6 +165,13 @@ codeux projects create --name "Website Refresh"
 codeux sprints plan --project proj-1 --name "SPR-12" --goal "Ship the pricing page redesign"
 codeux sprints start --project proj-1 --sprint sprint-1
 codeux sprints import_issues --project proj-1
+```
+
+### Tasks
+
+```bash
+codeux tasks list --project proj-1
+codeux tasks start --task task-1
 ```
 
 ### Quicksprints
@@ -188,6 +200,7 @@ codeux settings get_system
 codeux settings resolve_project_effective --project proj-1
 codeux settings patch_project_setting --project proj-1 --path git.defaultBranch --value main
 codeux settings replace_sprint_settings --project proj-1 --sprint sprint-1 --settings-json '{"git":{"autoCreatePr":true}}'
+codeux settings export-settings-bundle --json
 ```
 
 ### Agents
@@ -207,7 +220,7 @@ codeux memory start_reembed --project proj-1
 codeux manage --payload-json '{"domain":"memory","action":"create_claim","payload":{"projectId":"proj-1","claim":"Use dependency factory composition for service wiring.","category":"patterns","confidence":0.9,"durability":0.85}}'
 ```
 
-Durable claim actions exposed through the management surface are `create_claim`, `list_claims`, `get_claim`, `update_claim`, `add_claim_evidence`, and `deprecate_claim`. `deprecate_claim` follows the destructive approval flow: the first call returns an approval request, and the confirmed retry must include `--payload-json '{"approval":{"confirmed":true}}'`.
+Durable claim actions exposed through the management surface are `create_claim`, `list_claims`, `get_claim`, `update_claim`, `add_claim_evidence`, and `deprecate_claim`. `deprecate_claim` follows the destructive approval flow: the first call returns an approval request, and the confirmed retry must include the exact same payload plus `--payload-json '{"approval":{"confirmed":true}}'`.
 
 ### Preview
 
