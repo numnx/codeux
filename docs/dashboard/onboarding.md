@@ -1,10 +1,10 @@
 # Dashboard Onboarding
 
 The dashboard shows a first-run onboarding flow in the browser until the operator finishes or dismisses it. Completion state is persisted server-side in the settings database under user preferences (`onboardingCompletedAt`) and exposed through:
-- `GET /api/user/onboarding`
-- `POST /api/user/onboarding/complete`
-- `POST /api/user/onboarding/cancel`
-- `POST /api/user/onboarding/reset`
+- `GET /api/user/onboarding` (retrieves the current onboarding state and readiness checks)
+- `POST /api/user/onboarding/complete` (marks onboarding as complete and persists provider setup, Git/Jira steps, and automation/defaults)
+- `POST /api/user/onboarding/cancel` (cancels the onboarding flow)
+- `POST /api/user/onboarding/reset` (resets the onboarding state)
 
 The browser-local key `codeux:onboarding-complete:v1` is still written for compatibility, but onboarding visibility is owned by the persisted user-preferences state so refreshes and sign-in sessions do not reopen onboarding after complete or cancel.
 

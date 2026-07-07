@@ -14,7 +14,7 @@ A *project* is the binding between Code UX and a single Git repository. Each pro
 
 Click **Add Project** to import an existing local checkout or Git URL. Imported local projects receive only a local git-mode project override, so Code UX operates against local Git state. Imported Git URL projects inherit the system remote-git defaults. Imported projects stay techstack-unassigned until you choose a project techstack in settings, use the top bar selector, or run Project Setup Agent techstack detection.
 
-Click **New Project** on the Projects page to initialize a new repository through the same modal. New project initialization does not scaffold application source files in the dashboard; it sends `new-local` or `new-remote` initialization data to the backend repository creation flow.
+Click **New Project** on the Projects page to initialize a new repository through the same modal. New project initialization does not scaffold application source files in the dashboard; it sends `new-local` or `new-remote` initialization data to the backend repository creation flow. This is distinct from importing existing local directories or existing Git URLs.
 
 New project creation always writes an explicit project techstack override. New local projects additionally receive `git.githubMode: LOCAL`; new remote projects do not. To set up a web or desktop app inside an existing project, use the **Web App** or **Desktop App** idle quick action in 3D Chat; those prompts operate in the selected project and use its current techstack setting, leaving an unassigned existing project as `None`.
 
@@ -55,7 +55,7 @@ Click the card's **Open** action to make it the active project, or use the **Set
 
 ## Deleting a project
 
-Deletion is destructive — it removes the project's database row and runtime state, but **does not** delete files inside `<repo>/.code-ux/`. The MCP `manage_projects` action requires explicit `approval.confirmed = true`.
+Deletion is destructive — it removes the project's database row and runtime state, but **does not** delete repository files unless the original source specifically does so. The `.code-ux/` directory and local checkout remain intact. The MCP `manage_projects` action requires explicit `approval.confirmed = true`.
 
 In the dashboard, the **Delete** action shows a confirm dialog with the count of sprints, tasks and memories that will become orphaned.
 
