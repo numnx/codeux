@@ -71,7 +71,7 @@ Anchors and target-specific payloads are persisted inside the existing `target_j
 The target payload keys are:
 - `sprintTarget`: `{ sprintId }`
 - `quicksprintTarget`: `{ templateId, taskCount, noTaskLimit?, submitMode, additionalPrompt?, agentPresetId?, planningOverrides? }`
-- `chatTarget`: `{ bodyMarkdown, threadId?, title?, connectionId? }`
+- `chatTarget`: `{ bodyMarkdown, threadId?, title?, connectionId? }`. `bodyMarkdown` is required.
 - `memoryRemediationTarget`: `{ mode, source? }`
 - `agentWakeupTarget`: `{ bodyMarkdown, threadId?, title?, connectionId?, origin: "agent_scheduler", source: "agent_scheduler", createdByAgentId? }`
 - `taskTarget`: `{ taskId, provider?, origin: "agent_scheduler", source: "agent_scheduler", createdByAgentId? }`
@@ -149,4 +149,4 @@ Anchored entries are evaluated separately from absolute `nextRunAt` polling:
 - Project isolation is strict: source sprints from another project are rejected, sprint targets must belong to the selected project, and task targets must reference a task in the selected project.
 - Agent wakeups require non-empty `bodyMarkdown`.
 
-The MCP `manage_scheduler` tool accepts the same model. Use `scheduleMode: "after_sprint_end"` or `anchorMode: "after_sprint_end"` with `sourceSprintId`/`anchorSourceSprintId` and optional `offsetMinutes`/`anchorOffsetMinutes`, or pass the nested `scheduleAnchor` object directly. Absolute schedules continue to use `scheduledFor`; `scheduleMode: "absolute"` on update clears an existing anchor.
+The MCP `manage_scheduler` tool accepts the same model. Target payload properties can be flattened or passed inside their nested target objects. For anchors, use `scheduleMode: "after_sprint_end"` or `anchorMode: "after_sprint_end"` with `sourceSprintId`/`anchorSourceSprintId` and optional `offsetMinutes`/`anchorOffsetMinutes`, or pass the nested `scheduleAnchor` object directly. Absolute schedules continue to use `scheduledFor` with optional `timezone` and `recurrence` details; `scheduleMode: "absolute"` on update clears an existing anchor. Deleting an entry requires explicit human confirmation via `approval: { confirmed: true }`.

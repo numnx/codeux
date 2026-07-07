@@ -55,7 +55,7 @@ From the **⋯** menu on a template card:
 | POST | `/api/projects/:projectId/quicksprints/templates` | Create |
 | PATCH | `/api/projects/:projectId/quicksprints/templates/:templateId` | Update |
 | DELETE | `/api/projects/:projectId/quicksprints/templates/:templateId` | Delete |
-| POST | `/api/projects/:projectId/quicksprints/execute` | Execute (returns the new sprint) |
+| POST | `/api/projects/:projectId/quicksprints/execute` | Execute (returns the new sprint). Payload supports `taskCount`, `noTaskLimit`, `submitMode`, `routeOverride`, `modelOverride`, `agentPresetId`, `additionalPrompt`, and `planningOverrides`. Defaults to `submitMode: "plan_only"`. |
 
 ## Examples
 
