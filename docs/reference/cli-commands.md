@@ -9,8 +9,8 @@ The same package also ships runtime entrypoints:
 ```bash
 codeux
 codeux --headless
-codeux --server-mode --mcp-http-auth-token "$MCP_HTTP_AUTH_TOKEN"
-codeux-worker --server-url http://SERVER_HOST:4445/mcp --auth-token "$CODE_UX_WORKER_AUTH_TOKEN" --project-id project-id
+codeux --server-mode --mcp-http-auth-token "<your-mcp-token>"
+codeux-worker --server-url http://SERVER_HOST:4445/mcp --auth-token "<your-worker-token>" --project-id project-id
 ```
 
 Use `--server-mode` for secure headless MCP HTTP deployments. It disables dashboard routes and websockets, starts MCP HTTP by default, and requires an explicit bearer token. Use `codeux-worker` for external worker hosts; the worker connects to the server-mode control plane and starts its own local `worker-host` execution runtime.
@@ -171,7 +171,7 @@ codeux sprints import_issues --project proj-1
 
 ```bash
 codeux tasks list --project proj-1
-codeux tasks start --task task-1
+codeux tasks start --task <task-id>
 ```
 
 ### Quicksprints
