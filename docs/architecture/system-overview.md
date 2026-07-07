@@ -17,18 +17,20 @@ Code UX is a container-first multi-provider runtime with an integrated dashboard
 - CLI/MCP entrypoint: `src/index.ts`
 - Responsibilities:
   - Load `.env` and startup config.
-  - Construct and run `CodeUxServer`.
+  - Bootstrap and run `CodeUxServer`.
 - Worker entrypoint: `src/worker/index.ts` (worker-host mode)
 - Electron shell: `src/electron/main.ts` (desktop shell)
 
 - Runtime composition file: `src/server/code-ux-server.ts`
 - Responsibilities:
-  - Instantiate repositories, services, handlers, orchestrator.
+  - Composes the runtime by instantiating repositories, services, handlers, and orchestrator.
   - Register MCP request handlers via `src/server/mcp-request-router.ts`.
   - Start dashboard HTTP server (defaults to port 4444).
   - Start MCP stdio transport only for an attached MCP pipe/socket or explicit `CODE_UX_ENABLE_MCP_STDIO=1`; daemon stdin such as `/dev/null` keeps stdio disabled.
   - Serve cached dashboard live activity and git status via `src/server/activity-cache-service.ts`.
-- Dashboard dependency composition lives in `src/app/dependency-factory/dashboard-factory.ts`. When two dashboard services must be constructed before both concrete instances exist, the factory uses `LateBoundDependency<T>` from `src/shared/late-bound-dependency.ts` and links it synchronously before returning dependencies. Consumers resolve these holders at action time so missing links fail with an explicit late-bound dependency error instead of placeholder objects or private-field mutation.
+- Dependency construction is split through `src/app/dependency-factory/*` (`core-factory.ts`, `dashboard-factory.ts`, `mcp-factory.ts`, `sprint-factory.ts`) and lifecycle services (`src/app/lifecycle/*.ts`).
+  - Durable ownership boundaries include MCP lifecycle, dashboard lifecycle, settings lifecycle, snapshot cache, and dependency factories.
+  - Dashboard dependency composition uses `LateBoundDependency<T>` from `src/shared/late-bound-dependency.ts` to link circularly-dependent services synchronously.
 
 ### 2. MCP tool handlers
 - `src/mcp/core-tool-handler.ts`
@@ -51,7 +53,8 @@ Code UX is a container-first multi-provider runtime with an integrated dashboard
 
 ### 5. Dashboard server and frontend
 - API host: `src/server/dashboard-server.ts`
-- Frontend app: `dashboard/src/v2/*`
+- Frontend app: `dashboard/src/v2/**`
+  - Active UI source is located under `dashboard/src/v2/**`, consisting of pages, hooks, reusable components, and docs-web helpers.
 - Settings view-models: `dashboard/src/v2/lib/settings-view-models.ts` is a compatibility barrel over focused helpers in `dashboard/src/v2/lib/settings/`. Provider instance/auth helpers, model option catalogs, model pricing refs, project override/source helpers, display metadata, and branch naming helpers are kept in separate typed modules so dashboard components can share behavior without changing settings API contracts or saved settings shapes.
 
 ### 6. Data and settings repositories
@@ -87,7 +90,7 @@ flowchart TD
   H --> I[(settings.db)]
   D --> J[src/services/task-service.ts]
   R --> L[Express dashboard/API]
-  L --> M[Dashboard UI dashboard/src/v2/*]
+  L --> M[Dashboard UI dashboard/src/v2/**]
   M -->|poll| N[/api/live + /api/git-status/]
   L --> O[SQLite repositories]
   O --> P[(~/.code-ux/settings.db)]
@@ -130,4 +133,4 @@ The system is designed for independent edits in these layers:
 - Orchestration control layer (`src/sprint/sprint-orchestrator.ts`)
 - Step behavior layer (`src/sprint/steps/*`)
 - Human-facing protocol text layer (`agents.instructionTemplates` in settings)
-- Dashboard settings/presentation layer (`dashboard/src/v2/*`)
+- Dashboard settings/presentation layer (`dashboard/src/v2/**`)
