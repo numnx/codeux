@@ -60,7 +60,7 @@ export interface CinematicStageProps {
 }
 
 /** The bot cycles through its toolbox while the runtime is executing. */
-const WORK_TOOLS: AgentSceneTool[] = ["screwdriver", "jackhammer", "wrench", "torch"];
+const WORK_TOOLS: AgentSceneTool[] = ["screwdriver", "jackhammer", "wrench", "hammer", "torch"];
 const TOOL_SWAP_MS = 7_000;
 
 /** Idle quick actions floating in an arc on the bot's LEFT — the right side
@@ -417,8 +417,8 @@ export const CinematicStage: FunctionComponent<CinematicStageProps> = ({
     <div className="relative flex-1 min-h-0 overflow-hidden" data-testid="cinematic-stage">
       {/* ── Ambient backdrop — aurora glow, pure CSS, zero extra GPU cost ── */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div className="stage-aurora absolute left-1/2 top-[16%] h-[52vh] w-[52vh] -translate-x-1/2 rounded-full bg-signal-500/[0.06] blur-3xl dark:bg-signal-500/[0.05]" />
-        <div className="stage-aurora-slow absolute -right-[12%] bottom-[4%] h-[50%] w-[40%] rounded-full bg-purple-500/[0.04] blur-3xl dark:bg-purple-500/[0.04]" />
+        <div className="stage-aurora absolute left-1/2 top-[16%] h-[56vh] w-[56vh] -translate-x-1/2 rounded-full bg-signal-500/[0.065] blur-3xl dark:bg-signal-500/[0.055]" />
+        <div className="stage-aurora-slow absolute -right-[12%] bottom-[4%] h-[50%] w-[40%] rounded-full bg-ember-500/[0.035] blur-3xl dark:bg-ember-400/[0.03]" />
       </div>
 
       {/* ── Context strip — thread identity + escape hatch to Threads ── */}
@@ -472,7 +472,7 @@ export const CinematicStage: FunctionComponent<CinematicStageProps> = ({
               even at the extremes of the float/lean drift. */}
           <div
             ref={floatRef}
-            className="pointer-events-auto h-[28vh] w-[28vh] max-w-full will-change-transform md:h-[min(48vh,520px)] md:w-[min(48vh,520px)]"
+            className="pointer-events-auto h-[22vh] min-h-[180px] w-[22vh] min-w-[180px] max-w-full will-change-transform md:h-[min(54vh,620px)] md:min-h-0 md:w-[min(54vh,620px)] md:min-w-0"
             role="img"
             aria-label={`${agentName}, animated project manager. ${mood.caption}`}
           >
@@ -481,7 +481,7 @@ export const CinematicStage: FunctionComponent<CinematicStageProps> = ({
 
           {/* Name plate + truthful mood caption — tucked up into the canvas's
               empty lower margin so it never collides with the composer. */}
-          <div className="pointer-events-auto -mt-4 text-center md:-mt-12">
+          <div className="pointer-events-auto -mt-4 hidden text-center md:block md:-mt-24">
             <div className="font-display text-lg font-black tracking-tight text-slate-900 dark:text-white">
               {agentName}
             </div>
@@ -499,7 +499,7 @@ export const CinematicStage: FunctionComponent<CinematicStageProps> = ({
       {/* ── Latest exchange — only the current beat of the conversation is
              staged: the newest agent reply plus any user messages sent after
              it. History lives one click away in Threads. ── */}
-      <div className="absolute inset-x-0 bottom-36 top-[40vh] z-20 flex flex-col justify-end px-4 md:inset-y-0 md:bottom-0 md:left-auto md:right-0 md:w-[46%] md:justify-center md:px-8 md:pb-32 md:pt-16 lg:w-[42%]">
+      <div className="absolute inset-x-0 bottom-64 top-[40vh] z-20 hidden flex-col justify-end px-4 md:inset-y-0 md:bottom-0 md:left-auto md:right-0 md:flex md:w-[46%] md:justify-center md:px-8 md:pb-32 md:pt-16 lg:w-[42%]">
         <div
           role="log"
           aria-label="Latest exchange with the project manager"

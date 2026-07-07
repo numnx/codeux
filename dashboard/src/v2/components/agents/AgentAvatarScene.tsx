@@ -81,10 +81,10 @@ interface AgentAvatarSceneProps {
 const WINDOW_GAZE_HOLD_MS = 3000;
 
 /** Work tools the bot can "hold" beside itself while the runtime executes. */
-export type AgentSceneTool = "screwdriver" | "jackhammer" | "wrench" | "torch";
+export type AgentSceneTool = "screwdriver" | "jackhammer" | "wrench" | "hammer" | "torch";
 
 /** Resting scale of the tool group once its entrance pop finishes. */
-const TOOL_SCALE = 0.5;
+const TOOL_SCALE = 0.82;
 
 /* ── Hex string → THREE.Color int ── */
 function hexInt(hex: string, fallback = 0x000000): number {
@@ -450,9 +450,14 @@ function buildHeadphones(headphonesId: string, parent: THREE.Group, mats: Mats) 
 interface ToolRefs {
   group: THREE.Group;
   kind: AgentSceneTool;
+  baseY: number;
+  baseRotationZ: number;
+  glowMat: THREE.MeshBasicMaterial;
+  light: THREE.PointLight;
   spin?: THREE.Object3D;
   piston?: THREE.Object3D;
   tipMat?: THREE.MeshStandardMaterial;
+  impact?: THREE.Object3D;
 }
 
 interface FlashlightRefs {
@@ -504,86 +509,217 @@ function buildFlashlight(accent: number): FlashlightRefs {
   };
 }
 
+function createToolMaterials(accent: number) {
+  const metal = new THREE.MeshStandardMaterial({
+    color: 0xd7dee8,
+    metalness: 0.92,
+    roughness: 0.22,
+    emissive: 0x1a2228,
+    emissiveIntensity: 0.08,
+  });
+  const darkMetal = new THREE.MeshStandardMaterial({
+    color: 0x202732,
+    metalness: 0.68,
+    roughness: 0.34,
+    emissive: 0x040607,
+    emissiveIntensity: 0.1,
+  });
+  const rubber = new THREE.MeshStandardMaterial({
+    color: 0x12161b,
+    metalness: 0.16,
+    roughness: 0.76,
+  });
+  const accentMat = new THREE.MeshStandardMaterial({
+    color: accent,
+    emissive: accent,
+    emissiveIntensity: 1.15,
+    metalness: 0.42,
+    roughness: 0.18,
+  });
+  const accentSoft = new THREE.MeshBasicMaterial({
+    color: accent,
+    transparent: true,
+    opacity: 0.18,
+    depthWrite: false,
+  });
+  const highlight = new THREE.MeshBasicMaterial({
+    color: 0xf8fffb,
+    transparent: true,
+    opacity: 0.58,
+    depthWrite: false,
+  });
+  return { metal, darkMetal, rubber, accentMat, accentSoft, highlight };
+}
+
+function addToolCapsule(
+  group: THREE.Group,
+  width: number,
+  height: number,
+  depth: number,
+  material: THREE.Material,
+  position: [number, number, number],
+  rotationZ = 0,
+) {
+  const mesh = new THREE.Mesh(extrude(capsuleShape(width, height), depth, 0.012, 4), material);
+  mesh.position.set(position[0], position[1], position[2]);
+  mesh.rotation.z = rotationZ;
+  group.add(mesh);
+  return mesh;
+}
+
+function addToolPanel(
+  group: THREE.Group,
+  width: number,
+  height: number,
+  depth: number,
+  material: THREE.Material,
+  position: [number, number, number],
+  rotationZ = 0,
+  radius = 0.045,
+) {
+  const mesh = new THREE.Mesh(extrude(roundedRectShape(width, height, radius), depth, 0.014, 4), material);
+  mesh.position.set(position[0], position[1], position[2]);
+  mesh.rotation.z = rotationZ;
+  group.add(mesh);
+  return mesh;
+}
+
+function addToolHalo(group: THREE.Group, accent: number): { glowMat: THREE.MeshBasicMaterial; light: THREE.PointLight } {
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: accent,
+    transparent: true,
+    opacity: 0.22,
+    depthWrite: false,
+  });
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(0.62, 48), glowMat);
+  glow.position.set(0, 0, -0.08);
+  glow.scale.set(1.14, 0.72, 1);
+  group.add(glow);
+
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.012, 8, 64), glowMat);
+  rim.position.set(0, 0, -0.055);
+  rim.scale.set(1.1, 0.72, 1);
+  group.add(rim);
+
+  const light = new THREE.PointLight(accent, 0.68, 2.8);
+  light.position.set(-0.16, 0.12, 0.6);
+  group.add(light);
+  return { glowMat, light };
+}
+
 function buildTool(kind: AgentSceneTool, accent: number): ToolRefs {
   const group = new THREE.Group();
-  const metal = new THREE.MeshStandardMaterial({ color: 0xb8bfc9, metalness: 0.85, roughness: 0.3 });
-  const grip = new THREE.MeshStandardMaterial({ color: 0x1c2126, metalness: 0.2, roughness: 0.7 });
-  const jade = new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 0.8, metalness: 0.3, roughness: 0.25 });
+  const { metal, darkMetal, rubber, accentMat, accentSoft, highlight } = createToolMaterials(accent);
+  const { glowMat, light } = addToolHalo(group, accent);
+  const refsBase = { group, kind, baseY: -0.18, baseRotationZ: -0.16, glowMat, light };
 
   if (kind === "screwdriver") {
-    // Horizontal drill body, chuck + spinning bit pointing at the bot
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.15, 0.5, 24), jade);
-    body.rotation.z = Math.PI / 2;
-    group.add(body);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.022, 12, 32), metal);
+    // Premium compact driver: readable body, handle, chuck, and spinning bit.
+    const body = addToolPanel(group, 0.55, 0.27, 0.16, accentMat, [0.04, 0.08, 0.02], -0.06, 0.12);
+    body.scale.x = 1.08;
+    const bodyGlint = addToolPanel(group, 0.38, 0.035, 0.012, highlight, [-0.02, 0.18, 0.12], -0.06, 0.018);
+    bodyGlint.renderOrder = 4;
+    const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.16, 28), metal);
+    nose.rotation.z = Math.PI / 2;
+    nose.position.set(-0.38, 0.08, 0.03);
+    group.add(nose);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.02, 12, 40), darkMetal);
     ring.rotation.y = Math.PI / 2;
-    ring.position.x = -0.18;
+    ring.position.set(-0.28, 0.08, 0.04);
     group.add(ring);
-    const chuck = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 0.18, 20), metal);
+    const chuck = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.08, 0.16, 18), metal);
     chuck.rotation.z = Math.PI / 2;
-    chuck.position.x = -0.33;
+    chuck.position.set(-0.51, 0.08, 0.04);
     group.add(chuck);
     const bitGroup = new THREE.Group();
     bitGroup.rotation.z = Math.PI / 2;
-    bitGroup.position.x = -0.52;
-    const bit = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.22, 6), metal);
+    bitGroup.position.set(-0.69, 0.08, 0.04);
+    const bit = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.032, 0.26, 6), metal);
     bitGroup.add(bit);
     group.add(bitGroup);
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.34, 0.14), grip);
-    handle.position.set(0.1, -0.24, 0);
-    handle.rotation.z = -0.18;
-    group.add(handle);
-    const battery = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.11, 0.17), grip);
-    battery.position.set(0.15, -0.42, 0);
-    group.add(battery);
-    const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08, 0.06), metal);
-    trigger.position.set(-0.02, -0.14, 0);
-    group.add(trigger);
-    return { group, kind, spin: bit };
+    addToolPanel(group, 0.16, 0.44, 0.16, rubber, [0.16, -0.23, 0], -0.2, 0.055);
+    addToolPanel(group, 0.3, 0.13, 0.18, darkMetal, [0.22, -0.47, 0], -0.02, 0.045);
+    addToolPanel(group, 0.055, 0.12, 0.05, metal, [-0.02, -0.13, 0.12], -0.18, 0.02);
+    return { ...refsBase, spin: bit };
   }
 
   if (kind === "jackhammer") {
-    // Upright body, T-handles, chisel that hammers downward
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.44, 24), jade);
-    body.position.y = 0.18;
-    group.add(body);
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.025, 12, 32), metal);
+    refsBase.baseRotationZ = 0.06;
+    // Upright compact jackhammer with chunky handles and animated chisel.
+    addToolPanel(group, 0.28, 0.56, 0.18, accentMat, [0, 0.18, 0.02], 0, 0.13);
+    addToolPanel(group, 0.18, 0.34, 0.05, highlight, [-0.045, 0.24, 0.16], 0, 0.04).renderOrder = 4;
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.023, 12, 36), metal);
     collar.rotation.x = Math.PI / 2;
-    collar.position.y = 0.0;
+    collar.position.set(0, -0.12, 0.02);
     group.add(collar);
-    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6, 16), metal);
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.76, 18), metal);
     bar.rotation.z = Math.PI / 2;
-    bar.position.y = 0.42;
+    bar.position.set(0, 0.52, 0.03);
     group.add(bar);
     [-1, 1].forEach((side) => {
-      const hand = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.14, 16), grip);
+      const hand = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.18, 18), rubber);
       hand.rotation.z = Math.PI / 2;
-      hand.position.set(side * 0.33, 0.42, 0);
+      hand.position.set(side * 0.45, 0.52, 0.03);
       group.add(hand);
     });
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.2, 16), metal);
-    shaft.position.y = -0.14;
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, 0.24, 18), darkMetal);
+    shaft.position.set(0, -0.3, 0.03);
     group.add(shaft);
-    const chisel = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.012, 0.3, 12), metal);
-    chisel.position.y = -0.36;
-    chisel.userData.baseY = -0.36;
+    const chisel = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.012, 0.36, 12), metal);
+    chisel.position.set(0, -0.58, 0.03);
+    chisel.userData.baseY = -0.58;
     group.add(chisel);
-    return { group, kind, piston: chisel };
+    const impact = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.012, 8, 38), accentSoft);
+    impact.rotation.x = Math.PI / 2;
+    impact.position.set(0, -0.8, 0.02);
+    group.add(impact);
+    return { ...refsBase, piston: chisel, impact };
   }
 
   if (kind === "wrench") {
-    // Open-end wrench — C-shaped jaw + long handle, ratcheting swing
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.09, 0.05), metal);
-    handle.position.x = 0.1;
-    group.add(handle);
-    const jaw = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.05, 14, 40, Math.PI * 1.45), metal);
-    jaw.position.x = -0.24;
-    jaw.rotation.z = Math.PI * 0.28;
+    refsBase.baseRotationZ = -0.28;
+    // Open-end wrench with a real jaw silhouette and an accent inlay.
+    const handle = addToolCapsule(group, 0.12, 0.76, 0.07, metal, [0.1, -0.14, 0.02], -0.58);
+    handle.scale.x = 1.05;
+    const inlay = addToolCapsule(group, 0.045, 0.48, 0.028, accentMat, [0.13, -0.12, 0.11], -0.58);
+    inlay.renderOrder = 3;
+    const jaw = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.045, 14, 48, Math.PI * 1.42), metal);
+    jaw.position.set(-0.28, 0.22, 0.04);
+    jaw.rotation.z = Math.PI * 0.2;
     group.add(jaw);
-    const tag = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.055), jade);
-    tag.position.x = 0.3;
-    group.add(tag);
-    return { group, kind };
+    const lowerJaw = addToolPanel(group, 0.2, 0.075, 0.08, metal, [-0.16, 0.08, 0.04], 0.42, 0.025);
+    lowerJaw.scale.x = 0.88;
+    const socket = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.024, 10, 38), darkMetal);
+    socket.position.set(0.34, -0.4, 0.05);
+    group.add(socket);
+    return refsBase;
+  }
+
+  if (kind === "hammer") {
+    refsBase.baseRotationZ = -0.22;
+    // Soft mallet shape: large readable head, jade core, rubberized handle.
+    addToolCapsule(group, 0.12, 0.78, 0.14, rubber, [0.1, -0.22, 0.02], -0.34);
+    addToolCapsule(group, 0.05, 0.54, 0.04, accentMat, [0.08, -0.2, 0.13], -0.34).renderOrder = 3;
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.2, 22), darkMetal);
+    neck.rotation.z = Math.PI / 2;
+    neck.position.set(-0.03, 0.18, 0.04);
+    group.add(neck);
+    const head = addToolPanel(group, 0.58, 0.22, 0.2, metal, [-0.1, 0.35, 0.02], 0.05, 0.09);
+    head.scale.x = 1.05;
+    const faceL = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.09, 26), darkMetal);
+    faceL.rotation.z = Math.PI / 2;
+    faceL.position.set(-0.43, 0.34, 0.03);
+    group.add(faceL);
+    const faceR = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.09, 26), darkMetal);
+    faceR.rotation.z = Math.PI / 2;
+    faceR.position.set(0.24, 0.37, 0.03);
+    group.add(faceR);
+    addToolPanel(group, 0.34, 0.035, 0.012, highlight, [-0.12, 0.43, 0.16], 0.05, 0.017).renderOrder = 4;
+    const impact = new THREE.Mesh(new THREE.CircleGeometry(0.2, 38), accentSoft);
+    impact.position.set(-0.53, 0.23, -0.02);
+    impact.scale.set(1.2, 0.66, 1);
+    group.add(impact);
+    return { ...refsBase, impact };
   }
 
   // Welding torch — angled handle, bent nozzle, flickering glow tip
@@ -594,27 +730,34 @@ function buildTool(kind: AgentSceneTool, accent: number): ToolRefs {
     metalness: 0.1,
     roughness: 0.2,
   });
-  const handleT = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.075, 0.32, 20), grip);
+  refsBase.baseRotationZ = 0.02;
+  const handleT = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.105, 0.42, 22), rubber);
   handleT.rotation.z = 0.6;
+  handleT.position.set(0.05, -0.14, 0.02);
   group.add(handleT);
-  const collarT = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.065, 0.1, 20), jade);
+  addToolPanel(group, 0.12, 0.26, 0.04, accentMat, [0.01, -0.1, 0.14], 0.6, 0.04).renderOrder = 3;
+  const collarT = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.078, 0.13, 22), accentMat);
   collarT.rotation.z = 0.6;
-  collarT.position.set(-0.115, 0.17, 0);
+  collarT.position.set(-0.14, 0.16, 0.03);
   group.add(collarT);
-  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 0.22, 16), metal);
+  const tube = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.026, 10, 32, Math.PI * 0.72), metal);
+  tube.rotation.z = -0.78;
+  tube.position.set(-0.22, 0.25, 0.04);
+  group.add(tube);
+  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.052, 0.25, 18), metal);
   nozzle.rotation.z = 0.95;
-  nozzle.position.set(-0.24, 0.26, 0);
+  nozzle.position.set(-0.34, 0.34, 0.05);
   group.add(nozzle);
-  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 16), tipMat);
-  tip.position.set(-0.34, 0.31, 0);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 18, 18), tipMat);
+  tip.position.set(-0.47, 0.42, 0.05);
   group.add(tip);
   const glow = new THREE.Mesh(
-    new THREE.SphereGeometry(0.09, 16, 16),
-    new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.3, depthWrite: false }),
+    new THREE.SphereGeometry(0.16, 18, 18),
+    new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.28, depthWrite: false }),
   );
   glow.position.copy(tip.position);
   group.add(glow);
-  return { group, kind, tipMat };
+  return { ...refsBase, tipMat, impact: glow };
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -1314,9 +1457,9 @@ export function AgentAvatarScene({
     if (!tool) return;
     const accent = hexInt(getAccentHex(config.accent), 0x00eaab);
     const refs = buildTool(tool, accent);
-    // Keep inside the camera frustum (half-width ≈1.47 at the bot's plane)
-    refs.group.position.set(1.08, -0.42, 0.55);
-    refs.group.rotation.z = -0.12;
+    // Keep inside the camera frustum while making the tool read clearly as a staged prop.
+    refs.group.position.set(-1.02, refs.baseY, 0.78);
+    refs.group.rotation.set(-0.08, 0.22, refs.baseRotationZ);
     refs.group.scale.setScalar(0.001); // entrance pop — the loop lerps it up
     r.avatarGroup.add(refs.group);
     toolRef.current = refs;
@@ -1643,19 +1786,44 @@ export function AgentAvatarScene({
       if (toolParts) {
         const g = toolParts.group;
         g.scale.setScalar(THREE.MathUtils.lerp(g.scale.x, TOOL_SCALE, 0.12));
-        g.position.y = -0.42 + Math.sin(t * 1.7 + 1.3) * 0.07;
+        const hoverY = Math.sin(t * 1.7 + 1.3) * 0.075;
+        g.position.y = toolParts.baseY + hoverY;
+        g.rotation.x = THREE.MathUtils.lerp(g.rotation.x, -0.08 + Math.sin(t * 1.1) * 0.025, 0.1);
+        g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, 0.22 + Math.sin(t * 0.9 + 0.5) * 0.035, 0.1);
+        toolParts.glowMat.opacity = 0.16 + Math.sin(t * 2.2) * 0.045;
+        toolParts.light.intensity = 0.52 + Math.sin(t * 2.1) * 0.16;
         if (toolParts.kind === "screwdriver" && toolParts.spin) {
           toolParts.spin.rotation.y += 0.55; // bit spins on its own axis
         } else if (toolParts.kind === "jackhammer") {
           if (toolParts.piston) {
             const baseY = (toolParts.piston.userData.baseY as number) ?? -0.36;
-            toolParts.piston.position.y = baseY + Math.min(0, Math.sin(t * 16)) * 0.05;
+            toolParts.piston.position.y = baseY + Math.min(0, Math.sin(t * 16)) * 0.075;
           }
-          g.position.y += Math.sin(t * 32) * 0.007; // whole-body judder
+          g.position.y += Math.sin(t * 32) * 0.011; // whole-body judder
+          if (toolParts.impact) {
+            const impactPulse = 0.72 + Math.max(0, Math.sin(t * 16)) * 0.5;
+            toolParts.impact.scale.set(impactPulse, impactPulse * 0.58, impactPulse);
+            const impactMat = (toolParts.impact as THREE.Mesh).material as THREE.MeshBasicMaterial | undefined;
+            if (impactMat) impactMat.opacity = 0.08 + Math.max(0, Math.sin(t * 16)) * 0.18;
+          }
         } else if (toolParts.kind === "wrench") {
-          g.rotation.z = -0.12 + Math.sin(t * 2.4) * 0.24; // ratcheting swing
+          g.rotation.z = toolParts.baseRotationZ + Math.sin(t * 2.4) * 0.24; // ratcheting swing
+        } else if (toolParts.kind === "hammer") {
+          g.rotation.z = toolParts.baseRotationZ + Math.sin(t * 2.8) * 0.18;
+          if (toolParts.impact) {
+            const impactPulse = 0.82 + Math.max(0, Math.sin(t * 2.8 + 0.8)) * 0.36;
+            toolParts.impact.scale.set(impactPulse * 1.25, impactPulse * 0.72, impactPulse);
+            const impactMat = (toolParts.impact as THREE.Mesh).material as THREE.MeshBasicMaterial | undefined;
+            if (impactMat) impactMat.opacity = 0.07 + Math.max(0, Math.sin(t * 2.8 + 0.8)) * 0.14;
+          }
         } else if (toolParts.kind === "torch" && toolParts.tipMat) {
           toolParts.tipMat.emissiveIntensity = 1.7 + Math.random() * 1.5; // flicker
+          if (toolParts.impact) {
+            const flame = 0.9 + Math.random() * 0.45;
+            toolParts.impact.scale.setScalar(flame);
+            const flameMat = (toolParts.impact as THREE.Mesh).material as THREE.MeshBasicMaterial | undefined;
+            if (flameMat) flameMat.opacity = 0.18 + Math.random() * 0.18;
+          }
         }
       }
 

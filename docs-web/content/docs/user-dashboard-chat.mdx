@@ -13,7 +13,7 @@ The **Chat** page (`/chat`) is a thread-based conversation surface that lets you
 
 The floating widget uses the configured Dashboard Reply agent avatar when a selected project has one. If no Dashboard Reply preset or project is available, it falls back to the generated Code UX avatar.
 
-3D chat and agent avatar surfaces may show a lightweight WebGL flashlight effect. It is a performant pseudo-raytraced presentation effect built from a translucent beam, target glow, accent-aware lighting, and material glow, not real ray tracing or post-processing. When motion is allowed, the flashlight can follow the pointer and gently scan while idle; reduced-motion settings or WebGL fallback mode use the static SVG avatar instead and skip scanning or flicker effects.
+3D chat and agent avatar surfaces may show a lightweight WebGL flashlight effect. It is a performant pseudo-raytraced presentation effect built from a translucent beam, target glow, accent-aware lighting, and material glow, not real ray tracing or post-processing. When motion is allowed, the flashlight can follow the pointer and gently scan while idle; reduced-motion settings or WebGL fallback mode use the static SVG avatar instead and skip scanning or flicker effects. While the runtime is actively working, the 3D Chat stage also rotates through large animated work tools beside the avatar: screwdriver, jackhammer, wrench, hammer, and torch.
 
 ## No-project assistant
 
