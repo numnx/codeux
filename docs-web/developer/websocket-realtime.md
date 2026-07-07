@@ -8,7 +8,7 @@ The dashboard subscribes to `/api/realtime` (WebSocket) for push updates. This p
 ws://<host>:<dashboardPort>/api/realtime
 ```
 
-No authentication. The endpoint is bound to loopback by default; expose with care.
+No authentication. The endpoint is bound to loopback by default; expose with care. Like API routes, responses are non-cacheable and host-checked.
 
 ## Message envelope
 
@@ -55,7 +55,7 @@ The server emits `ping` periodically (default 30 s); the client should reply wit
 | `docker` | Docker container list. |
 | `system` | System-wide settings or status changes. |
 
-A client may subscribe to as many scopes as needed.
+A client may subscribe to as many scopes as needed. Note that most dashboard domains (e.g., scheduler, file-browser, knowledge, agent presets) are REST-first, and `/api/realtime` only carries live/project/runtime update scopes.
 
 ## Reconnection
 
