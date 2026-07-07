@@ -35,11 +35,12 @@ The background is an animated Three.js scene ("Deep Ocean") that lazy-loads afte
 | `/files` | [File Browser](./file-browser.md) | Browse project files and review sprint Git changes |
 | `/browser` | [Sprint Preview Browser](./browser-preview.md) | Docker-backed live previews per sprint |
 | `/stats` | [Stats](./stats.md) | Execution analytics, time-window filtering, trends |
+| `/docs` | [Docs](./docs.md) | Canonical documentation for Code UX |
 | `/config` | [Settings](./settings.md) | System / project / sprint settings hierarchy |
 
 ## Real-time data
 
-The dashboard maintains a live connection to the server using a custom WebSocket protocol via `GET /api/realtime` (e.g., `ws://localhost:4444/api/realtime` for local HTTP dashboards, and `wss://<host>/api/realtime` for HTTPS deployments). On the server side, `DashboardRealtimeService` in `src/services/dashboard-realtime-service.ts` coordinates events, and the websocket upgrade/transport is handled in `src/server/dashboard-realtime-websocket-server.ts`. The connection:
+The dashboard maintains a live connection to the server using a custom WebSocket protocol via `GET /api/realtime` (e.g., `ws://localhost:4444/api/realtime` for local HTTP dashboards, and `wss://<host>/api/realtime` for HTTPS deployments). Backend snapshots and websocket updates feed live runtime pages, while API fallbacks still exist. On the server side, `DashboardRealtimeService` in `src/services/dashboard-realtime-service.ts` coordinates events, and the websocket upgrade/transport is handled in `src/server/dashboard-realtime-websocket-server.ts`. The connection:
 
 - Subscribes to *scopes* (e.g. `project:<id>`, `execution`, `git-status`).
 - Receives push events for sprint/task transitions, attention items, memory updates, Git status changes.
