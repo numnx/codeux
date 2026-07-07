@@ -13,11 +13,18 @@ A dedicated-tool call takes the `action` plus action-specific fields:
 {
   "action": "<name>",
   /* action-specific fields, e.g. "projectId", "sprintId", ... */
-  "approval": { "confirmed": true }   // required for destructive actions on the second call
+}
+```
+followed by
+```jsonc
+{
+  "action": "<name>",
+  /* exact same action-specific fields */
+  "approval": { "confirmed": true }
 }
 ```
 
-**Approval handshake:** Destructive actions return `{ approvalRequired: true, approvalMessage: "..." }` on first call. Re-call with `approval: { confirmed: true }` (or `--payload-json '{"approval":{"confirmed":true}}'` in the CLI) to proceed.
+**Approval handshake:** Destructive actions return `{ approvalRequired: true, approvalMessage: "..." }` on first call. Re-call with `approval: { "confirmed": true }` (or `--payload-json '{"approval":{"confirmed":true}}'` in the CLI) to proceed.
 
 ---
 
@@ -108,7 +115,7 @@ Task create/update fields include `title`, `name`, `promptMarkdown`, `descriptio
 | `delete` | ✅ | `entryId` | Delete a scheduler entry. |
 | `run_due` | – | optional `now` ISO date override | Evaluate due entries immediately, mostly for operational verification. |
 
-`create` accepts nested targets (`sprintTarget`, `quicksprintTarget`, `chatTarget`) or the flattened fields used by the `schedule_*` aliases. `schedule_sprint`, `schedule_quicksprint`, and `schedule_chat` infer the target type. Scheduling supports an absolute time (`scheduledFor`) or an `after_sprint_end` anchor via `scheduleMode` or `anchorMode`, with `sourceSprintId` / `anchorSourceSprintId` and optional `offsetMinutes` / `anchorOffsetMinutes`.
+`create` accepts nested targets (`sprintTarget`, `quicksprintTarget`, `chatTarget`) or the flattened fields used by the `schedule_*` aliases. `schedule_sprint`, `schedule_quicksprint`, and `schedule_chat` infer the target type. Scheduling supports an absolute time (`scheduledFor`) or an `after_sprint_end` anchor via a nested `scheduleAnchor` object (e.g. `{ "mode": "after_sprint_end", "sourceSprintId": "...", "offsetMinutes": 30 }`) or flattened aliases `scheduleMode` / `anchorMode`, with `sourceSprintId` / `anchorSourceSprintId` and optional `offsetMinutes` / `anchorOffsetMinutes`.
 
 Memory remediation schedules use `targetType: "memory_remediation"` but have their own dedicated `/api/projects/:projectId/scheduler/memory-remediation` HTTP routes separate from the normal scheduler entries.
 
@@ -229,6 +236,7 @@ Read-only execution telemetry.
 
 - **`InvalidParams`** — payload missing a required field, or violates the per-action schema.
 - **`approvalRequired: true`** — first call to a destructive action; re-call with `approval.confirmed: true`.
+- **Management Error Envelope** — standard management failures return `{ result: { status: "error", errorType: "validation" | "runtime", field?: "<field_name>", message: "..." } }`.
 - **`error.code: NOT_FOUND`** — referenced ID does not exist.
 - **`error.code: CONFLICT`** — operation cannot proceed in the current state (e.g. starting a sprint that is already running).
 
