@@ -133,7 +133,6 @@ domain**, plus `search_knowledge`:
 | `register_worker_endpoint` | Register or refresh a worker connection endpoint. |
 | `pull_task_dispatch` | Pull an eligible task dispatch lease for a worker. |
 | `update_task_dispatch` | Renew or terminate a task dispatch lease. |
-| `manage_code_ux` | **Deprecated** advanced/internal compatibility; prefer dedicated tools. |
 
 For full schemas and `action` enums, see [Developer → MCP tools](../developer/mcp-tools.md). For the
 per-action payloads, see [Developer → Management actions](../developer/management-actions.md).

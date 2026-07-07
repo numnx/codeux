@@ -27,7 +27,7 @@ Project manager, and generated coding agents may link the default `playwright` c
 but that custom-server link does not imply `code_ux` access. The dashboard chat reply route is the
 only default exception: when the reply agent has no explicit MCP access, Code UX enables only the
 restricted `scheduler` tool and explicitly disables the broad management tools such as
-`manage_scheduler`, `manage_tasks`, `manage_sprints`, `manage_settings`, and `manage_code_ux`.
+`manage_scheduler`, `manage_tasks`, `manage_sprints`, and `manage_settings`.
 
 All inputs are validated against their declared JSON Schema (AJV) before dispatch; validation
 failures return `InvalidParams` with the failing JSON path.
@@ -57,7 +57,6 @@ action-specific fields, and an optional `approval` object for destructive action
 | `register_worker_endpoint` | advanced | Register or refresh a worker connection endpoint. |
 | `pull_task_dispatch` | advanced | Pull an eligible task dispatch lease for a worker. |
 | `update_task_dispatch` | advanced | Renew or terminate a task dispatch lease. |
-| `manage_code_ux` | advanced | **Deprecated** advanced/internal compatibility; prefer dedicated tools. |
 
 Every tool requires `runtimeRoles: ["project_manager"]` and is enabled by default.
 

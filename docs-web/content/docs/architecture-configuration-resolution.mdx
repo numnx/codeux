@@ -40,7 +40,7 @@ For `settings.json` and `config.json`, paths are tried in priority order:
 3. Project root (where `package.json` is): `<root>/.code-ux/`.
 4. Home directory: `~/.code-ux/`.
 
-> Legacy: `.jules-subagents/` is also probed at each location for backwards compatibility. New installs should use `.code-ux/`.
+> Legacy: `.jules-subagents/` is strictly a historical legacy path. It is probed at each location for backwards compatibility, but new installs must use `.code-ux/`.
 
 The first file found at each path *wins for its specific key*. There is **no merging across paths** — finding `julesApiKey` in `~/.code-ux/settings.json` ends the search for that key, even if other paths exist.
 
@@ -65,10 +65,12 @@ After bootstrap, Code UX loads the settings tree from the database. Three tables
 For any field, the effective value at sprint scope is:
 
 ```
-defaults  →  system  →  project  →  sprint
+system  →  project  →  sprint
 ```
 
-A field unspecified at higher scopes inherits from lower scopes. The merge is **deep** for object-valued fields (e.g. `aiProvider.providers.codex` only overrides the keys you set, not the whole object).
+System settings act as the base (with built-in defaults folded into them). A field unspecified at higher scopes inherits from lower scopes. The merge is **deep** for object-valued fields (e.g. `aiProvider.providers.codex` only overrides the keys you set, not the whole object).
+
+Project saves are diffed against the current system defaults rather than hardcoded app defaults. Sprint settings act as sparse temporary overrides on top of the resolved project settings. In-process cache invalidation uses a process-wide settings resolution revision; any settings save or reset increments this revision and clears the local cache to ensure subsequent reads reflect the update.
 
 ### Where defaults live
 
@@ -83,7 +85,7 @@ System settings on a fresh install are the merge of these defaults plus any exte
 
 ### Live reload
 
-Settings changes via `manage_code_ux` → `settings` → `patch_*_setting` (or the corresponding REST endpoints) trigger:
+Settings changes via `manage_settings` → `patch_*_setting` (or the corresponding REST endpoints) trigger:
 
 - A WebSocket event broadcasting the change.
 - Hot-reload of the relevant subscribers (e.g. the orchestrator picks up new `watchLoopIntervalSeconds` on the next cycle).
@@ -94,11 +96,14 @@ There is no need to restart the process for settings changes.
 
 ### Effective resolution endpoints
 
+- `GET /api/system-settings` — base system settings.
+- `GET /api/projects/:projectId/settings` — project sparse overrides.
 - `GET /api/projects/:projectId/settings/effective` — merged at project scope.
+- `GET /api/sprints/:sprintId/settings` — sprint sparse overrides.
 - `GET /api/projects/:projectId/sprints/:sprintId/settings/effective` — merged at sprint scope.
-- `manage_code_ux` → `settings` → `resolve_project_effective` / `resolve_sprint_effective`.
+- `manage_settings` → `resolve_project_effective` / `resolve_sprint_effective`.
 
-These return the full merged tree, useful for debugging "why is this setting taking that value?".
+These endpoints return an `EffectiveSettingsResponse` which includes both the merged tree (`settings`) and field-level provenance metadata (`sources` mapping each path to `system`, `project`, or `sprint`), useful for debugging "why is this setting taking that value?".
 
 ## External hints
 
@@ -128,11 +133,11 @@ Invalid writes are rejected atomically with a precise JSON path in the error.
 
 ## Database backend
 
-The default backend is **SQLite** at `~/.code-ux/database.sqlite`. A migration plan to Postgres exists; when shipped, it will be controlled by an env variable (`DATABASE_URL` or similar). The repository layer abstracts the backend so switching is mechanical.
+The default backend is **SQLite** with separate databases for runtime state (`~/.code-ux/app.db`) and scoped settings (`~/.code-ux/settings.db`). A migration plan to Postgres exists; when shipped, it will be controlled by an env variable (`DATABASE_URL` or similar). The repository layer abstracts the backend so switching is mechanical.
 
 ## Reset semantics
 
-- **Per-project reset** (`reset_project_settings`) clears the project's override row; effective values revert to `system → defaults`.
-- **Per-sprint reset** (`reset_sprint_settings`) clears the sprint's override; effective values revert to `project → system → defaults`.
-- **System reset** (no dedicated action; use `replace_system_settings` with a default tree) requires explicit replacement.
+- **Per-project reset** (`DELETE /api/projects/:projectId/settings`) clears the project's override row; effective values revert to `system`.
+- **Per-sprint reset** (`DELETE /api/sprints/:sprintId/settings`) clears the sprint's override; effective values revert to `project → system`.
+- **System reset** (no dedicated action; use `PUT /api/system-settings` with a default tree) requires explicit replacement.
 - **Database reset** (`POST /api/system/reset-database`) wipes everything; use only as a last resort.

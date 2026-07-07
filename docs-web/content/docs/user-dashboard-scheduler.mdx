@@ -27,25 +27,26 @@ entries are stored in the existing target JSON payload with `origin` and `source
 through the chat runtime with scheduler metadata, and task reruns reuse the normal task rerun
 service so workspaces, telemetry, and cancellation behavior stay consistent.
 
-Active agent-created wakeups and task runs also appear outside the Scheduler page: the top bar shows
-a scheduled-agent count for the selected project, and focusing or hovering it reveals the target
-type, title, scheduled time or anchor, target summary, and status. The same entries are projected
-into Notifications with stable scheduler-entry IDs, so read and dismissed state survives refreshes.
+Agent wakeups and task reruns may appear in the Scheduler calendar, day view, stats, and scheduled
+entry list after they are created by the secured MCP scheduler tool. They use their own target
+labels and compact summaries instead of appearing as chat messages. The dashboard create/edit form
+remains limited to Sprint, Quicksprint, Message, and Memory remediation entries; MCP-created
+agent wakeups and task reruns can still be paused, resumed, or deleted from the list.
 
-## Recurrence
+## Timing and Recurrence
 
-An entry can run once at a specific time or repeat on a **recurrence rule** (for example daily or
-weekly). The page previews the next occurrences so you can confirm the cadence before saving.
+Entries support two timing modes: absolute date/time or after a sprint ends (anchored with `after_sprint_end`).
+
+An absolute entry can run once at a specific time (with optional `timezone`) or repeat on a **recurrence rule** (for example `none`, `minutely`, etc). Recurrences can run endlessly (`never`), for a fixed number of runs (`after_count`), or until a specific date (`on_date`). The page previews the next occurrences so you can confirm the cadence before saving. Anchored entries do not support recurrence.
 
 ## Managing entries
 
 From the page you can:
 
 - **Create** an entry — pick a target, set the time, and choose a recurrence rule.
-- **Edit** an entry's target, time, or recurrence.
-- **Pause / resume** an entry without deleting it.
-- **Run now** to trigger an entry immediately.
-- **Delete** an entry.
+- **Edit** a dashboard-created entry's target, time, or recurrence.
+- **Pause / resume** an entry without deleting it. Pausing sets its status to `paused`; resuming sets it to `scheduled`. Executed entries resolve to `completed` (if one-time) or `cancelled`.
+- **Delete** an entry. When managing entries via the MCP tool, deleting requires explicit human confirmation (`approval: { confirmed: true }`). MCP target fields can be flattened or nested.
 
 Scheduler changes broadcast over the dashboard's realtime channel, so the calendar stays in sync
 across open clients. Scheduled runs appear in the [Live Session](/docs/user-dashboard-live-session) and

@@ -52,7 +52,7 @@ The `ciIntelligence` block (Settings → CI & Merge) controls how Code UX intera
 | Field | Default | Notes |
 | --- | --- | --- |
 | `waitForJulesCiAutofix` | `false` | If true, dispatch a `VirtualWorkerService` doing `ci_fix` tasks on failing CI. |
-| `julesCiAutofixMaxRetries` | `3` (max `20`) | Max attempts before escalating. |
+| `julesCiAutofixMaxRetries` | `3` (max `20`) | Max CI autofix attempts before escalation to human intervention. |
 
 ### Auto-merge modes
 
@@ -89,10 +89,14 @@ The same flow drives the *main branch* merge during finalisation, using `mainBra
 
 Per project (Settings → Git):
 
-- **`REMOTE`** *(default)* — uses `gh` CLI / GitHub REST API. Reads PR status, comments, CI checks. Required for `WHEN_GREEN` and comment-resolution gates.
+- **`REMOTE`** *(default)* — uses `gh` CLI / GitHub REST API (or GitLab). Reads PR status, comments, CI checks. Required for `WHEN_GREEN` and comment-resolution gates. Code UX refreshes origin before branch-sensitive flows, using bounded fetch timeouts (e.g. `CODE_UX_GIT_FETCH_TIMEOUT_MS`).
 - **`LOCAL`** — operates only on local Git state. PR-related features degrade gracefully (no live CI, manual merge prompts only).
 
-`REMOTE` requires `gh auth status` to succeed (or `GITHUB_TOKEN` set).
+`REMOTE` requires `gh auth status` to succeed (or `GITHUB_TOKEN` set). HTTPS GitHub/GitLab tokens are used via temporary Git extraheader where code supports it.
+
+### CLI workflow settings
+
+CLI workflow settings (`Settings -> CLI Workflow`) control behavior like `gitMode` (remote or local), `executionMode` (docker or host), `containerImage`, `containerSetupScriptPath`, branch naming schemes, and generation of worker branches. Local-git projects therefore use the local worker-to-feature merge path consistently during both single-cycle and watch-loop runs. Local-git final merge happens directly in the host repository with no remote host or PR requirement. Remote-git completion uses GitHub/GitLab PR gates and CI checks.
 
 ## Merge indicators
 

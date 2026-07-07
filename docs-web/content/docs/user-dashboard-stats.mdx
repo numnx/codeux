@@ -19,14 +19,16 @@ All charts, ledgers, and metrics respect the selected timeframe. Recent windows 
 
 ## Analysis Modes
 
-Navigation across the top of the workspace controls the primary analysis lens:
+Navigation across the top of the workspace controls the primary analysis lens. Stats is organized around model usage, reliability, and composition analysis (as documented in **codeux/internaldocs › V2 project management**). The Usage Chart supports interactive inspection through hover buckets and drag-to-zoom timeframe selection, while the surrounding metric summaries and provider ledger preserve the same information in readable text so the data is usable without relying only on color or pointer interaction.
+
+The six visual modes are:
 
 ### Trend
-A full-width interactive **Usage Graph** displays usage over time for the series included in the project stats snapshot, such as token totals, active time, cost, telemetry source confidence, and Git activity when those series are present.
+A full-width interactive **Usage Graph** (`UsageChart`) displays usage over time for the series included in the project stats snapshot, such as token totals, active time, cost, telemetry source confidence, and Git activity when those series are present.
 - Toggle series in the grouped switch band below the graph or from the graph filter menu. Groups show active/total counts, and each switch shows its color, label, signal type, and current On/Off state.
 - **Reset** restores the snapshot defaults. **Enable defaults** turns the default series back on without hiding other series you selected.
 - At least one series stays enabled. If you try to turn off the last visible series, the switch remains on and the page explains why.
-- Hover, focus, or select a bucket to inspect exact values. Drag-to-zoom changes the visible graph range; it does not change the selected Stats time window.
+- Hover, focus, or select a bucket to inspect exact values. Drag-to-zoom changes the visible graph range; it does not change the selected Stats time window. The usage chart is interactive but also exposes an `aria-live` screen-reader summary, an offscreen table of visible buckets, keyboard-focusable bucket regions, and a hidden range input for moving through buckets. It honors reduced-motion preferences for chart animation.
 - Hourly views reduce visible axis labels while preserving individual bucket inspection.
 
 ### Composition
@@ -43,12 +45,12 @@ Tracks specific model performance, invocation volume, and token throughput for e
 Focuses on provider usage, telemetry confidence, failure pressure, latency signals, and cost details when the selected snapshot includes those fields.
 
 ### Ledgers
-Provides tabbed telemetry tables containing raw Task and Sprint data.
+Provides tabbed telemetry tables (using `TelemetryLedger` and `GitTelemetry` components) containing raw Task and Sprint data.
 - Supports searching and sorting by recency, tokens, time, input/output volume, or name.
 - Richer token and time breakdowns compared to standard views.
 
 ### System
-Exposes administrative invocation telemetry:
+Exposes administrative invocation telemetry (with expandable `InvocationMessagesPanel` for transcript details):
 - Sprint state and invocation-health summaries.
 - Classified external API activity.
 - Error categories for recorded invocation failures.
