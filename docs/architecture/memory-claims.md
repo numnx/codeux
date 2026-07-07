@@ -32,7 +32,7 @@ The project-scope memory is a compatibility and retrieval layer. The claim row i
 
 ## Direct MCP Management
 
-Project-manager agents can maintain durable claims through `manage_memory` without waiting for sprint remediation. The canonical MCP action schema is documented in [MCP Tools and Contracts](../mcp/tools-and-contracts.md#manage_memory-claim-actions).
+Project-manager agents can maintain durable claims through `manage_memory` without waiting for sprint remediation. The `manage_memory` tool includes raw memory actions, re-embed/model/map/count actions, and durable claim actions with approval for destructive lifecycle actions. The canonical MCP action schema is documented in [MCP Tools and Contracts](../mcp/tools-and-contracts.md#manage_memory-claim-actions).
 
 The direct lifecycle is:
 
@@ -47,9 +47,9 @@ Example:
 ```json
 {
   "action": "add_claim_evidence",
-  "projectId": "project-123",
-  "claimId": "claim-123",
-  "memoryId": "mem-456",
+  "projectId": "<project-id>",
+  "claimId": "<claim-id>",
+  "memoryId": "<memory-id>",
   "supportType": "supports",
   "weight": 0.75
 }

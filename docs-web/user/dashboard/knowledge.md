@@ -30,7 +30,8 @@ scannable.
 
 The search box runs a **semantic search** across all ready documents in the project and returns the
 best-matching chunks with their source document. This is the same retrieval agents use, so it is a
-quick way to sanity-check what an agent would find for a given query.
+quick way to sanity-check what an agent would find for a given query. Semantic search is scoped
+and maintains privacy boundaries; it does not allow cross-project claim access.
 
 ## Managing documents
 
@@ -47,3 +48,7 @@ nothing, confirm documents are **Ready** and embedded with the currently active 
   long-term project memory captured from completed work.
 
 Use Knowledge for durable, authored context; rely on Memory for accumulated, run-derived learnings.
+
+## Agent subscriptions
+
+Agent presets can subscribe to specific knowledge documents. These subscriptions are managed through the agent editor and are read from `/api/agent-presets/:agentPresetId/knowledge`. The subscriptions restrict the agent's semantic search scope to only the subscribed documents, ensuring grounded and relevant context for that specific agent.
