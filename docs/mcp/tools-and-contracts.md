@@ -59,6 +59,7 @@ These cover:
 - `manage_settings`
 - `manage_preview`
 - `manage_telemetry`
+- `manage_code_ux` (Deprecated advanced/internal compatibility)
 
 ### Worker control plane
 - `register_worker_endpoint`
