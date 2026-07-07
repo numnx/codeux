@@ -20,7 +20,7 @@ It does not yet add:
 - persisted provider activity transcripts in `task_run_events`
 - autonomous looping inside the server process itself
 
-That limitation is now partly removed by the in-repo external worker client and worker gateway:
+That limitation is now partly removed by the in-repo external worker client (note: legacy worker-control-plane roles such as `worker_gateway` are historical/removed):
 
 - workers can consume inbox messages on the same connection record
 - workers can generate reply-only dashboard responses locally
@@ -145,7 +145,7 @@ Operational behavior:
 Transport notes:
 
 - normal human-driven MCP clients continue to use stdio
-- remote workers can now use the authenticated MCP HTTP transport on the main Code UX server
+- remote workers can now use the authenticated MCP HTTP transport on the main Code UX server (note: the dashboard port `4444` is separate from the MCP HTTP endpoint, which defaults to `dashboard port + 1`)
 - local worker-host stdio still exists for worker-machine execution hooks
 
 ## Current Routing Rules

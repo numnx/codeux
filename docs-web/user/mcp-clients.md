@@ -230,7 +230,7 @@ A connected client appears under the active project on the **Settings → Connec
 
 - Connection key
 - Display name
-- Role (`project_manager`, `worker`, `listener`)
+- Role (`project_manager`)
 - Transport (`stdio`, `http`, `internal`)
 - Capabilities
 

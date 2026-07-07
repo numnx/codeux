@@ -30,7 +30,7 @@ Source: `src/app/lifecycle/mcp-lifecycle-service.ts:92-106`.
 
 ### Streamable HTTP
 
-By default (disable with `--no-mcp-http`, `--no-mcp-https`, `MCP_HTTP_ENABLED=false`, or `MCP_HTTPS_ENABLED=false`), Code UX also binds an HTTP listener using `StreamableHTTPServerTransport`. The `mcp-https` flag/env names are retained for compatibility, but the Node listener itself is HTTP.
+By default (disable with `--no-mcp-http`, `--no-mcp-https`, `MCP_HTTP_ENABLED=false`, or `MCP_HTTPS_ENABLED=false`), Code UX also binds an HTTP listener using `StreamableHTTPServerTransport`. The `mcp-https` flag/env names are retained for compatibility, but the Node listener itself is HTTP. Note that the dashboard port (default `4444`) is separate from the MCP HTTP endpoint.
 
 | Default | Value |
 | --- | --- |
@@ -209,7 +209,7 @@ Connections are pruned during the runtime cleanup loop. The dashboard's
 
 ## Runtime role
 
-`--runtime-role` (or default `project_manager`) determines which tools are advertised. The main server uses `project_manager`. External workers connect to that server over Streamable HTTP for the control plane and start a local `worker-host` runtime over stdio for execution tools such as worker dispatch execution and local cancellation.
+`--runtime-role` (or default `project_manager`) determines which tools are advertised. The main server uses `project_manager` effectively as the only public runtime role. Legacy roles like `worker_gateway` and `code-ux-worker` are removed. External workers connect to that server over Streamable HTTP for the control plane and start a local `worker-host` runtime over stdio for execution tools such as worker dispatch execution and local cancellation (the `worker-host` role itself is not a separately advertised public tool surface in `AppConfig`).
 
 Worker endpoint registration and project assignment are database-backed. Registered workers are unlimited; active HTTP sessions are bounded by the session cap. Dispatch claims update `task_dispatches` and create `execution_leases` in the same safety path, and a worker must not execute a claimed dispatch unless the server returns a lease token.
 

@@ -15,7 +15,7 @@ Startup sequence:
    - Dashboard API routes (such as project, sprint, task, conversation, and planning endpoints) are broken out into modular route files for maintainability.
    - Route wrappers and body request parsers are maintained as separate server-layer boundaries.
 7. `src/server/code-ux-server.ts` connects MCP stdio transport only when stdin is an MCP pipe/socket or `CODE_UX_ENABLE_MCP_STDIO=1` is set. TTY stdin and daemon-style character-device stdin such as `/dev/null` leave stdio disabled so the dashboard/backend stays alive without an attached client.
-8. `src/server/code-ux-server.ts` optionally starts the MCP HTTP transport with the same project-manager tool surface.
+8. `src/server/code-ux-server.ts` optionally starts the MCP HTTP transport (configured by `MCP_HTTPS_*`/`MCP_HTTP_*` aliases and `--mcp-https*`/`--mcp-http*` flags) with the same project-manager tool surface.
 9. `src/server/code-ux-server.ts` starts runtime intervals and schedules deferred startup work.
 
 Long-running startup work is intentionally off the synchronous boot path:
@@ -32,9 +32,8 @@ This keeps `/health`, `/ready`, the dashboard, and MCP transports responsive bef
 Code UX exposes these MCP runtime roles:
 
 - `project_manager`: The default human-facing and remote-client surface.
-- `worker-host`: A headless execution role used by the local worker client.
 
-The legacy `worker_gateway` runtime role has been removed. `codeux-worker` is a shipped worker process entrypoint, not a separate MCP runtime role advertised by the main server.
+The legacy `worker_gateway` runtime role has been removed. `codeux-worker` is a shipped worker process entrypoint, not a separate MCP runtime role advertised by the main server. The `worker-host` role is used by the local worker client for execution, but it is not a separately advertised public tool surface in `AppConfig`.
 
 ## Worker Enrollment And Dispatch
 
