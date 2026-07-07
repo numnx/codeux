@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { deriveSprintQuotaWaits } from "../../../dashboard/src/v2/lib/sprint-quota-wait.js";
 import { QUOTA_WAIT_EVENT_TYPE } from "../../../dashboard/src/v2/lib/live-task-runtime.js";
-import type { ExecutionDashboardSnapshot, ExecutionRuntimeEventSummary, ExecutionTaskDispatchSummary } from "../../../dashboard/src/v2/types.js";
+import type { ExecutionDashboardSnapshot, ExecutionRuntimeEventSummary, ExecutionTaskDispatchSummary } from "../../../src/contracts/app-types.js";
 
 function createEvent(
   id: string,

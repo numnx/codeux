@@ -1,5 +1,5 @@
 import { QUOTA_WAIT_EVENT_TYPE, findActiveQuotaWait } from "./live-task-runtime.js";
-import type { ExecutionDashboardSnapshot, ProviderId, ExecutionRuntimeEventSummary } from "../types.js";
+import type { ExecutionDashboardSnapshot, ProviderId, ExecutionRuntimeEventSummary, ExecutionTaskDispatchSummary } from "../../../src/types.js";
 
 export interface SprintQuotaWaitSummary {
   sprintId: string;
@@ -45,17 +45,17 @@ export function deriveSprintQuotaWaits(
       // We need the most recent event to pull metadata from. findActiveQuotaWait logic
       // returns just the retryAfterIso, so we need to find the event that corresponds to it,
       // or at least the latest one. Find the event with matching retryAfterIso.
-      let event = events.find(e => typeof e.payload?.retryAfterIso === "string" && e.payload.retryAfterIso === activeWait.retryAfterIso);
+      let event = events.find((e: ExecutionRuntimeEventSummary) => typeof e.payload?.retryAfterIso === "string" && e.payload.retryAfterIso === activeWait.retryAfterIso);
       if (!event) {
           // Fallback to the latest one by createdAt
-          event = [...events].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+          event = [...events].sort((a: ExecutionRuntimeEventSummary, b: ExecutionRuntimeEventSummary) => b.createdAt.localeCompare(a.createdAt))[0];
       }
       if (!event) { continue; } // Should not happen
 
       const sprintId = event.sprintId;
       if (!sprintId) continue;
 
-      let dispatch = execution.taskDispatches?.find(d => (d.taskId === taskId || d.taskKey === taskId) && d.sprintId === sprintId);
+      let dispatch = execution.taskDispatches?.find((d: ExecutionTaskDispatchSummary) => (d.taskId === taskId || d.taskKey === taskId) && d.sprintId === sprintId);
 
       const taskKey = event.taskKey || dispatch?.taskKey || taskId;
       const taskTitle = event.taskTitle || dispatch?.taskTitle || taskKey;
