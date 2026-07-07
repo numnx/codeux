@@ -12,17 +12,18 @@ Project Initialization runs a repository-specific setup pass through the `Projec
 - All `new_project` submissions, local or remote, include an explicit project `techstack` override. New local projects also include `git.githubMode: LOCAL`; new remote projects do not.
 - The `new_project` branch hides the Project Setup Agent section entirely and routes creation through the backend `initMode` fields.
 - New local project creation treats the directory path as optional. When no directory is selected, the dashboard submits the project name and the backend resolves it under the user's home directory; relative typed paths resolve from the user's home directory, while absolute paths selected through the desktop picker are used as-is.
-- New local init does not require a Git URL slug; it only needs a project name and optional local directory path.
+- New local init (`new-local`) does not require a Git URL slug; it only needs a project name and optional local directory path.
+- New remote init (`new-remote`) initializes a remote repository and clones it.
 - New remote init still requires a Git URL slug and auto-fills it from the project name until the user edits it.
 - New remote init clones into the selected clone directory, or `~/.code-ux/projects` when the field is blank, and stores the project base directory as the single checkout root `~/.code-ux/projects/<repo-name>`.
 - Existing projects expose a `Setup Project` action from the project card agent button.
 
 Imported-project setup lets the operator choose which artifacts to create:
 
-- `Agents`
-- `Quicksprints`
-- `Preview Script`
-- `CI`
+- `Agents` (agent presets)
+- `Quicksprints` (quicksprint templates)
+- `Preview Script` (preview scripts)
+- `CI` (CI artifacts)
 - `Techstack`
 
 ## Backend Flow
@@ -30,7 +31,7 @@ Imported-project setup lets the operator choose which artifacts to create:
 The dashboard calls:
 
 - `POST /api/projects/:projectId/setup`
-- `POST /api/projects/:projectId/setup` with `background: true`
+- `POST /api/projects/:projectId/setup` with `background: true` (for asynchronous setup, which returns a 202 without claiming it runs synchronously)
 
 Project creation can also include:
 
@@ -59,13 +60,12 @@ The dashboard uses background mode for user-triggered setup. The endpoint return
 
 ## Generated Artifacts
 
-When selected, setup can create or update:
+When selected, setup can create or update specific artifacts only where `ProjectSetupService` returns and applies them:
 
-- `.code-ux/agents/*.md` through the normal agent preset sync path
-- `.code-ux/quicksprints/templates/*.md` custom project templates and project-level overrides
-- `.code-ux/browser/start-preview.sh`
-- `.github/workflows/code-ux-basic-checks.yml`
-- `.gitlab-ci.yml`
+- `.code-ux/agents/*.md` through the normal agent preset sync path (agent presets)
+- `.code-ux/quicksprints/templates/*.md` custom project templates and project-level overrides (quicksprint templates)
+- `.code-ux/browser/start-preview.sh` (preview scripts)
+- `.github/workflows/code-ux-basic-checks.yml` and `.gitlab-ci.yml` (CI artifacts)
 - a detected system techstack catalog entry selected through the project's `techstack.selectedTechstackId`
 
 Agent setup also updates project agent routing:
