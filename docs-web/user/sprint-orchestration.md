@@ -182,12 +182,15 @@ Every UI action has an MCP equivalent:
 
 | UI action | MCP call |
 | --- | --- |
-| Plan a sprint | `manage_sprints` (planning is internal during start) or use planning REST API |
+| Plan a sprint | `manage_sprints` → `action: "plan"` |
 | Orchestrate | `manage_sprints` → `action: "start"` |
-| Pause | `domain: "sprints", action: "pause"` |
-| Cancel | `domain: "sprints", action: "cancel"` (or `force_cancel`) |
-| Inspect run | `domain: "sprints", action: "inspect_run"` |
-| Rerun task | `domain: "tasks", action: "start"` |
-| Stop task | `domain: "tasks", action: "stop"` (or `force_stop`) |
+| Pause | `manage_sprints` → `action: "pause"` |
+| Cancel | `manage_sprints` → `action: "cancel"` (or `force_cancel`) |
+| Inspect run | `manage_sprints` → `action: "inspect_run"` |
+| Import issues | `manage_sprints` → `action: "import_issues"` |
+| Rerun task | `manage_tasks` → `action: "start"` |
+| Stop task | `manage_tasks` → `action: "stop"` (or `force_stop`) |
+| Pause task | `manage_tasks` → `action: "pause"` |
+| Inspect task | `manage_tasks` → `action: "inspect_run"` |
 
 See [Developer → Management actions](../developer/management-actions.md).
