@@ -158,6 +158,8 @@ pnpm run test:coverage         # full coverage report
 pnpm run test:backend:coverage # backend coverage with threshold gate
 pnpm run ci                    # local CI: quality:guardrails -> audit -> lint -> test:backend:coverage -> test:dashboard -> build
 pnpm run audit                 # pnpm audit --audit-level=high
+pnpm run check:docs-web        # validate docs-web publication output
+pnpm run test:e2e              # run Playwright E2E browser tests
 pnpm run smoke-test            # node dist/index.js --help
 pnpm run dev:server-only       # boot just the server from source
 # Electron helper scripts:

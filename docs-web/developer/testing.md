@@ -99,6 +99,10 @@ CI runs on Node 22 in `.github/workflows/`:
 
 A PR cannot be merged with red CI.
 
+For documentation-only changes that touch docs-web publication output, validate locally with `pnpm run check:docs-web`.
+
+For Playwright E2E tests, the workflow runs on pushes and PRs targeting `main`, builds first, installs Chromium dependencies/browsers, and runs `pnpm run test:e2e`.
+
 ## Smoke test
 
 After build, sanity-check the binary:
