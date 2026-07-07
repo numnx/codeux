@@ -102,3 +102,18 @@ The **Connected MCPs** editor panel opens a risk-gated manager for Code UX tools
 Scheduler-only access lets an agent create its own wakeups or task reruns through the secured agent scheduler surface. It does not grant full scheduler administration, due-entry execution, recurrence editing, sprint scheduling, or destructive scheduler actions.
 
 The dashboard reply route is the safe default use case for scheduler-only access because it supports chat replies that need to schedule follow-up wakeups. Enabling scheduler or any other Code UX tool for planning, coding, QA, CI repair, merge-conflict, or other non-chat agents is riskier because those agents run during operational workflows and can affect project state without being part of a direct dashboard chat exchange.
+
+## Manage agents via MCP
+
+The `manage_agents` tool allows MCP clients to control agent presets.
+
+Supported actions:
+- `list`, `get`, `sync`, `create`, `update`, and `delete`.
+
+Required fields:
+- `projectId` is required for `list`, `get`, `sync`, `create`, `update`, and `delete`.
+- `presetId` is required for `get`, `update`, and `delete`.
+
+Optional fields for `create` and `update` include `name`, `instructionMarkdown`, `labels`, `avatarConfig`, `providerConfigId`, `memoryTemplateOverrideEnabled`, `memoryTemplateMarkdown`, and `mcpAccess`. `mcpAccess` includes `codeUxEnabled`, `codeUxToolToggles`, and custom server links under `linkedServerIds`.
+
+Destructive actions like `delete` require explicit approval confirmation.
