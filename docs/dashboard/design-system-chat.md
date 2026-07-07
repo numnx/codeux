@@ -50,7 +50,7 @@ Agent replies are ordinary markdown; embedding a fenced block renders a designed
 - ` ```codeux:actions ` — suggested next steps: `{ "items": [{ "label", "prompt" }] }`; clicking prefills the composer with the prompt.
 
 ## Interaction
-- Seamless mode switching between the cinematic "3D Chat" stage, standard "Threads" (user-facing chat), and "Invocations" (runtime debugging transcript).
+- Seamless mode switching between the cinematic "3D Chat" stage, standard "Threads" (user-facing chat, with support for compaction and cancellation), and "Invocations" (runtime debugging transcript tracking MCP management action visibility only where implemented, with widgets that link to file-browser diff, changes, and docs-web where relevant).
 - Consistent padding and gap spacing to prevent layout jitter during these transitions.
 - The invocation rail renders the first 40 newest invocations by default, then lazy-loads additional pages as the user scrolls near the bottom of the rail. The rail header and mode tab use the backend `totalCount`, not the number of loaded rows, so long-running projects show the real invocation total while keeping initial load lightweight.
 - New project-scoped threads derive an 8-word-or-less title from the first visible user message. The title is stored with the thread and mirrored to `.code-ux/conversations/<thread-id>/session-title.md`; hidden/internal messages do not drive user-facing titles.

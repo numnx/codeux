@@ -15,12 +15,20 @@ sprint is producing. A session has a status:
 | **Stopped** | The session is not currently running. |
 | **Error** | The session failed to start or crashed. |
 
-You can **start**, **stop**, **rebuild**, and **remove** sessions, and pick which sprint to launch a
-session for. These correspond directly to the technical backend API routes:
-- `/api/projects/:projectId/sprints/:sprintId/file-browser/start`
-- `/api/file-browser/sessions/:sessionId/stop`
-- `/api/file-browser/sessions/:sessionId/rebuild`
-- `DELETE /api/file-browser/sessions/:sessionId` (remove)
+The file browser is sprint-scoped and read-only. It starts a containerized snapshot for a selected sprint, can rebuild that snapshot, stop it, and remove the session record. Stopping currently also removes the stopped session from the dashboard flow.
+
+The File Browser uses separate dashboard routes for repository navigation and review: `tree` for directory structure, `file` for selected file contents, `changes` for working-tree status, and `diff` for file-level patches. Preview/session controls should document the full lifecycle: start a session, rebuild it when inputs change, stop it when no longer needed, and delete stale session state.
+
+These correspond directly to the technical backend API routes:
+- `GET /api/projects/:projectId/file-browser/sessions`
+- `POST /api/projects/:projectId/sprints/:sprintId/file-browser/start`
+- `POST /api/file-browser/sessions/:sessionId/rebuild`
+- `POST /api/file-browser/sessions/:sessionId/stop`
+- `DELETE /api/file-browser/sessions/:sessionId`
+- `GET /api/file-browser/sessions/:sessionId/tree`
+- `GET /api/file-browser/sessions/:sessionId/file?path=...`
+- `GET /api/file-browser/sessions/:sessionId/changes`
+- `GET /api/file-browser/sessions/:sessionId/diff?path=...`
 
 ## Files mode
 

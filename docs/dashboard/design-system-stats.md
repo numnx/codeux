@@ -42,7 +42,7 @@ The redesigned Stats page uses a stable top-to-bottom shell:
    - Cards expose title, value, and string description as the analytics article name. Long values must wrap inside stable card slots.
 4. Workspace body
    - Mode content starts directly after the metric deck without an extra studio header, readiness chip, duplicated KPI strip, summary-card deck, or duplicated workspace context card.
-   - Workspace bodies may differ substantially, but each component must consume the shared Stats panel, chip, input, ledger row, status tone, chart track, focus, and motion tokens directly.
+   - Workspace bodies may differ substantially, but each component must consume the shared Stats panel, chip, input, ledger row, status tone, chart track, focus, and motion tokens directly. For example, `UsageChart` provides accessible graphing, while `TelemetryLedger`, `GitTelemetry`, and `InvocationMessagesPanel` provide stable lists and expandable transcripts without relying purely on pointer interaction.
 5. Feedback states
    - No-project, first-load loading, first-load error, empty, refresh, and reduced-data states preserve the shell rhythm.
    - Loading states use polite status semantics. Error states use alert semantics and expose retry when recovery is available.
