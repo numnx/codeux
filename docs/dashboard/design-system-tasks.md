@@ -30,12 +30,14 @@ The Tasks page and Kanban board should feel like a 'Refined Production Board'. I
 *   **Dependencies:**
     *   Completed: Green accent (`bg-status-green/[0.08] text-status-green`).
     *   In Progress/Ready: theme-specific signal accent (`bg-signal-500/[0.08] text-signal-500`).
+    *   Ready for QA (`coding_completed`): Cyan accent (`bg-cyan-500/[0.08] text-cyan-700 dark:text-cyan-400`).
+    *   QA Failed (`QA_REVIEW_FAILED`): Red accent (`bg-status-red/[0.08] text-status-red`).
     *   Blocked/Pending: Muted slate (`bg-slate-400/[0.08] text-slate-500`).
     *   Unknown dependency records must render a visible `Unknown` label with dashed neutral styling, not only a missing color state.
     *   QA-failed dependencies must use error semantics and visible `QA failed` copy, while pending dependencies use a visible `Blocked` label and warning semantics.
     *   Each dependency chip should include static `Blocking` or `Clear` copy in addition to the status label so reduced-motion and color-blind users can identify blocker state without relying on color, animation, or lane movement.
 *   **Execution Meta:** Use distinct but subtle icons (Cpu, User) and uniform spacing.
-*   **Live Metadata:** Runtime duration, PR availability, QA review state, and dependency blocker state must be visible or available as text equivalents and announced politely when they change. Default Auto executor metadata should not become prominent visible card content; keep it available only where it adds context, such as screen-reader metadata or detailed execution surfaces.
+*   **Live Metadata:** Runtime duration, PR links, QA review state, and dependency blocker state must be visible or available as text equivalents and announced politely when they change. Default Auto executor metadata should not become prominent visible card content; keep it available only where it adds context, such as screen-reader metadata or detailed execution surfaces.
 
 ## 4. Compose & Edit Affordances (Task Editor Viewbox)
 *   **Surface:** Use glassmorphism (`backdrop-blur-2xl bg-white/78 dark:bg-void-800/72`) for the main editor surface. The Tasks page create/edit flow is not a detached modal; it opens as a named, full-height editor viewbox inside the task workspace.

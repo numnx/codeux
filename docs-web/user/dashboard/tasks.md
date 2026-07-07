@@ -21,7 +21,7 @@ The board keeps the current sprint scope and filters visible while you work:
 
 ## Columns
 
-Task cards show the task title, status, priority, dependency state, downstream dependents, executor metadata, recent activity context, and available actions. Dragging a card to another lane changes its status when that transition is available.
+Task cards show the task title, status, priority, dependency state, downstream dependents, execution metadata (such as duration, PR links, QA review state, and agent), recent activity context, and available actions. Dragging a card to another lane changes its status when that transition is available.
 
 ## Create and edit tasks
 
@@ -58,7 +58,8 @@ The editor prevents invalid dependency selections such as dependency cycles. Whe
 Task cards expose actions for the work that is available in the current state:
 
 - **Edit** opens the full task editor for content, dependencies, executor mode, and worker-agent selection.
-- **Rerun** starts a fresh execution attempt for the task when rerun is available.
+- **Rerun** starts a fresh execution attempt for the task, clearing its PR and session state (and optionally resetting downstream dependencies) when rerun is available.
+- **Force complete** resolves the task state to completed, bypassing standard worker checks.
 - **Preview** opens the task's available runtime preview when one exists.
 - **Live** opens live task context when runtime details are available.
 - **Delete** removes the task after confirmation.
@@ -70,5 +71,5 @@ Unavailable actions stay visible with a reason so the board layout remains stabl
 | Lane | States | Meaning |
 | --- | --- | --- |
 | **Queued** | `pending`, blocked variants | Not ready or not started yet. |
-| **In Progress** | `in_progress`, `coding_completed`, `QA_REVIEW_FAILED` | Active work, review, or follow-up is still underway. |
+| **In Progress** | `in_progress`, `coding_completed` (Ready for QA), `QA_REVIEW_FAILED` | Active work, review, or follow-up is still underway. |
 | **Completed** | `completed` | The task is finished. |

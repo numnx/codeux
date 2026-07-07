@@ -50,7 +50,7 @@ This document outlines the design system for the Sprints page and related planni
 ### Sprint Composer
 
 *   Visual alignment with the rest of the sprints workspace.
-*   Consistent treatment for async feedback states, planning ETA indicators, and linked issue chips.
+*   Consistent treatment for async feedback states, planning ETA indicators, elapsed runtime timers, and linked issue chips.
 *   The expanded task append flows should transition smoothly and maintain context.
 *   Planning, replan, append, and prompt-improvement requests use client request IDs and `ActionFeedbackRegion`. The composer form sets `aria-busy` while a request is active, disables duplicate controls, preserves current field values, and exposes a `PlanningProgressOverlay` with cancel and "New Sprint" recovery actions when available.
 *   Pending planning uses polite live-region feedback and `asyncFeedback`; blocking request failures use persistent assertive errors with retry actions; operator cancellation uses a non-auto-dismissing warning. On validation failure, custom validation runs because native validation is disabled, and focus moves to the first missing required field.
@@ -67,6 +67,7 @@ This document outlines the design system for the Sprints page and related planni
 
 ### Action Menus & Import Surfaces
 
+*   **Import Flows:** Importer UI should handle planAfterImport transitions gracefully, supporting exact numeric issueNumbers and non-numeric issueKeys.
 *   **Shared Menu Styling:** Consistent padding, icon scale, and hover tones across all dropdowns and action menus.
 *   **Accessibility:** Clear keyboard focus states and distinct disabled treatments (e.g., visual dimming combined with descriptive tooltips or explicit disabled attributes).
 *   **Viewport Clamping:** Fixed and absolute menus must clamp to max-w-[calc(100vw-2rem)] to prevent horizontal scroll clipping on smaller screens.
