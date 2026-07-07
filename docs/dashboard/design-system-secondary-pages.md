@@ -1,6 +1,6 @@
 # Secondary Pages Design System
 
-This document outlines the design system rules for the dashboard's secondary pages, including the Scheduler, Knowledge, File Browser, and Error pages.
+This document outlines the design system rules for the dashboard's secondary pages, including the Scheduler, Knowledge, File Browser, docs-web, and Error pages.
 
 ## Page Structure
 

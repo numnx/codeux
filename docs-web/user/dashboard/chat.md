@@ -23,7 +23,7 @@ To rename a thread, use the edit control beside the active thread title. The inl
 
 To start a new thread, click **+ New thread**. To change the responding agent, open the thread header dropdown and pick from the list of agent presets defined for this project.
 
-Each post is a runtime operation that honors the explicit route chosen (worker route, virtual provider route, automatic live-worker pickup, or fallback). The dashboard exposes in-flight state locally, allowing you to cancel active thread turns or invocations. Failed invocation restarts preserve the failed invocation transcript and expose the existing sanitized error message with a retry action.
+Each post is a runtime operation that honors the explicit route chosen (worker route, virtual provider route, automatic live-worker pickup, or fallback). The active thread header shows whether the thread is assigned to a worker endpoint or virtual provider from runtime state. The dashboard exposes in-flight state locally, allowing you to cancel active thread turns or invocations, and compact history. Cancelled work may appear as invocation status. Failed invocation restarts preserve the failed invocation transcript and expose the existing sanitized error message with a retry action.
 
 In 3D Chat, idle quick actions send project-scoped prompts directly through the active thread. **Web App** and **Desktop App** set up the currently selected project using its current techstack setting; an unassigned existing project stays `None`. They do not create or import a new Code UX project.
 
@@ -47,6 +47,8 @@ The **Invocations** tab is a structured log of every `CallTool` MCP invocation r
 - **Linked task / sprint** — when an invocation arose from sprint orchestration.
 
 Use this for debugging your MCP client integrations — for example to see exactly what arguments your LLM is passing to tools like `manage_memory` or `manage_settings`.
+
+Chat surfaces MCP management activity alongside normal conversation turns. When a project-management action changes runtime state, requires approval, or returns a concrete result, the thread should show the action context, approval state, and final outcome so the dashboard remains an auditable control plane. Tool-call widgets show sanitized tool names, status, compact input/output previews, token counts, and call ids; they are for audit/debugging, not for replaying private raw transcripts or launching arbitrary management actions. Invocation transcripts can embed links to diff or changes via file-browser or reference docs-web routing via `GET /api/docs-web` and `GET /api/docs-web/:docId`. The diagnostic tabs can also link to TelemetryLedger, UsageChart, InvocationMessagesPanel, and GitTelemetry.
 
 Invocation transcripts use the same live sprint status card as thread messages when planning metadata links them to a sprint. This means a planning invocation and its related chat message should show consistent task progress without a separate refresh control.
 
