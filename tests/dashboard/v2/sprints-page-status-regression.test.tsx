@@ -72,6 +72,7 @@ describe("SprintsPage Status Regression", () => {
     showcaseSprints: [],
     activeRunsBySprintId: new Map(),
     interventionBySprintId: new Map(),
+      quotaWaitBySprintId: new Map(),
     pauseResumeRunsBySprintId: new Map(),
     actionableInterventionBySprintId: new Map(),
     nextId: "sprint-2",
@@ -102,6 +103,7 @@ describe("SprintsPage Status Regression", () => {
       ...basePageData,
       activeRunsBySprintId,
       interventionBySprintId,
+      quotaWaitBySprintId: new Map(),
     } as any);
 
     render(<SprintsPage />);
@@ -126,6 +128,7 @@ describe("SprintsPage Status Regression", () => {
       ...basePageData,
       activeRunsBySprintId,
       interventionBySprintId,
+      quotaWaitBySprintId: new Map(),
     } as any);
 
     render(<SprintsPage />);

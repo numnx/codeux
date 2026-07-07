@@ -30,6 +30,7 @@ import { fetchSprintComposerEta } from "../../lib/api/sprint-composer-client.js"
 import { useProjectEffectiveSettings } from "../../hooks/use-project-effective-settings.js";
 
 import { getSprintHumanInterventionBySprintId } from "../../../lib/execution-intervention.js";
+import { deriveSprintQuotaWaits } from "../../lib/sprint-quota-wait.js";
 import {
   filterShowcaseSprints,
   sortSprintsByRecency,
@@ -356,6 +357,19 @@ export function useSprintsPageData() {
       && a.attentionType === b.attentionType,
   );
 
+  const quotaWaitBySprintId = useStableMapByContent(
+    useMemo(
+      () => deriveSprintQuotaWaits(execution),
+      [execution.recentEvents, execution.taskDispatches]
+    ),
+    (a, b) =>
+      a.retryAfterIso === b.retryAfterIso
+      && a.taskCount === b.taskCount
+      && a.taskKey === b.taskKey
+      && a.taskTitle === b.taskTitle
+      && a.provider === b.provider
+  );
+
   const displaySprints = useMemo(
     () =>
       buildDisplaySprints(
@@ -473,6 +487,7 @@ export function useSprintsPageData() {
     activeRunsBySprintId,
     pauseResumeRunsBySprintId,
     interventionBySprintId,
+    quotaWaitBySprintId,
     showCreateComposer,
     setShowCreateComposer,
     editingSprint,

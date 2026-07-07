@@ -65,6 +65,7 @@ describe("SprintsPage Integration Regressions", () => {
     activeRunsBySprintId: new Map(),
     pauseResumeRunsBySprintId: new Map(),
     interventionBySprintId: new Map(),
+      quotaWaitBySprintId: new Map(),
     nextId: "SPR-02",
     virtualProviders: [],
     pendingActionIds: new Set(),
