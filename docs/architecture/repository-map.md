@@ -22,7 +22,7 @@ Source trees are intentionally kept free of editor and merge backup artifacts. F
 backup files appear there.
 
 - `index.ts`
-  - Minimal bootstrap (`dotenv`, app config, server launch).
+  - Minimal bootstrap (`dotenv`, app config, `CodeUxServer` launch).
 - `electron/`
   - `main.ts`
   - Desktop shell entrypoint and network policy, which hosts the Code UX UI without owning backend orchestration.
@@ -31,6 +31,11 @@ backup files appear there.
 - `config/`
   - `app-config.ts`, `external-settings.ts`
   - Startup/env config loading and external settings hints.
+- `app/`
+  - `dependency-factory/`
+    - Splits dependency construction (e.g., core, dashboard, mcp, sprint dependencies).
+  - `lifecycle/`
+    - Manages lifecycle services (e.g., mcp, dashboard, settings, and snapshot cache).
 - `api/mcp/`
   - `tool-registry.ts`
   - Typed MCP tool argument contracts and register/dispatch registry.
@@ -42,7 +47,7 @@ backup files appear there.
   - Jules API HTTP client.
 - `server/`
   - `code-ux-server.ts`
-  - Main runtime composition wiring backend services (dashboard API on default port 4444 and MCP server).
+  - Main runtime composition wiring backend services (delegates dependency construction to factories).
   - `mcp-request-router.ts`
   - MCP list/call handler registration and dispatch routing.
   - `activity-cache-service.ts`
@@ -108,10 +113,16 @@ backup files appear there.
 
 ## Dashboard (`dashboard/src/v2/`)
 
-- `app.tsx`
+- `DashboardV2.tsx`
   - Main view orchestration and polling.
+- `*Page.tsx`
+  - Standalone page components (e.g., `SettingsPage.tsx`, `ChatPage.tsx`).
 - `components/`
-  - UI pieces (`SettingsPage`, `TaskCard`, `ActivitySidebar`, etc.).
+  - UI pieces (`TaskCard`, `ActivitySidebar`, etc.).
+- `hooks/`
+  - Reusable React hooks.
+- `docs-web/`
+  - Helpers for web documentation.
 - `lib/`
   - Frontend helpers (`settings`, `status`, `activity`, `markdown`).
 - `types.ts`
