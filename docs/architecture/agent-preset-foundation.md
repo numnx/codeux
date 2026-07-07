@@ -74,6 +74,7 @@ Implementation files:
 - `src/services/skill-service.ts`
 - `src/services/provider-execution-service.ts`
 - `src/services/agent-mcp-access.ts`
+- `src/services/agent-preset-sync-service.ts`
 - `src/infrastructure/providers/cli/provider-runner.ts`
 - `src/infrastructure/providers/cli/workspace-manager.ts`
 - `src/server/dashboard-server.ts`
@@ -86,6 +87,9 @@ Dashboard endpoints:
 - `POST /api/projects/:projectId/agent-presets`
 - `PATCH /api/agent-presets/:agentPresetId`
 - `DELETE /api/agent-presets/:agentPresetId`
+- `POST /api/agent-presets/:agentPresetId/import-markdown`
+- `POST /api/projects/:projectId/agent-presets/sync-markdown`
+- `POST /api/projects/:projectId/agent-presets/push`
 
 These endpoints are project-scoped and intentionally separate from:
 
@@ -106,6 +110,7 @@ Foundation-supported fields:
 - optional model override
 - optional per-agent memory injection configuration
 - optional persistent skill storage attachments (default-off, isolated from project workspaces, and injected only for enabled attached agents at provider runtime)
+- optional per-agent MCP access configuration
 
 The memory injection configuration is stored in sqlite as `memory_config_json` and parsed back into `AgentMemoryConfig` on reads, matching the existing JSON-column pattern used by `mcp_access_json`.
 The dashboard editor now initializes that config from the preset, exposes it through a dedicated `Manage Memory` popover, and persists the chosen filters alongside the rest of the preset payload.

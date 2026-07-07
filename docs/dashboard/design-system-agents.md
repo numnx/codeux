@@ -16,7 +16,11 @@ The Agents management surface leans into a premium "Workshop" feel. We use a lot
 ## Interaction & State (Hover & Focus)
 - **Hover on Interactive Cards:** Shift cards up (`hover:-translate-y-0.5`), intensify shadows (`hover:shadow-[0_8px_24px_...]`), and tint background (`hover:bg-white/80`).
 - **Focus Rings:** Ensure all buttons have explicit `focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30`.
-- **Header Actions:** Keep agent-management actions compact, pill-shaped, and visually consistent; secondary actions such as sync and push should share the same muted glass button treatment so the header reads as one control cluster.
+- **Header Actions:** Keep agent-management actions compact, pill-shaped, and visually consistent; secondary actions such as sync, import, and push should share the same muted glass button treatment so the header reads as one control cluster.
+
+## Avatar Configuration
+- The dashboard provides deep avatar customization via `AgentAvatarCustomizer.tsx`.
+- Avatars are rendered using the high-fidelity `AgentAvatarScene.tsx` (wrapped by `LazyAgentAvatarScene.tsx` for deferred initialization based on visibility).
 
 ## Badges and Sync States
 Use explicit badging inside `.code-ux/agents` lists:

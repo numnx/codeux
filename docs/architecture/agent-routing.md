@@ -12,6 +12,8 @@ This sits above provider routing:
 - provider routing chooses the runtime/provider instance
 - agent routing chooses the instruction preset used by that runtime
 
+Agent-selected provider and model preferences are consumed by invocation routing when the strategy is `AGENT`, not unconditionally by every route.
+
 ## Data Model
 
 Agent presets now include:
