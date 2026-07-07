@@ -17,7 +17,7 @@ A dedicated-tool call takes the `action` plus action-specific fields:
 }
 ```
 
-**Approval handshake:** Destructive actions return `{ approvalRequired: true, approvalMessage: "..." }` on first call. Re-call with `approval: { confirmed: true }` (or `--payload-json '{"approval":{"confirmed":true}}'` in the CLI) to proceed.
+**Approval handshake:** Destructive actions return `{ approvalRequired: true, approvalMessage: "..." }` on first call. Re-call with the exactly identical payload and `approval: { confirmed: true }` (or `--payload-json '{"approval":{"confirmed":true}}'` in the CLI) to proceed.
 
 ---
 
@@ -132,7 +132,7 @@ Memory remediation schedules use `targetType: "memory_remediation"` but have the
 | `patch_sprint_setting` | ✅ | `projectId`, `sprintId`, `path`, `value` | Patch a sprint setting. |
 | `reset_sprint_settings` | ✅ | `projectId`, `sprintId` | Reset sprint to defaults. |
 
-All mutating settings actions (replace, patch, reset) require human confirmation. Get/resolve actions are read-only. Mutating settings actions first return an approval-required response; only the exact same action and payload may execute once with `approval.confirmed: true` within 15 minutes. The approval is one-use and cannot approve a different settings payload.
+All mutating settings actions (replace, patch, reset) require human confirmation. Get/resolve actions are read-only. Mutating settings actions always require a first no-op confirmation response: the first call returns an approval-required envelope; only the exact same action and exact same payload may execute once with `approval.confirmed: true` within 15 minutes. The approval is one-use and cannot approve a different settings payload.
 
 JSON path examples for `patch_*`:
 - `aiProvider.providers.codex.model` → string
@@ -227,8 +227,13 @@ Read-only execution telemetry.
 
 ## Common error patterns
 
+Management failures use a standardized error envelope at the root of the MCP response, setting `isError: true`. Inside the payload `result`, you will find:
+- **`errorType: "validation" | "runtime"`** — indicating whether the failure was during payload parsing or runtime execution.
+- **`field`** — included when a validation helper can identify the specific invalid field.
+
+Specific common scenarios:
 - **`InvalidParams`** — payload missing a required field, or violates the per-action schema.
-- **`approvalRequired: true`** — first call to a destructive action; re-call with `approval.confirmed: true`.
+- **`approvalRequired: true`** — first call to a destructive action; re-call with exactly identical payload and `approval.confirmed: true`.
 - **`error.code: NOT_FOUND`** — referenced ID does not exist.
 - **`error.code: CONFLICT`** — operation cannot proceed in the current state (e.g. starting a sprint that is already running).
 
