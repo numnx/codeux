@@ -4,9 +4,9 @@ The Code UX dashboard process exposes a REST API on the same port as the dashboa
 
 This page lists every endpoint, grouped by domain. Path parameters use `:name` notation. Required query parameters are listed inline.
 
-> **Authentication:** The dashboard REST API is intended for trusted local consumption. It is not authenticated. Bind only to loopback (default) or front it with a reverse proxy when exposing remotely.
+> **Authentication:** The dashboard REST API is intended for trusted local consumption. It is not authenticated. Bind only to loopback (default) or front it with a reverse proxy when exposing remotely. Like API routes, responses are non-cacheable and host-checked where security boundaries are discussed.
 
-> **MCP HTTP gateway** (`--mcp-https`) is a *separate* listener for JSON-RPC and is documented in [MCP server](/docs/architecture-mcp-server).
+> **MCP HTTP gateway** (`--mcp-http`) is a *separate* listener for JSON-RPC and is documented in [MCP server](/docs/architecture-mcp-server).
 
 ---
 
@@ -14,14 +14,17 @@ This page lists every endpoint, grouped by domain. Path parameters use `:name` n
 
 | Method | Path | Returns |
 | --- | --- | --- |
-| `GET` | `/health` | `{ "status": "UP" }` — liveness. |
-| `GET` | `/ready` | `{ "components": { "settingsDb", "dashboardBind", "mcpService" } }` — readiness. |
+| `GET` | `/health` | `{ "status": "UP" }` — liveness (from `CodeUxServer.getHealthStatus` checking settings DB, dashboard bind, and MCP service health). |
+| `GET` | `/ready` | `{ "components": { "settingsDb", "dashboardBind", "mcpService" } }` — readiness (from `CodeUxServer.getReadinessStatus`). |
 | `GET` | `/api/status` | High-level system status snapshot. |
+| `GET` | `/api/system/update-status` | System update availability. |
 | `GET` | `/api/execution` | Current execution state across all sprints. |
 | `GET` | `/api/live?projectId=` | Combined live snapshot. Optional project filter. |
 | `GET` | `/api/telemetry/overview` | Overview metrics for the home page. |
 | `GET` | `/api/live-activities` | Live agent activities (cached 10 s). |
 | `GET` | `/api/git-status` | Git status (cached 10 s) — branches, PRs, CI. |
+| `GET` | `/api/docs-web` | List developer documentation. |
+| `GET` | `/api/docs-web/:docId` | Get specific documentation page. |
 
 ---
 
@@ -36,6 +39,9 @@ This page lists every endpoint, grouped by domain. Path parameters use `:name` n
 | `DELETE` | `/api/projects/:projectId` | Delete. |
 | `PUT` | `/api/projects/:projectId/select` | Set active project. |
 | `PUT` | `/api/projects/:projectId/selected-sprint` | Set selected sprint for project. |
+| `POST` | `/api/projects/:projectId/setup` | Project setup flow. |
+| `GET` | `/api/projects/:projectId/instruction-files/:fileId` | Get instruction file. |
+| `PUT` | `/api/projects/:projectId/instruction-files/:fileId` | Update instruction file. |
 | `GET` | `/api/projects/:projectId/execution` | Project execution state. |
 | `GET` | `/api/projects/:projectId/stats?window=24h\|7d\|30d\|custom` | Stats. |
 | `PUT` | `/api/projects/:projectId/preferred-worker` | Set preferred worker connection. |
@@ -63,6 +69,7 @@ This page lists every endpoint, grouped by domain. Path parameters use `:name` n
 | --- | --- | --- |
 | `GET` | `/api/projects/:projectId/tasks?sprintId=` | List. |
 | `POST` | `/api/projects/:projectId/tasks` | Create. |
+| `POST` | `/api/projects/:projectId/tasks/:taskId/force-complete` | Force complete task. |
 | `PATCH` | `/api/tasks/:taskId` | Update. |
 | `DELETE` | `/api/tasks/:taskId` | Delete. |
 
@@ -93,7 +100,7 @@ This page lists every endpoint, grouped by domain. Path parameters use `:name` n
 
 ---
 
-## Settings
+## Settings & system settings
 
 | Method | Path | Description |
 | --- | --- | --- |
@@ -108,6 +115,10 @@ This page lists every endpoint, grouped by domain. Path parameters use `:name` n
 | `DELETE` | `/api/sprints/:sprintId/settings` | Reset sprint settings. |
 | `GET` | `/api/projects/:projectId/sprints/:sprintId/settings/effective` | Merged effective. |
 | `GET` | `/api/settings/import-sources` | External settings hints (env, gh CLI). |
+| `GET` | `/api/user/onboarding` | Get onboarding status. |
+| `POST` | `/api/user/onboarding/complete` | Complete onboarding. |
+| `POST` | `/api/user/onboarding/cancel` | Cancel onboarding. |
+| `POST` | `/api/user/onboarding/reset` | Reset onboarding. |
 | `GET` | `/api/onboarding/readiness` | First-run Docker/Git readiness checks and installer metadata. |
 | `POST` | `/api/onboarding/dependencies/install` | Body: `{ mode: "docker-desktop-git" \| "docker-engine-git", confirmInstall: true }`. Runs the constrained dependency installer and returns bounded command summaries. |
 | `POST` | `/api/system/reset-database` | **Destructive.** Wipe all state. |
@@ -157,6 +168,7 @@ This page lists every endpoint, grouped by domain. Path parameters use `:name` n
 | `DELETE` | `/api/agent-presets/:agentPresetId` | Delete. |
 | `POST` | `/api/agent-presets/:agentPresetId/import-markdown` | Import from a single file. |
 | `POST` | `/api/projects/:projectId/agent-presets/sync-markdown` | Bulk-sync from `.code-ux/agents/`. |
+| `POST` | `/api/projects/:projectId/agent-presets/push` | Push presets. |
 
 ---
 
@@ -179,6 +191,8 @@ This page lists every endpoint, grouped by domain. Path parameters use `:name` n
 | --- | --- | --- |
 | `GET` | `/api/projects/:projectId/scheduler` | List scheduler entries and occurrences. |
 | `POST` | `/api/projects/:projectId/scheduler` | Create a scheduler entry. |
+| `GET` | `/api/projects/:projectId/scheduler/memory-remediation` | Get memory remediation state. |
+| `PUT` | `/api/projects/:projectId/scheduler/memory-remediation` | Set memory remediation state. |
 | `PATCH` | `/api/scheduler/:entryId` | Update an entry. |
 | `DELETE` | `/api/scheduler/:entryId` | Delete an entry. |
 | `POST` | `/api/scheduler/run-due` | Evaluate and run due entries now. |
@@ -193,7 +207,12 @@ This page lists every endpoint, grouped by domain. Path parameters use `:name` n
 | `POST` | `/api/projects/:projectId/memories` | Create. |
 | `PATCH` | `/api/memories/:memoryId` | Update. |
 | `DELETE` | `/api/memories/:memoryId` | Delete. |
+| `DELETE` | `/api/projects/:projectId/memories` | Clear project memories. |
+| `DELETE` | `/api/system/memories` | Clear system memories. |
+| `GET` | `/api/projects/:projectId/memory-claims` | List memory claims. |
+| `GET` | `/api/memory-claims/:claimId/evidence` | Get memory claim evidence. |
 | `POST` | `/api/projects/:projectId/memories/search` | Vector search. |
+| `POST` | `/api/projects/:projectId/memory-claims/search` | Search memory claims. |
 | `POST` | `/api/projects/:projectId/memories/promotion/analyze` | Analyse promotion candidates. |
 | `POST` | `/api/projects/:projectId/memories/promotion/execute` | Promote. |
 | `POST` | `/api/projects/:projectId/memories/reembed` | Trigger re-embed. |
@@ -221,9 +240,13 @@ This page lists every endpoint, grouped by domain. Path parameters use `:name` n
 | `GET` | `/api/projects/:projectId/knowledge/documents` | List knowledge documents. |
 | `POST` | `/api/projects/:projectId/knowledge/documents` | Add documents (upload, paste, or repo path). |
 | `POST` | `/api/projects/:projectId/knowledge/documents/import-project` | Import knowledge from another project. |
+| `POST` | `/api/projects/:projectId/knowledge/documents/upload` | Upload knowledge documents. |
 | `POST` | `/api/projects/:projectId/knowledge/search` | Semantic search over the project's documents. |
+| `GET` | `/api/projects/:projectId/knowledge/documents/:documentId` | Get a document within project scope. |
 | `GET` | `/api/knowledge/documents/:documentId` | Get a document. |
+| `DELETE` | `/api/projects/:projectId/knowledge/documents/:documentId` | Delete a document within project scope. |
 | `DELETE` | `/api/knowledge/documents/:documentId` | Delete a document. |
+| `POST` | `/api/projects/:projectId/knowledge/documents/:documentId/reembed` | Re-embed a document within project scope. |
 | `POST` | `/api/knowledge/documents/:documentId/reembed` | Re-embed a document. |
 | `GET` | `/api/agent-presets/:agentPresetId/knowledge` | List documents an agent is subscribed to. |
 | `PUT` | `/api/agent-presets/:agentPresetId/knowledge/subscriptions` | Set an agent's document subscriptions. |
@@ -259,6 +282,17 @@ This page lists every endpoint, grouped by domain. Path parameters use `:name` n
 | `GET` | `/api/projects/:projectId/sprints/:sprintId/preview/script` | Get script. |
 | `PUT` | `/api/projects/:projectId/sprints/:sprintId/preview/script` | Save script. |
 | `GET` | `/api/browser/sessions/:sessionId/logs` | Stream logs. |
+
+---
+
+## Terminal
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/api/terminal/start` | Start interactive terminal. |
+| `POST` | `/api/terminal/stop` | Stop terminal. |
+| `POST` | `/api/terminal/heartbeat` | Terminal heartbeat. |
+| `POST` | `/api/terminal/finalize` | Finalize terminal. |
 
 ---
 

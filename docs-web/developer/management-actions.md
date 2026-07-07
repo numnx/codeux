@@ -2,10 +2,9 @@
 
 Code UX exposes grouped MCP tools per management domain — `manage_projects`, `manage_sprints`,
 `manage_tasks`, `manage_quicksprints`, `manage_scheduler`, `manage_agents`, `manage_memory`,
-`search_knowledge`, `manage_settings`, `manage_preview`, and `manage_telemetry`. The deprecated
-`manage_code_ux` tool remains available for compatibility, but the grouped tools are the primary
-surface. Each domain has a set of **actions**. This page is the complete matrix. (See
-[MCP tools](./mcp-tools.md) for the tool list and schemas.)
+`search_knowledge`, `manage_settings`, `manage_preview`, and `manage_telemetry`. Each domain
+has a set of **actions**. This page is the complete matrix. (See [MCP tools](./mcp-tools.md)
+for the tool list and schemas.)
 
 A dedicated-tool call takes the `action` plus action-specific fields:
 

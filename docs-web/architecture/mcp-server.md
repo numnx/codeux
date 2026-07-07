@@ -83,11 +83,10 @@ This is acceptable because clients are expected to re-`initialize` after restart
 
 The request router (`src/server/mcp-request-router.ts`) is a `name → handler` map populated at boot.
 There is **one tool per management domain**, plus retrieval tools such as `search_knowledge` and
-`search_skills`, and the deprecated unified `manage_code_ux`:
+`search_skills`:
 
 ```ts
 router
-  .register("manage_code_ux",     h.handleManageCodeUx)      // deprecated
   .register("manage_projects",    h.handleManageProjects)
   .register("manage_sprints",     h.handleManageSprints)
   .register("manage_tasks",       h.handleManageTasks)
@@ -125,7 +124,7 @@ Agent-scoped provider runs use the same default-deny posture for built-in Code U
 custom MCP links such as `playwright` are stored separately and do not imply `code_ux` access.
 Dashboard chat replies are the only route-local default exception: unconfigured reply agents receive
 the restricted `scheduler` tool only, with broad tools such as `manage_scheduler`, `manage_tasks`,
-`manage_sprints`, `manage_settings`, and `manage_code_ux` disabled.
+`manage_sprints`, and `manage_settings` disabled.
 
 ### `CallTool`
 
@@ -162,8 +161,7 @@ Each tool has an entry in `settings.mcpTools` (`McpToolToggle[]`). Defaults:
   { "name": "search_skills",       "enabled": true, "isInternal": true },
   { "name": "manage_settings",     "enabled": true, "isInternal": true },
   { "name": "manage_preview",      "enabled": true, "isInternal": true },
-  { "name": "manage_telemetry",    "enabled": true, "isInternal": true },
-  { "name": "manage_code_ux",      "enabled": true, "isInternal": true }   // deprecated
+  { "name": "manage_telemetry",    "enabled": true, "isInternal": true }
 ]
 ```
 

@@ -113,15 +113,15 @@ Each provider has a **thinking mode** governing reasoning depth:
 
 In **Settings → AI providers** each provider has a `weight` (0–100). Weights are used by the routing strategy:
 
-- `MANUAL` — every routing ID points to a specific provider config.
+- `MANUAL` — every routing ID points to a specific provider config ID.
 - `WEIGHTED` — random sampling proportional to weights.
-- `ORCHESTRATOR` — let an orchestrator agent decide per invocation (advanced).
+- `AGENT` — let an orchestrator agent decide per invocation (advanced).
 
 Default weights: Jules = 60, Gemini = 20, Codex = 20.
 
 ## Invocation routing
 
-Different *kinds* of work route to different providers. The seven invocation IDs:
+Different *kinds* of work route to different provider instances. The eight invocation IDs:
 
 | ID | Used for |
 | --- | --- |
@@ -132,10 +132,11 @@ Different *kinds* of work route to different providers. The seven invocation IDs
 | `qa_review` | Quality assurance pass on completed work. |
 | `ci_fix` | Fixing a failing CI check. |
 | `merge_conflict` | Resolving Git merge conflicts on a worker branch. |
+| `remediation` | Memory remediation operations. |
 
 For each ID, you can pick:
 
-- A **provider config**.
+- A **provider config ID**.
 - An **agent preset** (optional).
 - A **routing profile** (`GLOBAL` for system-wide, `WORKER` for per-worker overrides).
 

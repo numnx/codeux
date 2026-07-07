@@ -40,7 +40,7 @@ For `settings.json` and `config.json`, paths are tried in priority order:
 3. Project root (where `package.json` is): `<root>/.code-ux/`.
 4. Home directory: `~/.code-ux/`.
 
-> Legacy: `.jules-subagents/` is also probed at each location for backwards compatibility. New installs should use `.code-ux/`.
+> Legacy: `.jules-subagents/` is strictly a historical legacy path. It is probed at each location for backwards compatibility, but new installs must use `.code-ux/`.
 
 The first file found at each path *wins for its specific key*. There is **no merging across paths** — finding `julesApiKey` in `~/.code-ux/settings.json` ends the search for that key, even if other paths exist.
 
