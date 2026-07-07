@@ -53,7 +53,7 @@ Test from Gemini CLI:
 > list my code ux projects
 ```
 
-The model should call `manage_code_ux` with `domain: "projects", action: "list"`.
+The model should call `manage_projects` with `action: "list"`.
 
 ## Codex CLI
 
@@ -130,7 +130,9 @@ domain**, plus `search_knowledge`:
 | `manage_settings` | Get/resolve/patch/replace/reset system, project, and sprint settings. |
 | `manage_preview` | Manage sprint preview containers. |
 | `manage_telemetry` | Read execution snapshots, invocations, sprint runs, and dispatches. |
-| `manage_code_ux` | **Deprecated** unified dispatcher; prefer the dedicated tools above. |
+| `register_worker_endpoint` | Register or refresh a worker connection endpoint. |
+| `pull_task_dispatch` | Pull an eligible task dispatch lease for a worker. |
+| `update_task_dispatch` | Renew or terminate a task dispatch lease. |
 
 For full schemas and `action` enums, see [Developer → MCP tools](/docs/developer-mcp-tools). For the
 per-action payloads, see [Developer → Management actions](/docs/developer-management-actions).
@@ -227,7 +229,7 @@ A connected client appears under the active project on the **Settings → Connec
 
 - Connection key
 - Display name
-- Role (`project_manager`, `worker`, `listener`)
+- Role (`project_manager`)
 - Transport (`stdio`, `http`, `internal`)
 - Capabilities
 

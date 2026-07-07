@@ -252,7 +252,7 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/developer-management-actions',
     section: 'Developer Reference',
     title: "Management actions",
-    description: "Code UX exposes one MCP tool per management domain — manage_projects, manage_sprints, manage_tasks, manage_quicksprints, manage_scheduler, manage_agents, manage_memory, manage_settings, manage_preview, and manage_tele...",
+    description: "Code UX exposes grouped MCP tools per management domain — manage_projects, manage_sprints, manage_tasks, manage_quicksprints, manage_scheduler, manage_agents, manage_memory, search_knowledge, manage_settings, manage_p...",
   },
   'developer-http-api': {
     id: 'developer-http-api',
@@ -280,7 +280,7 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/developer-settings-reference',
     section: 'Developer Reference',
     title: "Settings schema reference",
-    description: "This page enumerates every settings field, its type, default, range (if applicable), and the JSON path you would use with manage_code_ux → settings → patch_*_setting.",
+    description: "This page enumerates every settings field, its type, default, range (if applicable), and the JSON path you would use with manage_settings → patch_*_setting.",
   },
   'developer-sprint-format': {
     id: 'developer-sprint-format',

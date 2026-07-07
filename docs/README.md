@@ -6,4 +6,8 @@ Start here:
 Structured table of contents:
 - [Summary](./SUMMARY.md)
 
-**Note:** Canonical docs live in `docs/` as the single source of truth. The `docs-web/` directory serves as the only publication and reference mirror. A `docs-release/` directory should not be created or used.
+## Directory Structure
+
+- `docs/`: The canonical source of truth for all documentation. Changes should be made here.
+- `docs-web/`: The publication and reference mirror generated from the canonical docs. Do not edit these files directly.
+- `docs-release/`: Deprecated/Unused. This directory should not be created or used for documentation purposes.

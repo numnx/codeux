@@ -89,7 +89,8 @@ When Code UX starts it:
 
 1. Serves the dashboard at `http://localhost:4444`.
 2. Exposes an **MCP server** (over stdio, plus an authenticated Streamable HTTP gateway).
-3. Loads any settings it finds, then waits for you to add a project and configure providers.
+3. Probes system readiness via `GET /api/onboarding/readiness` to check for Docker and Git, then presents a guided onboarding flow.
+4. Loads any settings it finds, then waits for you to add a project and configure providers.
 
 Nothing is required to reach this point — no API keys, no environment variables. Configure providers
 when you are ready to dispatch work (see [Configuring providers](#configuring-providers)).
