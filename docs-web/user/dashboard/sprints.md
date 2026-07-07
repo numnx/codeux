@@ -9,7 +9,7 @@ Sprints are viewed either in a visual organic cell gallery or a dense ledger for
 - **Status pill** — `idle`, `running`, `paused`, `completed`, `failed`, `cancelled`.
 - **Task counters** — completed / total, plus failures.
 - **Goal** — first line of the sprint goal.
-- **Action buttons** — Plan / Orchestrate / Pause / Cancel as appropriate.
+- **Action buttons** — Plan / Orchestrate / Pause / Cancel / Force complete as appropriate.
 
 Sprints can be **showcase-pinned** to surface them on the Overview page; toggle this from the cell menu or bulk actions.
 
@@ -30,7 +30,7 @@ Open a sprint and click **AI plan**. You provide:
 - **Sprint prompt** — A description of what you want done. The planner accepts long, prose-style input.
 - **Improvement option** *(optional)* — Click **Improve** to have the planner rewrite your prompt for clarity before planning.
 
-Click **Plan sprint**. The planner agent (typically a Gemini, Codex or Claude session — see [Provider routing](../providers-and-models.md)) returns a tree of subtasks with:
+Click **Plan sprint**. The planning feedback overlay surfaces both an ETA countdown and an elapsed runtime timer. The planner agent (typically a Gemini, Codex or Claude session — see [Provider routing](../providers-and-models.md)) returns a tree of subtasks with:
 
 - A title and prompt for each.
 - Inferred `depends_on` edges.
@@ -47,7 +47,7 @@ The plan is persisted as markdown files at `<repo>/.code-ux/sprints/sprint-<n>/<
 
 ## The sprint DAG view
 
-Sprints with multiple subtasks display a **DAG** (directed acyclic graph) of dependencies. This view is lazy-loaded and is the fastest way to validate that you have correct parallelism. Independent tasks float free; chained tasks render with explicit edges.
+Sprints with multiple subtasks display a **DAG** (directed acyclic graph) of dependencies. This view is lazy-loaded, supports inline dependency editing by adding or removing edges directly on the graph, and is the fastest way to validate that you have correct parallelism. Independent tasks float free; chained tasks render with explicit edges.
 
 There is also an animated **Boat Race** visualisation that shows tasks as boats progressing along a track — fun and surprisingly informative when many tasks run in parallel.
 
@@ -66,7 +66,7 @@ You can run any sprint multiple times. Each run has its own ID and its own row i
 
 - **Pause** — The sprint enters `paused`. The watch loop exits cleanly at the next checkpoint. Active worker sessions are *not* killed; you can resume later.
 - **Cancel** — The sprint enters `cancel_requested` and is cancelled gracefully. Active dispatches are signalled to stop.
-- **Force cancel** — Skips graceful steps. Use only if a normal cancel hangs.
+- **Force cancel** / **Force complete** — Skips graceful steps or bypasses pending checks to forcefully resolve the sprint. Use only if a normal action hangs or if a sprint is stuck.
 
 Pausing / cancelling are also exposed as MCP actions via the `manage_sprints` tool (actions `pause`, `cancel`, `force_cancel`).
 
@@ -74,7 +74,7 @@ Pausing / cancelling are also exposed as MCP actions via the `manage_sprints` to
 
 Sprints support importing issues directly from external providers, as well as being portable as Markdown bundles:
 
-- **Issue Import** — Click **+ → Import** and choose **GitHub Issues**, **GitLab Issues**, or **Jira Issues**. You can search by text, labels, status, assignees, or exact issue keys (e.g., `#42` or `OPS-42`). Imported issues are attached as linked contexts, and Jira issues can optionally be converted directly into security or quality tasks. Code UX attempts to auto-transition or auto-close linked issues when the sprint completes.
+- **Issue Import** — Click **+ → Import** and choose **GitHub Issues**, **GitLab Issues**, or **Jira Issues**. You can search by text, labels, status, assignees, or exact issue keys / numbers (e.g., `#42` or `OPS-42`). Imported issues can be attached to the active Sprint Composer as linked contexts or trigger immediate plan-after-import flows. Jira issues can optionally be converted directly into security or quality tasks. Code UX attempts to auto-transition or auto-close linked issues when the sprint completes.
 - **Export** — Click **⋯ → Export markdown**. You receive a downloadable bundle: one file per subtask plus a `sprint.md` describing the sprint.
 - **Import Bundle** — Click **+ → Import**. Drop a previously exported bundle (or a hand-written one). Code UX validates and creates the sprint.
 
