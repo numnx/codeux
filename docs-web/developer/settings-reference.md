@@ -41,7 +41,7 @@ Settings are evaluated in cascade: **System → Project → Sprint** (with built
 
 ```jsonc
 {
-  "strategy": "MANUAL" | "WEIGHTED" | "ORCHESTRATOR",
+  "strategy": "MANUAL" | "WEIGHTED" | "AGENT",
   "providers": {
     "<configId>": {
       "provider": "jules"|"gemini"|"codex"|"claude-code"|"qwen-code"|"opencode"|"antigravity",
@@ -69,7 +69,7 @@ Settings are evaluated in cascade: **System → Project → Sprint** (with built
 }
 ```
 
-`<routingId>` ∈ `task_coding | planning | dashboard_reply | clarification_reply | qa_review | ci_fix | merge_conflict`.
+`<routingId>` ∈ `task_coding | planning | dashboard_reply | clarification_reply | qa_review | ci_fix | merge_conflict | remediation`.
 
 ### Default providers
 

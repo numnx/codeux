@@ -14,7 +14,7 @@ Qwen Code can be selected anywhere a virtual CLI provider is accepted: task codi
 
 ## Authentication Modes
 
-The system integration entry for each named Qwen instance stores a `qwenAuthMode` (`LOCAL_AUTH`, `ALIBABA_CODING_PLAN`, or `MODEL_PROVIDER`). Non-local API-key mode can use either `ALIBABA_CODING_PLAN` or `MODEL_PROVIDER`, but if `authType` is local or dashboard auth, runtime forces `qwenAuthMode` to `LOCAL_AUTH`.
+The system integration entry for each named Qwen instance stores a `qwenAuthMode` (`LOCAL_AUTH`, `ALIBABA_CODING_PLAN`, or `MODEL_PROVIDER`). Non-local API-key mode can use either `ALIBABA_CODING_PLAN` or `MODEL_PROVIDER`, but if `authType` is local or dashboard auth, runtime forces `qwenAuthMode` to `LOCAL_AUTH` and clears custom API key sub-mode fields (`qwenRegion`, `qwenBaseUrl`, `qwenEnvKey`, `qwenModelId`, `qwenProtocol`, `qwenAdditionalModelProviders`). This ensures mutual exclusion between API key and local/dashboard auth.
 
 ### Local Auth
 
@@ -70,7 +70,7 @@ Docker execution prepares Qwen in the same bootstrap path as other CLI providers
 
 - creates `$HOME/.qwen`
 - copies mounted local auth from `/opt/credentials/qwen-code`
-- merges generated MCP/settings fragments from `/opt/provider-config/qwen-settings.json`
+- merges generated MCP/settings fragments from `/opt/provider-config/qwen-settings.json` via `mcp-config-format.ts` (which does not inherit arbitrary local MCP configurations)
 - writes generated `modelProviders`, selected model, and MCP settings into the mounted settings fragment for custom endpoint and Coding Plan runs
 - rewrites loopback URLs in generated Qwen settings from `127.0.0.1` or `localhost` to `host.docker.internal` on Docker Desktop, WSL, macOS, and Windows so local endpoints such as Ollama remain reachable from the provider container
 - installs Qwen Code if `qwen` is missing and fallback installs are enabled
