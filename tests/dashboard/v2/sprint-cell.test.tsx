@@ -137,4 +137,35 @@ describe("SprintCell", () => {
     // Redundant inline alert should be absent
     expect(screen.queryByText("Human intervention required")).toBeNull();
   });
+
+  it("renders quota wait state and countdown when quotaWait prop is provided", () => {
+    // 5 minutes in the future
+    const futureTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const quotaWait = {
+      sprintId: "sprint-1",
+      retryAfterIso: futureTime,
+      taskCount: 1,
+      taskKey: "TASK-1",
+      taskTitle: "Do work",
+    };
+
+    render(
+      <SprintCell
+        sprint={defaultSprint}
+        isEven={true}
+        accentColor="text-blue-500"
+        quotaWait={quotaWait}
+      />
+    );
+
+    // Main status text
+    expect(screen.getAllByText(/Quota wait/i).length).toBeGreaterThan(0);
+
+    // The cell clock should use semantic role="status"
+    const statusEl = screen.getByRole("status");
+    expect(statusEl).toBeDefined();
+
+    // Assuming we start with ~ 05:00, but checking for a countdown format
+    expect(statusEl.textContent).toMatch(/\d{2}:\d{2}/);
+  });
 });
