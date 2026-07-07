@@ -742,6 +742,7 @@ For scheduler calls:
 - `manage_scheduler` supports `list`, `create`, `schedule_sprint`, `schedule_quicksprint`, `schedule_chat`, `update`, `delete`, and `run_due`.
 - Generic `create` requires `targetType: "sprint" | "quicksprint" | "chat"`.
 - The `schedule_*` aliases infer the target type and accept flattened target fields.
+- `manage_scheduler` accepts a nested `scheduleAnchor` object (e.g. `{ "mode": "after_sprint_end", "sourceSprintId": "sprint-123", "offsetMinutes": 30 }`). The contract also accepts flattened aliases `scheduleMode` (or `anchorMode`), `sourceSprintId` (or `anchorSourceSprintId`), and `offsetMinutes` (or `anchorOffsetMinutes`).
 - Recurrence `frequency` accepts `minutely`, `hourly`, `daily`, `weekly`, and `monthly`; the dashboard renders `minutely` as `Minutes` and the matching recurrence summaries use labels such as `Every minute` and `Every 15 minutes`.
 - Minute recurrence uses the same UTC scheduler math as longer intervals, so the normalized rule advances `nextRunAt` and expands occurrences exactly like other frequencies once the minute literal has been parsed.
 - Scheduled quicksprints use the same `taskCount` number or numeric-string normalization as direct quicksprints.
@@ -749,12 +750,28 @@ For scheduler calls:
 - `update` supports pausing and resuming entries via the `status` field. Resuming a `paused` entry to `scheduled` recomputes the next run time to the next future occurrence, preventing immediate execution of missed runs. Pause/resume acts as automation gating and does not manually trigger the target.
 - `delete` requires approval confirmation.
 
+Example of a scheduler anchor (nested):
+
+```json
+{
+  "action": "create",
+  "projectId": "project-123",
+  "targetType": "sprint",
+  "sprintTarget": { "sprintId": "sprint-456" },
+  "scheduleAnchor": {
+    "mode": "after_sprint_end",
+    "sourceSprintId": "sprint-123",
+    "offsetMinutes": 60
+  }
+}
+```
+
 For preview calls:
 - `manage_preview` supports `list_sessions`, `start_session`, `rebuild_session`, `stop_session`, `remove_session`, `get_logs`, `get_url`, `get_script`, and `update_script`.
 - `remove_session` requires approval confirmation.
 
 For settings patch calls, `value` may be any JSON value, including strings, booleans, numbers, `null`, arrays, or objects.
-Settings patch and replacement calls still require the stateful human-confirmation gate described above.
+All mutating settings actions (replace, patch, reset) require a first no-op confirmation response; only the exact same action and payload may execute once with `approval.confirmed: true` within 15 minutes.
 
 ## Important Runtime Behaviors
 
