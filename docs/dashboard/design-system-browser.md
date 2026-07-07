@@ -27,6 +27,13 @@ The browser workbench is a premium, specialized surface inside the Code UX dashb
 - **Error / Unreachable:** `status-red`
 - **Starting / Building:** `ember-500` or `amber-400`
 
+## Component Controls
+
+- **LaunchContainerPanel**: Manages sprint selection and container instantiation. It uses a semantic select input for the target sprint and exposes an explicit launch control button. Pending states (`launchBusy`) enforce a disabled state with accessible reasons, preventing duplicate submissions while the container spins up.
+- **PreviewWindowChrome**: Provides iframe navigation (back, forward, reload, address submit) and port mapping tabs. Navigation disabled states clearly distinguish between stopped containers, starting containers, or active client-side guard restrictions. Window controls (minimize, maximize, close, restore) utilize `enterExit` tokens and maintain predictable focus management.
+- **BrowserSessionsMenu**: A top-nav dropdown listing available previews. It is deterministically keyboard-operable, using `ArrowUp`/`ArrowDown`/`Home`/`End` to rove across only the rows representing enabled sessions. Starting, stopped, errored, and missing-port sessions expose their status via visible badges rather than interactive links.
+- **PreviewSessionSlider**: A horizontal session strip handling selection, external linking, and container removal. Controls include removal actions that set `aria-busy` locally to prevent duplicate deletions. Overflowing session cards are accessible via keyboard-operable scroll buttons.
+
 ## Interaction And Feedback
 
 - Browser chrome, session rails, file viewers, and diff viewers use `controlFeedback` for local controls, `enterExit` for window/session state changes, and `asyncFeedback` for loading, unavailable, or failed operations.

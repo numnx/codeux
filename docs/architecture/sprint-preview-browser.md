@@ -25,7 +25,7 @@ The feature is designed for:
 
 ## Runtime Model
 
-Each preview session is scoped to one `(projectId, sprintId)` pair.
+Each preview session is scoped to one `(projectId, sprintId)` pair. Preview containers are strictly isolated per sprint and session, and startup cleanup and reconciliation handles stale sessions.
 
 Key rules:
 - every sprint preview runs from a dedicated exported branch snapshot under the preview runtime root, not a registered git worktree
@@ -195,7 +195,7 @@ The dashboard now exposes:
 
 ## API Surface
 
-Preview endpoints are implemented in `src/server/dashboard-server.ts`.
+Preview endpoints are implemented in `src/server/preview-routes.ts`.
 
 - `GET /api/projects/:projectId/preview/sessions`
 - `POST /api/projects/:projectId/sprints/:sprintId/preview/start`
@@ -209,7 +209,8 @@ Preview endpoints are implemented in `src/server/dashboard-server.ts`.
 - `PUT /api/projects/:projectId/sprints/:sprintId/preview/script`
 - `GET /api/projects/:projectId/sprints/:sprintId/preview/sessions/:sessionId/logs`
 - `GET /api/browser/sessions/:sessionId/logs`
-- `ALL /api/browser/sessions/:sessionId/proxy/*`
+- `ALL /api/projects/:projectId/sprints/:sprintId/preview/sessions/:sessionId/proxy{*rest}`
+- `ALL /api/browser/sessions/:sessionId/proxy{*rest}`
 
 The legacy path-proxy endpoint remains available for compatibility and diagnostics, but the production browser surface should prefer the preview host origin.
 

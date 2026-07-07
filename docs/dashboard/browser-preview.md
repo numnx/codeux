@@ -2,16 +2,18 @@
 
 The browser preview provides an integrated environment for interacting with running sprint containers directly from the dashboard.
 
-## Defaults
+## Configuration and Settings
 
+- **Docker Requirement**: The preview runtime strictly requires a functioning Docker environment. It uses the same Docker/bootstrap runtime stack as worker dispatches. It does not run preview processes directly on the host without Docker.
+- **Preview Script Path**: Operators can configure a startup script path in project settings or edit it directly per-sprint in the browser page. Script detection prefers production-style preview/start/serve commands before using `dev`, but does not attempt to natively support unknown frameworks automatically.
+- **Auto-Start and Rebuild Behavior**: `autoStartOnRunningSprint` remains false by default. Rebuild behaviors like `rebuildOnTaskCompletion` and `rebuildOnSprintCompletion` are controlled via scoped settings.
 - Fresh system and project settings enable the preview runtime and show the in-app browser workspace by default.
 - Existing persisted system, project, or sprint overrides remain authoritative. Sanitization only fills missing preview fields from the current defaults, so an explicit disabled preview stays disabled.
-- `autoStartOnRunningSprint` remains false by default. Operators still choose whether sprint runs should launch preview containers automatically; the default only makes preview controls and the embedded browser available.
 
 ## Interaction Contracts
 
 - Preview refresh, launch, rebuild, stop, remove, navigation, and startup-script save operations use visible async feedback plus local status text. Page-level operation results use `ActionFeedbackRegion` where available; control-specific progress stays beside the control that is pending.
-- Dashboard API calls that operate on an existing preview session must carry the owning project and sprint scope. Rebuild, stop, remove, log, and dashboard proxy requests verify the session belongs to the requested project and sprint before returning data or taking action; a foreign or missing session receives the same generic not-found response.
+- Dashboard API calls that operate on an existing preview session must carry the owning project and sprint scope. Rebuild, stop, remove, log, and dashboard proxy requests verify the session belongs to the requested project and sprint before returning data or taking action; a foreign or missing session receives the same generic not-found response. Global aliases under `/api/browser/sessions/:sessionId/*` (e.g., `/rebuild`, `/stop`, `/logs`, or `DELETE`) automatically resolve the required scope from the dashboard connection context.
 - Preview-host iframe traffic keeps the existing `preview-<sessionId>.<dashboard-host>` URL format. Host-side start, rebuild, and status controls first resolve that host session, then accept only the canonical preview origin or its canonical dashboard origin.
 - Use `controlFeedback` for preview chrome buttons, session rail controls, launch controls, rebuild/stop/open actions, script save, and address navigation controls.
 - Use `enterExit` for preview window empty/starting/error states, menus, and browser chrome state surfaces.
