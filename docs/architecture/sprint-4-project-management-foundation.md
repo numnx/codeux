@@ -38,7 +38,7 @@ Sprint 4 will establish a foundation-first architecture:
    - `set_setting`
    - `read_docs`
    - `get_help`
-5. Deprecate direct Jules source/session/activity tools from default external tool discovery.
+5. Deprecate direct hosted-provider source/session/activity tools (such as legacy Jules tools) from default external tool discovery.
 6. Replace the single active execution-lane assumption with DB-backed execution scopes and leases that support multiple projects and multiple sprints safely.
 
 ## Boundaries
@@ -64,7 +64,7 @@ Sprint 4 will establish a foundation-first architecture:
 4. Backward compatibility is required for transition period:
    - `sprint_agent` / `task_agent` may remain as tool names during migration,
    - but execution semantics must be transformed onto the new DB-native model rather than wrapping the legacy file-based loop,
-   - old Jules tools hidden by default, internal toggle only.
+   - old hosted-provider tools (such as legacy Jules tools) hidden by default, internal toggle only.
 5. Documentation updates are mandatory with each tool or schema contract change.
 
 ## Non-Goals (Sprint 4)
