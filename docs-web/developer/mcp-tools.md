@@ -54,6 +54,10 @@ action-specific fields, and an optional `approval` object for destructive action
 | `manage_settings` | platform | Get/resolve/patch/replace/reset system, project, and sprint settings. |
 | `manage_preview` | platform | Manage sprint preview containers (start/stop/rebuild, logs, scripts). |
 | `manage_telemetry` | platform | Read execution snapshots, invocations, sprint runs, and dispatches. |
+| `register_worker_endpoint` | advanced | Register or refresh a worker connection endpoint. |
+| `pull_task_dispatch` | advanced | Pull an eligible task dispatch lease for a worker. |
+| `update_task_dispatch` | advanced | Renew or terminate a task dispatch lease. |
+| `manage_code_ux` | advanced | **Deprecated** advanced/internal compatibility; prefer dedicated tools. |
 
 Every tool requires `runtimeRoles: ["project_manager"]` and is enabled by default.
 
