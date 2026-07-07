@@ -144,10 +144,11 @@ The parsed management envelope has:
 - `result.message` as the developer-facing failure reason.
 - `result.errorType: "validation"` for payload parser failures and `"runtime"` for dependency or execution failures.
 - `result.field` when a validation helper can identify the invalid field.
+- `isError: true` at the root of the MCP response for management failures.
 
 Approval responses are not errors. Calls that need human confirmation still return `approvalRequired: true` and do not set `isError`.
 
-Tool arguments are validated against `src/contracts/mcp-tool-definitions.ts` before dispatch. Invalid tool payload shapes, missing required schema fields, invalid enum values, and malformed approval envelopes fail as MCP `InvalidParams` errors before management action handlers run. Management action parser failures still use the standardized management error envelope described above, with sanitized validation messages and a `field` when the helper can identify one.
+Tool arguments are validated against `src/contracts/mcp-tool-definitions.ts` before dispatch. Invalid tool payload shapes, missing required schema fields, invalid enum values, and malformed approval envelopes fail as MCP `InvalidParams` errors before management action handlers run. The standardized management error envelope is used for action parser failures, utilizing strict integer and enum parsers that reject invalid supplied values, returning sanitized validation messages and a `field` when the helper can identify one.
 
 ## Scheduler Tools
 
@@ -187,11 +188,11 @@ All mutating settings actions require a stateful human-confirmation step. This i
 - `export_settings_bundle` when `includeSecrets: true` would export provider credentials, git tokens, issue-tracker tokens, or login credentials
 
 Runtime behavior:
-1. The first mutating settings call never changes settings, even if it includes `approval.confirmed: true`.
+1. Mutating settings actions always require a first no-op confirmation response. The first mutating settings call never changes settings, even if it includes `approval.confirmed: true`.
 2. The server records a pending approval for the exact settings action, scope, setting path, and normalized payload for 15 minutes.
 3. The response returns `approvalRequired: true` with instructions to ask the user for confirmation.
 4. The client must not call the same endpoint again with `approval.confirmed: true` unless the user explicitly confirms the exact change.
-5. After user confirmation, the same action and same payload can be called once with `approval.confirmed: true` within 15 minutes; the pending approval is consumed and cannot be reused.
+5. After user confirmation, the exact same action and exact same payload can be called once with `approval.confirmed: true` within 15 minutes; the pending approval is consumed and cannot be reused.
 6. A different settings payload, even for the same setting path, creates a separate pending approval and does not execute. Fingerprints preserve explicit `null`, explicit `undefined`, and array order, while object key order is normalized.
 
 ### Settings Synchronization Bundles
@@ -319,7 +320,7 @@ Approval example for destructive skill deletion:
 }
 ```
 
-The first call returns `approvalRequired: true`. After human approval, repeat the same request with:
+The first call returns `approvalRequired: true`. After human approval, repeat the exact same request without changing any payload fields, adding `approval.confirmed: true`:
 
 ```json
 {
@@ -432,7 +433,7 @@ Destructive claim lifecycle example:
 }
 ```
 
-The first call returns `approvalRequired: true`. To execute the deprecation after explicit human approval, repeat the same request with:
+The first call returns `approvalRequired: true`. To execute the deprecation after explicit human approval, repeat the exact same request without changing any payload fields, adding `approval.confirmed: true`:
 
 ```json
 {
@@ -741,6 +742,7 @@ For quicksprint calls:
 For scheduler calls:
 - `manage_scheduler` supports `list`, `create`, `schedule_sprint`, `schedule_quicksprint`, `schedule_chat`, `update`, `delete`, and `run_due`.
 - Generic `create` requires `targetType: "sprint" | "quicksprint" | "chat"`.
+- `manage_scheduler` supports both a nested `scheduleAnchor` object (e.g., `mode`, `sourceSprintId`, `offsetMinutes`) as well as equivalent flattened aliases (`scheduleMode`/`anchorMode`, `sourceSprintId`/`anchorSourceSprintId`, `offsetMinutes`/`anchorOffsetMinutes`).
 - The `schedule_*` aliases infer the target type and accept flattened target fields.
 - Recurrence `frequency` accepts `minutely`, `hourly`, `daily`, `weekly`, and `monthly`; the dashboard renders `minutely` as `Minutes` and the matching recurrence summaries use labels such as `Every minute` and `Every 15 minutes`.
 - Minute recurrence uses the same UTC scheduler math as longer intervals, so the normalized rule advances `nextRunAt` and expands occurrences exactly like other frequencies once the minute literal has been parsed.
