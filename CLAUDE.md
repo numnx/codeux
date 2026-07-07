@@ -13,9 +13,7 @@ The runtime ships three ways from one codebase: the **CLI/server** (`codeux`), a
 app**, and an **MCP server** (stdio + optional HTTPS worker gateway) so MCP-aware clients can drive
 it. The same backend powers all three.
 
-Key distinction from older docs: this is **no longer just a hosted MCP server**. The Code UX runtime supports
-several providers. Local CLI providers (Gemini, Codex, Claude Code, Qwen, OpenCode, Antigravity) run
-in Docker-backed workspaces; Jules is the one hosted provider.
+> Historical note: this began as an MCP server. The **Code UX runtime** is a multi-provider, container-first agentic coding runtime. It now supports several local CLI providers (Gemini, Codex, Claude Code, Qwen, OpenCode, Antigravity) that run in Docker-backed workspaces. Jules remains available as a hosted provider. Do not treat the codebase as Jules-specific.
 
 ## Commands
 
@@ -35,6 +33,7 @@ pnpm run test:coverage  # Coverage with threshold enforcement
 pnpm run typecheck      # tsc --noEmit (alias: lint — same command)
 pnpm run ci             # quality:guardrails -> audit -> lint -> test:backend:coverage -> test:dashboard -> build
 pnpm run audit          # pnpm audit --audit-level=high
+pnpm run check:docs-web # check docs-web publication output
 ```
 
 Electron: `pnpm run electron:dev`, `pnpm run electron:dist[:linux|:mac|:win]`.
@@ -71,7 +70,7 @@ Code UX backend (src/server/code-ux-server.ts)
 ├── Repositories (src/repositories/) — data access over SQLite
 │   └── db/ — schema, migrations, database-adapter, sqlite-database-adapter, sql-dialect
 ├── Contracts (src/contracts/) — shared domain types
-└── Dashboard (dashboard/src/) — Preact + Tailwind v4 (v2/ holds current UI), served on :4444
+└── Dashboard (dashboard/src/v2/) — Preact + Tailwind v4, served on :4444
 ```
 
 ### Data storage
@@ -128,7 +127,7 @@ In this working environment you have broad latitude to operate the running syste
 - **Full access to the database and environment.** The runtime DB is `~/.code-ux/app.db` (SQLite,
   WAL) — read and write it as needed via `node:sqlite`. You may inspect/modify environment state.
 - **You may restart the dev server on port 4444 anytime.** The dashboard/backend runs there.
-  `pnpm run dev` rebuilds the dashboard bundle automatically on every `dashboard/src` save (it's
+  `pnpm run dev` rebuilds the dashboard bundle automatically on every `dashboard/src/v2` save (it's
   served from the built `dashboard/dist`, not transpiled live — refresh the browser tab after a
   rebuild finishes). Restart the process for backend/server (`src/`, non-dashboard) changes to take
   effect.
@@ -159,6 +158,7 @@ In this working environment you have broad latitude to operate the running syste
 - Documentation source of truth is `docs/` (entrypoint `docs/index.md`, index `docs/SUMMARY.md`).
   `docs-web/` holds the published user/developer/architecture docs referenced from the README. Update
   the affected docs page when you change behavior; add a new page + link it for new subsystems.
+  No `docs-release/` directory should be used.
 
 ## Reference docs
 

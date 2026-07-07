@@ -3,7 +3,7 @@
 ## Project Overview
 **Code UX** (`@codeuxai/codeux`, bin `codeux`) is a local-first, MIT-licensed, **container-first agentic coding runtime**. It turns a feature/refactor/migration/QA/CI-repair goal into a managed **sprint**: planned into a dependency-aware DAG, routed to a provider, executed in isolated Docker workspaces, gated through Git/CI, and surfaced in a live Preact dashboard. It also runs as an **MCP server** (stdio + optional HTTPS worker gateway) and ships as an **Electron desktop app**.
 
-> Historical note: this began as an MCP server. The **Code UX runtime** now supports several local CLI providers (Gemini, Codex, Claude Code, Qwen, OpenCode, Antigravity). Jules remains available as a hosted provider. Do not treat the codebase as Jules-specific.
+> Historical note: this began as an MCP server. The **Code UX runtime** is a multi-provider, container-first agentic coding runtime. It now supports several local CLI providers (Gemini, Codex, Claude Code, Qwen, OpenCode, Antigravity) that run in Docker-backed workspaces. Jules remains available as a hosted provider. Do not treat the codebase as Jules-specific.
 
 ### Core Intent
 - Coordinate the provider CLIs developers already use, each in an isolated Docker workspace.
@@ -23,13 +23,14 @@
 ## Build, Test, and Development Commands
 Package manager is **pnpm** (`pnpm@10.33.0`), Node **22+**. Use `pnpm`, not `npm`.
 - `pnpm install`: Install dependencies.
-- `pnpm run dev`: Run server from source (`node --import ./scripts/tsnode-register.mjs src/index.ts`).
+- `pnpm run dev`: Starts both the backend server and Vite dashboard watcher (`node scripts/dev.mjs`).
+- `pnpm run dev:server-only`: Starts only the source backend server (`node --import ./scripts/tsnode-register.mjs src/index.ts`).
 - `pnpm run build`: server `tsc` + dashboard typecheck + `vite build`.
 - `pnpm run typecheck` / `pnpm run lint`: strict `tsc --noEmit` (the two are the same command).
-- `pnpm run test`: full Vitest run. `pnpm run test:backend` / `pnpm run test:dashboard`: scoped suites.
-- `pnpm run test:watch`: watch mode. `pnpm run test:coverage`: coverage with threshold enforcement.
+- `pnpm run test:*`: `pnpm run test` (full Vitest run), `pnpm run test:backend`, `pnpm run test:dashboard`, `pnpm run test:watch`, `pnpm run test:coverage`.
 - `pnpm run ci`: local CI equivalent (`quality:guardrails -> audit -> lint -> test:backend:coverage -> test:dashboard -> build`).
 - `pnpm run audit`: `pnpm audit --audit-level=high`.
+- `pnpm run check:docs-web`: check docs-web publication output.
 - `pnpm start`: run compiled `dist/index.js`. `node dist/index.js --help`: list CLI flags / env vars.
 - Electron: `pnpm run electron:dev`, `pnpm run electron:dist[:linux|:mac|:win]`.
 
@@ -134,7 +135,6 @@ One concise sentence explaining the area.
 | Backend Tests & Coverage | Passed |
 | Dashboard Tests | Passed |
 | Security Audit | Passed |
-| Playwright E2E | Passed |
 | CodeQL Analysis | Passed |
 
 Additional local validation, if any:
