@@ -116,7 +116,7 @@ Runtime/config ownership is:
 - repo-scoped: `<repo>/.code-ux/`
 - home-scoped: `~/.code-ux/`
 
-This replaces:
+This replaces (historical legacy path):
 
 - `<repo>/.jules-subagents/`
 - `~/.jules-subagents/`
@@ -376,7 +376,7 @@ Required behavior:
 ### Track 0: Rebrand and path migration
 
 - Complete `.code-ux` migration.
-- Remove active `.jules-subagents` execution dependencies.
+- Remove active `.jules-subagents` (historical legacy path) execution dependencies.
 
 ### Track 1: DB-native execution schema
 

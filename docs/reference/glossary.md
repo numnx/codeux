@@ -69,7 +69,7 @@ Project-scoped document library ingested/uploaded/imported separately from memor
 Sprint-scoped Docker preview session for one `(projectId, sprintId)`, persisted in `sprint_preview_sessions`, served through the in-app browser on a preview origin, using `.code-ux/browser/start-preview.sh` or generated fallback startup.
 
 ## `manage_code_ux` (Deprecated)
-Deprecated unified MCP dispatcher; dedicated `manage_*` tools are preferred.
+Deprecated unified MCP dispatcher; dedicated `manage_*` tools are preferred. (Legacy tools like `manage_sessions` and `manage_planning` are also deprecated.)
 
 ## Legacy `.jules-subagents`
 Historical artifact directory used by older docs and migration notes. Current project artifacts live under `.code-ux/`.
