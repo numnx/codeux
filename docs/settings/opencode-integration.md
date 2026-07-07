@@ -17,7 +17,7 @@ Planning routes use the same named OpenCode provider instance settings as chat a
 
 ## Authentication Modes
 
-Each named OpenCode provider instance stores an `openCodeAuthMode` (`LOCAL_AUTH`, `ENV_KEY`, or `CUSTOM_PROVIDER`). API-key mode can use `ENV_KEY` or `CUSTOM_PROVIDER`; local/dashboard auth forces `openCodeAuthMode` to `LOCAL_AUTH`.
+Each named OpenCode provider instance stores an `openCodeAuthMode` (`LOCAL_AUTH`, `ENV_KEY`, or `CUSTOM_PROVIDER`). API-key mode can use `ENV_KEY` or `CUSTOM_PROVIDER`; local/dashboard auth forces `openCodeAuthMode` to `LOCAL_AUTH` and clears all custom API-key sub-mode fields (`openCodeProviderId`, `openCodeModelId`, `openCodeBaseUrl`, `openCodeEnvKey`, `openCodePackage`). This ensures mutual exclusion between API key and local/dashboard auth.
 
 ### Local Auth
 
@@ -80,7 +80,7 @@ When Custom endpoint is selected for a fresh OpenCode instance, the settings for
 
 ## MCP Tools
 
-OpenCode reads MCP servers from the `mcp` section of its config. Code UX includes the management MCP server in the same generated config payload used for provider settings:
+OpenCode reads MCP servers from the `mcp` section of its config. Code UX includes the management MCP server in the same generated config payload used for provider settings, built via `mcp-config-format.ts` (which does not inherit arbitrary local MCP configurations):
 
 ```json
 {
