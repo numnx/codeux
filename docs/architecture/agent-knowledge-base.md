@@ -14,6 +14,12 @@ Supported ingest paths:
 - Ingest an in-repo file or directory through `POST /api/projects/:projectId/knowledge/documents` with `path`.
 - Import selected documents from another project through `POST /api/projects/:projectId/knowledge/documents/import-project` with `sourceProjectId` and optional `documentIds`.
 
+Supported document management and retrieval paths:
+
+- Retrieve documents through `GET /api/projects/:projectId/knowledge/documents`.
+- Retrieve a specific document through `GET /api/projects/:projectId/knowledge/documents/:documentId` (or unscoped `GET /api/knowledge/documents/:documentId`).
+- Re-embed a document through `POST /api/projects/:projectId/knowledge/documents/:documentId/reembed` (or unscoped `POST /api/knowledge/documents/:documentId/reembed`).
+
 Repo-path ingestion resolves `path` inside the selected project's `baseDir`, rejects traversal outside the project directory, and skips common generated or dependency directories when walking a directory.
 
 Project imports copy extracted document text into the target project as `sourceType: "project"` documents. The target project embeds the copied documents with the active embedding model and still deduplicates by content hash inside that project.
@@ -42,7 +48,7 @@ If the active model and bundled content hash match, Code UX loads these chunks d
 
 ## Agent Subscriptions
 
-Agent subscriptions are persisted through:
+Agent subscriptions are read through `GET /api/agent-presets/:agentPresetId/knowledge` and persisted through:
 
 ```http
 PUT /api/agent-presets/:agentPresetId/knowledge/subscriptions

@@ -55,6 +55,8 @@ The memory is embedded immediately using the active embedding model.
 
 Sidebar memory cards use their own guarded delete flow. Graph and inspector single-memory deletion is immediate only while Danger Delete is armed.
 
+The sidebar list supports **batch deletion**: select multiple memories and use the batch action bar to clear or delete the selection.
+
 ## Promotion (short-term → long-term)
 
 The dashboard exposes a **Promote** flow:
@@ -105,4 +107,4 @@ The footer shows aggregate memory statistics: total counts per scope/category, a
 
 ## Programmatic access
 
-The Memory MCP tool (`manage_memory`) exposes search, list, get, create, update, delete, promote, start_reembed, get_map, count, and model_status actions, as well as durable claim actions. Destructive actions require approval confirmation. See [Management actions → memory](../../developer/management-actions.md#memory).
+The Memory MCP tool (`manage_memory`) includes raw memory actions (`search`, `list`, `get`, `create`, `update`, `delete`, `promote`), re-embed/model/map/count actions (`start_reembed`, `model_status`, `get_map`, `count`), and durable claim actions (`create_claim`, `list_claims`, `get_claim`, `update_claim`, `add_claim_evidence`, `deprecate_claim`). Destructive lifecycle actions (`delete`, `deprecate_claim`) require approval confirmation. See [Management actions → memory](../../developer/management-actions.md#memory).
