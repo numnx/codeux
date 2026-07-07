@@ -106,4 +106,33 @@ describe("SprintCell visuals", () => {
     fireEvent.click(startButton);
     expect(onPrimaryAction).not.toHaveBeenCalled();
   });
+
+  it("shows static text for the quota countdown when reduced motion is preferred", () => {
+    // Reduced motion is mocked to return `true` at the top of the file
+    const futureTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const quotaWait = {
+      sprintId: "sprint-1",
+      retryAfterIso: futureTime,
+      taskCount: 1,
+      taskKey: "TASK-1",
+      taskTitle: "Do work",
+    };
+
+    render(
+      <SprintCell
+        sprint={sprint}
+        isEven={false}
+        accentColor="text-signal-600 dark:text-signal-300"
+        quotaWait={quotaWait}
+      />
+    );
+
+    // Assert that the text is still available despite reduced motion mock
+    const elements = screen.getAllByText(/Quota wait/i);
+    expect(elements.length).toBeGreaterThan(0);
+
+    const statusEl = screen.getByRole("status");
+    expect(statusEl).toBeInTheDocument();
+    expect(statusEl.textContent).toMatch(/\d{2}:\d{2}/);
+  });
 });

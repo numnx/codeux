@@ -34,4 +34,27 @@ describe("SprintCell DOM structure for Verification", () => {
     expect(shadowShell?.className.toString()).not.toContain("drop-shadow");
     expect(shadowShell?.className.toString()).toContain("animate-organic");
   });
+
+  it("maintains consistent structural dimensions and shadow when quotaWait is applied", () => {
+    const futureTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const quotaWait = {
+      sprintId: "sprint-1",
+      retryAfterIso: futureTime,
+      taskCount: 1,
+      taskKey: "TASK-1",
+      taskTitle: "Do work",
+    };
+
+    const { container } = render(<SprintCell sprint={defaultSprint} isEven={true} accentColor="text-blue-500" quotaWait={quotaWait} />);
+    const mainDiv = container.firstChild as HTMLDivElement;
+
+    // Outer shell should still have standard dimensions
+    expect(mainDiv.className).toContain("h-72 w-72");
+    expect(mainDiv.className).toContain("lg:h-80 lg:w-80");
+
+    // The organic shadow must remain intact to prevent visual gaps in the gallery grid
+    const shadowShell = container.querySelector("[data-organic-cell-shadow]");
+    expect(shadowShell).toBeTruthy();
+    expect(shadowShell?.className.toString()).toContain(ORGANIC_CELL_SHADOW_CLASS);
+  });
 });

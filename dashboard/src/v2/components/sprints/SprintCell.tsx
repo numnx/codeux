@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import gsap from "gsap";
 import {
   Activity,
@@ -29,6 +29,7 @@ import { MOTION_TOKENS, useInteractionTokens } from "../../lib/motion/tokens.js"
 import { useGsapInteractionTokens } from "../../lib/motion/constants.js";
 import { computeSprintActionMenuPosition } from "../../lib/sprint-menu-positioning.js";
 import { ORGANIC_CELL_SHADOW_CLASS } from "../ui/organic-cell-styles.js";
+import type { SprintQuotaWaitSummary } from "../../lib/sprint-quota-wait.js";
 
 const CARD_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -66,6 +67,7 @@ interface SprintCellProps {
   isPaused?: boolean;
   pauseResumeBusy?: boolean;
   humanIntervention?: ExecutionHumanInterventionSummary | null;
+  quotaWait?: SprintQuotaWaitSummary | null;
   onPrimaryAction?: () => void;
   onPauseResume?: () => void;
   onAddTasks?: () => void;
@@ -100,6 +102,7 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
   isPaused = false,
   pauseResumeBusy = false,
   humanIntervention = null,
+  quotaWait = null,
   onPrimaryAction,
   onPauseResume,
   onAddTasks,
@@ -116,6 +119,35 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
 
   const bubbleRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [now, setNow] = useState<number>(Date.now());
+
+  useEffect(() => {
+    if (!quotaWait) return;
+    const retryTime = new Date(quotaWait.retryAfterIso).getTime();
+    if (retryTime <= now) return;
+
+    const timer = setInterval(() => {
+      const currentNow = Date.now();
+      setNow(currentNow);
+      if (retryTime <= currentNow) {
+        clearInterval(timer);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [quotaWait]);
+
+  const isQuotaWaitState = quotaWait ? new Date(quotaWait.retryAfterIso).getTime() > now : false;
+  let remainingSeconds = 0;
+  if (isQuotaWaitState && quotaWait) {
+    remainingSeconds = Math.max(0, Math.ceil((new Date(quotaWait.retryAfterIso).getTime() - now) / 1000));
+  }
+
+  const formatCountdown = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
+
   const state = statusMap[sprint.status];
   const statusPresentation = getSprintStatusPresentation({
     state: sprint.status,
@@ -153,6 +185,13 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
     effectiveLabel = attentionOverride.label;
     effectiveTextTone = attentionOverride.text;
     effectiveAccentHex = attentionOverride.accentHex;
+  }
+
+  if (isQuotaWaitState) {
+    effectiveLabel = "Quota wait";
+    effectiveTextTone = "text-slate-700 dark:text-slate-300";
+    effectiveAccentHex = "#FFFFFF";
+    StatusIcon = Clock3;
   }
 
   const isCompleted = sprint.status === "completed";
@@ -236,7 +275,7 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
         </div>
       </div>
 
-      {state.ring && !isCompleted && (
+      {(state.ring || isQuotaWaitState) && !isCompleted && (
         <div
           className={`absolute inset-0 pointer-events-none mix-blend-screen scale-[1.012] ${animationClass}`}
           style={{
@@ -247,14 +286,16 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
           <div
             className="absolute inset-0 rounded-[inherit] border border-status-green/50 dark:mix-blend-screen"
             style={{
-              borderColor: `${effectiveAccentHex}70`,
+              borderColor: isQuotaWaitState ? "rgba(255,255,255,0.7)" : `${effectiveAccentHex}70`,
             }}
           />
           {/* Breathtaking ambient breathing glow */}
           <div
             className="absolute inset-0 rounded-[inherit] animate-[pulse_3.5s_ease-in-out_infinite] motion-reduce:animate-none"
             style={{
-              boxShadow: `0 0 20px ${effectiveAccentHex}40, inset 0 0 10px ${effectiveAccentHex}20`,
+              boxShadow: isQuotaWaitState
+                ? `0 0 20px rgba(255,255,255,0.4), inset 0 0 10px rgba(255,255,255,0.2)`
+                : `0 0 20px ${effectiveAccentHex}40, inset 0 0 10px ${effectiveAccentHex}20`,
             }}
           />
         </div>
@@ -318,17 +359,31 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
           </h3>
         </div>
 
-        <div className="mt-6 flex items-center justify-center gap-7 text-center transition-transform group-hover:-translate-y-3 group-focus-within:-translate-y-3 motion-reduce:transform-none" style={controlFeedbackStyle}>
-          <div className="flex flex-col items-center">
-            <div className="font-mono text-2xl font-semibold text-[var(--text-primary)]">{sprint.tasksCount}</div>
-            <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Tasks</div>
+        {!isQuotaWaitState ? (
+          <div className="mt-6 flex items-center justify-center gap-7 text-center transition-transform group-hover:-translate-y-3 group-focus-within:-translate-y-3 motion-reduce:transform-none" style={controlFeedbackStyle}>
+            <div className="flex flex-col items-center">
+              <div className="font-mono text-2xl font-semibold text-[var(--text-primary)]">{sprint.tasksCount}</div>
+              <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Tasks</div>
+            </div>
+            <div className="h-10 w-px bg-black/[0.08] dark:bg-white/[0.08]" />
+            <div className="flex flex-col items-center">
+              <div className="font-mono text-2xl font-semibold text-[var(--text-primary)]">{sprint.completion}%</div>
+              <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Done</div>
+            </div>
           </div>
-          <div className="h-10 w-px bg-black/[0.08] dark:bg-white/[0.08]" />
-          <div className="flex flex-col items-center">
-            <div className="font-mono text-2xl font-semibold text-[var(--text-primary)]">{sprint.completion}%</div>
-            <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Done</div>
+        ) : (
+          <div className="mt-4 flex flex-col items-center justify-center transition-transform group-hover:-translate-y-3 group-focus-within:-translate-y-3 motion-reduce:transform-none" style={controlFeedbackStyle} role="status" aria-live="polite">
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 shadow-inner overflow-hidden">
+              <div className="absolute inset-0 opacity-20 animate-[spin_10s_linear_infinite] motion-reduce:animate-none" style={{ background: "conic-gradient(from 0deg, transparent 0%, #00AB84 100%)" }} />
+              <div className="absolute top-1/2 left-1/2 h-6 w-0.5 -translate-x-1/2 origin-bottom bg-slate-400 dark:bg-slate-500 rounded-full animate-[spin_60s_linear_infinite] motion-reduce:animate-none" style={{ transform: `translate(-50%, -100%) rotate(${remainingSeconds * 6}deg)` }} />
+              <Clock3 className="relative z-10 h-6 w-6 text-slate-500 dark:text-slate-400 opacity-50" />
+            </div>
+            <div className="mt-3 flex flex-col items-center">
+              <div className="font-mono text-xl font-bold tracking-widest text-[var(--text-primary)]">{formatCountdown(remainingSeconds)}</div>
+              <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Quota wait</div>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className={`absolute bottom-5 flex w-full items-center justify-center gap-3 transition-all motion-reduce:translate-y-0 motion-reduce:opacity-100 ${
           menuOpen
