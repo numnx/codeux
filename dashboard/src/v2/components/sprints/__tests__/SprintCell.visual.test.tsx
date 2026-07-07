@@ -108,7 +108,12 @@ describe("SprintCell visuals", () => {
   });
 
   it("shows static text for the quota countdown when reduced motion is preferred", () => {
+    vi.useFakeTimers();
+    // Set a known fixed mock time so initial state is stable
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+
     // Reduced motion is mocked to return `true` at the top of the file
+    // 5 minutes in the future from our mock date
     const futureTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
     const quotaWait = {
       sprintId: "sprint-1",
@@ -118,7 +123,7 @@ describe("SprintCell visuals", () => {
       taskTitle: "Do work",
     };
 
-    render(
+    const { container } = render(
       <SprintCell
         sprint={sprint}
         isEven={false}
@@ -133,6 +138,21 @@ describe("SprintCell visuals", () => {
 
     const statusEl = screen.getByRole("status");
     expect(statusEl).toBeInTheDocument();
-    expect(statusEl.textContent).toMatch(/\d{2}:\d{2}/);
+
+    // Exact initial countdown should be 05:00
+    expect(statusEl.textContent).toContain("05:00");
+
+    // Advance time and check that time text did not tick down
+    vi.advanceTimersByTime(2000);
+    expect(statusEl.textContent).toContain("05:00");
+
+    // Ensure animation elements are excluded from the DOM
+    const conicBackground = container.querySelector('[style*="conic-gradient"]');
+    expect(conicBackground).not.toBeInTheDocument();
+
+    const rotatingHand = container.querySelector('[style*="rotate"]');
+    expect(rotatingHand).not.toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 });

@@ -122,7 +122,7 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
   const [now, setNow] = useState<number>(Date.now());
 
   useEffect(() => {
-    if (!quotaWait) return;
+    if (!quotaWait || reducedMotion) return;
     const retryTime = new Date(quotaWait.retryAfterIso).getTime();
     if (retryTime <= now) return;
 
@@ -134,7 +134,7 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [quotaWait]);
+  }, [quotaWait, reducedMotion]);
 
   const isQuotaWaitState = quotaWait ? new Date(quotaWait.retryAfterIso).getTime() > now : false;
   let remainingSeconds = 0;
@@ -374,8 +374,12 @@ export const SprintCell: FunctionComponent<SprintCellProps> = ({
         ) : (
           <div className="mt-4 flex flex-col items-center justify-center transition-transform group-hover:-translate-y-3 group-focus-within:-translate-y-3 motion-reduce:transform-none" style={controlFeedbackStyle} role="status" aria-live="polite">
             <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 shadow-inner overflow-hidden">
-              <div className="absolute inset-0 opacity-20 animate-[spin_10s_linear_infinite] motion-reduce:animate-none" style={{ background: "conic-gradient(from 0deg, transparent 0%, #00AB84 100%)" }} />
-              <div className="absolute top-1/2 left-1/2 h-6 w-0.5 -translate-x-1/2 origin-bottom bg-slate-400 dark:bg-slate-500 rounded-full animate-[spin_60s_linear_infinite] motion-reduce:animate-none" style={{ transform: `translate(-50%, -100%) rotate(${remainingSeconds * 6}deg)` }} />
+              {!reducedMotion && (
+                <>
+                  <div className="absolute inset-0 opacity-20 animate-[spin_10s_linear_infinite]" style={{ background: "conic-gradient(from 0deg, transparent 0%, #00AB84 100%)" }} />
+                  <div className="absolute top-1/2 left-1/2 h-6 w-0.5 -translate-x-1/2 origin-bottom bg-slate-400 dark:bg-slate-500 rounded-full animate-[spin_60s_linear_infinite]" style={{ transform: `translate(-50%, -100%) rotate(${remainingSeconds * 6}deg)` }} />
+                </>
+              )}
               <Clock3 className="relative z-10 h-6 w-6 text-slate-500 dark:text-slate-400 opacity-50" />
             </div>
             <div className="mt-3 flex flex-col items-center">
