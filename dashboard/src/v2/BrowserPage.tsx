@@ -6,6 +6,7 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
+  SlidersHorizontal,
   Square,
   FileCode2,
 } from "lucide-preact";
@@ -17,6 +18,7 @@ import {
   fetchPreviewScript,
   removePreviewSession,
   rebuildPreviewSession,
+  savePreviewEnvironmentOverrides,
   savePreviewScript,
   startPreviewSession,
   stopPreviewSession,
@@ -35,6 +37,7 @@ import { useProjectEffectiveSettings } from "./hooks/use-project-effective-setti
 import { PreviewSessionSlider } from "./components/browser/PreviewSessionSlider.js";
 import { PreviewWindowChrome } from "./components/browser/PreviewWindowChrome.js";
 import { LaunchContainerPanel } from "./components/browser/LaunchContainerPanel.js";
+import { PreviewEnvironmentEditor } from "./components/browser/PreviewEnvironmentEditor.js";
 import { useActionFeedback } from "./hooks/use-action-feedback.js";
 import { ActionFeedbackRegion } from "./components/ui/ActionFeedbackRegion.js";
 import { PageContainer } from "./components/layout/PageContainer.js";
@@ -64,12 +67,15 @@ export const BrowserPage: FunctionComponent = () => {
   const [launching, setLaunching] = useState(false);
   const [pendingSessionAction, setPendingSessionAction] = useState<"rebuild" | "stop" | null>(null);
   const [savingScript, setSavingScript] = useState(false);
+  const [savingEnvironment, setSavingEnvironment] = useState(false);
   const [navigationPending, setNavigationPending] = useState(false);
   const [removingSessionIds, setRemovingSessionIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [addressValue, setAddressValue] = useState("/");
   const [currentPath, setCurrentPath] = useState("/");
   const [showScriptEditor, setShowScriptEditor] = useState(false);
+  const [showEnvironmentEditor, setShowEnvironmentEditor] = useState(false);
+  const [environmentDraft, setEnvironmentDraft] = useState<SprintPreviewSession["environmentOverrides"]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [launchSprintId, setLaunchSprintId] = useState("");
   const [frameSrc, setFrameSrc] = useState("");
@@ -84,6 +90,7 @@ export const BrowserPage: FunctionComponent = () => {
   const launchingRef = useRef(false);
   const pendingSessionActionRef = useRef<"rebuild" | "stop" | null>(null);
   const savingScriptRef = useRef(false);
+  const savingEnvironmentRef = useRef(false);
   const removingSessionIdsRef = useRef<Set<string>>(new Set());
   const logsCacheRef = useRef<Map<string, string>>(new Map());
   const logsRef = useRef("");
@@ -119,6 +126,7 @@ export const BrowserPage: FunctionComponent = () => {
   const previewEnabled = effectiveSettings?.settings.sprintPreview.enabled ?? true;
   const showInAppBrowser = effectiveSettings?.settings.sprintPreview.showInAppBrowser ?? true;
   const launchEnabled = previewEnabled && showInAppBrowser;
+  const defaultEnvironmentVariables = effectiveSettings?.settings.sprintPreview.environmentVariables ?? [];
   const visibleSelectedSession = selectedSession && !removingSessionIdSet.has(selectedSession.id)
     ? selectedSession
     : null;
@@ -203,6 +211,7 @@ export const BrowserPage: FunctionComponent = () => {
 
   useEffect(() => {
     if (visibleSelectedSession) {
+      setEnvironmentDraft(visibleSelectedSession.environmentOverrides ?? []);
       const nextPrimary = getPrimaryPreviewPortMapping(visibleSelectedSession);
       if (nextPrimary) {
         setSelectedPortBySessionId((current) => (
@@ -627,6 +636,30 @@ export const BrowserPage: FunctionComponent = () => {
     }
   };
 
+  const handleSaveEnvironmentOverrides = async () => {
+    if (!visibleSelectedSession) return;
+    if (savingEnvironmentRef.current) return;
+    savingEnvironmentRef.current = true;
+    setSavingEnvironment(true);
+    browserFeedback.setPending("Saving preview environment...");
+    try {
+      const updated = await savePreviewEnvironmentOverrides(
+        visibleSelectedSession.projectId,
+        visibleSelectedSession.sprintId,
+        visibleSelectedSession.id,
+        environmentDraft,
+      );
+      setEnvironmentDraft(updated.environmentOverrides ?? []);
+      await refreshSessions(true);
+      browserFeedback.setSuccess("Preview environment saved. Rebuild the container to apply changes.");
+    } catch (actionError) {
+      browserFeedback.setError(`Failed to save preview environment: ${actionError instanceof Error ? actionError.message : String(actionError)}`);
+    } finally {
+      savingEnvironmentRef.current = false;
+      setSavingEnvironment(false);
+    }
+  };
+
   const navigate = () => {
     if (!navigationEnabled || navigationPendingRef.current) {
       return;
@@ -788,6 +821,7 @@ export const BrowserPage: FunctionComponent = () => {
             {pendingSessionAction === "rebuild" ? " Rebuilding preview container." : ""}
             {pendingSessionAction === "stop" ? " Stopping preview container." : ""}
             {savingScript ? " Saving preview script." : ""}
+            {savingEnvironment ? " Saving preview environment overrides." : ""}
             {launching ? " Launching preview container." : ""}
             {navigationPending ? " Preview navigation command is being sent." : ""}
             {!navigationEnabled && navigationDisabledReason ? ` ${navigationDisabledReason}` : ""}
@@ -908,6 +942,66 @@ export const BrowserPage: FunctionComponent = () => {
                 {sessionActionDisabledReason}
               </div>
             </div>
+          </div>
+
+          <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Environment</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                  {visibleSelectedSession ? `${environmentDraft.length} override${environmentDraft.length === 1 ? "" : "s"}` : "Select a container"}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEnvironmentEditor((value) => !value)}
+                disabled={!visibleSelectedSession}
+                aria-disabled={!visibleSelectedSession}
+                aria-expanded={showEnvironmentEditor}
+                aria-controls="preview-environment-editor"
+                aria-label={showEnvironmentEditor ? "Hide environment editor" : "Show environment editor"}
+                className="inline-flex h-10 items-center gap-2 rounded-2xl border border-black/[0.08] px-3 text-xs font-semibold text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
+              >
+                <SlidersHorizontal className="h-4 w-4" strokeWidth={2} />
+                Env
+              </button>
+            </div>
+            <div className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              Defaults come from Browser Preview settings. Container overrides apply after the next rebuild.
+            </div>
+            {showEnvironmentEditor && (
+              <div id="preview-environment-editor" className="mt-4 space-y-3">
+                <PreviewEnvironmentEditor
+                  variables={environmentDraft}
+                  onChange={setEnvironmentDraft}
+                  disabled={!visibleSelectedSession || savingEnvironment}
+                  inheritedVariables={defaultEnvironmentVariables}
+                  addLabel="Add override"
+                  valueLabel="Preview environment override value"
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <div id="preview-environment-save-status" role="status" aria-live="polite" className="min-h-4 text-xs text-slate-500 dark:text-slate-400">
+                    {savingEnvironment
+                      ? "Saving environment overrides."
+                      : visibleSelectedSession
+                        ? "Save overrides, then rebuild the container to apply them."
+                        : "Select a preview container before editing overrides."}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveEnvironmentOverrides}
+                    disabled={!visibleSelectedSession || savingEnvironment}
+                    aria-disabled={!visibleSelectedSession || savingEnvironment}
+                    aria-busy={savingEnvironment}
+                    aria-describedby="preview-environment-save-status"
+                    className="inline-flex h-10 shrink-0 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
+                  >
+                    <Save className="h-4 w-4" strokeWidth={2} />
+                    {savingEnvironment ? "Saving..." : "Save env"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/72 p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]">

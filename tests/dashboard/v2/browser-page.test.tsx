@@ -8,7 +8,7 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 import { BrowserPage } from "../../../dashboard/src/v2/BrowserPage.js";
 import { useProjectData } from "../../../dashboard/src/v2/context/project-data.js";
 import { usePreviewSessions } from "../../../dashboard/src/v2/hooks/use-preview-sessions.js";
-import { fetchPreviewLogs, fetchPreviewScript, rebuildPreviewSession, savePreviewScript } from "../../../dashboard/src/v2/lib/browser-api.js";
+import { fetchPreviewLogs, fetchPreviewScript, rebuildPreviewSession, savePreviewEnvironmentOverrides, savePreviewScript } from "../../../dashboard/src/v2/lib/browser-api.js";
 
 expect.extend(matchers);
 
@@ -39,6 +39,7 @@ const effectiveSettingsMock = vi.hoisted(() => ({
         sprintPreview: {
           enabled: true,
           showInAppBrowser: true,
+          environmentVariables: [{ key: "API_BASE_URL", value: "http://api.local", enabled: true }],
         },
       },
     },
@@ -223,6 +224,18 @@ vi.mock("../../../dashboard/src/v2/lib/browser-api.js", () => ({
   removePreviewSession: mockRemovePreviewSession,
   rebuildPreviewSession: vi.fn().mockResolvedValue(undefined),
   savePreviewScript: vi.fn().mockResolvedValue({ content: "new mock script", mode: "script", path: "/script.sh" }),
+  savePreviewEnvironmentOverrides: vi.fn().mockResolvedValue({
+    id: "sess-1",
+    projectId: "p1",
+    sprintId: "s1",
+    sprintName: "Sprint 1",
+    status: "running",
+    healthStatus: "healthy",
+    containerAppPort: 3000,
+    hostPort: 8080,
+    portMappings: [{ containerPort: 3000, hostPort: 8080, isPrimary: true }],
+    environmentOverrides: [{ key: "CODE_UX_ALLOW_PUBLIC_DASHBOARD", value: "1", enabled: true }],
+  }),
   startPreviewSession: mockStartPreviewSession,
   stopPreviewSession: vi.fn().mockResolvedValue(undefined),
 }));
@@ -244,6 +257,7 @@ describe("BrowserPage", () => {
           sprintPreview: {
             enabled: true,
             showInAppBrowser: true,
+            environmentVariables: [{ key: "API_BASE_URL", value: "http://api.local", enabled: true }],
           },
         },
       },
@@ -376,6 +390,11 @@ describe("BrowserPage", () => {
     vi.mocked(fetchPreviewScript).mockResolvedValue({ content: "mock script", mode: "script", path: "/script.sh" });
     vi.mocked(savePreviewScript).mockReset();
     vi.mocked(savePreviewScript).mockResolvedValue({ content: "new mock script", mode: "script", path: "/script.sh" });
+    vi.mocked(savePreviewEnvironmentOverrides).mockReset();
+    vi.mocked(savePreviewEnvironmentOverrides).mockResolvedValue({
+      ...buildDefaultPreviewSessionsResult().selectedSession,
+      environmentOverrides: [{ key: "CODE_UX_ALLOW_PUBLIC_DASHBOARD", value: "1", enabled: true }],
+    } as any);
     vi.mocked(rebuildPreviewSession).mockReset();
     vi.mocked(rebuildPreviewSession).mockResolvedValue(undefined);
   });
@@ -643,6 +662,29 @@ describe("BrowserPage", () => {
     });
 
     expect(screen.getByText("Container rebuilt successfully")).toBeInTheDocument();
+  });
+
+  it("saves selected container environment overrides", async () => {
+    const user = userEvent.setup();
+    render(<BrowserPage />);
+
+    await user.click(screen.getByRole("button", { name: "Show environment editor" }));
+    expect(screen.getByText("API_BASE_URL=http://api.local")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add override" }));
+    const nameInputs = screen.getAllByLabelText("Environment variable name");
+    const valueInputs = screen.getAllByLabelText("Preview environment override value");
+    await user.type(nameInputs.at(-1) as HTMLElement, "CODE_UX_ALLOW_PUBLIC_DASHBOARD");
+    await user.type(valueInputs.at(-1) as HTMLElement, "1");
+    await user.click(screen.getByRole("button", { name: "Save env" }));
+
+    expect(savePreviewEnvironmentOverrides).toHaveBeenCalledWith(
+      "p1",
+      "s1",
+      "sess-1",
+      [{ key: "CODE_UX_ALLOW_PUBLIC_DASHBOARD", value: "1", enabled: true }],
+    );
+    expect(screen.getByText("Preview environment saved. Rebuild the container to apply changes.")).toBeInTheDocument();
   });
 
   it("shows script save error feedback and keeps the editor available for recovery", async () => {
