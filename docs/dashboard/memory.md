@@ -12,9 +12,12 @@ Memory embeddings can run through either backend:
   - `bge-base-en-v1.5`
   - `bge-large-en-v1.5`
   - `multilingual-e5-large`
+- Custom in-app entries are stored in memory settings under `customEmbeddingModels`. The backend accepts only Hugging Face model repositories or `https://huggingface.co/...` file URLs, normalizes them to `owner/repo` plus repository-relative ONNX/tokenizer paths, and downloads through Hugging Face `resolve/main` URLs. Custom entries keep their own display name, ONNX model path, tokenizer files, dimension, approximate size, language, and validation status.
 - `external_api`: an OpenAI-compatible embeddings endpoint configured in Settings → Memory with `baseUrl`, `apiKey`, `model`, and optional `dimensions`.
 
 `MemoryService` resolves the effective project settings before capture, search, map generation, stale-count checks, and re-embedding. External API dimensions can be inferred from the returned vector, so models with custom vector sizes can be stored safely in `embeddingDimension`.
+
+Custom in-app models appear beside built-ins in `GET /api/embedding-models`. `POST /api/embedding-models/custom` creates or updates a sanitized Hugging Face catalog entry, while the existing download, cancel, select, delete, and status routes accept custom IDs after the entry exists. Selection still requires the local ONNX file and required tokenizer files to be present, so a custom model cannot become active before its download completes.
 
 ## Memory Search Behavior
 
@@ -47,6 +50,7 @@ To preserve memory efficiency, the core scoring and sorting operate strictly on 
 When the UI generates visual graphs of memory items:
 - If a valid memory embedding map is present, the layout and edges match the exact vectors provided by the embedding model.
 - If no embedding map is present (or embeddings are still generating), a local fallback algorithm creates a deterministic layout. To preserve front-end performance on dense graphs, fallback category edges are bounded using a deterministic ring topology. Rather than computing $O(N^2)$ all-pairs edges within a category, it calculates exactly $N$ sequential edges per category, limiting memory and rendering bottlenecks.
+- The Memory page data hook sequences graph refresh requests so rapid tier, sprint, or agent filter changes cannot let an older response replace the newest memory list or embedding map. Superseded responses are discarded and only the current request may clear the loading state.
 
 ## Map Camera Behavior
 
@@ -56,13 +60,40 @@ The memory map uses a pointer-centered camera so users can inspect dense graphs 
 - Selecting a node from the canvas or list recenters the camera on that memory at a readable zoom level, and Reset returns to the default overview without leaving a stale selection behind.
 - Node points, category labels, and memory labels are drawn in clamped screen space so the graph positions zoom while dots and text remain readable instead of growing with the map or disappearing during deep inspection.
 - Hovering a node highlights it and updates the cursor only. At higher zoom levels the canvas renders the focused label bubble for the selected memory instead of creating hover-only overlays.
+- The canvas render loop pauses its requestAnimationFrame and random neural-fire timer while the browser document is hidden, then resumes a single loop when the tab becomes visible again. Empty/loading maps still clear the canvas but skip the expensive edge, pulse, and node drawing passes.
 - Dense maps are expected to remain navigable at 200+ memories without forcing every memory label to render at once.
+
+## Memory Map Controls
+
+The Memory Map control surface is driven by the currently selected project and loaded memory context:
+- **Tier tabs**: Short Term and Long Term are tab-style controls with visible counts. Short Term reads sprint-scoped memory; Long Term reads project-scoped memory.
+- **Sprint and agent filters**: Short Term shows the sprint selector, and both tiers show the agent preset selector. When a source list is empty, the filter row shows reason copy instead of rendering a focusable empty selector.
+- **Actions**: Add Memory opens the manual memory dialog for the active tier scope. Model Catalog toggles the embedding model browser and shows active-model status. Danger Delete toggles the Lobotomize delete mode; when armed, graph-node and inspector deletes are immediate while sidebar cards still require their card-level arm step.
+- **Canvas navigation**: wheel zoom, drag pan, node click selection, Zoom in, Zoom out, and Reset view all operate on the graph camera. Reset returns to overview and clears the selected memory.
+- **Sidebar list**: the memory sidebar starts collapsed as a rail with an open/close toggle. Expanded state shows search above the current alive memory list for the selected tier, sprint, and agent filters. The list supports opening a memory in the inspector, selecting visible rows, clearing selection, and confirmed batch deletion.
+- **Inspector and summaries**: selecting a canvas node or sidebar row opens the inspector. The node graph, sidebar list, inspector, and category summary cards all reflect the currently loaded memories for the active tier, sprint, agent, and search context.
+
+## Performance
+
+The animated neural canvas pauses rendering while the browser tab or page is hidden and resumes when it becomes visible again. This keeps background tabs from spending work on canvas animation while preserving the loaded node graph, sidebar, inspector, and category summary state.
 
 ## Storage Requirements
 
 Memory records encapsulate the base `content` string alongside its vectorized byte representation (`embeddingBlob`). The byte buffer must correctly decode based on its stored `embeddingDimension`. The system expects IEEE 754 32-bit floats.
 
+Worker task runs can also write an optional `## Self Reflection Rating` section in `.task-learnings.md`. The memory capture stage stores those ratings in `task_self_reflection_ratings`, not in `memories`: one row is upserted per task run with an overall 0-5 rating, normalized per-section ratings, the source task run ID, and capture timestamps. Malformed or missing rating sections are ignored so task finalization and category memory capture continue normally.
+
 **Note:** Knowledge subscriptions validate requested document IDs in batched chunk-safe queries (validating project ownership efficiently) before applying the replace-all transaction.
+
+Knowledge document object access is project-scoped. Document read, delete, re-embed, and project-import operations must prove the document belongs to the route or request project before returning content or mutating rows. Legacy unscoped document endpoints require an explicit `projectId` value and treat missing documents and cross-project mismatches as the same not-found response.
+
+## Persistent Skills vs Memory
+
+Persistent skills are reusable agent instructions, not observations learned during sprint execution. They live in project-owned `skill_storages`, are attached to agent presets through `agent_skill_storage_bindings`, and never write markdown files into the project workspace or `.code-ux/` sprint directories.
+
+Skill markdown import uses frontmatter fields for `title`, `description`, `tags`, `appliesTo`, and `version`; the body is stored as the authoritative instruction content. Rendering a skill back to markdown reconstructs that metadata from the database and emits the stored body unchanged except for trailing whitespace normalization.
+
+Skill search uses the same local embedding infrastructure as memory search but reads from `skill_embeddings`. Ordinary skill CRUD does not require an embedding provider: when no model is loaded, skills remain persisted and unembedded. When a provider is available, `SkillService` embeds the rendered skill markdown and stores the model id, vector dimension, chunk index, content hash, and blob. Search loads at most 10,000 candidate vectors from the requested storage set, skips candidates whose stored dimension differs from the query vector, ranks by cosine similarity, and breaks ties by skill id for deterministic top-K results.
 
 ## Long-Term Claims and Evidence
 
@@ -138,9 +169,17 @@ If deterministic prefiltering finds no cleanup candidates, Code UX records a com
 
 The Memory settings panel also manages one project-scoped scheduler entry for long-term remediation. Users can set it to Off, Every day, or Every week without leaving Settings. Entries created this way are marked as `memoryRemediationTarget.source = "memory_settings"` so manually created Scheduler page entries are not overwritten.
 
+## Project Manager Direct Memory
+
+The dashboard's default Project Manager has `add_long_term_memory`, a narrow direct-write MCP lane for explicit remember/learn requests and stable knowledge it judges valuable. A successful call creates a canonical long-term claim plus its searchable project-memory mirror; chat can render a `codeux:memory` confirmation widget with the exact statement, category, claim id, and mirror-memory id returned by the tool.
+
+This does not replace the two-tier capture flow. Short-term sprint observations remain evidence, and remediation/promotion still curate that evidence into durable claims. The direct lane is for stable preferences, decisions, architecture, patterns, codebase conventions, context, and learnings that should guide future work.
+
 ## UI Updates and Accessibility
-- The Memory page model catalog is presented as a Warm Void panel with a state summary and responsive model cards. It distinguishes active, downloaded, downloading, stale, and unavailable models without using legacy violet action styling.
-- Model catalog primary actions use Signal Jade for download and activation, stale re-embedding warnings use Ember, and destructive/error states use status red. The downloaded-model delete action is icon-only with an accessible label and is disabled while the model is active.
+- The Memory page model catalog is presented as a compact model browser with grouped sections for memory embedding models, custom Hugging Face embedding entry, and TTS/speech-adjacent Hugging Face models. Speech-only rows are informational and do not expose embedding download, activation, deletion, or re-embedding actions.
+- Embedding model rows distinguish active, downloaded, downloading, stale, custom, and unavailable states without using legacy violet action styling. Primary actions use Signal Jade for download and activation, stale re-embedding warnings use Ember, and destructive/error states use status red. The downloaded-model delete action is icon-only with an accessible label and is disabled while the model is active.
+- The custom Hugging Face form accepts `owner/repo` or `https://huggingface.co/...` model/file URLs plus required ONNX path, tokenizer files, dimension, approximate size, display name, and language. Client-side validation catches malformed sources and missing tokenizer metadata before `POST /api/embedding-models/custom`, then refreshes the embedding model list after success.
+- Hugging Face source links in model rows are constructed from sanitized catalog metadata and passed through dashboard URL hygiene before opening in a new tab.
 - The memory sidebar now starts collapsed by default and exposes a compact rail/tab so the graph canvas remains visible until the user explicitly expands it.
 - Expanding the sidebar opens directly to the current alive memory list for the selected tier, sprint, and agent filter set, with an embedded search input above the list. Browsing all visible memories is still the default path; search is not required before the list is useful.
 - Closing the sidebar clears the current search query and selected memory IDs so returning to the sidebar starts from the current visible memory list.
@@ -153,15 +192,15 @@ The Memory settings panel also manages one project-scoped scheduler entry for lo
 - Selection is pruned automatically when search, tier, sprint, agent, or sidebar state changes make a memory invisible, which keeps batch actions scoped to the current visible slice of memory.
 - Improved memory list accessibility and reduced motion fallbacks in `MemoryList.tsx`, utilizing `useInteractionTokens` to respect OS-level reduced motion preferences.
 - Updated the memory map camera so wheel, button, and click focus interactions preserve readable navigation on dense graphs. Wheel zoom uses smoother proportional movement, and graph labels keep stable on-screen sizing during zoom so text remains readable while node positions scale.
-- `MemoryFilters.tsx` implements proper tab semantics, count text, roving keyboard focus, selected sprint/agent feedback, and model-catalog pressed-state copy. Lobotomize (delete) mode remains a single toggle but now has persistent danger-delete copy plus stronger pressed affordance so immediate single-memory deletion is visibly armed and reversible before use.
-- Tier, sprint, agent, model catalog, and danger delete controls now expose the current selected or pressed state with visible status text and polite announcements. Disabled sprint and agent filters stay visible with reason copy instead of disappearing when no options are available.
+- `MemoryFilters.tsx` implements proper tab semantics, count text, roving keyboard focus, selected sprint/agent feedback, and model-catalog pressed-state copy. The header now presents Short Term and Long Term as count summary cards, follows with a compact current-scope line such as `Short Term: showing 7 memories of 17 memories · Sprint 2 · All Agents`, and separates selectors from Add Memory, Model Catalog, and Danger Delete actions.
+- Tier, sprint, agent, model catalog, and danger delete controls now expose the current selected or pressed state with visible status text and polite announcements. Sprint and agent selectors render only when their source lists are available; otherwise the filter row shows reason copy without leaving empty controls in the tab order. Model Catalog shows the active-model status, and the grouped header layout uses `min-w-0`, wrapping, and stable flex bases to avoid horizontal overflow.
 - The memory list uses the shared `listReveal`, `listReorder`, and `expansionCollapse` motion tokens for search/filter transitions. Reduced-motion users receive immediate list updates while visible result counts and live regions continue to communicate what changed.
 - Graph and list selection state is mirrored in text: selected cards show an `Open` badge, the graph area includes a visible selection status, and the inspector announces when a selected memory is open. This keeps critical selection feedback available without depending on canvas animation alone.
 - During background refresh or failed refreshes, the sidebar keeps the last useful memory result list visible when available, marks the region busy or stale with visible copy, and exposes retry or next-action controls instead of replacing the list with a blank panel. Stale content is only reused for the same committed search query, so a new no-match search shows the no-match recovery state rather than old matches.
-- Background refresh, retry, and stale-data states use `aria-busy` on the list region, polite refreshing copy, and assertive retryable error copy while preserving the previous useful same-query rows. A newly committed search or filter with no matches must render the real no-match empty state and must not reuse stale rows from another query.
+- Background refresh, retry, and stale-data states use `aria-busy` on the list region, polite refreshing copy, and assertive retryable error copy while preserving the previous useful rows only when the committed query, tier, sprint, and agent filter context still match. A newly committed search or filter with no matches must render the real no-match empty state and must not reuse stale rows from another query or scope.
 - The inspector stays recoverable when a previously selected memory falls out of the current result set. It opens a visible unavailable-state panel with close guidance rather than silently disappearing.
 - Memory card selection, batch selection, graph selection, and inspector reveals do not rely on hover or animation. Cards expose keyboard-reachable Open and Select controls, visible Open/Selected badges, `aria-selected`, and stable inspector status copy; the inspector uses tokenized reveal/progress styling but remains fully readable when motion is disabled.
 - Adding a manual memory uses explicit form validation and async feedback: invalid submits focus the content field, pending submits mark the dialog busy, failures remain in an assertive status region, and successful creates briefly confirm before restoring focus to the opener.
 - Embedding model actions now surface pending, success, and error messages from the catalog so downloads, activation, deletion, and re-embedding changes are announced without relying on model-card state changes alone. Model cards keep stable action/status slots, show text progress next to progress bars, expose disabled reasons for active/download/re-embed conflicts, suppress duplicate activations while an async action is pending, and confirm local model deletion before removal. Re-embedding progress includes both completed/total text and a progressbar so `0ms` motion still communicates progress.
-- Batch deletion shows selected-count and visible-scope copy, requires confirmation, marks the list busy, disables conflicting batch controls while deletion is pending, and restores focus to the list controls after the async mutation settles or the confirmation is canceled. Mutation errors remain in the feedback region with a retry action.
+- Batch deletion shows selected-count and visible-scope copy, requires confirmation that names the active tier, sprint/agent scope, and committed search, marks the list busy, disables conflicting batch controls while deletion is pending, and restores focus to the list controls after the async mutation settles or the confirmation is canceled. Mutation errors remain in the feedback region with a retry action, and duplicate refresh or mutation retries are suppressed while a retry is pending.
 - Danger delete mode uses explicit armed/off copy at the filter toggle, page warning, card delete controls, and inspector delete action. Graph and inspector single-memory deletes remain immediate in this mode, while sidebar cards use an arm/cancel step before deletion.

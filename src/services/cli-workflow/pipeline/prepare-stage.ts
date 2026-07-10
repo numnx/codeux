@@ -92,22 +92,28 @@ export async function executePrepareStage(
     }
   }
 
-  const { worktreePath: finalPath, resumed } = await ctx.workspaceManager.prepareWorktree(
-    ctx.repoPath,
-    ctx.worktreePath,
-    ctx.workerBranch,
-    ctx.featureBranch,
-    resumeFromFailedSessionId,
-    {
+  const { worktreePath: finalPath, resumed } = await ctx.invocationWorkspacePreparer.prepareWorktree({
+    repoPath: ctx.repoPath,
+    worktreePath: ctx.worktreePath,
+    workerBranch: ctx.workerBranch,
+    featureBranch: ctx.featureBranch,
+    resumeSessionId: resumeFromFailedSessionId,
+    gitAuth: {
       githubToken: ctx.settings.git.githubToken,
       gitlabToken: ctx.settings.git.gitlabToken,
     },
-  );
+    gitPolicy: {
+      githubMode: ctx.settings.git.githubMode,
+      defaultBranch: ctx.settings.git.defaultBranch,
+      githubToken: ctx.settings.git.githubToken,
+      gitlabToken: ctx.settings.git.gitlabToken,
+    },
+  });
 
   ctx.worktreePath = finalPath;
 
   const workspaceGuidance = await ctx.workspaceManager.buildWorkspaceGuidance(ctx.task.prompt, ctx.worktreePath);
-  const providerPrompt = buildProviderPrompt(`${promptBody}\n\n${workspaceGuidance}`, providerSettings.thinkingMode);
+  const providerPrompt = buildProviderPrompt(`${promptBody}\n\n${workspaceGuidance}`, providerSettings.thinkingMode, ctx.provider);
 
   const initialHead = (await ctx.runCommand("git", ["rev-parse", "HEAD"], ctx.worktreePath)).stdout.trim();
   ctx.initialHead = initialHead;

@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import type { CliWorkflowSettings, ProviderId, ThinkingMode } from "../contracts/app-types.js";
+import { normalizeProviderThinkingMode } from "../repositories/settings-defaults.js";
 
 export const DEFAULT_CLI_WORKFLOW_SETTINGS: CliWorkflowSettings = {
   cleanupWorktreeOnSuccess: true,
@@ -12,10 +14,13 @@ export const DEFAULT_CLI_WORKFLOW_SETTINGS: CliWorkflowSettings = {
   resumeFailedTaskInSameWorkspace: true,
   gitMode: "remote",
   executionMode: "DOCKER",
-  containerImage: "node:24-bookworm",
+  containerImageMode: "managed",
+  containerImage: "node:24-trixie-slim",
   containerSetupScriptPath: "",
+  containerMemoryLimitMb: 6144,
   containerCacheSetupScriptImage: true,
   containerInstallPlaywrightBrowsers: true,
+  containerRunAsRoot: false,
   containerMountGitConfig: false,
   containerGitUserName: "Code UX",
   containerGitUserEmail: "agents@codeux.ai",
@@ -46,6 +51,19 @@ export const sanitizeToken = (value: string): string =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 48);
 
+const WORKER_BRANCH_FEATURE_TOKEN_LENGTH = 16;
+const WORKER_BRANCH_TASK_TOKEN_LENGTH = 18;
+const WORKER_BRANCH_PROVIDER_TOKEN_LENGTH = 10;
+const WORKER_BRANCH_HASH_LENGTH = 8;
+
+const shortHash = (value: string): string =>
+  createHash("sha256").update(value).digest("hex").slice(0, WORKER_BRANCH_HASH_LENGTH);
+
+const trimBranchToken = (value: string, maxLength: number, fallback: string): string => {
+  const trimmed = value.slice(0, maxLength).replace(/[._-]+$/g, "");
+  return trimmed || fallback;
+};
+
 /**
  * The stable portion of a worker branch name — everything {@link buildWorkerBranch}
  * produces except the trailing time-based suffix. Used to find an existing worker
@@ -53,9 +71,14 @@ export const sanitizeToken = (value: string): string =>
  * (e.g. cleared during a LOCAL-mode QA re-run cycle).
  */
 export const buildWorkerBranchPrefix = (featureBranch: string, taskId: string, provider?: ProviderId): string => {
-  const feature = sanitizeToken(featureBranch.replace(/\//g, "-"));
-  const task = sanitizeToken(taskId);
-  return provider ? `task/${feature}-${task}-${provider}-` : `task/${feature}-${task}-`;
+  const feature = trimBranchToken(sanitizeToken(featureBranch.replace(/\//g, "-")), WORKER_BRANCH_FEATURE_TOKEN_LENGTH, "feature");
+  const task = trimBranchToken(sanitizeToken(taskId), WORKER_BRANCH_TASK_TOKEN_LENGTH, "task");
+  const hash = shortHash(`${featureBranch}\0${taskId}\0${provider ?? ""}`);
+  if (!provider) {
+    return `task/${feature}-${task}-${hash}-`;
+  }
+  const providerToken = trimBranchToken(sanitizeToken(provider), WORKER_BRANCH_PROVIDER_TOKEN_LENGTH, "provider");
+  return `task/${feature}-${task}-${providerToken}-${hash}-`;
 };
 
 export const buildWorkerBranch = (featureBranch: string, taskId: string, provider: ProviderId): string => {
@@ -63,10 +86,34 @@ export const buildWorkerBranch = (featureBranch: string, taskId: string, provide
   return `${buildWorkerBranchPrefix(featureBranch, taskId, provider)}${suffix}`;
 };
 
-export const buildProviderPrompt = (prompt: string, thinkingMode: ThinkingMode): string => {
+export const buildProviderPrompt = (prompt: string, thinkingMode: ThinkingMode, provider?: ProviderId): string => {
+  if (provider === "codex" || provider === "claude-code" || provider === "qwen-code" || provider === "opencode") {
+    return prompt;
+  }
+  if (provider === "jules" || provider === "mockup-cli") {
+    return prompt;
+  }
+  if (provider === "gemini") {
+    const mode = normalizeProviderThinkingMode(provider, thinkingMode);
+    return [
+      "# Gemini Thinking Level",
+      `Use Gemini thinking_level "${mode}" when the selected model supports it.`,
+      "",
+      prompt,
+    ].join("\n");
+  }
+  if (provider === "antigravity") {
+    const mode = normalizeProviderThinkingMode(provider, thinkingMode);
+    return [
+      "# Antigravity Reasoning",
+      `Use ${mode} reasoning effort for this task.`,
+      "",
+      prompt,
+    ].join("\n");
+  }
   return [
     "# Thinking Mode",
-    `Use ${thinkingMode} reasoning depth.`,
+    `Use ${String(thinkingMode)} reasoning depth.`,
     "",
     prompt,
   ].join("\n");

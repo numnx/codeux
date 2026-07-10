@@ -23,6 +23,95 @@ import {
   resolveDispatchErrorMessage,
 } from "../../domain/sprint/session-sync/session-state-mapping.js";
 
+const LOCAL_CLI_SESSION_PROVIDERS = new Set([
+  "antigravity",
+  "claude-code",
+  "codex",
+  "gemini",
+  "mockup-cli",
+  "opencode",
+  "qwen-code",
+]);
+
+const TERMINAL_DISPATCH_STATUSES = new Set([
+  "completed",
+  "failed",
+  "cancelled",
+  "blocked",
+  "quota",
+]);
+
+const DISPATCH_HEARTBEAT_INTERVAL_MS = 60_000;
+
+const shouldRefreshDispatchHeartbeat = (lastHeartbeatAt: string | null, now: string): boolean => {
+  if (!lastHeartbeatAt) {
+    return true;
+  }
+  const lastHeartbeatMs = new Date(lastHeartbeatAt).getTime();
+  const nowMs = new Date(now).getTime();
+  return !Number.isFinite(lastHeartbeatMs) || !Number.isFinite(nowMs)
+    || nowMs - lastHeartbeatMs >= DISPATCH_HEARTBEAT_INTERVAL_MS;
+};
+
+const taskAlreadyHasPlanningStatus = (
+  taskStatus: Subtask["status"],
+  planningStatus: ReturnType<typeof mapTaskRunStateToPlanningStatus>,
+): boolean => (
+  (taskStatus === "RUNNING" && planningStatus === "in_progress")
+  || (taskStatus === "CODING_COMPLETED" && planningStatus === "coding_completed")
+  || (taskStatus !== "RUNNING" && taskStatus !== "CODING_COMPLETED" && planningStatus === "pending")
+);
+
+const isLocalCliSessionProvider = (provider: string | null | undefined): boolean => (
+  LOCAL_CLI_SESSION_PROVIDERS.has(String(provider || ""))
+);
+
+const isFinishedLocalCliTaskRun = (
+  taskRun: TaskRunRecord,
+  provider: string | null | undefined,
+): boolean => (
+  isLocalCliSessionProvider(provider)
+  && taskRun.finishedAt !== null
+);
+
+const isTerminalSessionState = (state: string | null | undefined): boolean => {
+  const normalized = String(state || "").toUpperCase();
+  return normalized === "COMPLETED" || normalized === "FAILED" || normalized === "CANCELLED";
+};
+
+const shouldSkipTerminalLocalCliSessionPolling = (subtasks: Subtask[]): boolean => {
+  let sawTerminalLocalCliSession = false;
+
+  for (const task of subtasks) {
+    const sessionId = resolveTaskSessionId(task);
+    if (!sessionId) {
+      continue;
+    }
+
+    if (!isLocalCliSessionProvider(task.provider)) {
+      return false;
+    }
+    if (!isTerminalSessionState(task.session_state)) {
+      return false;
+    }
+    if (task.status === "RUNNING" || task.status === "BLOCKED" || task.status === "QUOTA") {
+      return false;
+    }
+    if (
+      task.status === "CODING_COMPLETED"
+      && !task.is_merged
+      && !task.worker_branch
+      && !task.pr_url
+    ) {
+      return false;
+    }
+
+    sawTerminalLocalCliSession = true;
+  }
+
+  return sawTerminalLocalCliSession;
+};
+
 const extractGitMetrics = (session: JulesSession): Record<string, unknown> | null => {
   const pullRequestOutput = Array.isArray(session.outputs)
     ? session.outputs.find((entry) => entry && typeof entry === "object" && "pullRequest" in entry)
@@ -461,13 +550,19 @@ const syncExecutionRunState = async (
     }
   }
 
-  const wasTerminal = taskRun.state === "COMPLETED" || taskRun.state === "FAILED";
   const currentDispatch = taskRun.dispatchId
     ? deps.executionRepository.getTaskDispatch(taskRun.dispatchId)
     : null;
-  const wasDispatchTerminal = !currentDispatch || currentDispatch.finishedAt !== null;
+  const wasDispatchTerminal = !currentDispatch
+    || currentDispatch.finishedAt !== null
+    || TERMINAL_DISPATCH_STATUSES.has(currentDispatch.status);
   const actionRequiredReplyPending = hasSubmittedReplyForActionRequiredState(task, session.state, activities);
   const nextRunState = mapSessionStateToTaskRunState(session.state, deps.isActionRequiredState, actionRequiredReplyPending);
+  const sessionProvider = session.provider || taskRun.provider;
+  const isFinishedLocalCliRun = isFinishedLocalCliTaskRun(taskRun, sessionProvider);
+  const wasTerminal = taskRun.state === "COMPLETED"
+    || taskRun.state === "FAILED"
+    || isFinishedLocalCliRun;
   // A provider session can come back to life after it had finished — e.g. a
   // Jules session continued with QA follow-up work, or a task that was rerun.
   // When that happens the local run is terminal but the remote session is
@@ -476,14 +571,25 @@ const syncExecutionRunState = async (
   // session is actively working (the stale-status-on-rerun bug). A genuinely
   // merged task is excluded — it is done for good and its session activity, if
   // any, is stale.
-  const sessionReactivated = !task.is_merged
+  const sessionReactivated = !isLocalCliSessionProvider(sessionProvider)
+    && !task.is_merged
     && (nextRunState === "RUNNING" || nextRunState === "BLOCKED");
 
   if (wasTerminal && wasDispatchTerminal && !sessionReactivated) {
     if (currentDispatch && taskRun.dispatchId) {
-      const expectedStatus = mapTaskRunStateToDispatchStatus(taskRun.state, session.state);
-      const expectedErrorMessage = resolveDispatchErrorMessage(currentDispatch.errorMessage, taskRun.state, session.state);
-      if (currentDispatch.status !== expectedStatus || currentDispatch.errorMessage !== expectedErrorMessage) {
+      const preserveCancelledDispatch = isFinishedLocalCliRun && currentDispatch.status === "cancelled";
+      const expectedStatus = preserveCancelledDispatch
+        ? "cancelled"
+        : mapTaskRunStateToDispatchStatus(taskRun.state, session.state);
+      const expectedErrorMessage = preserveCancelledDispatch
+        ? currentDispatch.errorMessage
+        : resolveDispatchErrorMessage(currentDispatch.errorMessage, taskRun.state, session.state);
+      if (
+        currentDispatch.status !== expectedStatus
+        || currentDispatch.errorMessage !== expectedErrorMessage
+        || currentDispatch.startedAt === null
+        || currentDispatch.finishedAt === null
+      ) {
         deps.executionRepository.updateTaskDispatch(taskRun.dispatchId, {
           status: expectedStatus,
           startedAt: currentDispatch.startedAt || taskRun.startedAt || new Date().toISOString(),
@@ -499,7 +605,7 @@ const syncExecutionRunState = async (
   const sessionMetadata = sessionMetadataLookup.getForSession(session);
   const sessionName = sessionMetadata.sessionName || taskRun.sessionName;
   const sessionId = sessionMetadata.sessionId || taskRun.sessionId;
-  const provider = session.provider || taskRun.provider;
+  const provider = sessionProvider;
   const workerBranch = resolveWorkerBranch(session) || taskRun.workerBranch;
   const prUrl = resolvePrUrl(session) || taskRun.prUrl;
   const now = new Date().toISOString();
@@ -509,27 +615,50 @@ const syncExecutionRunState = async (
   const nextDurationMs = nextRunState === "RUNNING" || !taskRun.startedAt
     ? null
     : Math.max(0, new Date(nextFinishedAt || now).getTime() - new Date(taskRun.startedAt).getTime());
+  const nextStartedAt = taskRun.startedAt || now;
 
-  deps.executionRepository.updateTaskRun(taskRun.id, {
-    sessionId,
-    sessionName,
-    provider,
-    workerBranch,
-    prUrl,
-    state: nextRunState,
-    startedAt: taskRun.startedAt || now,
-    finishedAt: nextFinishedAt,
-    durationMs: nextDurationMs,
-  });
+  const taskRunChanged = taskRun.sessionId !== sessionId
+    || taskRun.sessionName !== sessionName
+    || taskRun.provider !== provider
+    || taskRun.workerBranch !== workerBranch
+    || taskRun.prUrl !== prUrl
+    || taskRun.state !== nextRunState
+    || taskRun.startedAt !== nextStartedAt
+    || taskRun.finishedAt !== nextFinishedAt
+    || taskRun.durationMs !== nextDurationMs;
+  if (taskRunChanged) {
+    deps.executionRepository.updateTaskRun(taskRun.id, {
+      sessionId,
+      sessionName,
+      provider,
+      workerBranch,
+      prUrl,
+      state: nextRunState,
+      startedAt: nextStartedAt,
+      finishedAt: nextFinishedAt,
+      durationMs: nextDurationMs,
+    });
+  }
 
   if (taskRun.dispatchId) {
-    deps.executionRepository.updateTaskDispatch(taskRun.dispatchId, {
-      status: mergeDispatchStatus(currentDispatch?.status || null, nextRunState, session.state),
-      startedAt: taskRun.startedAt || now,
-      finishedAt: nextRunState === "RUNNING" ? null : (currentDispatch?.finishedAt || nextFinishedAt),
-      lastHeartbeatAt: now,
-      errorMessage: resolveDispatchErrorMessage(currentDispatch?.errorMessage, nextRunState, session.state),
-    });
+    const nextDispatchStatus = mergeDispatchStatus(currentDispatch?.status || null, nextRunState, session.state);
+    const nextDispatchFinishedAt = nextRunState === "RUNNING" ? null : (currentDispatch?.finishedAt || nextFinishedAt);
+    const nextDispatchErrorMessage = resolveDispatchErrorMessage(currentDispatch?.errorMessage, nextRunState, session.state);
+    const dispatchChanged = !currentDispatch
+      || currentDispatch.status !== nextDispatchStatus
+      || currentDispatch.startedAt !== nextStartedAt
+      || currentDispatch.finishedAt !== nextDispatchFinishedAt
+      || currentDispatch.errorMessage !== nextDispatchErrorMessage;
+    const refreshHeartbeat = dispatchChanged || shouldRefreshDispatchHeartbeat(currentDispatch?.lastHeartbeatAt || null, now);
+    if (dispatchChanged || refreshHeartbeat) {
+      deps.executionRepository.updateTaskDispatch(taskRun.dispatchId, {
+        status: nextDispatchStatus,
+        startedAt: nextStartedAt,
+        finishedAt: nextDispatchFinishedAt,
+        lastHeartbeatAt: refreshHeartbeat ? now : currentDispatch?.lastHeartbeatAt || now,
+        errorMessage: nextDispatchErrorMessage,
+      });
+    }
     if (nextRunState !== "RUNNING" && taskRun.sprintRunId) {
       deps.sprintRunLifecycleService?.finalizeCancellationIfIdle(taskRun.sprintRunId);
     }
@@ -544,7 +673,7 @@ const syncExecutionRunState = async (
   const skipStatusUpdate = task.status === "QA_REVIEW_FAILED"
     || (task.status === "COMPLETED" && !sessionReactivated && (nextPlanningStatus as string) !== "completed");
 
-  if (!skipStatusUpdate) {
+  if (!skipStatusUpdate && (!taskAlreadyHasPlanningStatus(task.status, nextPlanningStatus) || task.is_merged)) {
     const updatePayload: Record<string, any> = {
       status: nextPlanningStatus,
     };
@@ -595,7 +724,7 @@ const syncExecutionRunState = async (
   // conversation transcript and running usage estimate so the dashboard shows
   // messages and token counts in real time (matching the CLI providers). The
   // service throttles per session, so calling this every sync tick is cheap.
-  if (!isTerminal && deps.julesUsage?.syncLiveInvocation && task.project_id && task.record_id && sessionId) {
+  if (provider === "jules" && !isTerminal && deps.julesUsage?.syncLiveInvocation && task.project_id && task.record_id && sessionId) {
     deps.julesUsage.syncLiveInvocation(
       task.project_id,
       task.record_id,
@@ -631,7 +760,7 @@ const syncExecutionRunState = async (
 
       const hasCalculatedUsage = existingUsage && existingUsage.totalTokens !== undefined && existingUsage.totalTokens !== null && existingUsage.totalTokens > 0;
 
-      if (!hasCalculatedUsage && deps.julesUsage && task.project_id && task.record_id && (sessionId || sessionName || taskRun.id)) {
+      if (provider === "jules" && !hasCalculatedUsage && deps.julesUsage && task.project_id && task.record_id && (sessionId || sessionName || taskRun.id)) {
         deps.julesUsage.calculateAndSaveUsageForTask(
           task.project_id,
           task.record_id,
@@ -661,6 +790,10 @@ export const runSessionSyncStep = async (
     githubMode?: "REMOTE" | "LOCAL";
   },
 ): Promise<{ subtasks: Subtask[]; sessions: JulesSession[] }> => {
+  if (shouldSkipTerminalLocalCliSessionPolling(subtasks)) {
+    return { subtasks, sessions: [] };
+  }
+
   const sessionsResponse = await deps.listSessions();
   const sessions = sessionsResponse.sessions || [];
   const sessionMetadataLookup = createSessionMetadataLookup(deps);

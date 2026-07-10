@@ -1,6 +1,7 @@
 import type { FunctionComponent, ComponentChildren } from "preact";
 import { useId } from "preact/hooks";
 import type { ProjectSettings, SettingsValueSource, ThinkingMode } from "../../../types.js";
+import { PreviewEnvironmentEditor } from "../browser/PreviewEnvironmentEditor.js";
 import { AvantgardeSelect } from "../ui/AvantgardeSelect.js";
 import { TextInput, TextAreaInput, NumberInput, SelectInput, Toggle } from "./SettingsFormFields.js";
 import {
@@ -20,7 +21,7 @@ import { AutomationPanel } from "./panels/AutomationPanel.js";
 import { ProviderPanel } from "./panels/ProviderPanel.js";
 import { WorkerPanel } from "./panels/WorkerPanel.js";
 import { InfoIconPopover } from "../ui/InfoIconPopover.js";
-import { BranchNameSchemeEditor } from "./BranchNameSchemeEditor.js";
+import { BranchNameSchemeEditor, TaskPrTitleSchemeEditor } from "./BranchNameSchemeEditor.js";
 import { LocalFilePickerField } from "./LocalFilePickerField.js";
 
 
@@ -145,6 +146,17 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
                 git: {
                   ...settings.git,
                   sprintBranchScheme: value,
+                },
+              })}
+            />
+          </Row>
+          <Row label="Task PR title scheme" description="Template used when naming automatically-created task pull requests." badge={getBadge("git.taskPrTitleScheme")}>
+            <TaskPrTitleSchemeEditor
+              value={settings.git.taskPrTitleScheme}
+              onChange={(value) => update({
+                git: {
+                  ...settings.git,
+                  taskPrTitleScheme: value,
                 },
               })}
             />
@@ -336,9 +348,25 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
               ]}
             />
           </Row>
-          <Row label="Container image" description="Container image used when execution mode is Docker." badge={getBadge("cliWorkflow.containerImage")}>
+          <Row label="Runtime image mode" description="Use the auto-updating Code UX runtime or an explicit custom image." badge={getBadge("cliWorkflow.containerImageMode")}>
+            <SelectInput
+              value={settings.cliWorkflow.containerImageMode}
+              onChange={(value) => update({
+                cliWorkflow: {
+                  ...settings.cliWorkflow,
+                  containerImageMode: value === "custom" ? "custom" : "managed",
+                },
+              })}
+              options={[
+                { value: "managed", label: "Managed runtime" },
+                { value: "custom", label: "Custom image" },
+              ]}
+            />
+          </Row>
+          <Row label="Custom container image" description="Container image used only in custom mode." badge={getBadge("cliWorkflow.containerImage")}>
             <TextInput
               value={settings.cliWorkflow.containerImage}
+              disabled={settings.cliWorkflow.containerImageMode !== "custom"}
               onChange={(value) => update({
                 cliWorkflow: {
                   ...settings.cliWorkflow,
@@ -362,7 +390,7 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
               placeholder=".code-ux/container/setup.sh"
             />
           </Row>
-          <Row label="Cache setup as image" description="Build and reuse a derived Docker image keyed by the base image and setup script contents." badge={getBadge("cliWorkflow.containerCacheSetupScriptImage")}>
+          <Row label="Cache custom setup extension" description="Build and reuse an extension image for an explicitly configured setup script." badge={getBadge("cliWorkflow.containerCacheSetupScriptImage")}>
             <Toggle aria-label="Cache setup as image" aria-description="Build and reuse a derived Docker image keyed by the base image and setup script contents." value={settings.cliWorkflow.containerCacheSetupScriptImage}
               onChange={(value) => update({
                 cliWorkflow: {
@@ -372,8 +400,8 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
               })}
             />
           </Row>
-          <Row label="Preinstall Playwright browsers" description="Install Chromium and OS dependencies for browser checks inside coding containers." badge={getBadge("cliWorkflow.containerInstallPlaywrightBrowsers")}>
-            <Toggle aria-label="Preinstall Playwright browsers" aria-description="Install Chromium and OS dependencies for browser checks inside coding containers." value={settings.cliWorkflow.containerInstallPlaywrightBrowsers}
+          <Row label="Preload Playwright browser" description="Download the matched browser into a reusable local Docker volume for coding containers." badge={getBadge("cliWorkflow.containerInstallPlaywrightBrowsers")}>
+            <Toggle aria-label="Preload Playwright browser" aria-description="Download the matched browser into a reusable local Docker volume for coding containers." value={settings.cliWorkflow.containerInstallPlaywrightBrowsers}
               onChange={(value) => update({
                 cliWorkflow: {
                   ...settings.cliWorkflow,
@@ -563,6 +591,19 @@ export const ProjectSettingsEditor: FunctionComponent<ProjectSettingsEditorProps
                 },
               })}
               mono
+            />
+          </Row>
+          <Row label="Default container variables" description="Environment variables injected into every preview container for this scope." badge={getBadge("sprintPreview.environmentVariables")}>
+            <PreviewEnvironmentEditor
+              variables={settings.sprintPreview.environmentVariables ?? []}
+              onChange={(environmentVariables) => update({
+                sprintPreview: {
+                  ...settings.sprintPreview,
+                  environmentVariables,
+                },
+              })}
+              addLabel="Add default"
+              valueLabel="Preview environment default value"
             />
           </Row>
         </div>

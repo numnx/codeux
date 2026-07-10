@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { buildProviderSettingsOverride } from "./provider-settings-override.js";
 import {
   buildProviderPrompt,
@@ -13,6 +14,12 @@ import { extractJsonFromText } from "../domain/llm/json-extraction.js";
 import { StructuredAgentRequestService } from "./structured-agent-request-service.js";
 import { StructuredProviderResponseService } from "./structured-provider-response-service.js";
 import { WorkspaceManager } from "../infrastructure/providers/cli/workspace-manager.js";
+import {
+  buildInvocationGitPolicy,
+  buildInvocationSnapshotCheckout,
+  buildProviderInvocationWorkspaceOptions,
+  InvocationWorkspacePreparer,
+} from "../infrastructure/providers/cli/invocation-workspace-preparer.js";
 import { WorkspaceArtifactService } from "../infrastructure/providers/cli/workspace-artifact-service.js";
 import { PrService } from "../infrastructure/providers/cli/pr-service.js";
 import type { IProviderRunner } from "../infrastructure/providers/cli/provider-runner.js";
@@ -33,9 +40,13 @@ import type { Logger } from "../shared/logging/logger.js";
 import { runCommandStrict } from "./cli-process-runner.js";
 import { buildGitHttpAuthEnvForRepoWithFallbacks, type GitHttpAuthOptions } from "./git-http-auth.js";
 import { resolveAgentMemoryInstructions } from "./agent-memory-instructions.js";
+import { formatTaskPrTitle } from "../domain/git/task-pr-title-template.js";
 import { buildTaskPrComposerInput } from "../domain/sprint/composer/task-pr-input-builder.js";
-import { composeTaskPrBody, composeTaskPrTitle } from "../domain/sprint/composer/pr-description-composer.js";
+import { composeTaskPrBody } from "../domain/sprint/composer/pr-description-composer.js";
 import type { MemoryService } from "./memory-service.js";
+import type { SkillService } from "./skill-service.js";
+import type { AgentPresetRepository } from "../repositories/agent-preset-repository.js";
+import type { McpConnectionInfo } from "../contracts/mcp-connection-types.js";
 import { syncRemoteBranchIfAvailable } from "./git-branch-sync-service.js";
 import { evaluateQaReviewBudget, isRecoveredStaleQaRun } from "../domain/qa-review/qa-review-budget.js";
 import { isQaReviewCancellationError, parseQaError } from "../domain/qa-review/qa-review-types.js";
@@ -87,6 +98,9 @@ interface QualityAssuranceServiceDependencies {
   sendSessionMessage: (sessionId: string, prompt: string) => Promise<unknown>;
   logger?: Logger;
   memoryService?: MemoryService;
+  skillService?: SkillService;
+  agentPresetRepository?: AgentPresetRepository;
+  getMcpConnectionInfo?: () => McpConnectionInfo | null;
   structuredAgentRequestService?: StructuredAgentRequestService;
   dockerService?: Pick<{ listContainers: () => Promise<DockerContainer[]> }, "listContainers">;
   sprintRunLifecycleService?: Pick<SprintRunLifecycleService, "updateRun">;
@@ -94,6 +108,7 @@ interface QualityAssuranceServiceDependencies {
 
 export class QualityAssuranceService {
   private readonly workspaceManager = new WorkspaceManager();
+  private readonly invocationWorkspacePreparer = new InvocationWorkspacePreparer(this.workspaceManager);
   private readonly workspaceArtifactService = new WorkspaceArtifactService(this.workspaceManager);
 
   private readonly prService = new PrService();
@@ -109,6 +124,9 @@ export class QualityAssuranceService {
       logger: deps.logger,
       sessionTracking: deps.sessionTracking,
       getGithubToken: deps.getGithubToken,
+      getMcpConnectionInfo: deps.getMcpConnectionInfo,
+      skillService: deps.skillService,
+      agentPresetRepository: deps.agentPresetRepository,
     });
 
     if (deps.structuredAgentRequestService) {
@@ -580,10 +598,11 @@ export class QualityAssuranceService {
     const sprintFeatureBranch = sprint.featureBranch?.trim()
       || `${settings.git.featureBranchPrefix || "feature/"}sprint-${sprint.number ?? 0}`;
 
-    const latestRuns = this.deps.qaReviewRepository
+    const historicalLatestRuns = this.deps.qaReviewRepository
       .listLatestSprintCycleRuns(args.sprintId)
       .map((run) => this.reconcileRunningQaRun(run))
       .filter((run): run is QaReviewRunRecord => Boolean(run));
+    const latestRuns = historicalLatestRuns.filter((run) => run.sprintRunId === args.sprintRunId);
     const latestRun = latestRuns[0] ?? null;
     const maxRuns = qaSettings.maxSprintReviewRuns;
     const currentTaskSnapshot = buildSprintQaSnapshot(args.subtasks);
@@ -619,7 +638,10 @@ export class QualityAssuranceService {
       && qaSettings.sprintCompletion.agentPresetIds.length > 0
       ? qaSettings.sprintCompletion.agentPresetIds
       : [null];
-    const runIndex = (latestRun?.runIndex || 0) + 1;
+    const latestHistoricalRunIndex = historicalLatestRuns.reduce((maxRunIndex, run) => {
+      return Math.max(maxRunIndex, typeof run.runIndex === "number" ? run.runIndex : 0);
+    }, 0);
+    const runIndex = Math.max(latestRun?.runIndex || 0, latestHistoricalRunIndex) + 1;
     const sprintReviewResults: Array<{
       agentPresetId: string;
       agentName: string;
@@ -905,31 +927,51 @@ export class QualityAssuranceService {
         ...args,
         memoryContext,
       });
-      const providerPrompt = buildProviderPrompt(prompt, providerSettings.thinkingMode);
+      const providerPrompt = buildProviderPrompt(prompt, providerSettings.thinkingMode, provider);
       const settings = this.deps.getDashboardSettings(args.scope);
       const workflowSettings = {
         ...DEFAULT_CLI_WORKFLOW_SETTINGS,
         ...settings.cliWorkflow,
       };
+      const gitPolicy = buildInvocationGitPolicy({
+        githubMode: settings.git.githubMode,
+        defaultBranch: settings.git.defaultBranch,
+        githubToken: settings.git.githubToken,
+        gitlabToken: settings.git.gitlabToken,
+      });
+      const snapshotSessionId = `qa-review-${provider}-${randomUUID()}`;
       let snapshotWorkspace = args.repoPath;
       let shouldCleanupSnapshot = false;
       if (workflowSettings.executionMode === "DOCKER") {
-        try {
-          snapshotWorkspace = await this.workspaceManager.createSnapshotWorkspace(
-            args.repoPath,
-            `qa-review-${provider}-${Date.now().toString(36)}`,
-            { branch: args.reviewBranch, fallbackBranch: args.baseBranch },
-          );
-          shouldCleanupSnapshot = true;
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          this.deps.logger?.warn("Failed to create QA snapshot workspace, falling back to repository path", {
-            projectId: args.scope.projectId,
-            sprintId: args.scope.sprintId,
-            repoPath: args.repoPath,
-            error: message,
-          });
-        }
+        const invocationWorkspace = buildProviderInvocationWorkspaceOptions({
+          workflowSettings,
+          gitPolicy,
+          branch: args.reviewBranch,
+          fallbackBranch: args.baseBranch,
+          useDefaultBranch: false,
+        });
+        snapshotWorkspace = await this.invocationWorkspacePreparer.createSnapshotWorkspace({
+          repoPath: args.repoPath,
+          sessionId: snapshotSessionId,
+          checkout: invocationWorkspace.snapshotCheckout,
+          gitPolicy: invocationWorkspace.gitPolicy,
+        });
+        shouldCleanupSnapshot = true;
+      } else if (args.reviewBranch) {
+        // QA must inspect the requested worker/feature branch in HOST mode too.
+        // The visible repository normally remains on the default branch, which
+        // otherwise turns every QA check into a false missing-file rejection.
+        snapshotWorkspace = await this.invocationWorkspacePreparer.createHostSnapshotWorkspace({
+          repoPath: args.repoPath,
+          sessionId: snapshotSessionId,
+          checkout: buildInvocationSnapshotCheckout(gitPolicy, {
+            branch: args.reviewBranch,
+            fallbackBranch: args.baseBranch,
+            useDefaultBranch: false,
+          }),
+          gitPolicy,
+        });
+        shouldCleanupSnapshot = true;
       }
 
       let result;
@@ -943,7 +985,6 @@ export class QualityAssuranceService {
           purpose: "qa_review",
           type: "qa_review",
           provider,
-          maxConcurrentTasks: providerSettings.maxConcurrentTasks,
           ...buildProviderSettingsOverride(providerSettings.model, providerSettings),
           providerPrompt,
           repoPath: args.repoPath,
@@ -963,6 +1004,10 @@ export class QualityAssuranceService {
           providerLabel: "QA",
           sessionIdPrefix: "qa-review",
           systemRoutingMessage: args.agentInstructions.trim(),
+          agentMcpAccess: args.agentPresetId
+            ? this.deps.agentPresetRepository?.getAgentPreset(args.agentPresetId)?.mcpAccess ?? null
+            : undefined,
+          mcpAgentId: args.agentPresetId,
           onActivity: () => {
             this.touchSprintRunHeartbeat(args.sprintRunId, args.scope.sprintId);
           },
@@ -1375,17 +1420,21 @@ export class QualityAssuranceService {
       githubToken: settings.git.githubToken,
       gitlabToken: settings.git.gitlabToken,
     };
-    const resumeWorkspacePath = await this.workspaceManager.resolveResumeWorktreePath(
-      args.repoPath,
-      args.sessionId,
-      workflowSettings.executionMode,
-    );
-    const hasPreservedWorkspace = Boolean(resumeWorkspacePath);
-    const worktreePath = resumeWorkspacePath
-      || this.workspaceManager.buildWorktreePath(args.repoPath, args.sessionId, workflowSettings.executionMode);
-    const resolvedWorkspaceBranch = hasPreservedWorkspace
-      ? await this.workspaceManager.resolveCurrentBranch(worktreePath)
-      : null;
+    const gitPolicy = buildInvocationGitPolicy({
+      githubMode: settings.git.githubMode,
+      defaultBranch: settings.git.defaultBranch,
+      githubToken: settings.git.githubToken,
+      gitlabToken: settings.git.gitlabToken,
+    });
+    const {
+      worktreePath,
+      hasPreservedWorkspace,
+      currentBranch: resolvedWorkspaceBranch,
+    } = await this.invocationWorkspacePreparer.resolveContinuationWorkspace({
+      repoPath: args.repoPath,
+      sessionId: args.sessionId,
+      executionMode: workflowSettings.executionMode,
+    });
     let workerBranch = args.task.worker_branch?.trim()
       || args.taskRun?.workerBranch?.trim()
       || resolvedWorkspaceBranch
@@ -1506,7 +1555,14 @@ export class QualityAssuranceService {
       );
 
       if (!hasPreservedWorkspace) {
-        await this.workspaceManager.prepareWorktree(args.repoPath, worktreePath, workerBranch, args.featureBranch, undefined, gitAuth);
+        await this.invocationWorkspacePreparer.prepareWorktree({
+          repoPath: args.repoPath,
+          worktreePath,
+          workerBranch,
+          featureBranch: args.featureBranch,
+          gitAuth,
+          gitPolicy,
+        });
       } else {
         await this.syncExistingCliFollowUpWorkspace(worktreePath, workerBranch, args.repoPath, gitAuth);
       }
@@ -1574,7 +1630,7 @@ export class QualityAssuranceService {
       openCodeModelId: followUpProviderSettings.openCodeModelId,
     });
 
-    const providerPrompt = buildProviderPrompt(`${promptBody}\n\n${workspaceGuidance}`, followUpProviderSettings.thinkingMode);
+    const providerPrompt = buildProviderPrompt(`${promptBody}\n\n${workspaceGuidance}`, followUpProviderSettings.thinkingMode, args.provider);
     const previousInvocation = this.deps.executionRepository.getLatestProviderInvocationUsageBySession(args.sessionId, "task_coding");
     const initialHead = (await this.runWorkspaceCommand(worktreePath, "git", ["rev-parse", "HEAD"])).stdout.trim();
     this.deps.sessionTracking.updateSession(args.sessionId, { state: "RUNNING" });
@@ -1606,6 +1662,10 @@ export class QualityAssuranceService {
       // would re-report every earlier turn's tokens too. See
       // execute-provider-stage.ts for the analogous first-pass wiring.
       openCodeBaselineRawUsageJson: args.provider === "opencode" ? (previousInvocation?.rawUsageJson ?? null) : null,
+      agentMcpAccess: workerAgent?.id
+        ? this.deps.agentPresetRepository?.getAgentPreset(workerAgent.id)?.mcpAccess ?? null
+        : undefined,
+      mcpAgentId: workerAgent?.id ?? null,
     });
 
     if (!result.ok) {
@@ -1680,7 +1740,17 @@ export class QualityAssuranceService {
           {
             taskId: args.task.id,
             provider: args.provider,
-            title: composeTaskPrTitle(composerInput),
+            title: formatTaskPrTitle({
+              scheme: settings.git.taskPrTitleScheme,
+              sprintKeyPrefix: settings.git.sprintKeyPrefix,
+              sprint: sprint ?? (args.task.sprint_id ? { id: args.task.sprint_id } : null),
+              task: {
+                id: args.task.record_id ?? args.task.id,
+                taskKey: args.task.id,
+                title: args.task.title,
+              },
+              provider: args.provider,
+            }),
             body: composeTaskPrBody(composerInput),
             featureBranch: args.featureBranch,
             workerBranch,

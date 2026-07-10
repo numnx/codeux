@@ -67,7 +67,7 @@ Each virtual cycle is project-scoped and one-shot:
 
 This is intentionally not an endless watch loop.
 
-The background reconcile loop stays conservative (`3s`) to avoid unnecessary sqlite write contention, while virtual worker session completion polling is tighter (`2s`) because it only checks local session and dispatch state. Scheduling operations use microtask queueing to consolidate rapid sync events while preventing simultaneous cycle overlap for the same project.
+The background reconcile loop stays conservative (`3s`) to avoid unnecessary sqlite write contention, while virtual worker session completion polling is tighter (`2s`) because it only checks local session and dispatch state. Initial scheduling operations use microtask queueing to consolidate rapid sync events while preventing simultaneous cycle overlap for the same project. If a cycle finishes and work still remains, follow-up scheduling is deferred on the reconcile timer cadence instead of recursively queueing more microtasks, so dashboard HTTP probes and shutdown signals stay responsive even when persisted worker state is temporarily unchanged.
 
 ## Planning Boundary
 
@@ -111,8 +111,10 @@ For planning flows, Code UX (`src/services/planning-agent-service.ts`):
 - retries failed planning provider invocations such as `Command aborted` or empty output before failing the request; these provider attempts are bounded by `guardrails.jobs.planning.cap` when planning guardrails are enabled
 - maintains same-session continuation semantics during retries (`src/infrastructure/providers/cli/provider-runner.ts` and `src/infrastructure/providers/cli/provider-runtime-artifacts.ts`); subsequent JSON retry requests continue the same underlying provider session using `continueSessionId` (falling back from `nativeSessionId` to the logical `sessionId`)
 - records execution and provider invocation trails during retries, so operators will see an initial system message indicating the retry followed by a new provider invocation recording the follow-up prompt and reply
-- when Docker execution mode is active, planning runs inside a snapshot workspace volume and captures `.task-learnings.md` back out of that snapshot instead of trying to read host files directly
+- when Docker execution mode is active, planning runs inside a snapshot workspace volume and captures `.task-learnings.md` back out of that snapshot instead of trying to read host files directly; in `REMOTE` git mode, fresh planning invocations refresh `origin` and check out only `origin/<branch>` for the explicit sprint feature branch or the effective runtime git default branch, never the host repo's current checkout, so new planning does not start from a stale local branch, while restart/continue actions reuse the preserved snapshot for session continuity
 - allows sprint compose, improve, and `Plan & Start` to work even when no live MCP listener is attached
+
+Provider CLI workspace preparation is centralized through `InvocationWorkspacePreparer`. Its shared provider-invocation option builder constructs snapshot checkout, git policy, and fresh/continue lifecycle values for Docker provider calls, while its continuation resolver locates preserved workspaces and their current branches. Fresh Docker invocations in `REMOTE` git mode use explicit remote refs only: planning, project setup, dashboard/chat replies, worker inbox replies, node-flow provider prompts, QA review snapshots, task coding, QA follow-up, CI autofix, and merge-conflict repair all materialize from `origin/<branch>` refs rather than local branches or the host repo's current checkout. Dashboard/chat replies resolve dashboard settings with the project scope before building this policy, so local Git projects keep `LOCAL` snapshot behavior and do not require `origin/<defaultBranch>`. Continuation/restart flows may reuse a preserved workspace for provider-session continuity; if a preserved workspace is missing and a new workspace must be materialized, the same remote-only branch policy applies.
 
 For merge conflicts, Code UX:
 
@@ -165,10 +167,10 @@ It deduplicates this project set and explicitly ignores all other projects in th
 
 Startup cleanup prunes orphaned `virtual_cli` endpoints from previous runs.
 
-Startup cleanup also removes stale Code UX Docker assets through a background, label-filtered prune so server boot does not wait on full Docker daemon scans:
+Startup cleanup also removes stale Code UX Docker assets through a background, label-filtered prune so server boot does not wait on full Docker daemon scans (managed via `DockerAssetPruneService`):
 
-- stale labeled workspace/runtime volumes for finished, failed, unrecoverable, or outdated sessions
-- orphaned labeled helper/login containers from previous runs, removing anonymous image-declared volumes with `docker rm -f -v`
+- orphaned labeled helper/login containers and temp credential dirs from previous runs, removing anonymous image-declared volumes with `docker rm -f -v`
+- stale labeled workspace volumes (`code-ux.workspace=true`) and paired runtime volumes (`code-ux.workspace-runtime=true`) for finished, failed, unrecoverable, or outdated sessions
 
 Cached setup-script Docker images are content-addressed by base image, setup script content, and setup-cache Dockerfile content. They are preserved across dashboard restarts and reused until one of those inputs changes or Docker no longer has the image.
 

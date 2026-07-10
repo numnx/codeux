@@ -74,6 +74,11 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
   const [navigationAnnouncement, setNavigationAnnouncement] = useState("");
   const restoreButtonRef = useRef<HTMLButtonElement>(null);
   const reopenButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const minimizeButtonRef = useRef<HTMLButtonElement>(null);
+  const fullscreenButtonRef = useRef<HTMLButtonElement>(null);
+  const lastChromeControlRef = useRef<HTMLButtonElement | null>(null);
+  const previousWindowStateRef = useRef<WindowState>("normal");
   const portTabRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const isFullscreen = windowState === "fullscreen";
   const isMinimized = windowState === "minimized";
@@ -100,6 +105,17 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
 
   const announceNavigation = (message: string) => {
     setNavigationAnnouncement(message);
+  };
+
+  const rememberChromeControl = (element: HTMLButtonElement | null) => {
+    lastChromeControlRef.current = element;
+  };
+
+  const restoreChromeControlFocus = () => {
+    const target = lastChromeControlRef.current;
+    if (target && target.isConnected) {
+      target.focus({ preventScroll: true });
+    }
   };
 
   const selectPortTab = (mapping: SprintPreviewPortMapping) => {
@@ -140,20 +156,20 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
     if (isClosed) {
       reopenButtonRef.current?.focus({ preventScroll: true });
     }
-  }, [isClosed, isMinimized]);
+    if (windowState === "normal" && previousWindowStateRef.current !== "normal") {
+      queueMicrotask(restoreChromeControlFocus);
+    }
+    previousWindowStateRef.current = windowState;
+  }, [isClosed, isMinimized, windowState]);
 
   if (!session) {
     return (
-      <div className="overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/72 shadow-[0_24px_72px_rgba(15,23,42,0.08)] dark:border-white/[0.06] dark:bg-void-900/55 dark:shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
-        <div className="relative h-[calc(100vh-23rem)] min-h-[540px] bg-slate-100/70 dark:bg-void-950">
-          <div className="flex h-full flex-col items-center justify-center px-8 text-center" role="status" aria-live="polite">
-            <Compass className="h-12 w-12 text-slate-300 dark:text-slate-600" strokeWidth={1.5} />
-            <h2 className="mt-4 text-xl font-semibold text-slate-800 dark:text-slate-100">No preview active</h2>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Start a sprint preview to build the selected sprint into its own isolated container and browse it directly from the dashboard.
-            </p>
-          </div>
-        </div>
+      <div className="flex min-h-[18rem] flex-col items-center justify-center px-6 py-16 text-center" role="status" aria-live="polite">
+        <Compass className="h-12 w-12 text-slate-300 dark:text-slate-600" strokeWidth={1.5} />
+        <h2 className="mt-4 text-xl font-semibold text-slate-800 dark:text-slate-100">No preview active</h2>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+          Start a sprint preview to build the selected sprint into its own isolated container and browse it directly from the dashboard.
+        </p>
       </div>
     );
   }
@@ -162,7 +178,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
     <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#04070b]" : ""}>
       {/* Minimized state presentation */}
       {isMinimized && !isFullscreen && !isClosed && (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-white/72 p-4 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl motion-reduce:transition-none dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]" role="status" aria-live="polite" aria-label={windowStateMessage} style={{ transition: windowTransition }}>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--border-hairline)] bg-[var(--surface-glass)] p-4 shadow-[var(--elevation-base)] backdrop-blur-xl motion-reduce:transition-none" role="status" aria-live="polite" aria-label={windowStateMessage} style={{ transition: windowTransition }}>
           <div className="flex min-w-0 flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="h-2.5 w-2.5 rounded-full bg-status-red/80" />
@@ -193,7 +209,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
 
       {/* Closed state presentation */}
       {isClosed && !isFullscreen && !isMinimized && (
-        <div className="mb-5 overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/72 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl motion-reduce:transition-none dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]" role="status" aria-live="polite" aria-label={windowStateMessage} style={{ transition: windowTransition }}>
+        <div className="mb-5 overflow-hidden rounded-[1.75rem] border border-[color:var(--border-hairline)] bg-[var(--surface-glass)] shadow-[var(--elevation-base)] backdrop-blur-xl motion-reduce:transition-none" role="status" aria-live="polite" aria-label={windowStateMessage} style={{ transition: windowTransition }}>
           <div className="relative flex h-[calc(100vh-23rem)] min-h-[540px] flex-col items-center justify-center bg-slate-100/70 px-8 text-center dark:bg-void-950">
             <div className="h-12 w-12 rounded-full border border-black/[0.08] flex items-center justify-center mb-4 dark:border-white/[0.08]">
               <X className="h-5 w-5 text-slate-400" strokeWidth={2} />
@@ -224,40 +240,52 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
             ? "hidden"
             : isFullscreen
               ? "flex flex-col h-full w-full"
-              : "overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white/72 shadow-[0_18px_48px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/[0.06] dark:bg-void-900/45 dark:shadow-[0_20px_60px_rgba(0,0,0,0.24)]"
+              : "overflow-hidden rounded-[1.75rem] border border-[color:var(--border-hairline)] bg-[var(--surface-glass)] shadow-[var(--elevation-base)] backdrop-blur-xl"
         }
       >
-        <div className="border-b border-black/[0.06] bg-white/72 px-4 py-3 dark:border-white/[0.06] dark:bg-void-900/55">
+        <div className="border-b border-[color:var(--border-hairline)] bg-[var(--surface-glass)] px-4 py-3">
           <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
             {windowStateMessage}
           </div>
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <button
+                ref={closeButtonRef}
                 type="button"
                 title="Close window"
                 aria-label="Close preview window"
-                onClick={() => setWindowState("closed")}
+                onClick={() => {
+                  rememberChromeControl(closeButtonRef.current);
+                  setWindowState("closed");
+                }}
               className="group flex h-3 w-3 items-center justify-center rounded-full bg-status-red/80 transition hover:bg-status-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-red/50 motion-reduce:transition-none"
               style={{ transition: controlTransition }}
             >
               <X className="h-2 w-2 text-red-900 opacity-0 group-hover:opacity-100" strokeWidth={3} />
             </button>
             <button
+              ref={minimizeButtonRef}
               type="button"
               title="Minimize window"
               aria-label="Minimize preview window"
-              onClick={() => setWindowState("minimized")}
+              onClick={() => {
+                rememberChromeControl(minimizeButtonRef.current);
+                setWindowState("minimized");
+              }}
               className="group flex h-3 w-3 items-center justify-center rounded-full bg-amber-400/80 transition hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 motion-reduce:transition-none"
               style={{ transition: controlTransition }}
             >
               <Minus className="h-2 w-2 text-amber-900 opacity-0 group-hover:opacity-100" strokeWidth={3} />
             </button>
             <button
+              ref={fullscreenButtonRef}
               type="button"
               title={isFullscreen ? "Restore window" : "Maximize window"}
               aria-label={isFullscreen ? "Restore preview window" : "Enter preview fullscreen"}
-              onClick={() => setWindowState(isFullscreen ? "normal" : "fullscreen")}
+              onClick={() => {
+                rememberChromeControl(fullscreenButtonRef.current);
+                setWindowState(isFullscreen ? "normal" : "fullscreen");
+              }}
               className="group flex h-3 w-3 items-center justify-center rounded-full bg-signal-500/90 transition hover:bg-signal-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 motion-reduce:transition-none"
               style={{ transition: controlTransition }}
             >
@@ -277,6 +305,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
           <div
             role="tablist"
             aria-label={`Preview ports for ${sessionName}`}
+            aria-busy={navigationBusy}
             className="mt-3 flex min-w-0 gap-1 overflow-x-auto rounded-2xl border border-black/[0.06] bg-slate-100/70 p-1 dark:border-white/[0.06] dark:bg-void-950/50"
           >
             {visiblePortMappings.map((mapping, index) => {
@@ -295,6 +324,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
                   role="tab"
                   aria-selected={selected}
                   aria-label={`Select preview port ${routeLabel}`}
+                  aria-controls="preview-window-frame"
                   tabIndex={selected ? 0 : -1}
                   onClick={() => selectPortTab(mapping)}
                   onKeyDown={(event) => handlePortTabKeyDown(event as KeyboardEvent, index)}
@@ -414,6 +444,7 @@ export const PreviewWindowChrome: FunctionComponent<PreviewWindowChromeProps> = 
         )}
       </div>
       <div
+        id="preview-window-frame"
         className={
           isFullscreen
             ? "flex-1 bg-slate-100/70 dark:bg-void-950"

@@ -65,6 +65,7 @@ describe("WorkspaceArtifactService", () => {
         return await runCommandStrict(command, args, workspaceRepoPath, process.env, {
           trimOutput: options.trimOutput,
           signal: options.signal,
+          stdinFile: options.stdinFile,
         });
       },
     } as IWorkspaceManager;
@@ -136,6 +137,7 @@ describe("WorkspaceArtifactService", () => {
       ) => await runCommandStrict(command, args, workspaceRepoPath, process.env, {
         trimOutput: options.trimOutput,
         signal: options.signal,
+          stdinFile: options.stdinFile,
       }),
     } as IWorkspaceManager;
 
@@ -197,6 +199,7 @@ describe("WorkspaceArtifactService", () => {
       ) => await runCommandStrict(command, args, workspaceRepoPath, process.env, {
         trimOutput: options.trimOutput,
         signal: options.signal,
+          stdinFile: options.stdinFile,
       }),
     } as IWorkspaceManager;
 
@@ -214,6 +217,80 @@ describe("WorkspaceArtifactService", () => {
     expect((await runGit(hostRepoPath, ["branch", "--show-current"])).trim()).toBe("worker/test");
     expect(await runGit(hostRepoPath, ["status", "--porcelain"], { trimOutput: false })).toBe("");
     expect(await fs.readFile(path.join(hostRepoPath, "file.txt"), "utf8")).toBe("base\nworker change\n");
+  });
+
+  it("materializes local patches with a single host shell command", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "workspace-artifact-service-"));
+    cleanupPaths.push(tempRoot);
+
+    const originPath = path.join(tempRoot, "origin.git");
+    const hostRepoPath = path.join(tempRoot, "host-repo");
+    const workspaceRepoPath = path.join(tempRoot, "workspace-repo");
+
+    await runCommandStrict("git", ["init", "--bare", originPath], tempRoot);
+    await runCommandStrict("git", ["clone", originPath, hostRepoPath], tempRoot);
+
+    await runGit(hostRepoPath, ["config", "user.name", "Code UX Test"]);
+    await runGit(hostRepoPath, ["config", "user.email", "code-ux@example.com"]);
+    await runGit(hostRepoPath, ["checkout", "-b", "main"]);
+    await fs.writeFile(path.join(hostRepoPath, "file.txt"), "base\n", "utf8");
+    await runGit(hostRepoPath, ["add", "file.txt"]);
+    await runGit(hostRepoPath, ["commit", "-m", "base"]);
+    await runGit(hostRepoPath, ["push", "-u", "origin", "main"]);
+    const baseRef = (await runGit(hostRepoPath, ["rev-parse", "HEAD"])).trim();
+
+    await runCommandStrict("git", ["clone", originPath, workspaceRepoPath], tempRoot);
+    await runGit(workspaceRepoPath, ["config", "user.name", "Code UX Test"]);
+    await runGit(workspaceRepoPath, ["config", "user.email", "code-ux@example.com"]);
+    await runGit(workspaceRepoPath, ["checkout", "-b", "worker/test", "origin/main"]);
+    await fs.writeFile(path.join(workspaceRepoPath, "file.txt"), "base\nworker change\n", "utf8");
+
+    const workspaceManager = {
+      runWorkspaceCommand: async (
+        _worktreePath: string,
+        command: string,
+        args: string[],
+        options: WorkspaceCommandOptions = {},
+      ) => await runCommandStrict(command, args, workspaceRepoPath, options.env ?? process.env, {
+        trimOutput: options.trimOutput,
+        signal: options.signal,
+          stdinFile: options.stdinFile,
+      }),
+    } as IWorkspaceManager;
+
+    const service = new WorkspaceArtifactService(workspaceManager);
+    const patchText = await service.exportBinaryPatch("workspace", baseRef);
+
+    const actualRunCommandStrict = cliProcessRunner.runCommandStrict;
+    const hostCommands: Array<{ command: string; args: string[] }> = [];
+    vi.spyOn(cliProcessRunner, "runCommandStrict").mockImplementation(async (command, args, cwd, env, options) => {
+      if (cwd === hostRepoPath) {
+        hostCommands.push({ command, args: [...args] });
+      }
+      return actualRunCommandStrict(command, args, cwd, env, options);
+    });
+
+    const result = await service.applyPatchToBranch({
+      repoPath: hostRepoPath,
+      baseRef,
+      workerBranch: "worker/test",
+      patchText,
+      commitMessage: "worker change",
+      githubMode: "LOCAL",
+    });
+
+    expect(result.hasChanges).toBe(true);
+    expect(result.stats).toEqual({ filesChanged: 1, insertions: 1, deletions: 0 });
+    expect(hostCommands.some((call) => call.command === "sh")).toBe(false);
+    expect(hostCommands).toEqual(expect.arrayContaining([
+      expect.objectContaining({ command: "git", args: ["read-tree", baseRef] }),
+      expect.objectContaining({ command: "git", args: ["apply", "--cached", "--binary", expect.stringContaining("workspace.patch")] }),
+      expect.objectContaining({ command: "git", args: ["write-tree"] }),
+      expect.objectContaining({ command: "git", args: expect.arrayContaining(["commit-tree"]) }),
+      expect.objectContaining({ command: "git", args: ["update-ref", "refs/heads/worker/test", expect.any(String)] }),
+    ]));
+    expect(await runGit(hostRepoPath, ["show", "refs/heads/worker/test:file.txt"], { trimOutput: false }))
+      .toBe("base\nworker change\n");
   });
 
   it("retries killed branch pushes after materializing the resolved commit locally", async () => {
@@ -267,6 +344,7 @@ describe("WorkspaceArtifactService", () => {
       ) => await runCommandStrict(command, args, workspaceRepoPath, process.env, {
         trimOutput: options.trimOutput,
         signal: options.signal,
+          stdinFile: options.stdinFile,
       }),
     } as IWorkspaceManager;
 
@@ -335,6 +413,7 @@ describe("WorkspaceArtifactService", () => {
     await fs.mkdir(path.join(workspaceRepoPath, "logs", "openai"), { recursive: true });
     await fs.writeFile(path.join(workspaceRepoPath, "logs", "openai", "openai-123.json"), "{}", "utf8");
     await fs.writeFile(path.join(workspaceRepoPath, "logs", "openai", "request.log"), "log", "utf8");
+    await fs.rm(path.join(workspaceRepoPath, "existing.txt"));
 
     const workspaceManager = {
       runWorkspaceCommand: async (
@@ -345,6 +424,7 @@ describe("WorkspaceArtifactService", () => {
       ) => await runCommandStrict(command, args, workspaceRepoPath, options.env ?? process.env, {
         trimOutput: options.trimOutput,
         signal: options.signal,
+          stdinFile: options.stdinFile,
       }),
     } as IWorkspaceManager;
 
@@ -352,6 +432,8 @@ describe("WorkspaceArtifactService", () => {
     const patchText = await service.exportBinaryPatch("workspace", baseRef);
 
     expect(patchText).toContain("diff --git a/new-component.tsx b/new-component.tsx");
+    expect(patchText).toContain("diff --git a/existing.txt b/existing.txt");
+    expect(patchText).toContain("deleted file mode");
     expect(patchText).not.toContain(".task-learnings.md");
     expect(patchText).not.toContain(".code-ux-home");
     expect(patchText).not.toContain(".pnpm-store");
@@ -368,6 +450,8 @@ describe("WorkspaceArtifactService", () => {
     expect(result.hasChanges).toBe(true);
     expect(await runGit(hostRepoPath, ["show", "refs/heads/worker/test:new-component.tsx"], { trimOutput: false }))
       .toBe("export const value = 1;\n");
+    await expect(runGit(hostRepoPath, ["show", "refs/heads/worker/test:existing.txt"]))
+      .rejects.toThrow();
     await expect(runGit(hostRepoPath, ["show", "refs/heads/worker/test:.task-learnings.md"]))
       .rejects.toThrow();
     await expect(runGit(hostRepoPath, ["show", "refs/heads/worker/test:.code-ux-home/.gemini/settings.json"]))
@@ -382,9 +466,9 @@ describe("WorkspaceArtifactService", () => {
       .rejects.toThrow();
   });
 
-  it("batches git-discovered untracked export paths instead of passing them all through one argv", async () => {
+  it("lets git stage workspace export paths without passing each generated path through argv", async () => {
     const untrackedPaths = Array.from({ length: 1_201 }, (_, index) => `src/generated/file-${index}.ts`);
-    const gitCalls: string[][] = [];
+    const workspaceCalls: Array<{ command: string; args: string[] }> = [];
 
     const workspaceManager = {
       runWorkspaceCommand: async (
@@ -392,9 +476,7 @@ describe("WorkspaceArtifactService", () => {
         command: string,
         args: string[],
       ) => {
-        if (command === "git") {
-          gitCalls.push(args);
-        }
+        workspaceCalls.push({ command, args });
         if (command === "git" && args[0] === "ls-files") {
           return {
             ok: true,
@@ -424,18 +506,65 @@ describe("WorkspaceArtifactService", () => {
     const patchText = await service.exportBinaryPatch("workspace", "HEAD");
 
     expect(patchText).toContain("diff --git");
-    const lsFilesCall = gitCalls.find((args) => args[0] === "ls-files");
-    expect(lsFilesCall).toEqual(expect.arrayContaining(["ls-files", "--others", "--exclude-standard", "-z", "--", "."]));
-    const addCalls = gitCalls.filter((args) => args[0] === "add");
-    expect(addCalls).toHaveLength(5);
-    for (const addCall of addCalls) {
-      expect(addCall).toEqual(expect.arrayContaining(["add", "--intent-to-add", "--"]));
-      expect(addCall.length).toBeLessThanOrEqual(253);
-      expect(addCall).not.toContain(".");
-    }
+    expect(workspaceCalls.map((call) => [call.command, call.args[0]])).toEqual([
+      ["git", "read-tree"],
+      ["git", "ls-files"],
+      ["git", "add"],
+      ["git", "diff"],
+    ]);
+    expect(workspaceCalls[1].args).toEqual(expect.arrayContaining(["ls-files", "--modified", "--deleted", "--others", "--exclude-standard", "-z", "--", "."]));
+    expect(workspaceCalls[2].args).toEqual(["add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"]);
+    expect(workspaceCalls[3].args).toEqual(expect.arrayContaining(["diff", "--binary", "--cached", "HEAD", "--", "."]));
     for (const untrackedPath of untrackedPaths) {
-      expect(addCalls.some((args) => args.includes(untrackedPath))).toBe(true);
+      for (const call of workspaceCalls) {
+        expect(call.args).not.toContain(untrackedPath);
+      }
     }
+  });
+
+  it("uses an absolute temporary Git index for host worktree exports", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "workspace-artifact-service-"));
+    cleanupPaths.push(tempRoot);
+
+    const seenIndexFiles: string[] = [];
+    const workspaceManager = {
+      runWorkspaceCommand: async (
+        _worktreePath: string,
+        command: string,
+        args: string[],
+        options: WorkspaceCommandOptions = {},
+      ) => {
+        const indexFile = options.env?.GIT_INDEX_FILE;
+        if (typeof indexFile === "string") {
+          seenIndexFiles.push(indexFile);
+        }
+        if (command === "git" && args[0] === "diff") {
+          return {
+            ok: true,
+            code: 0,
+            stdout: "diff --git a/src/generated/file-0.ts b/src/generated/file-0.ts\n",
+            stderr: "",
+          };
+        }
+        return {
+          ok: true,
+          code: 0,
+          stdout: "",
+          stderr: "",
+        };
+      },
+    } as IWorkspaceManager;
+
+    const service = new WorkspaceArtifactService(workspaceManager);
+    const patchText = await service.exportBinaryPatch(tempRoot, "HEAD");
+
+    expect(patchText).toContain("diff --git");
+    expect(seenIndexFiles.length).toBeGreaterThan(0);
+    expect(new Set(seenIndexFiles).size).toBe(1);
+    const [indexFile] = seenIndexFiles;
+    expect(path.isAbsolute(indexFile)).toBe(true);
+    expect(indexFile.startsWith(`${tempRoot}${path.sep}`)).toBe(true);
+    expect(path.basename(indexFile)).toMatch(/^\.code-ux-export-.*\.index$/);
   });
 
   it("excludes stale Code UX export index files from preserved workspaces", async () => {
@@ -475,6 +604,7 @@ describe("WorkspaceArtifactService", () => {
       ) => await runCommandStrict(command, args, workspaceRepoPath, options.env ?? process.env, {
         trimOutput: options.trimOutput,
         signal: options.signal,
+          stdinFile: options.stdinFile,
       }),
     } as IWorkspaceManager;
 
@@ -531,8 +661,7 @@ describe("WorkspaceArtifactService", () => {
 
     await fs.writeFile(path.join(workspaceRepoPath, "new-component.tsx"), "export const value = 1;\n", "utf8");
 
-    const addArgs: string[][] = [];
-    const lsFilesArgs: string[][] = [];
+    const workspaceCalls: Array<{ command: string; args: string[] }> = [];
     const workspaceManager = {
       runWorkspaceCommand: async (
         _worktreePath: string,
@@ -540,15 +669,11 @@ describe("WorkspaceArtifactService", () => {
         args: string[],
         options: WorkspaceCommandOptions = {},
       ) => {
-        if (command === "git" && args[0] === "ls-files") {
-          lsFilesArgs.push(args);
-        }
-        if (command === "git" && args[0] === "add") {
-          addArgs.push(args);
-        }
+        workspaceCalls.push({ command, args: [...args] });
         return await runCommandStrict(command, args, workspaceRepoPath, options.env ?? process.env, {
           trimOutput: options.trimOutput,
           signal: options.signal,
+          stdinFile: options.stdinFile,
         });
       },
     } as IWorkspaceManager;
@@ -556,12 +681,24 @@ describe("WorkspaceArtifactService", () => {
     const service = new WorkspaceArtifactService(workspaceManager);
     const patchText = await service.exportBinaryPatch("workspace", baseRef);
 
-    expect(lsFilesArgs).toHaveLength(1);
-    expect(lsFilesArgs[0]).toContain(":(exclude).code-ux-home");
-    expect(lsFilesArgs[0]).toContain(":(exclude).code-ux-home/**");
-    expect(addArgs).toHaveLength(1);
-    expect(addArgs[0]).not.toContain(":(exclude).code-ux-home");
-    expect(addArgs[0]).not.toContain(":(exclude).code-ux-home/**");
+    const lsFilesCall = workspaceCalls.find((call) => call.command === "git" && call.args[0] === "ls-files");
+    expect(lsFilesCall?.args).toEqual(expect.arrayContaining([
+      "ls-files",
+      "--modified",
+      "--deleted",
+      "--others",
+      "--exclude-standard",
+      "-z",
+      "--",
+      ".",
+      ":(exclude).code-ux-home",
+      ":(exclude).code-ux-home/**",
+      ":(exclude).code-ux-export-*",
+    ]));
+    const addCall = workspaceCalls.find((call) => call.command === "git" && call.args[0] === "add");
+    expect(addCall?.args).toEqual(["add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"]);
+    const diffCall = workspaceCalls.find((call) => call.command === "git" && call.args[0] === "diff");
+    expect(diffCall?.args).toEqual(expect.arrayContaining(["diff", "--binary", "--cached", baseRef, "--", "."]));
 
     expect(patchText).toContain("diff --git a/new-component.tsx b/new-component.tsx");
     expect(patchText).not.toContain(".code-ux-home");
@@ -623,6 +760,7 @@ describe("WorkspaceArtifactService", () => {
       ) => await runCommandStrict(command, args, workspaceRepoPath, options.env ?? process.env, {
         trimOutput: options.trimOutput,
         signal: options.signal,
+          stdinFile: options.stdinFile,
       }),
     } as IWorkspaceManager;
 
@@ -799,6 +937,7 @@ describe("WorkspaceArtifactService", () => {
       ) => await runCommandStrict(command, args, workspaceRepoPath, options.env ?? process.env, {
         trimOutput: options.trimOutput,
         signal: options.signal,
+          stdinFile: options.stdinFile,
       }),
     } as IWorkspaceManager;
 

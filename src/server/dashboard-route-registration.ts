@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import type { DashboardDependencies, DashboardServerOptions } from "./dashboard-server.js";
 import { CODE_UX_VERSION } from "../shared/config/code-ux-paths.js";
+import { buildUpdateDownloadTargets } from "../services/update-checker-service.js";
 
 import { registerProjectRoutes } from "./project-routes.js";
 import { registerSprintRoutes } from "./sprint-routes.js";
@@ -11,6 +12,7 @@ import { registerPlanningRoutes } from "./planning-routes.js";
 import { registerPreviewRoutes } from "./preview-routes.js";
 import { registerFileBrowserRoutes } from "./file-browser-routes.js";
 import { registerRuntimeRoutes } from "./runtime-routes.js";
+import { registerRuntimeAssetsRoutes } from "./runtime-assets-routes.js";
 import { registerExecutionControlRoutes } from "./execution-control-routes.js";
 import { registerSettingsRoutes } from "./settings-routes.js";
 import { registerConnectionRoutes } from "./connection-routes.js";
@@ -26,6 +28,12 @@ import { registerGitProviderRoutes } from "./git-provider-routes.js";
 import { registerUpdateStatusRoutes } from "./update-status-routes.js";
 import { registerMemoryRoutes } from "./memory-routes.js";
 import { registerKnowledgeRoutes } from "./knowledge-routes.js";
+import { registerDocsWebRoutes } from "./docs-web-routes.js";
+import { registerChatProviderRoutes } from "./chat-provider-routes.js";
+import { registerChatProviderIngressRoutes } from "./chat-provider-ingress-routes.js";
+import { registerSpeechRoutes } from "./speech-routes.js";
+import { registerNodeFlowRoutes } from "./node-flow-routes.js";
+import { registerCustomDashboardRoutes } from "./custom-dashboard-routes.js";
 
 export interface DashboardRouteRegistrationOptions {
   app: Express;
@@ -50,8 +58,24 @@ export const createDashboardRouteDependencies = (options: DashboardServerOptions
       latestVersion: null,
       updateAvailable: false,
       releaseUrl: "https://github.com/codeux-ai/codeux/releases",
+      downloadTargets: buildUpdateDownloadTargets(null),
       checkedAt: new Date().toISOString(),
     })),
+    getLocalMcpSetup: routeDependencies.getLocalMcpSetup ?? (() => ({
+      enabled: false,
+      url: null,
+      authToken: null,
+      providers: [],
+    })),
+    regenerateLocalMcpAuthToken: routeDependencies.regenerateLocalMcpAuthToken ?? (() => ({
+      enabled: false,
+      url: null,
+      authToken: null,
+      providers: [],
+    })),
+    installLocalMcpProvider: routeDependencies.installLocalMcpProvider ?? (async () => {
+      throw new Error("Local MCP CLI installation is not available.");
+    }),
   };
 };
 
@@ -70,6 +94,7 @@ const registerSprintRouteGroup = (app: Express, deps: DashboardDependencies): vo
 
 const registerRuntimeRouteGroup = (app: Express, deps: DashboardDependencies): void => {
   registerRuntimeRoutes(app, deps);
+  registerRuntimeAssetsRoutes(app, deps);
   registerLocalDirectoryRoutes(app);
   registerExecutionControlRoutes(app, deps);
 };
@@ -81,12 +106,16 @@ const registerPreviewRouteGroup = (app: Express, deps: DashboardDependencies): v
 
 const registerSettingsRouteGroup = (app: Express, deps: DashboardDependencies, liveActivityCacheMs: number): void => {
   registerSettingsRoutes(app, deps, liveActivityCacheMs);
+  registerChatProviderRoutes(app, deps);
+  registerChatProviderIngressRoutes(app, deps);
 };
 
 const registerProjectConfigurationRouteGroup = (app: Express, deps: DashboardDependencies): void => {
   registerConnectionRoutes(app, deps);
   registerAgentPresetRoutes(app, deps);
   registerInstructionFileRoutes(app, deps);
+  registerNodeFlowRoutes(app, deps);
+  registerCustomDashboardRoutes(app, deps);
 };
 
 const registerExecutionRouteGroup = (app: Express, deps: DashboardDependencies): void => {
@@ -99,6 +128,13 @@ const registerExecutionRouteGroup = (app: Express, deps: DashboardDependencies):
 const registerSystemIntegrationRouteGroup = (app: Express, deps: DashboardDependencies): void => {
   registerGitProviderRoutes(app, deps);
   registerUpdateStatusRoutes(app, deps);
+  registerDocsWebRoutes(app);
+};
+
+const registerSpeechRouteGroup = (app: Express, deps: DashboardDependencies): void => {
+  if (deps.speechTranscriptionService) {
+    registerSpeechRoutes(app, { speechTranscriptionService: deps.speechTranscriptionService });
+  }
 };
 
 const registerOptionalKnowledgeRouteGroup = (app: Express, deps: DashboardDependencies): void => {
@@ -145,5 +181,6 @@ export const registerDashboardRoutes = ({
   registerProjectConfigurationRouteGroup(app, deps);
   registerExecutionRouteGroup(app, deps);
   registerSystemIntegrationRouteGroup(app, deps);
+  registerSpeechRouteGroup(app, deps);
   registerOptionalKnowledgeRouteGroup(app, deps);
 };

@@ -1,8 +1,9 @@
 /** @vitest-environment jsdom */
 import { h } from "preact";
-import { render, fireEvent } from "@testing-library/preact";
+import { cleanup, render, fireEvent, within } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { expect, test, describe, afterEach, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { MemoryFilters } from "../MemoryFilters.js";
 import { activeTierSignal, selectedAgentPresetIdSignal, selectedSprintIdSignal } from "../memoryState.js";
 
@@ -10,7 +11,7 @@ expect.extend(matchers);
 
 describe("MemoryFilters Accessibility", () => {
     afterEach(() => {
-        document.body.innerHTML = "";
+        cleanup();
         activeTierSignal.value = "short_term";
         selectedSprintIdSignal.value = undefined;
         selectedAgentPresetIdSignal.value = undefined;
@@ -39,6 +40,10 @@ describe("MemoryFilters Accessibility", () => {
 
         expect(shortTermTab).toHaveAttribute("aria-selected", "true");
         expect(longTermTab).toHaveAttribute("aria-selected", "false");
+        expect(within(shortTermTab).getByText("7 memories")).toBeInTheDocument();
+        expect(within(longTermTab).getByText("10 memories")).toBeInTheDocument();
+        expect(getByRole("group", { name: "Memory scope filters" })).toBeInTheDocument();
+        expect(getByRole("group", { name: "Memory actions" })).toBeInTheDocument();
     });
 
     test("selects have proper aria labels", () => {
@@ -61,6 +66,7 @@ describe("MemoryFilters Accessibility", () => {
     });
 
     test("select changes expose selected sprint and agent feedback", async () => {
+        const user = userEvent.setup();
         activeTierSignal.value = "short_term";
         const { getByRole, getByText } = render(
             <MemoryFilters
@@ -81,13 +87,14 @@ describe("MemoryFilters Accessibility", () => {
             />
         );
 
-        await fireEvent.change(getByRole("combobox", { name: "Filter memory by Sprint" }), { target: { value: "2" } });
+        await user.selectOptions(getByRole("combobox", { name: "Filter memory by Sprint" }), "2");
         expect(selectedSprintIdSignal.value).toBe("2");
         expect(getByText("Sprint filter set to Sprint 2.")).toBeInTheDocument();
 
-        await fireEvent.change(getByRole("combobox", { name: "Filter memory by Agent Preset" }), { target: { value: "agent2" } });
+        await user.selectOptions(getByRole("combobox", { name: "Filter memory by Agent Preset" }), "agent2");
         expect(selectedAgentPresetIdSignal.value).toBe("agent2");
         expect(getByText("Agent filter set to Agent 2.")).toBeInTheDocument();
+        expect(getByText("Short Term: showing 7 memories of 17 memories · Sprint 2 · Agent 2")).toBeInTheDocument();
     });
 
     test("tab keyboard navigation works", async () => {
@@ -142,8 +149,9 @@ describe("MemoryFilters Accessibility", () => {
 
         const toggleBtn = getByRole("button", { name: "Hide embedding model catalog" });
         expect(toggleBtn).toHaveAttribute("aria-pressed", "true");
+        expect(toggleBtn).toHaveAccessibleDescription("Active: test");
         expect(getByText("Shown")).toBeInTheDocument();
-        expect(getByText("1 active")).toBeInTheDocument();
+        expect(getByText("Active: test")).toBeInTheDocument();
     });
 
     test("Danger mode toggle uses aria-pressed and persistent state copy", async () => {
@@ -185,9 +193,9 @@ describe("MemoryFilters Accessibility", () => {
         expect(getByRole("button", { name: "Enable danger delete mode" })).toBeInTheDocument();
     });
 
-    test("disabled filter controls expose visible reasons and counts", () => {
+    test("unavailable filter controls are omitted with visible reasons and counts", () => {
         activeTierSignal.value = "short_term";
-        const { getByRole, getByText } = render(
+        const { getByText, queryByRole } = render(
             <MemoryFilters
                 stats={{ sprint: 0, agent: 0, project: 3, activeModel: null, staleEmbeddings: 0 }}
                 sprints={[]}
@@ -200,11 +208,10 @@ describe("MemoryFilters Accessibility", () => {
             />
         );
 
-        expect(getByText("Short Term: showing 0 of 3 memories · No sprint selected · All Agents")).toBeInTheDocument();
-        expect(getByRole("combobox", { name: "Filter memory by Sprint" })).toBeDisabled();
-        expect(getByText("Sprint filter disabled because this project has no sprints with memory.")).toBeInTheDocument();
-        expect(getByRole("combobox", { name: "Filter memory by Agent Preset" })).toBeDisabled();
-        expect(getByText("Agent filter disabled because no agent presets are available.")).toBeInTheDocument();
+        expect(getByText("Short Term: showing 0 memories of 3 memories · No short-term memories · All Agents")).toBeInTheDocument();
+        expect(queryByRole("combobox", { name: "Filter memory by Sprint" })).toBeNull();
+        expect(queryByRole("combobox", { name: "Filter memory by Agent Preset" })).toBeNull();
+        expect(getByText("No short-term memory filters are available for this tier.")).toBeInTheDocument();
     });
 
     test("model catalog and danger toggles announce changed pressed state", async () => {

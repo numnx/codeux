@@ -13,7 +13,7 @@ import userEvent from "@testing-library/user-event";
 import { useEmbeddingModelStatus } from "../../../dashboard/src/v2/hooks/use-embedding-model-status.js";
 import { useMemoryPageData } from "../../../dashboard/src/v2/hooks/use-memory-page-data.js";
 import { MEMORY_CAMERA } from "../../../dashboard/src/v2/lib/memory-camera.js";
-import { activeMemoryIdSignal, activeTierSignal, lobotomizeModeSignal, memorySidebarExpandedSignal } from "../../../dashboard/src/v2/components/memory/memoryState.js";
+import { activeMemoryIdSignal, activeTierSignal, lobotomizeModeSignal, memorySidebarExpandedSignal, searchQuerySignal } from "../../../dashboard/src/v2/components/memory/memoryState.js";
 import type { MemoryRecord } from "../../../dashboard/src/v2/memory-types.js";
 // we cannot use renderHook because of dependency conflict. So we create a wrapper.
 
@@ -133,6 +133,7 @@ describe("MemoryPage destructive mode", () => {
         activeMemoryIdSignal.value = null;
         lobotomizeModeSignal.value = false;
         memorySidebarExpandedSignal.value = false;
+        searchQuerySignal.value = "";
         vi.mocked(api.listMemories).mockResolvedValue([memoryRecord()]);
         vi.mocked(api.listEmbeddingModels).mockResolvedValue([]);
         vi.mocked(api.getMemoryStats).mockResolvedValue({ sprint: 0, agent: 0, project: 1, activeModel: null, staleEmbeddings: 0 });
@@ -173,7 +174,112 @@ describe("MemoryPage destructive mode", () => {
         activeMemoryIdSignal.value = null;
         lobotomizeModeSignal.value = false;
         memorySidebarExpandedSignal.value = false;
+        searchQuerySignal.value = "";
         document.body.innerHTML = "";
+    });
+
+    it("renders the loaded graph nodes in the sidebar list after graph data resolves", async () => {
+        memorySidebarExpandedSignal.value = true;
+        vi.mocked(api.listMemories).mockResolvedValue([
+            memoryRecord({
+                id: "memory-reactive",
+                content: "Reactive graph node memory",
+                category: "codebase",
+                strength: 0.7,
+            }),
+            memoryRecord({
+                id: "memory-second",
+                content: "Second loaded graph memory",
+                category: "learning",
+                strength: 0.9,
+            }),
+        ]);
+        vi.mocked(api.getMemoryStats).mockResolvedValue({ sprint: 0, agent: 0, project: 2, activeModel: null, staleEmbeddings: 0 });
+        vi.mocked(api.getEmbeddingMap).mockResolvedValue({
+            hasEmbeddings: true,
+            nodes: [
+                { id: "memory-reactive", x: 20, y: 30 },
+                { id: "memory-second", x: -20, y: -30 },
+            ],
+            edges: [],
+        });
+
+        const { unmount } = renderMemoryPage();
+
+        await waitFor(() => {
+            expect(screen.getByText("Reactive graph node memory")).toBeInTheDocument();
+            expect(screen.getByText("Second loaded graph memory")).toBeInTheDocument();
+        });
+        expect(screen.getByText("2 memories shown")).toBeInTheDocument();
+        expect(screen.getByText("2 nodes")).toBeInTheDocument();
+
+        unmount();
+    });
+
+    it("stops scheduling canvas frames when the document becomes hidden", async () => {
+        const originalGlobalRaf = Object.getOwnPropertyDescriptor(globalThis, "requestAnimationFrame");
+        const originalGlobalCancel = Object.getOwnPropertyDescriptor(globalThis, "cancelAnimationFrame");
+        const originalWindowRaf = Object.getOwnPropertyDescriptor(window, "requestAnimationFrame");
+        const originalWindowCancel = Object.getOwnPropertyDescriptor(window, "cancelAnimationFrame");
+        const originalHidden = Object.getOwnPropertyDescriptor(Document.prototype, "hidden")
+            ?? Object.getOwnPropertyDescriptor(document, "hidden");
+        const frameCallbacks: FrameRequestCallback[] = [];
+        const rafSpy = vi.fn((callback: FrameRequestCallback) => {
+            frameCallbacks.push(callback);
+            return frameCallbacks.length;
+        });
+        const cancelSpy = vi.fn();
+        let hidden = false;
+        const restoreProperty = (target: object, key: PropertyKey, descriptor: PropertyDescriptor | undefined) => {
+            if (descriptor) {
+                Object.defineProperty(target, key, descriptor);
+                return;
+            }
+            Reflect.deleteProperty(target, key);
+        };
+        const setHidden = (nextHidden: boolean) => {
+            hidden = nextHidden;
+        };
+
+        Object.defineProperty(globalThis, "requestAnimationFrame", { configurable: true, value: rafSpy });
+        Object.defineProperty(globalThis, "cancelAnimationFrame", { configurable: true, value: cancelSpy });
+        Object.defineProperty(window, "requestAnimationFrame", { configurable: true, value: rafSpy });
+        Object.defineProperty(window, "cancelAnimationFrame", { configurable: true, value: cancelSpy });
+        Object.defineProperty(document, "hidden", {
+            configurable: true,
+            get: () => hidden,
+        });
+
+        try {
+            setHidden(false);
+            const { unmount } = renderMemoryPage();
+
+            expect(rafSpy).toHaveBeenCalledTimes(1);
+
+            setHidden(true);
+            document.dispatchEvent(new Event("visibilitychange"));
+
+            expect(cancelSpy).toHaveBeenCalledWith(1);
+
+            act(() => {
+                frameCallbacks[0]?.(16);
+            });
+
+            expect(rafSpy).toHaveBeenCalledTimes(1);
+
+            setHidden(false);
+            document.dispatchEvent(new Event("visibilitychange"));
+
+            expect(rafSpy).toHaveBeenCalledTimes(2);
+
+            unmount();
+        } finally {
+            restoreProperty(globalThis, "requestAnimationFrame", originalGlobalRaf);
+            restoreProperty(globalThis, "cancelAnimationFrame", originalGlobalCancel);
+            restoreProperty(window, "requestAnimationFrame", originalWindowRaf);
+            restoreProperty(window, "cancelAnimationFrame", originalWindowCancel);
+            restoreProperty(document, "hidden", originalHidden);
+        }
     });
 
     it("syncs lobotomize mode and deletes a graph node with one click", async () => {
@@ -182,6 +288,11 @@ describe("MemoryPage destructive mode", () => {
         await waitFor(() => {
             expect(screen.getByText("1 nodes")).toBeInTheDocument();
         });
+        await waitFor(() => {
+            expect(screen.getByText("Long Term: showing 1 memory of 1 memory · Project-wide · All Agents")).toBeInTheDocument();
+        });
+        expect(screen.getByRole("group", { name: "Memory scope filters" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Show embedding model catalog" })).toHaveAccessibleDescription("No active model");
 
         await userEvent.click(screen.getByRole("button", { name: "Enable danger delete mode" }));
 
@@ -236,6 +347,8 @@ describe("useMemoryPageData Hook", () => {
             limit: 200,
         });
         expect(api.getMemoryStats).toHaveBeenCalledWith("proj-1");
+        expect(result.current.graphDataContextKey).toBe(result.current.requestedContextKey);
+        expect(result.current.requestedContextKey).toContain('"tier":"short_term"');
     });
 
     it("respects filters for sprints and agents", async () => {
@@ -258,6 +371,9 @@ describe("useMemoryPageData Hook", () => {
             sprintId: "sprint-123",
             agentPresetId: "agent-456"
         });
+        expect(result.current.graphDataContextKey).toBe(result.current.requestedContextKey);
+        expect(result.current.requestedContextKey).toContain('"sprintId":"sprint-123"');
+        expect(result.current.requestedContextKey).toContain('"agentPresetId":"agent-456"');
     });
 });
 

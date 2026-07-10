@@ -3,12 +3,15 @@ import * as os from "os";
 import * as path from "path";
 import * as pathPosix from "path/posix";
 import { fileURLToPath } from "url";
-import { CliWorkflowSettings, type CustomMcpServer } from "../../../contracts/app-types.js";
+import { CliWorkflowSettings, type CustomMcpServer, type ProviderConfigMode } from "../../../contracts/app-types.js";
 import { isUsableCustomMcpServer } from "../../../mcp/mcp-tool-availability.js";
 import { buildProviderMcpConfigArtifact } from "./mcp-config-format.js";
 import type { McpConnectionInfo } from "../../../contracts/mcp-connection-types.js";
 import { CommandResult, runCommandStrict, runStreamingCommand } from "../../../services/cli-process-runner.js";
 import {
+  DOCKER_BRIDGE_NETWORK_ARGS,
+  DOCKER_HOST_GATEWAY_ARGS,
+  DOCKER_NO_NEW_PRIVILEGES_ARGS,
   getDockerUserSpec,
   mapPathPrefix,
   pickContainerEnv,
@@ -23,10 +26,26 @@ import { DockerCredentialMountBuilder } from "./docker-credential-mount-builder.
 import { DockerSetupImageCache, type DockerSetupImageCacheProgress } from "./docker-setup-image-cache.js";
 import { resolveDockerRuntimeRoot } from "./docker-runtime-paths.js";
 import { buildRuntimeVolumeName, WorkspaceManager, type SnapshotCheckout } from "./workspace-manager.js";
+import { InvocationWorkspacePreparer, type InvocationWorkspaceGitPolicy } from "./invocation-workspace-preparer.js";
 import { workspaceVolumeHelperPool, type WorkspaceVolumeHelperPool } from "./workspace-volume-helper.js";
 import { CONTAINER_RUNTIME_HOME, CONTAINER_WORKSPACE_ROOT } from "./provider-runtime-artifacts.js";
+import type { CliProviderId } from "./provider-command-specs.js";
 import { getHomeCodeUxPath, getRepoCodeUxPath } from "../../../shared/config/code-ux-paths.js";
 import { ensureDefaultCodeUxAssetsInstalled } from "../../../services/code-ux-default-assets-service.js";
+import { DEFAULT_PLAYWRIGHT_MCP_SERVER_ID } from "../../../repositories/settings-defaults.js";
+import { sanitizeInvocationOutputText } from "../../../services/invocation-output-sanitizer.js";
+import type { PersistentSkillStorageRuntimeMount } from "../../../services/skill-service.js";
+import { managedRuntimeService, type ManagedRuntimeService } from "../../../services/managed-runtime-service.js";
+import {
+  PROVIDER_TOOL_MOUNT,
+  providerToolManager,
+  type ProviderToolManager,
+} from "../../../services/provider-tool-manager.js";
+import {
+  PLAYWRIGHT_BROWSERS_MOUNT,
+  playwrightBrowserManager,
+  type PlaywrightBrowserManager,
+} from "../../../services/playwright-browser-manager.js";
 
 
 const BUNDLED_CONTAINER_SETUP_SCRIPT = path.resolve(
@@ -42,6 +61,7 @@ export interface IDockerRunner {
     repoPath: string;
     sessionId: string;
     snapshotCheckout?: SnapshotCheckout;
+    gitPolicy?: InvocationWorkspaceGitPolicy;
     preserve?: boolean;
     reuseExisting?: boolean;
   }): Promise<{ cwd: string; cleanup: () => Promise<void> }>;
@@ -51,16 +71,19 @@ export interface IDockerRunner {
     cwd: string;
     providerEnv: NodeJS.ProcessEnv;
     sessionId: string;
-    providerLabel: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity";
+    providerLabel: CliProviderId;
     workflowSettings: CliWorkflowSettings;
     repoPath: string;
     providerMountAuth?: boolean;
     providerAuthPath?: string;
+    providerConfigMode?: ProviderConfigMode;
+    providerConfigPath?: string;
     signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
     onSetupImageProgress?: (progress: DockerSetupImageCacheProgress) => void;
     mcpConnection?: McpConnectionInfo | null;
     customMcpServers?: CustomMcpServer[];
+    persistentSkillStorageMounts?: PersistentSkillStorageRuntimeMount[];
   }): Promise<CommandResult>;
   readWorkspaceFile?(cwd: string, targetPath: string): Promise<string | null>;
   readWorkspaceFileBase64?(cwd: string, targetPath: string): Promise<string | null>;
@@ -72,13 +95,21 @@ export interface IDockerRunner {
 export class DockerRunner implements IDockerRunner {
   private readonly dockerHintLoggedSessions = new Set<string>();
   private readonly workspaceManager = new WorkspaceManager();
+  private readonly invocationWorkspacePreparer = new InvocationWorkspacePreparer(this.workspaceManager);
   private readonly volumeHelperPool: WorkspaceVolumeHelperPool = workspaceVolumeHelperPool;
+
+  constructor(
+    private readonly runtimeService: ManagedRuntimeService = managedRuntimeService,
+    private readonly toolManager: ProviderToolManager = providerToolManager,
+    private readonly browserManager: PlaywrightBrowserManager = playwrightBrowserManager,
+  ) {}
 
   async ensureWorkspace(args: {
     cwd: string;
     repoPath: string;
     sessionId: string;
     snapshotCheckout?: SnapshotCheckout;
+    gitPolicy?: InvocationWorkspaceGitPolicy;
     preserve?: boolean;
     reuseExisting?: boolean;
   }): Promise<{ cwd: string; cleanup: () => Promise<void> }> {
@@ -89,9 +120,13 @@ export class DockerRunner implements IDockerRunner {
       };
     }
 
-    const workspaceRef = args.reuseExisting
-      ? await this.workspaceManager.createOrReuseSnapshotWorkspace(args.repoPath, args.sessionId, args.snapshotCheckout)
-      : await this.workspaceManager.createSnapshotWorkspace(args.repoPath, args.sessionId, args.snapshotCheckout);
+    const workspaceRef = await this.invocationWorkspacePreparer.createSnapshotWorkspace({
+      repoPath: args.repoPath,
+      sessionId: args.sessionId,
+      checkout: args.snapshotCheckout,
+      reuseExisting: args.reuseExisting,
+      gitPolicy: args.gitPolicy,
+    });
     return {
       cwd: workspaceRef,
       cleanup: async () => {
@@ -109,18 +144,24 @@ export class DockerRunner implements IDockerRunner {
     cwd: string;
     providerEnv: NodeJS.ProcessEnv;
     sessionId: string;
-    providerLabel: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity";
+    providerLabel: CliProviderId;
     workflowSettings: CliWorkflowSettings;
     repoPath: string;
     providerMountAuth?: boolean;
     providerAuthPath?: string;
+    providerConfigMode?: ProviderConfigMode;
+    providerConfigPath?: string;
     signal?: AbortSignal;
     onActivity: (desc: string, originator?: string) => void;
     onSetupImageProgress?: (progress: DockerSetupImageCacheProgress) => void;
     mcpConnection?: McpConnectionInfo | null;
     customMcpServers?: CustomMcpServer[];
+    persistentSkillStorageMounts?: PersistentSkillStorageRuntimeMount[];
   }): Promise<CommandResult> {
     const { command, args, cwd, providerEnv, sessionId, providerLabel, workflowSettings, repoPath, signal, onActivity } = input;
+    const emitActivity = (desc: string, originator?: string): void => {
+      onActivity(sanitizeInvocationOutputText(desc), originator);
+    };
     const workspace = this.resolveWorkspace(cwd);
     await this.workspaceManager.ensureRuntimeVolume(cwd);
     const runtimeHome = CONTAINER_RUNTIME_HOME;
@@ -129,34 +170,45 @@ export class DockerRunner implements IDockerRunner {
     const runtimeVolumeName = buildRuntimeVolumeName(workspace.volumeName);
     const installPlaywrightBrowsers = workflowSettings.containerInstallPlaywrightBrowsers !== false;
 
-    await this.maybeLogDockerPathMappingHint(sessionId, repoPath, onActivity);
+    await this.maybeLogDockerPathMappingHint(sessionId, repoPath, emitActivity);
 
-    const setupScriptPath = await this.resolveContainerSetupScriptPath(workflowSettings, repoPath, onActivity);
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-docker-"));
+    const setupScriptPath = await this.resolveContainerSetupScriptPath(workflowSettings, repoPath, emitActivity);
     const runtimeRoot = resolveDockerRuntimeRoot(repoPath);
-    const baseImage = workflowSettings.containerImage.trim() || "node:24-bookworm";
+    const baseImage = await this.runtimeService.resolveImage(
+      workflowSettings,
+      installPlaywrightBrowsers ? "browser" : "base",
+    );
+    const [preparedTool, preparedBrowser] = await Promise.all([
+      providerLabel === "mockup-cli"
+        ? Promise.resolve(null)
+        : this.toolManager.prepare(providerLabel, workflowSettings),
+      installPlaywrightBrowsers && workflowSettings.containerImageMode !== "custom"
+        ? this.browserManager.prepare(workflowSettings)
+        : Promise.resolve(null),
+    ]);
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-docker-"));
 
     try {
       const resolvedImage = await new DockerSetupImageCache().resolveImage({
         baseImage,
         setupScriptPath,
         cacheEnabled: workflowSettings.containerCacheSetupScriptImage,
-        installPlaywrightBrowsers,
+        installPlaywrightBrowsers: workflowSettings.containerImageMode === "custom" && installPlaywrightBrowsers,
         runtimeRoot,
         repoPath,
         signal,
-        onActivity,
+        onActivity: emitActivity,
         onProgress: input.onSetupImageProgress,
         mapSourcePathForDaemon: (sourcePath, label) =>
-          this.mapDockerSourcePathForDaemon(sourcePath, repoPath, sessionId, label, onActivity),
+          this.mapDockerSourcePathForDaemon(sourcePath, repoPath, sessionId, label, emitActivity),
       });
 
       const argvFilePath = path.join(tempRoot, "provider-argv.sh");
-      await fs.writeFile(argvFilePath, this.buildProviderArgvFile(args), "utf8");
-      const argvFileSource = this.mapDockerSourcePathForDaemon(argvFilePath, repoPath, sessionId, "provider argv", onActivity);
+      await this.writeRestrictiveFile(argvFilePath, this.buildProviderArgvFile(args));
+      const argvFileSource = this.mapDockerSourcePathForDaemon(argvFilePath, repoPath, sessionId, "provider argv", emitActivity);
       const envFilePath = path.join(tempRoot, "provider.env");
       await writeDockerEnvFile(envFilePath, pickContainerEnv(providerEnv));
-      const envFileSource = this.mapDockerSourcePathForDaemon(envFilePath, repoPath, sessionId, "provider env", onActivity);
+      const envFileSource = this.mapDockerSourcePathForDaemon(envFilePath, repoPath, sessionId, "provider env", emitActivity);
 
       const containerName = this.buildContainerName(providerLabel, sessionId);
 
@@ -166,10 +218,12 @@ export class DockerRunner implements IDockerRunner {
         "-i",
         "--name",
         containerName,
-        "--network",
-        "host",
+        ...DOCKER_BRIDGE_NETWORK_ARGS,
+        ...DOCKER_NO_NEW_PRIVILEGES_ARGS,
         "--workdir",
         CONTAINER_WORKSPACE_ROOT,
+        "--label",
+        "code-ux.managed=true",
         "--label",
         `code-ux.session-id=${sessionId}`,
         "--label",
@@ -204,8 +258,18 @@ export class DockerRunner implements IDockerRunner {
         }),
       ];
 
-      const userSpec = await this.resolveDockerUserSpec(repoPath);
-      if (userSpec) {
+      const applicableCustomMcpServers = this.customServersForProvider(input.customMcpServers || [], providerLabel)
+        .filter((server) => installPlaywrightBrowsers || server.id !== DEFAULT_PLAYWRIGHT_MCP_SERVER_ID);
+      if (
+        this.shouldAddDockerHostGateway(workflowSettings, input.mcpConnection || null, applicableCustomMcpServers)
+        || this.providerEnvUsesDockerHostGateway(workflowSettings, providerEnv)
+      ) {
+        dockerArgs.push(...DOCKER_HOST_GATEWAY_ARGS);
+      }
+
+      const runAsRoot = workflowSettings.containerRunAsRoot === true;
+      const userSpec = runAsRoot ? "" : await this.resolveDockerUserSpec(repoPath);
+      if (!runAsRoot && userSpec) {
         dockerArgs.push("--user", userSpec);
         const passwdPath = path.join(tempRoot, "passwd");
         const [uid, gid] = userSpec.split(":");
@@ -215,8 +279,8 @@ export class DockerRunner implements IDockerRunner {
           `worker:x:${uid}:${gid}::${runtimeHome}:/bin/bash`,
           "",
         ].join("\n");
-        await fs.writeFile(passwdPath, passwdContent);
-        const passwdSource = this.mapDockerSourcePathForDaemon(passwdPath, repoPath, sessionId, "passwd", onActivity);
+        await fs.writeFile(passwdPath, passwdContent, "utf8");
+        const passwdSource = this.mapDockerSourcePathForDaemon(passwdPath, repoPath, sessionId, "passwd", emitActivity);
         dockerArgs.push("--mount", toDockerMountArg({ source: passwdSource, destination: "/etc/passwd", readonly: true }));
       }
 
@@ -224,21 +288,62 @@ export class DockerRunner implements IDockerRunner {
         "-e", `CODE_UX_GIT_USER_NAME=${workflowSettings.containerGitUserName}`,
         "-e", `CODE_UX_GIT_USER_EMAIL=${workflowSettings.containerGitUserEmail}`,
         "-e", `CODE_UX_INSTALL_PLAYWRIGHT=${installPlaywrightBrowsers ? "1" : "0"}`,
+        "-e", "DISABLE_AUTOUPDATER=1",
+        "-e", "OPENCODE_DISABLE_AUTOUPDATE=true",
+        "-e", "AGY_CLI_DISABLE_AUTO_UPDATE=true",
       );
 
+      if (preparedTool) {
+        dockerArgs.push(
+          "--mount",
+          toDockerMountArg({
+            source: preparedTool.volumeName,
+            destination: PROVIDER_TOOL_MOUNT,
+            readonly: true,
+            type: "volume",
+          }),
+          "-e",
+          `CODE_UX_PROVIDER_TOOL_BIN=${PROVIDER_TOOL_MOUNT}/bin`,
+        );
+      }
+
+      if (preparedBrowser) {
+        dockerArgs.push(
+          "--mount",
+          toDockerMountArg({
+            source: preparedBrowser.volumeName,
+            destination: PLAYWRIGHT_BROWSERS_MOUNT,
+            readonly: true,
+            type: "volume",
+          }),
+          "-e",
+          `PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_MOUNT}`,
+        );
+      }
+
+      const memoryLimitMb = this.resolveContainerMemoryLimitMb(workflowSettings.containerMemoryLimitMb);
+      if (memoryLimitMb > 0) {
+        dockerArgs.push("--memory", `${memoryLimitMb}m`, "--memory-swap", `${memoryLimitMb}m`);
+      }
+
       if (setupScriptPath && resolvedImage.runSetupScriptAtRuntime) {
-        const setupScriptSource = this.mapDockerSourcePathForDaemon(setupScriptPath, repoPath, sessionId, "setup script", onActivity);
+        const setupScriptSource = this.mapDockerSourcePathForDaemon(setupScriptPath, repoPath, sessionId, "setup script", emitActivity);
         dockerArgs.push("--mount", toDockerMountArg({ source: setupScriptSource, destination: CONTAINER_SETUP_SCRIPT, readonly: true }));
       }
 
       const credentialMounts = await new DockerCredentialMountBuilder().build(
         workflowSettings,
         repoPath,
-        onActivity,
+        emitActivity,
         {
           provider: providerLabel,
           enabled: Boolean(input.providerMountAuth),
           path: input.providerAuthPath || "",
+        },
+        {
+          provider: providerLabel,
+          mode: input.providerConfigMode || "copyHost",
+          path: input.providerConfigPath || "",
         },
       );
       const providerConfigMounts = await this.buildProviderConfigMounts(
@@ -246,13 +351,23 @@ export class DockerRunner implements IDockerRunner {
         providerLabel,
         tempRoot,
         providerEnv,
-        input.customMcpServers || [],
+        applicableCustomMcpServers,
         workflowSettings,
+        true,
       );
 
       for (const mount of [...credentialMounts, ...providerConfigMounts]) {
-        const source = this.mapDockerSourcePathForDaemon(mount.source, repoPath, sessionId, "credentials", onActivity);
+        const source = this.mapDockerSourcePathForDaemon(mount.source, repoPath, sessionId, "credentials", emitActivity);
         dockerArgs.push("--mount", toDockerMountArg({ ...mount, source }));
+      }
+
+      for (const mount of input.persistentSkillStorageMounts || []) {
+        const source = this.mapDockerSourcePathForDaemon(mount.hostPath, repoPath, sessionId, "persistent skill storage", emitActivity);
+        dockerArgs.push("--mount", toDockerMountArg({
+          source,
+          destination: mount.containerPath,
+          readonly: false,
+        }));
       }
 
       const bootstrapScript = new DockerBootstrapBuilder().build({
@@ -263,7 +378,7 @@ export class DockerRunner implements IDockerRunner {
 
       dockerArgs.push(resolvedImage.image, "bash", "-c", bootstrapScript, "provider-runner", command);
 
-      onActivity(`Running ${providerLabel} in Docker image ${resolvedImage.image} (workspace volume: ${workspace.volumeName}, runtime volume: ${runtimeVolumeName}).`);
+      emitActivity(`Running ${providerLabel} in Docker image ${resolvedImage.image} (workspace volume: ${workspace.volumeName}, runtime volume: ${runtimeVolumeName}).`);
 
       // The container name is deterministic per (provider, sessionId), so a retried
       // invocation for the same session (e.g. a chat turn superseded and resumed after
@@ -282,7 +397,7 @@ export class DockerRunner implements IDockerRunner {
         // not reliably stop the backing container, so kill the container directly on abort.
         void runCommandStrict("docker", ["kill", containerName], process.cwd()).catch((error: unknown) => {
           const message = error instanceof Error ? error.message : String(error);
-          onActivity(`Ignored Docker kill failure for ${containerName} after abort: ${message}`, "provider");
+          emitActivity(`Ignored Docker kill failure for ${containerName} after abort: ${message}`, "provider");
         });
       };
 
@@ -296,12 +411,12 @@ export class DockerRunner implements IDockerRunner {
       try {
         const runDocker = () => runStreamingCommand("docker", dockerArgs, process.cwd(), process.env, {
           signal,
-          onStdoutLine: (line) => onActivity(line, "agent"),
-          onStderrLine: (line) => onActivity(`[${providerLabel}] ${line}`, "provider"),
+          onStdoutLine: (line) => emitActivity(line, "agent"),
+          onStderrLine: (line) => emitActivity(`[${providerLabel}] ${line}`, "provider"),
         });
         const firstResult = await runDocker();
         if (!firstResult.ok && this.isDockerNameConflict(firstResult, containerName) && !signal?.aborted) {
-          onActivity(`Retrying ${providerLabel} after reclaiming stale Docker container ${containerName}.`, "provider");
+          emitActivity(`Retrying ${providerLabel} after reclaiming stale Docker container ${containerName}.`, "provider");
           await this.removeProviderContainer(containerName);
           await this.sleep(500);
           return await runDocker();
@@ -326,8 +441,19 @@ export class DockerRunner implements IDockerRunner {
     ].join("\n");
   }
 
+  private async writeRestrictiveFile(filePath: string, content: string | Buffer): Promise<void> {
+    if (typeof content === "string") {
+      await fs.writeFile(filePath, content, { encoding: "utf8", mode: 0o600 });
+    } else {
+      await fs.writeFile(filePath, content, { mode: 0o600 });
+    }
+    if (process.platform !== "win32") {
+      await fs.chmod(filePath, 0o600);
+    }
+  }
+
   private buildContainerName(
-    providerLabel: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity",
+    providerLabel: CliProviderId,
     sessionId: string,
   ): string {
     const safeProvider = providerLabel.replace(/[^a-zA-Z0-9_.-]+/g, "-").toLowerCase();
@@ -351,6 +477,13 @@ export class DockerRunner implements IDockerRunner {
 
   private shellSingleQuote(value: string): string {
     return `'${value.replaceAll("'", "'\"'\"'")}'`;
+  }
+
+  private resolveContainerMemoryLimitMb(value: unknown): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return 0;
+    }
+    return Math.max(0, Math.round(value));
   }
 
   async readWorkspaceFile(cwd: string, targetPath: string): Promise<string | null> {
@@ -464,6 +597,12 @@ export class DockerRunner implements IDockerRunner {
       }
     }
 
+    // Managed images already contain the Code UX baseline. Only an explicitly
+    // configured script is allowed to create a local extension image.
+    if (workflowSettings.containerImageMode !== "custom") {
+      return undefined;
+    }
+
     await ensureDefaultCodeUxAssetsInstalled();
     const candidates = [
       getRepoCodeUxPath(repoPath, "container", "setup.sh"),
@@ -488,7 +627,7 @@ export class DockerRunner implements IDockerRunner {
 
   private customServersForProvider(
     servers: CustomMcpServer[],
-    provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity",
+    provider: CliProviderId,
   ): CustomMcpServer[] {
     return servers.filter((server) =>
       server.enabled
@@ -499,21 +638,23 @@ export class DockerRunner implements IDockerRunner {
 
   private async buildProviderConfigMounts(
     conn: McpConnectionInfo | null,
-    provider: "gemini" | "codex" | "claude-code" | "qwen-code" | "opencode" | "antigravity",
+    provider: CliProviderId,
     tempRoot: string,
     providerEnv: NodeJS.ProcessEnv,
     customServers: CustomMcpServer[] = [],
     workflowSettings?: CliWorkflowSettings,
+    customServersPreFiltered = false,
   ): Promise<ContainerMount[]> {
     if (provider === "opencode") {
       return [];
     }
 
+    const applicableCustomServers = customServersPreFiltered
+      ? customServers
+      : this.customServersForProvider(customServers, provider);
     const rewriteLoopbackUrls = workflowSettings
-      ? this.shouldRewriteDockerLoopbackUrls(workflowSettings)
+      ? this.shouldRewriteDockerLoopbackUrls(workflowSettings, conn, applicableCustomServers)
       : false;
-
-    const applicableCustomServers = this.customServersForProvider(customServers, provider);
 
     const artifact = buildProviderMcpConfigArtifact(provider, conn, applicableCustomServers, {
       qwenSettingsContent: providerEnv.QWEN_SETTINGS_CONTENT,
@@ -534,12 +675,16 @@ export class DockerRunner implements IDockerRunner {
     if (provider === "antigravity") mountFilename = "antigravity-mcp.json";
 
     const filePath = path.join(tempRoot, mountFilename);
-    await fs.writeFile(filePath, artifact.content);
+    await this.writeRestrictiveFile(filePath, artifact.content);
 
     return [{ source: filePath, destination: artifact.dockerMountDestination, readonly: true }];
   }
 
-  private shouldRewriteDockerLoopbackUrls(workflowSettings: CliWorkflowSettings): boolean {
+  private shouldRewriteDockerLoopbackUrls(
+    workflowSettings: CliWorkflowSettings,
+    conn: McpConnectionInfo | null = null,
+    customServers: CustomMcpServer[] = [],
+  ): boolean {
     if (workflowSettings.executionMode !== "DOCKER") {
       return false;
     }
@@ -552,7 +697,32 @@ export class DockerRunner implements IDockerRunner {
     }
     return process.platform === "darwin"
       || process.platform === "win32"
-      || os.release().toLowerCase().includes("microsoft");
+      || os.release().toLowerCase().includes("microsoft")
+      || this.hasLoopbackMcpEndpoint(conn, customServers);
+  }
+
+  private shouldAddDockerHostGateway(
+    workflowSettings: CliWorkflowSettings,
+    conn: McpConnectionInfo | null,
+    customServers: CustomMcpServer[],
+  ): boolean {
+    return this.shouldRewriteDockerLoopbackUrls(workflowSettings, conn, customServers) && process.platform === "linux";
+  }
+
+  private providerEnvUsesDockerHostGateway(
+    workflowSettings: CliWorkflowSettings,
+    providerEnv: NodeJS.ProcessEnv,
+  ): boolean {
+    if (workflowSettings.executionMode !== "DOCKER" || process.platform !== "linux") {
+      return false;
+    }
+    const hostReachabilityEnvKeys = [
+      "ANTHROPIC_BASE_URL",
+      "OPENAI_BASE_URL",
+      "OPENCODE_CONFIG_CONTENT",
+      "QWEN_SETTINGS_CONTENT",
+    ];
+    return hostReachabilityEnvKeys.some((key) => providerEnv[key]?.includes("host.docker.internal"));
   }
 
   private rewriteLoopbackUrlForDocker(rawUrl: string, enabled: boolean): string {
@@ -577,14 +747,30 @@ export class DockerRunner implements IDockerRunner {
     return rawUrl;
   }
 
-  private rewriteCustomMcpServerForDocker(server: CustomMcpServer, enabled: boolean): CustomMcpServer {
-    if (server.transport === "stdio" || !server.url) {
-      return server;
+  private hasLoopbackMcpEndpoint(conn: McpConnectionInfo | null, customServers: CustomMcpServer[]): boolean {
+    if (conn && this.isLoopbackUrl(conn.url)) {
+      return true;
     }
-    return {
-      ...server,
-      url: this.rewriteLoopbackUrlForDocker(server.url, enabled),
-    };
+    return customServers.some((server) =>
+      server.transport !== "stdio"
+      && typeof server.url === "string"
+      && this.isLoopbackUrl(server.url)
+    );
+  }
+
+  private isLoopbackUrl(rawUrl: string): boolean {
+    try {
+      const url = new URL(rawUrl);
+      return url.hostname === "127.0.0.1"
+        || url.hostname === "localhost"
+        || url.hostname === "::1"
+        || url.hostname === "[::1]"
+        || url.hostname === "0.0.0.0"
+        || url.hostname === "::"
+        || url.hostname === "[::]";
+    } catch {
+      return false;
+    }
   }
 
   private resolveWorkspace(cwd: string): { volumeName: string } {

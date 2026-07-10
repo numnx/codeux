@@ -1,6 +1,6 @@
 import type { Subtask, GitTrackingStatus, GitPullRequestStatus } from "../../../contracts/app-types.js";
 import type { TaskStatus as PlanningTaskStatus } from "../../../contracts/project-management-types.js";
-import type { ProjectAttentionItemRecord, ProjectAttentionOwnerType } from "../../../contracts/project-attention-types.js";
+import type { ProjectAttentionItemRecord, ProjectAttentionOwnerType, ProjectAttentionType } from "../../../contracts/project-attention-types.js";
 import type { SprintOrchestratorDependencies } from "../../../sprint/sprint-orchestrator.js";
 import { matchPrForTask } from "../ci/feature-pr/pr-matcher.js";
 import type { MergeConflictDebouncer } from "../ci/merge-conflict-debouncer.js";
@@ -14,6 +14,7 @@ export interface TaskStateSnapshot {
   status: Subtask["status"];
   isMerged: boolean;
   mergeIndicator: Subtask["merge_indicator"];
+  workerBranch: string | null;
 }
 
 export interface TaskActionRequiredSnapshot {
@@ -125,6 +126,8 @@ export class CycleStateCoordinator {
     activeHumanMergeConflictEscalationTaskIds: Set<string>,
     mergeConflictDebouncer?: MergeConflictDebouncer,
     activeWorkerCiFixTaskIds: Set<string> = new Set(),
+    resolvedWorkerMergeConflictKeys: Set<string> = new Set(),
+    activeProjectAttentionItems?: ProjectAttentionItemRecord[],
   ): void {
     const projectId = args.executionContext.project.id;
     const sprintId = args.executionContext.sprint.id;
@@ -135,6 +138,23 @@ export class CycleStateCoordinator {
 
     const itemsToOpen: any[] = [];
     const itemsToResolve: any[] = [];
+    const activeAttentionTypesByTask = new Map<string, Set<ProjectAttentionType>>();
+    for (const item of activeProjectAttentionItems || []) {
+      if (!item.taskId || (item.status !== "open" && item.status !== "claimed")) {
+        continue;
+      }
+      const types = activeAttentionTypesByTask.get(item.taskId) || new Set<ProjectAttentionType>();
+      types.add(item.attentionType);
+      activeAttentionTypesByTask.set(item.taskId, types);
+    }
+    const hasResolvableAttention = (taskId: string, attentionTypes: ProjectAttentionType[]): boolean => {
+      // Older callers without a snapshot retain the existing cleanup behavior.
+      if (activeProjectAttentionItems === undefined) {
+        return true;
+      }
+      const activeTypes = activeAttentionTypesByTask.get(taskId);
+      return Boolean(activeTypes && attentionTypes.some((type) => activeTypes.has(type)));
+    };
 
     const mergeTaskIds = new Set<string>();
     for (const task of protocolResult.awaitingMerge) {
@@ -142,14 +162,27 @@ export class CycleStateCoordinator {
       if (!taskId) {
         continue;
       }
-      mergeTaskIds.add(taskId);
       const pr = gitStatus?.available ? matchPrForTask(task, gitStatus) : undefined;
+      const resolvedWorkerConflictKey = buildResolvedWorkerMergeConflictKey(
+        taskId,
+        task.worker_branch || pr?.headRefName || null,
+        args.defaultFeatureBranch,
+      );
+      if (
+        resolvedWorkerMergeConflictKeys.has(resolvedWorkerConflictKey)
+        || resolvedWorkerMergeConflictKeys.has(taskId)
+      ) {
+        continue;
+      }
+
+      mergeTaskIds.add(taskId);
       const mergeConflictDetected = shouldEscalateFeatureMergeConflict(
         task,
         args,
         gitStatus,
         activeMergeConflictTaskIds,
         mergeConflictDebouncer,
+        resolvedWorkerMergeConflictKeys,
       );
       const humanEscalationActive = mergeConflictDetected
         && activeHumanMergeConflictEscalationTaskIds.has(taskId);
@@ -197,31 +230,25 @@ export class CycleStateCoordinator {
             featureBranchTaskContexts: mergedFeatureTasks,
           },
         }));
-        itemsToResolve.push({
-          filter: {
-            projectId,
-            taskId,
-            attentionTypes: [mergeConflictDetected ? "merge_required" : "merge_conflict"],
-          },
-          resolution: {
-            status: "resolved",
-            reason: mergeConflictDetected
-              ? "merge_conflict_attention_replaced"
-              : "merge_required_attention_replaced",
-          },
-        });
+        const replacedAttentionType = mergeConflictDetected ? "merge_required" : "merge_conflict";
+        if (hasResolvableAttention(taskId, [replacedAttentionType])) {
+          itemsToResolve.push({
+            filter: { projectId, taskId, attentionTypes: [replacedAttentionType] },
+            resolution: {
+              status: "resolved",
+              reason: mergeConflictDetected
+                ? "merge_conflict_attention_replaced"
+                : "merge_required_attention_replaced",
+            },
+          });
+        }
       } else {
-        itemsToResolve.push({
-          filter: {
-            projectId,
-            taskId,
-            attentionTypes: ["merge_required", "merge_conflict"],
-          },
-          resolution: {
-            status: "resolved",
-            reason: "merge_conflict_human_escalation_active",
-          },
-        });
+        if (hasResolvableAttention(taskId, ["merge_required", "merge_conflict"])) {
+          itemsToResolve.push({
+            filter: { projectId, taskId, attentionTypes: ["merge_required", "merge_conflict"] },
+            resolution: { status: "resolved", reason: "merge_conflict_human_escalation_active" },
+          });
+        }
       }
     }
 
@@ -272,7 +299,7 @@ export class CycleStateCoordinator {
     }
 
     for (const taskId of knownTaskIds) {
-      if (!mergeTaskIds.has(taskId) && !ciFixTaskIds.has(taskId)) {
+      if (!mergeTaskIds.has(taskId) && !ciFixTaskIds.has(taskId) && hasResolvableAttention(taskId, ["merge_required", "merge_conflict"])) {
         itemsToResolve.push({
           filter: {
             projectId,
@@ -285,7 +312,7 @@ export class CycleStateCoordinator {
           },
         });
       }
-      if (!actionTaskIds.has(taskId)) {
+      if (!actionTaskIds.has(taskId) && hasResolvableAttention(taskId, ["action_required"])) {
         itemsToResolve.push({
           filter: {
             projectId,
@@ -298,7 +325,7 @@ export class CycleStateCoordinator {
           },
         });
       }
-      if (!ciFixTaskIds.has(taskId) && !activeWorkerCiFixTaskIds.has(taskId)) {
+      if (!ciFixTaskIds.has(taskId) && !activeWorkerCiFixTaskIds.has(taskId) && hasResolvableAttention(taskId, ["ci_fix_required"])) {
         itemsToResolve.push({
           filter: {
             projectId,
@@ -319,7 +346,86 @@ export class CycleStateCoordinator {
     if (itemsToResolve.length > 0) {
       this.deps.projectAttentionService.resolveItems(itemsToResolve);
     }
+    this.resolveStaleHumanMergeConflictEscalations(
+      subtasks,
+      args,
+      activeProjectAttentionItems || [],
+    );
   }
+
+  resolveStaleHumanMergeConflictEscalations(
+    subtasks: Subtask[],
+    args: CycleRunnerArgs,
+    activeProjectAttentionItems: ProjectAttentionItemRecord[],
+  ): Set<string> {
+    const resolvedItemIds = new Set<string>();
+    if (
+      activeProjectAttentionItems.length === 0
+      || typeof this.deps.projectAttentionService?.resolveItem !== "function"
+    ) {
+      return resolvedItemIds;
+    }
+
+    const sprintId = args.executionContext.sprint.id;
+    const tasksByRecordId = new Map(
+      subtasks
+        .map((task) => [task.record_id?.trim() || "", task] as const)
+        .filter(([taskId]) => taskId.length > 0),
+    );
+    const tasksByTaskKey = new Map(
+      subtasks
+        .map((task) => [task.id?.trim() || "", task] as const)
+        .filter(([taskKey]) => taskKey.length > 0),
+    );
+
+    for (const item of activeProjectAttentionItems) {
+      if (!isTaskLevelHumanMergeConflictEscalation(item, sprintId)) {
+        continue;
+      }
+      const taskId = item.taskId?.trim() || "";
+      const taskKey = typeof item.payload?.taskKey === "string" ? item.payload.taskKey.trim() : "";
+      const task = tasksByRecordId.get(taskId) || (taskKey ? tasksByTaskKey.get(taskKey) : undefined);
+      if (!task || task.merge_indicator === "MERGE_CONFLICT") {
+        continue;
+      }
+
+      this.deps.projectAttentionService.resolveItem(item.id, {
+        status: "dismissed",
+        reason: "stale_merge_conflict_handoff_cleared",
+        resolutionSummaryMarkdown: [
+          "Code UX dismissed this stale merge-conflict handoff because the task no longer carries a MERGE_CONFLICT marker.",
+          "",
+          "The normal merge gate will retry or reopen a fresh conflict if Git still reports one.",
+        ].join("\n"),
+        payloadPatch: {
+          staleHandoffClearedByCycle: true,
+          staleHandoffClearedAtTaskState: {
+            status: task.status,
+            mergeIndicator: task.merge_indicator || null,
+            isMerged: Boolean(task.is_merged),
+          },
+        },
+      });
+      resolvedItemIds.add(item.id);
+    }
+    return resolvedItemIds;
+  }
+}
+
+export function isTaskLevelHumanMergeConflictEscalation(
+  item: ProjectAttentionItemRecord,
+  sprintId: string,
+): boolean {
+  if (
+    item.sprintId !== sprintId
+    || !item.taskId
+    || item.ownerType !== "human"
+    || (item.attentionType !== "human_escalation_required" && item.attentionType !== "dashboard_reply_required")
+    || item.payload?.sourceAttentionType !== "merge_conflict"
+  ) {
+    return false;
+  }
+  return item.payload?.mergeStage !== "main";
 }
 
 export function shouldEscalateFeatureMergeConflict(
@@ -328,14 +434,34 @@ export function shouldEscalateFeatureMergeConflict(
   gitStatus: GitTrackingStatus | null,
   activeWorkerMergeConflictTaskIds: Set<string>,
   mergeConflictDebouncer?: MergeConflictDebouncer,
+  resolvedWorkerMergeConflictKeys: Set<string> = new Set(),
 ): boolean {
   if (!args.ciIntelligence.resolveMergeConflicts) {
     return false;
   }
 
   const taskId = task.record_id?.trim();
+  const pr = gitStatus?.available ? matchPrForTask(task, gitStatus) : undefined;
+  const resolvedWorkerConflictKey = taskId
+    ? buildResolvedWorkerMergeConflictKey(
+        taskId,
+        task.worker_branch || pr?.headRefName || null,
+        args.defaultFeatureBranch,
+      )
+    : null;
+  if (
+    taskId
+    && (
+      (resolvedWorkerConflictKey && resolvedWorkerMergeConflictKeys.has(resolvedWorkerConflictKey))
+      // Backward-compatible fallback for tests or custom integrations still passing task ids.
+      || resolvedWorkerMergeConflictKeys.has(taskId)
+    )
+  ) {
+    return false;
+  }
+
   if (taskId && activeWorkerMergeConflictTaskIds.has(taskId)) {
-    return true;
+    return task.merge_indicator === "MERGE_CONFLICT" || Boolean(pr);
   }
 
   if (task.merge_indicator === "MERGE_CONFLICT") {
@@ -346,7 +472,6 @@ export function shouldEscalateFeatureMergeConflict(
     return false;
   }
 
-  const pr = matchPrForTask(task, gitStatus);
   // Debounce transient `DIRTY` states so a phantom conflict (GitHub still
   // recomputing mergeability) does not escalate before it has actually persisted.
   // `observe` is idempotent within a cycle, so sharing the debouncer with the CI
@@ -354,6 +479,18 @@ export function shouldEscalateFeatureMergeConflict(
   return mergeConflictDebouncer
     ? mergeConflictDebouncer.observe(pr?.url, pr?.mergeStateStatus)
     : pr?.mergeStateStatus === "DIRTY";
+}
+
+export function buildResolvedWorkerMergeConflictKey(
+  taskId: string,
+  sourceBranch: string | null | undefined,
+  targetBranch: string | null | undefined,
+): string {
+  return [
+    taskId.trim(),
+    sourceBranch?.trim() || "",
+    targetBranch?.trim() || "",
+  ].join("\0");
 }
 
 export function collectActiveWorkerMergeConflictTaskIds(subtasks: Array<{
@@ -406,6 +543,7 @@ export function snapshotTaskState(subtasks: Subtask[]): Map<string, TaskStateSna
     status: task.status,
     isMerged: Boolean(task.is_merged),
     mergeIndicator: task.merge_indicator,
+    workerBranch: task.worker_branch || null,
   }]));
 }
 

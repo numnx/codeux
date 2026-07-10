@@ -6,6 +6,50 @@ import { describe, expect, it } from "vitest";
 const require = createRequire(import.meta.url);
 
 describe("electron-builder packaged defaults", () => {
+  it("packages the automatic model-pricing catalogue used by desktop stats", () => {
+    const config = require("../../electron-builder.config.cjs") as {
+      files?: string[];
+    };
+    const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as {
+      files?: string[];
+    };
+    const catalogPath = path.join(process.cwd(), "assets", "models-dev", "catalog.json");
+    const catalog = JSON.parse(fs.readFileSync(catalogPath, "utf8")) as {
+      openai?: { models?: Record<string, { cost?: { input?: number; output?: number } }> };
+    };
+
+    expect(packageJson.files).toEqual(expect.arrayContaining(["assets"]));
+    expect(config.files).toEqual(expect.arrayContaining(["assets/models-dev/catalog.json"]));
+    expect(catalog.openai?.models?.["gpt-5.5"]?.cost).toEqual(expect.objectContaining({
+      input: 5,
+      output: 30,
+    }));
+  });
+
+  it("packages runtime docs-web assets for installed and desktop docs routes", () => {
+    const config = require("../../electron-builder.config.cjs") as {
+      files?: string[];
+    };
+    const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as {
+      files?: string[];
+    };
+
+    expect(packageJson.files).toEqual(expect.arrayContaining(["docs-web"]));
+    expect(config.files).toEqual(expect.arrayContaining(["docs-web/**"]));
+    expect(fs.existsSync(path.join(process.cwd(), "docs-web", "index.md"))).toBe(true);
+  });
+
+  it("keeps renderer privileges constrained in the desktop BrowserWindow", () => {
+    const mainProcessSource = fs.readFileSync(path.join(process.cwd(), "src/electron/main.ts"), "utf8");
+
+    expect(mainProcessSource).toContain("contextIsolation: true");
+    expect(mainProcessSource).toContain("nodeIntegration: false");
+    expect(mainProcessSource).toContain("sandbox: true");
+    expect(mainProcessSource).toContain("setPermissionRequestHandler");
+    expect(mainProcessSource).toContain("setWindowOpenHandler");
+    expect(mainProcessSource).toContain("will-navigate");
+  });
+
   it("packages the default agent assets required by runtime seeding", () => {
     const config = require("../../electron-builder.config.cjs") as {
       extraResources?: Array<{ from?: string; to?: string; filter?: string[] }>;
@@ -34,5 +78,23 @@ describe("electron-builder packaged defaults", () => {
       }
       expect(fs.existsSync(path.join(process.cwd(), ".code-ux", assetPath))).toBe(true);
     }
+  });
+
+  it("keeps the ONNX speech runtime loadable outside ASAR", () => {
+    const config = require("../../electron-builder.config.cjs") as {
+      asarUnpack?: string[];
+      extraResources?: Array<{ from?: string; to?: string; filter?: string[] }>;
+    };
+
+    expect(config.asarUnpack).toEqual(expect.arrayContaining([
+      "node_modules/**/*.node",
+      "node_modules/onnxruntime-node/**",
+    ]));
+    expect(config.extraResources).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        from: ".cache/electron-runtime/node_modules",
+        to: "node_modules",
+      }),
+    ]));
   });
 });

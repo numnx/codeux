@@ -294,7 +294,9 @@ describe("PreviewWindowChrome", () => {
     expect(container.querySelector(".fixed")).not.toBeInTheDocument();
     expect(container.innerHTML).not.toContain("#f5f1e8");
     expect(container.innerHTML).not.toContain("#f7f3ea");
-    expect(container.querySelector(".dark\\:bg-void-900\\/55")).toBeInTheDocument();
+    expect(container.innerHTML).toContain("bg-[var(--surface-glass)]");
+    expect(container.innerHTML).toContain("border-[color:var(--border-hairline)]");
+    expect(container.innerHTML).toContain("shadow-[var(--elevation-base)]");
     expect(container.querySelector(".bg-slate-100\\/70")).toBeInTheDocument();
     expect(screen.getByLabelText("Close preview window")).toBeInTheDocument();
     expect(screen.getByLabelText("Minimize preview window")).toBeInTheDocument();
@@ -303,6 +305,20 @@ describe("PreviewWindowChrome", () => {
     expect(screen.getByLabelText("Go forward in preview session Chrome Sprint")).toBeInTheDocument();
     expect(screen.getByLabelText("Reload preview session Chrome Sprint at /")).toBeInTheDocument();
     expect(screen.getByLabelText("Preview address for Chrome Sprint")).toBeInTheDocument();
+  });
+
+  it("renders the no-session state without a framed empty viewport", () => {
+    const { container } = render(
+      <PreviewWindowChrome {...defaultProps} session={null}>
+        <div data-testid="inactive-child" />
+      </PreviewWindowChrome>
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("No preview active");
+    expect(screen.getByText("Start a sprint preview to build the selected sprint into its own isolated container and browse it directly from the dashboard.")).toBeInTheDocument();
+    expect(container.innerHTML).not.toContain("bg-[var(--surface-glass)]");
+    expect(container.querySelector(".bg-slate-100\\/70")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("inactive-child")).not.toBeInTheDocument();
   });
 
   it("toggles fullscreen mode", async () => {
@@ -354,6 +370,7 @@ describe("PreviewWindowChrome", () => {
     });
 
     expect(childWrapper.classList.contains("hidden")).toBe(false);
+    expect(screen.getByLabelText("Minimize preview window")).toHaveFocus();
   });
 
   it("toggles close mode hiding iframe wrapper", async () => {
@@ -382,6 +399,7 @@ describe("PreviewWindowChrome", () => {
     });
 
     expect(childWrapper.classList.contains("hidden")).toBe(false);
+    expect(screen.getByLabelText("Close preview window")).toHaveFocus();
   });
 
   it("describes disabled and pending navigation controls", () => {
@@ -445,6 +463,15 @@ describe("PreviewWindowChrome", () => {
     await user.keyboard("[ArrowRight]");
 
     expect(onSelectPort).toHaveBeenCalledWith(5173);
+    expect(screen.getByRole("tab", { name: "Select preview port Vite :5173 routed to host port 8081" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "Select preview port Vite :5173 routed to host port 8081" })).toHaveAttribute("aria-controls", "preview-window-frame");
+
+    await user.keyboard("[Home]");
+    expect(onSelectPort).toHaveBeenLastCalledWith(3000);
+    expect(screen.getByRole("tab", { name: "Select preview port :3000 routed to host port 8080" })).toHaveFocus();
+
+    await user.keyboard("[End]");
+    expect(onSelectPort).toHaveBeenLastCalledWith(5173);
     expect(screen.getByRole("tab", { name: "Select preview port Vite :5173 routed to host port 8081" })).toHaveFocus();
   });
 

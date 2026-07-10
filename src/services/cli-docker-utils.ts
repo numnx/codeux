@@ -17,6 +17,12 @@ export const resolveConfiguredPath = (repoPath: string, rawValue: string): strin
 
 const FALLBACK_WORKER_UID = "1000:1000";
 
+export const DOCKER_BRIDGE_NETWORK_ARGS = ["--network", "bridge"] as const;
+export const DOCKER_HOST_GATEWAY_ARGS = ["--add-host", "host.docker.internal:host-gateway"] as const;
+export const DOCKER_NETWORK_NONE_ARGS = ["--network", "none"] as const;
+export const DOCKER_NO_NEW_PRIVILEGES_ARGS = ["--security-opt", "no-new-privileges"] as const;
+export const DOCKER_DROP_ALL_CAPS_ARGS = ["--cap-drop", "ALL"] as const;
+
 export const getDockerUserSpec = (): string => {
   const getUid = (process as NodeJS.Process & { getuid?: () => number }).getuid;
   const getGid = (process as NodeJS.Process & { getgid?: () => number }).getgid;
@@ -68,6 +74,8 @@ export const pickContainerEnv = (env: NodeJS.ProcessEnv): Array<{ key: string; v
     "ANTIGRAVITY_API_KEY",
     "ANTIGRAVITY_MODEL",
     "AGY_MODEL",
+    "CODE_UX_MOCKUP_MODEL",
+    "CODE_UX_MOCKUP_SESSION_ID",
     "GH_TOKEN",
     "GITHUB_TOKEN",
     "HTTP_PROXY",
@@ -137,36 +145,4 @@ export const isDockerWorkspaceMountError = (result: CommandResult): boolean => {
   const mountPermission = combined.includes("mounts denied")
     || (combined.includes("permission denied") && combined.includes("mount"));
   return bindSourceMissing || mountPermission;
-};
-
-/**
- * Shell definition of the `ensure_curl` helper used by the provider fallback
- * install commands. curl is installed lazily (via apt-get) only when missing.
- *
- * The provider-runner bootstrap script defines this helper inline, but any
- * other context that inlines a `getProviderFallbackInstallCommand` result
- * (e.g. the interactive login container) must prepend this definition so the
- * `if ensure_curl; then ...` branch resolves to a real function instead of an
- * "ensure_curl: command not found" failure.
- */
-export const ENSURE_CURL_SHELL_FUNCTION =
-  "ensure_curl() { if command -v curl >/dev/null 2>&1; then return 0; fi; echo \"provider-runner: curl not found; installing...\" >&2; if command -v apt-get >/dev/null 2>&1; then (apt-get update -qy && apt-get install -qy curl ca-certificates) >/dev/null 2>&1 || true; fi; command -v curl >/dev/null 2>&1; }";
-
-export const getProviderFallbackInstallCommand = (providerCommand: string): string | undefined => {
-  switch (providerCommand) {
-    case "gemini":
-      return "npm install -g @google/gemini-cli";
-    case "codex":
-      return "npm install -g @openai/codex";
-    case "claude":
-      return "if ensure_curl; then curl -fsSL https://claude.ai/install.sh | bash && export PATH=\"$HOME/.local/bin:$PATH\"; else echo \"provider-runner: curl unavailable; cannot install claude\" >&2; fi";
-    case "qwen":
-      return "npm install -g @qwen-code/qwen-code";
-    case "opencode":
-      return "if ensure_curl; then curl -fsSL https://opencode.ai/install | bash && export PATH=\"$HOME/.opencode/bin:$HOME/.local/bin:$PATH\"; else echo \"provider-runner: curl unavailable; cannot install opencode\" >&2; fi";
-    case "agy":
-      return 'if ensure_curl; then curl -fsSL https://antigravity.google/cli/install.sh | bash && export PATH="$HOME/.local/bin:$PATH"; else echo "provider-runner: curl unavailable; cannot install antigravity" >&2; fi';
-    default:
-      return undefined;
-  }
 };

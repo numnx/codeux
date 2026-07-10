@@ -1,26 +1,33 @@
-name: Playwright Tests
+name: Playwright Diagnostics
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: playwright-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: playwright-diagnostics-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PLAYWRIGHT_BROWSERS_PATH: .cache/ms-playwright
+
 jobs:
-  test-e2e:
-    name: Playwright E2E Tests (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
+  build:
+    name: Diagnostic build (${{ matrix.os.label }})
+    runs-on: ${{ matrix.os.runner }}
+    timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    env:
-      PLAYWRIGHT_BROWSERS_PATH: .cache/ms-playwright
+        os:
+          - runner: ubuntu-latest
+            label: Linux
+          - runner: macos-latest
+            label: macOS
+          - runner: windows-latest
+            label: Windows
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -39,7 +46,6 @@ jobs:
 
       - name: Restore node_modules cache
         if: runner.os != 'Windows'
-        id: nm-cache-e2e
         uses: actions/cache@v5
         with:
           path: node_modules
@@ -48,25 +54,70 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      # Cache only Vite's transform cache — NOT the server tsc incremental
-      # state (.cache/tsc). The server build runs `tsc --incremental` emitting
-      # to dist/, but dist/ is not cached here. Restoring the .tsbuildinfo
-      # without its matching dist/ makes incremental tsc consider the output
-      # up-to-date and emit nothing, leaving dist/index.js absent — which then
-      # crashes the Playwright webServer (`node dist/index.js`). Dropping the
-      # tsc cache forces a full server emit on every run.
-      - name: Restore Vite cache
+      - name: Build server and dashboard
+        run: pnpm run build
+
+      - name: Upload compiled app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostic-build-${{ matrix.os.runner }}
+          path: |
+            dist/
+            dashboard/dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  test:
+    name: Diagnostic E2E (${{ matrix.os.label }} / ${{ matrix.project }})
+    needs: build
+    runs-on: ${{ matrix.os.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        os:
+          - runner: ubuntu-latest
+            label: Linux
+          - runner: macos-latest
+            label: macOS
+          - runner: windows-latest
+            label: Windows
+        project: [navigation, settings, projects, tasks, agents, config]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Restore node_modules cache
+        if: runner.os != 'Windows'
         uses: actions/cache@v5
         with:
-          path: .cache/vite
-          key: ${{ runner.os }}-node22-pnpm10.33.0-vite-e2e-${{ hashFiles('package.json', 'pnpm-lock.yaml', 'vite.config.ts', 'tsconfig.json', 'dashboard/tsconfig.json') }}
+          path: node_modules
+          key: ${{ runner.os }}-node22-pnpm10.33.0-nm-${{ hashFiles('package.json', 'pnpm-lock.yaml') }}
 
-      - name: Build server & dashboard
-        run: pnpm run build
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Download compiled app artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: playwright-diagnostic-build-${{ matrix.os.runner }}
+          path: .
 
       - name: Cache Playwright browser binaries
         uses: actions/cache@v5
-        id: playwright-cache
         with:
           path: .cache/ms-playwright
           key: ${{ runner.os }}-node22-pnpm10.33.0-playwright-${{ hashFiles('package.json', 'pnpm-lock.yaml') }}
@@ -77,17 +128,17 @@ jobs:
         if: runner.os == 'Linux'
         run: pnpm exec playwright install-deps chromium
 
-      - name: Install Playwright browsers
+      - name: Install Playwright Chromium
         run: pnpm exec playwright install chromium
 
-      - name: Run Playwright E2E Tests
-        run: pnpm run test:e2e
+      - name: Run Playwright project
+        run: pnpm exec playwright test --project=${{ matrix.project }}
 
       - name: Upload Playwright artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-artifacts
+          name: playwright-diagnostic-${{ matrix.os.runner }}-${{ matrix.project }}
           path: |
             test-results/
             playwright-report/

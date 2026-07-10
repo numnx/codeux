@@ -27,6 +27,24 @@ describe("CommandRunner", () => {
     await expect(runner.run("bad/command", [])).rejects.toThrow(/Unsafe command name/);
   });
 
+  it("keeps provider-like command names behind validation unless a test explicitly launches them", async () => {
+    vi.resetModules();
+    const spawn = vi.fn();
+    vi.doMock("child_process", () => ({ spawn }));
+
+    try {
+      const { CommandRunner: IsolatedCommandRunner } = await import("../../../../src/shared/subprocess/command-runner.js");
+      const isolatedRunner = new IsolatedCommandRunner();
+
+      await expect(isolatedRunner.run("codex exec", ["--help"])).rejects.toThrow(/Unsafe command name/);
+      await expect(isolatedRunner.run("docker run", ["hello-world"])).rejects.toThrow(/Unsafe command name/);
+      expect(spawn).not.toHaveBeenCalled();
+    } finally {
+      vi.doUnmock("child_process");
+      vi.resetModules();
+    }
+  });
+
   it("rejects null bytes in command arguments before spawning", async () => {
     await expect(runner.run(node, ["ok\0bad"])).rejects.toThrow(/null bytes/);
   });
@@ -299,7 +317,7 @@ describe("CommandRunner", () => {
     }
   });
 
-  it("keeps git commands on the host after runtime shutdown begins", () => {
+  it("keeps git commands containerized after runtime shutdown begins", () => {
     const tempRoot = path.join(os.tmpdir(), "code-ux-command-runner-repo");
     const previous = process.env.CODE_UX_CONTAINERIZED_GIT;
     process.env.CODE_UX_CONTAINERIZED_GIT = "1";
@@ -309,7 +327,7 @@ describe("CommandRunner", () => {
         resolveCommand: (command: string, args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv }) => { command: string; args: string[] };
       }).resolveCommand("git", ["status", "--porcelain"], { cwd: tempRoot });
 
-      expect(resolved.command).toBe("git");
+      expect(resolved.command).toBe("docker");
     } finally {
       resetRuntimeShutdownForTests();
       if (previous === undefined) {
@@ -423,6 +441,85 @@ describe("CommandRunner", () => {
       if (mountArgs[index - 1] === "--mount") {
         expect(mountArgs[index]).not.toMatch(/target=[A-Za-z]:/);
       }
+    }
+  });
+
+  it("uses the same git helper pool key for a project root and its repo-local worktree", async () => {
+    const tempDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "code-ux-git-pool-root-"));
+    const repoDir = path.join(tempDir, "repo");
+    const worktreeDir = path.join(repoDir, ".worktrees", "session-1");
+    const gitDir = path.join(repoDir, ".git");
+    const worktreeGitDir = path.join(gitDir, "worktrees", "session-1");
+    try {
+      await fsPromises.mkdir(worktreeGitDir, { recursive: true });
+      await fsPromises.mkdir(worktreeDir, { recursive: true });
+      await fsPromises.writeFile(path.join(worktreeDir, ".git"), `gitdir: ${worktreeGitDir}\n`, "utf8");
+      await fsPromises.writeFile(path.join(worktreeGitDir, "commondir"), "../..\n", "utf8");
+
+      const rootContext = (CommandRunner as unknown as {
+        resolveGitPoolContextForPath: (cwd: string) => { poolKey: string; mountRoot: string; containerCwd: string } | null;
+      }).resolveGitPoolContextForPath(repoDir);
+      const worktreeContext = (CommandRunner as unknown as {
+        resolveGitPoolContextForPath: (cwd: string) => { poolKey: string; mountRoot: string; containerCwd: string } | null;
+      }).resolveGitPoolContextForPath(worktreeDir);
+
+      expect(rootContext).toMatchObject({
+        mountRoot: repoDir,
+        containerCwd: "/workspace",
+      });
+      expect(worktreeContext).toMatchObject({
+        mountRoot: repoDir,
+        containerCwd: "/workspace/.worktrees/session-1",
+      });
+      expect(worktreeContext?.poolKey).toBe(rootContext?.poolKey);
+    } finally {
+      await fsPromises.rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("mounts the project root for one-shot git commands started from repo-local worktrees", async () => {
+    const tempDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "code-ux-git-one-shot-root-"));
+    const repoDir = path.join(tempDir, "repo");
+    const worktreeDir = path.join(repoDir, ".worktrees", "session-1");
+    const gitDir = path.join(repoDir, ".git");
+    const worktreeGitDir = path.join(gitDir, "worktrees", "session-1");
+    const stdinFile = path.join(tempDir, "paths");
+    const previous = process.env.CODE_UX_CONTAINERIZED_GIT;
+    process.env.CODE_UX_CONTAINERIZED_GIT = "1";
+    try {
+      await fsPromises.mkdir(worktreeGitDir, { recursive: true });
+      await fsPromises.mkdir(worktreeDir, { recursive: true });
+      await fsPromises.writeFile(path.join(worktreeDir, ".git"), `gitdir: ${worktreeGitDir}\n`, "utf8");
+      await fsPromises.writeFile(path.join(worktreeGitDir, "commondir"), "../..\n", "utf8");
+      await fsPromises.writeFile(stdinFile, "test-1.md\0", "utf8");
+
+      const containerized = (runner as unknown as {
+        resolveCommand: (
+          command: string,
+          args: string[],
+          options: { cwd?: string; env?: NodeJS.ProcessEnv; stdinFile?: string },
+        ) => { command: string; args: string[]; containerHostCwd?: string };
+      }).resolveCommand("git", ["add", "--pathspec-from-file=-", "--pathspec-file-nul"], {
+        cwd: worktreeDir,
+        stdinFile,
+      });
+
+      expect(containerized.command).toBe("docker");
+      expect(containerized.containerHostCwd).toBe(repoDir);
+      expect(containerized.args).toEqual(expect.arrayContaining([
+        "--workdir",
+        "/workspace/.worktrees/session-1",
+        "--mount",
+        `type=bind,source=${repoDir},target=/workspace`,
+      ]));
+      expect(containerized.args).not.toContain(`type=bind,source=${worktreeDir},target=/workspace`);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.CODE_UX_CONTAINERIZED_GIT;
+      } else {
+        process.env.CODE_UX_CONTAINERIZED_GIT = previous;
+      }
+      await fsPromises.rm(tempDir, { recursive: true, force: true });
     }
   });
 });

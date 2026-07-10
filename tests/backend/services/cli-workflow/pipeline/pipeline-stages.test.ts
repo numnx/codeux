@@ -7,9 +7,11 @@ import { executePrFinalizeStage } from "../../../../../src/services/cli-workflow
 import { executeCleanupStage } from "../../../../../src/services/cli-workflow/pipeline/cleanup-stage.js";
 import * as providerRetryPolicy from "../../../../../src/shared/providers/provider-retry-policy.js";
 import { DEFAULT_TASK_SECTION_ORDER, DEFAULT_SPRINT_SECTION_ORDER } from "../../../../../src/domain/sprint/composer/pr-description-composer.js";
+import { beginRuntimeShutdown, resetRuntimeShutdownForTests } from "../../../../../src/services/shutdown-state.js";
 
 afterEach(() => {
   vi.restoreAllMocks();
+  resetRuntimeShutdownForTests();
 });
 
 const createMockContext = (): PipelineContext => {
@@ -51,9 +53,9 @@ const createMockContext = (): PipelineContext => {
     settings: {
       aiProvider: {
         providers: {
-          gemini: { apiKey: "key", model: "model", thinkingMode: false, enabled: true, weight: 1 },
-          codex: { apiKey: "key", model: "model", thinkingMode: false, enabled: true, weight: 1 },
-          "claude-code": { apiKey: "key", model: "model", thinkingMode: false, enabled: true, weight: 1 },
+          gemini: { apiKey: "key", model: "model", thinkingMode: false, enabled: true, weight: 1, maxConcurrentTasks: 0 },
+          codex: { apiKey: "key", model: "model", thinkingMode: false, enabled: true, weight: 1, maxConcurrentTasks: 0 },
+          "claude-code": { apiKey: "key", model: "model", thinkingMode: false, enabled: true, weight: 1, maxConcurrentTasks: 0 },
         },
         provider: "gemini",
         strategy: "SINGLE",
@@ -66,6 +68,8 @@ const createMockContext = (): PipelineContext => {
         defaultBranch: "main",
         featureBranchPrefix: "feature/",
         sprintBranchScheme: "sprint",
+        sprintKeyPrefix: "SPR",
+        taskPrTitleScheme: "({sprint_tag}) {task_title}",
         prDescription: {
           task: { summary: true, modelAndProvider: true, timing: true, fullPrompt: true, tokenUsage: true, qaFindings: true, branchInfo: true },
           sprint: { summary: true, taskChecklist: true, providerBreakdown: true, planningModel: true, mainPrompt: true, timing: true, tokenUsage: true, qaFindings: true, branchInfo: true },
@@ -159,6 +163,9 @@ const createMockContext = (): PipelineContext => {
       removeWorktree: vi.fn(),
       buildWorkspaceGuidance: vi.fn(),
     } as any,
+    invocationWorkspacePreparer: {
+      prepareWorktree: vi.fn(),
+    } as any,
     workspaceArtifactService: {
       exportBinaryPatch: vi.fn().mockResolvedValue(""),
       applyPatchToBranch: vi.fn().mockResolvedValue({
@@ -177,7 +184,16 @@ const createMockContext = (): PipelineContext => {
     } as any,
     deps: {
       sessionTracking: { appendActivity: vi.fn(), updateSession: vi.fn() } as any,
-      projectManagementRepository: { getSprint: vi.fn().mockReturnValue({ goal: "Mock Sprint Goal" }) } as any,
+      projectManagementRepository: {
+        getSprint: vi.fn().mockReturnValue({
+          id: "sprint-1",
+          number: 1,
+          slug: "sprint-1",
+          name: "Mock Sprint",
+          goal: "Mock Sprint Goal",
+          linkedIssues: [],
+        }),
+      } as any,
       executionRepository: {
         createProviderInvocationUsage: vi.fn().mockReturnValue({ id: "usage-1" }),
         updateProviderInvocationUsage: vi.fn(),
@@ -205,7 +221,7 @@ const createMockContext = (): PipelineContext => {
 describe("executePrepareStage", () => {
   it("prepares the worktree and resolves provider prompt", async () => {
     const ctx = createMockContext();
-    vi.mocked(ctx.workspaceManager.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
+    vi.mocked(ctx.invocationWorkspacePreparer.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
     vi.mocked(ctx.workspaceManager.buildWorkspaceGuidance).mockResolvedValue("guidance");
     vi.mocked(ctx.runCommand).mockResolvedValue({ ok: true, stdout: "head-sha\n", stderr: "" });
     vi.mocked(ctx.deps.getWorkerInstruction).mockResolvedValue("worker guide content");
@@ -217,14 +233,20 @@ describe("executePrepareStage", () => {
     expect(result.providerPrompt).toContain("worker guide content");
     expect(result.providerPrompt).toContain("test prompt");
     expect(result.providerPrompt).toContain("guidance");
-    expect(ctx.workspaceManager.prepareWorktree).toHaveBeenCalledWith(
-      "/repo",
-      "/repo/worktree",
-      "worker-branch",
-      "feature-branch",
-      undefined,
-      { githubToken: "token", gitlabToken: undefined },
-    );
+    expect(ctx.invocationWorkspacePreparer.prepareWorktree).toHaveBeenCalledWith({
+      repoPath: "/repo",
+      worktreePath: "/repo/worktree",
+      workerBranch: "worker-branch",
+      featureBranch: "feature-branch",
+      resumeSessionId: undefined,
+      gitAuth: { githubToken: "token", gitlabToken: undefined },
+      gitPolicy: {
+        githubMode: "LOCAL",
+        defaultBranch: "main",
+        githubToken: "token",
+        gitlabToken: undefined,
+      },
+    });
   });
 
   it("includes default memory learnings instruction when memory capture is enabled without override", async () => {
@@ -237,7 +259,7 @@ describe("executePrepareStage", () => {
       minLongTermRelevance: 0.7,
       shortTermRetentionSprints: 3,
     };
-    vi.mocked(ctx.workspaceManager.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
+    vi.mocked(ctx.invocationWorkspacePreparer.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
     vi.mocked(ctx.workspaceManager.buildWorkspaceGuidance).mockResolvedValue("guidance");
     vi.mocked(ctx.runCommand).mockResolvedValue({ ok: true, stdout: "head-sha\n", stderr: "" });
     vi.mocked(ctx.deps.getWorkerInstruction).mockResolvedValue("");
@@ -277,7 +299,7 @@ describe("executePrepareStage", () => {
       { category: "codebase", content: "below category threshold", strength: 4 },
       { category: "codebase", content: "kept long-term memory", strength: 6 },
     ]);
-    vi.mocked(ctx.workspaceManager.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
+    vi.mocked(ctx.invocationWorkspacePreparer.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
     vi.mocked(ctx.workspaceManager.buildWorkspaceGuidance).mockResolvedValue("guidance");
     vi.mocked(ctx.runCommand).mockResolvedValue({ ok: true, stdout: "head-sha\n", stderr: "" });
     vi.mocked(ctx.deps.getWorkerInstruction).mockResolvedValue("");
@@ -315,7 +337,7 @@ describe("executePrepareStage", () => {
     memoryService.listLongTermByAgent.mockReturnValue([
       { category: "decision", content: "long-term memory", strength: 1 },
     ]);
-    vi.mocked(ctx.workspaceManager.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
+    vi.mocked(ctx.invocationWorkspacePreparer.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
     vi.mocked(ctx.workspaceManager.buildWorkspaceGuidance).mockResolvedValue("guidance");
     vi.mocked(ctx.runCommand).mockResolvedValue({ ok: true, stdout: "head-sha\n", stderr: "" });
     vi.mocked(ctx.deps.getWorkerInstruction).mockResolvedValue("");
@@ -341,7 +363,7 @@ describe("executePrepareStage", () => {
     };
     ctx.memoryTemplateOverrideEnabled = true;
     ctx.memoryTemplateMarkdown = "Preset Override Instruction";
-    vi.mocked(ctx.workspaceManager.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
+    vi.mocked(ctx.invocationWorkspacePreparer.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
     vi.mocked(ctx.workspaceManager.buildWorkspaceGuidance).mockResolvedValue("guidance");
     vi.mocked(ctx.runCommand).mockResolvedValue({ ok: true, stdout: "head-sha\n", stderr: "" });
     vi.mocked(ctx.deps.getWorkerInstruction).mockResolvedValue("");
@@ -365,7 +387,7 @@ describe("executePrepareStage", () => {
     };
     ctx.memoryTemplateOverrideEnabled = true;
     ctx.memoryTemplateMarkdown = "   \n"; // empty string behavior
-    vi.mocked(ctx.workspaceManager.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
+    vi.mocked(ctx.invocationWorkspacePreparer.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: false });
     vi.mocked(ctx.workspaceManager.buildWorkspaceGuidance).mockResolvedValue("guidance");
     vi.mocked(ctx.runCommand).mockResolvedValue({ ok: true, stdout: "head-sha\n", stderr: "" });
     vi.mocked(ctx.deps.getWorkerInstruction).mockResolvedValue("");
@@ -378,7 +400,7 @@ describe("executePrepareStage", () => {
 
   it("handles FF-merge during resume properly", async () => {
     const ctx = createMockContext();
-    vi.mocked(ctx.workspaceManager.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: true });
+    vi.mocked(ctx.invocationWorkspacePreparer.prepareWorktree).mockResolvedValue({ worktreePath: "/repo/worktree", resumed: true });
     vi.mocked(ctx.workspaceManager.buildWorkspaceGuidance).mockResolvedValue("guidance");
     vi.mocked(ctx.runCommand).mockResolvedValue({ ok: true, stdout: "head-sha\n", stderr: "" });
 
@@ -398,6 +420,14 @@ describe("executeProviderStage", () => {
     vi.mocked(ctx.providerRunner.runProvider).mockResolvedValueOnce({ ok: false, code: 1, stdout: "", stderr: "fatal provider error", usageTelemetry: { transcriptText: "error transcript", inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0, usageSource: "estimated", rawUsageJson: "{}" } as any });
 
     await expect(executeProviderStage(ctx, "prompt")).rejects.toThrow("fatal provider error");
+    expect(ctx.providerRunner.runProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gitPolicy: expect.objectContaining({
+          githubMode: "LOCAL",
+          defaultBranch: "main",
+        }),
+      }),
+    );
     expect(ctx.deps.executionRepository?.createExecutionInvocation).toHaveBeenCalled();
     expect(ctx.deps.executionRepository?.appendExecutionInvocationMessage).toHaveBeenCalledWith("exec-1", {
       role: "user",
@@ -435,6 +465,37 @@ describe("executeProviderStage", () => {
       role: "system",
       contentMarkdown: "Retrying with file-discovery guidance.",
     }));
+  });
+
+  it("uses the selected provider instance concurrency cap from the provider override", async () => {
+    const ctx = createMockContext();
+    ctx.providerSettingsOverride = {
+      model: "custom-model",
+      thinkingMode: "HIGH",
+      apiKey: "key",
+      maxConcurrentTasks: 2,
+    };
+    ctx.deps.providerConcurrencyService = {
+      waitForSlotAndClaim: vi.fn().mockResolvedValue({ id: "usage-override" }),
+    } as any;
+    vi.mocked(ctx.providerRunner.runProvider).mockResolvedValueOnce({
+      ok: true,
+      stdout: "success",
+      stderr: "",
+      usageTelemetry: { transcriptText: "success transcript" } as any,
+    });
+
+    await executeProviderStage(ctx, "prompt");
+
+    expect(ctx.deps.providerConcurrencyService.waitForSlotAndClaim).toHaveBeenCalledWith(
+      "gemini",
+      2,
+      expect.objectContaining({
+        provider: "gemini",
+        purpose: "task_coding",
+      }),
+      undefined,
+    );
   });
 
   it("continues the native provider session when retrying after a rate limit", async () => {
@@ -519,6 +580,19 @@ describe("executeGitFinalizeStage", () => {
     expect(ctx.deps.sessionTracking.updateSession).toHaveBeenCalledWith(ctx.sessionId, { state: "COMPLETED" });
   });
 
+  it("does not trust an empty patch as no-output while runtime shutdown is in progress", async () => {
+    const ctx = createMockContext();
+
+    vi.mocked(ctx.prService.hasUnpushedCommits).mockResolvedValue(false);
+    vi.mocked(ctx.prService.hasWorkerBranchCommitsAgainstFeature).mockResolvedValue(false);
+    beginRuntimeShutdown();
+
+    await expect(executeGitFinalizeStage(ctx)).rejects.toThrow("Runtime shutdown interrupted git finalization");
+
+    expect(ctx.workflowSucceeded).toBeFalsy();
+    expect(ctx.deps.sessionTracking.updateSession).not.toHaveBeenCalledWith(ctx.sessionId, { state: "COMPLETED" });
+  });
+
   it("applies exported patch results when the isolated workspace has changes", async () => {
     const ctx = createMockContext();
     vi.mocked(ctx.workspaceArtifactService.exportBinaryPatch).mockResolvedValue("diff --git a/file.txt b/file.txt");
@@ -587,6 +661,17 @@ describe("executePrFinalizeStage", () => {
   it("resolves PR and updates session state to COMPLETED", async () => {
     const ctx = createMockContext();
     ctx.settings.git.githubMode = "REMOTE";
+    ctx.settings.git.taskPrTitleScheme = "({sprint_tag}) {task_key}: {task_title}";
+    ctx.task.id = "Task 1";
+    ctx.task.title = "Wire task PR titles";
+    vi.mocked(ctx.deps.projectManagementRepository!.getSprint).mockReturnValue({
+      id: "sprint-40",
+      number: 40,
+      slug: "title-formatting",
+      name: "Title formatting",
+      goal: "Mock Sprint Goal",
+      linkedIssues: [{ issueKey: "CODUX-40" }],
+    });
     vi.mocked(ctx.prService.resolveOrCreateFeaturePr).mockResolvedValue("https://github.com/pr/1");
 
     await executePrFinalizeStage(ctx);
@@ -594,9 +679,9 @@ describe("executePrFinalizeStage", () => {
     expect(ctx.workflowSucceeded).toBe(true);
     expect(ctx.prService.resolveOrCreateFeaturePr).toHaveBeenCalledWith(
       expect.objectContaining({
-        taskId: "T1",
+        taskId: "Task 1",
         provider: "gemini",
-        title: "test task (gemini)",
+        title: "(CODUX-40) Task 1: Wire task PR titles",
         featureBranch: "feature-branch",
         workerBranch: "worker-branch",
         body: expect.stringContaining("test prompt"),
@@ -616,6 +701,31 @@ describe("executePrFinalizeStage", () => {
     expect(ctx.deps.sessionTracking.appendActivity).toHaveBeenCalledWith(ctx.sessionId, expect.objectContaining({
       description: "Workflow completed. PR: https://github.com/pr/1"
     }));
+  });
+
+  it("falls back to the sprint key when no linked issue exists", async () => {
+    const ctx = createMockContext();
+    ctx.settings.git.githubMode = "REMOTE";
+    ctx.settings.git.taskPrTitleScheme = "({sprint_tag}) {task_key}: {task_title}";
+    vi.mocked(ctx.deps.projectManagementRepository!.getSprint).mockReturnValue({
+      id: "sprint-40",
+      number: 40,
+      slug: "title-formatting",
+      name: "Title formatting",
+      goal: "Mock Sprint Goal",
+      linkedIssues: [],
+    });
+    vi.mocked(ctx.prService.resolveOrCreateFeaturePr).mockResolvedValue("https://github.com/pr/1");
+
+    await executePrFinalizeStage(ctx);
+
+    expect(ctx.prService.resolveOrCreateFeaturePr).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "(SPR-40) T1: test task",
+      }),
+      ctx.repoPath,
+      expect.anything(),
+    );
   });
 
   it("renders completion timing in the task PR body while the task run row is still open", async () => {

@@ -1,24 +1,108 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const keepTemp = process.env.CODE_UX_KEEP_RELEASE_INSTALL_TEMP === "1";
+const skipBuild = process.env.CODE_UX_SKIP_RELEASE_INSTALL_BUILD === "1";
 const tempRoot = await mkdtemp(path.join(tmpdir(), "codeux-release-install-"));
 const packDir = path.join(tempRoot, "pack");
 const installDir = path.join(tempRoot, "install");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
-async function runStep(label, command, args, options = {}) {
-  console.log(`\n==> ${label}`);
-  console.log(`$ ${[command, ...args].join(" ")}`);
+function existingPath(...parts) {
+  const candidate = path.resolve(...parts);
+  return existsSync(candidate) ? candidate : null;
+}
 
-  const child = spawn(command, args, {
+function resolveWindowsPackageManager(command, args) {
+  if (process.platform !== "win32") {
+    return { command, args };
+  }
+
+  if (command === "npm.cmd") {
+    const npmCliPath = existingPath(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+    if (npmCliPath) {
+      return { command: process.execPath, args: [npmCliPath, ...args] };
+    }
+  }
+
+  if (command === "pnpm.cmd" && process.env.PNPM_HOME) {
+    const pnpmCliPath = existingPath(process.env.PNPM_HOME, "..", "pnpm", "bin", "pnpm.cjs");
+    if (pnpmCliPath) {
+      return { command: process.execPath, args: [pnpmCliPath, ...args] };
+    }
+  }
+
+  return { command, args };
+}
+
+function installedPackagePath(...parts) {
+  return path.join(installDir, "node_modules", "@codeuxai", "codeux", ...parts);
+}
+
+function requireExistingBuildArtifacts() {
+  const requiredPaths = [
+    path.join(projectRoot, "dist", "index.js"),
+    path.join(projectRoot, "dist", "worker", "index.js"),
+    path.join(projectRoot, "dashboard", "dist"),
+  ];
+  const missingPaths = requiredPaths.filter((candidate) => !existsSync(candidate));
+
+  if (missingPaths.length > 0) {
+    throw new Error([
+      "CODE_UX_SKIP_RELEASE_INSTALL_BUILD=1 was set, but required build artifacts are missing.",
+      ...missingPaths.map((candidate) => `Missing: ${candidate}`),
+      "Run pnpm run build first, or unset CODE_UX_SKIP_RELEASE_INSTALL_BUILD.",
+    ].join("\n"));
+  }
+}
+
+async function resolveInstalledBin(binName) {
+  const binShimCandidates = process.platform === "win32"
+    ? [
+        path.join(installDir, "node_modules", ".bin", `${binName}.cmd`),
+        path.join(installDir, "node_modules", ".bin", binName),
+      ]
+    : [
+        path.join(installDir, "node_modules", ".bin", binName),
+      ];
+  const binShim = binShimCandidates.find((candidate) => existsSync(candidate));
+  if (!binShim) {
+    throw new Error(`Installed package did not create a local ${binName} bin shim in node_modules/.bin.`);
+  }
+
+  const packageJsonPath = installedPackagePath("package.json");
+  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  const bin = packageJson?.bin;
+  const relativeBinPath = typeof bin === "string" ? bin : bin?.[binName];
+  if (typeof relativeBinPath !== "string" || relativeBinPath.length === 0) {
+    throw new Error(`Installed package does not declare a ${binName} bin entry.`);
+  }
+
+  const binPath = installedPackagePath(relativeBinPath);
+  if (!existsSync(binPath)) {
+    throw new Error(`Installed ${binName} bin target is missing: ${binPath}`);
+  }
+
+  return { command: process.execPath, args: [binPath], displayCommand: binShim };
+}
+
+async function runStep(label, command, args, options = {}) {
+  const invocation = resolveWindowsPackageManager(command, args);
+  const displayCommand = options.displayCommand ?? invocation.command;
+  const displayArgs = options.displayArgs ?? invocation.args;
+
+  console.log(`\n==> ${label}`);
+  console.log(`$ ${[displayCommand, ...displayArgs].join(" ")}`);
+
+  const child = spawn(invocation.command, invocation.args, {
     cwd: options.cwd ?? projectRoot,
     env: {
       ...process.env,
@@ -51,7 +135,7 @@ async function runStep(label, command, args, options = {}) {
   if (exitCode !== 0) {
     const detail = [
       `${label} failed with exit code ${exitCode}.`,
-      `Command: ${[command, ...args].join(" ")}`,
+      `Command: ${[displayCommand, ...displayArgs].join(" ")}`,
       `Working directory: ${options.cwd ?? projectRoot}`,
       stdout.trim().length > 0 ? `stdout:\n${stdout.trim()}` : undefined,
       stderr.trim().length > 0 ? `stderr:\n${stderr.trim()}` : undefined,
@@ -60,6 +144,16 @@ async function runStep(label, command, args, options = {}) {
   }
 
   return { stdout, stderr };
+}
+
+async function runInstalledBinStep(label, binName, args, options = {}) {
+  const invocation = await resolveInstalledBin(binName);
+
+  return runStep(label, invocation.command, [...invocation.args, ...args], {
+    ...options,
+    displayCommand: invocation.displayCommand,
+    displayArgs: args,
+  });
 }
 
 async function npmPack() {
@@ -94,7 +188,13 @@ async function prepareInstallDir() {
 try {
   console.log(`Using temporary release install workspace: ${tempRoot}`);
 
-  await runStep("Build project", pnpmCommand, ["run", "build"]);
+  if (skipBuild) {
+    console.log("\n==> Reuse existing build artifacts");
+    requireExistingBuildArtifacts();
+    console.log("Build artifacts are present; skipping pnpm run build.");
+  } else {
+    await runStep("Build project", pnpmCommand, ["run", "build"]);
+  }
 
   await mkdir(packDir, { recursive: true });
   await prepareInstallDir();
@@ -109,12 +209,7 @@ try {
     tarballPath,
   ], { cwd: installDir });
 
-  await runStep("Run installed codeux --help", npmCommand, [
-    "exec",
-    "--",
-    "codeux",
-    "--help",
-  ], { cwd: installDir });
+  await runInstalledBinStep("Run installed codeux --help", "codeux", ["--help"], { cwd: installDir });
 
   console.log("\nRelease install verification passed.");
 } catch (error) {

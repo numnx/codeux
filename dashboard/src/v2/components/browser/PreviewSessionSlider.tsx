@@ -1,6 +1,6 @@
 import type { FunctionComponent } from "preact";
 import { useRef } from "preact/hooks";
-import { ChevronLeft, ChevronRight, ExternalLink, Globe, Trash2, Loader2, CheckCircle2 } from "lucide-preact";
+import { ChevronLeft, ChevronRight, ExternalLink, Globe, Trash2, Loader2, CheckCircle2, SlidersHorizontal } from "lucide-preact";
 import type { SprintPreviewSession } from "../../../types.js";
 import { buildPreviewOrigin, formatPreviewPortMappingsSummary, getPrimaryPreviewPortMapping } from "../../lib/preview-origin.js";
 import { getSafeUrl } from "../../lib/safe-url.js";
@@ -11,6 +11,7 @@ interface PreviewSessionSliderProps {
   selectedSessionId: string | null;
   onSelectSession: (id: string) => void;
   onRemoveSession: (sessionId: string) => void;
+  onManageEnvironment: (sessionId: string) => void;
   removingSessionIds?: string[];
 }
 
@@ -55,6 +56,7 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
   selectedSessionId,
   onSelectSession,
   onRemoveSession,
+  onManageEnvironment,
   removingSessionIds = [],
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -143,7 +145,7 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
               className={`relative w-[280px] flex-none snap-start rounded-[1.25rem] border p-4 transition-all motion-reduce:transition-none lg:w-[calc(20%-0.6rem)] ${
                 active
                   ? "border-signal-500/35 bg-signal-500/[0.08] shadow-[0_10px_28px_rgba(0,224,160,0.1)] ring-1 ring-signal-500/25 dark:bg-signal-500/[0.1]"
-                  : "border-black/[0.08] bg-white/68 backdrop-blur-xl hover:border-black/[0.14] hover:bg-white/80 dark:border-white/[0.08] dark:bg-void-900/35 dark:hover:border-white/[0.14] dark:hover:bg-void-900/50"
+                  : "border-[color:var(--border-hairline)] bg-[var(--surface-glass)] shadow-[var(--elevation-base)] backdrop-blur-xl hover:bg-[var(--surface-glass-hover)]"
               }`}
               style={{ transition: cardTransition }}
             >
@@ -214,31 +216,46 @@ export const PreviewSessionSlider: FunctionComponent<PreviewSessionSliderProps> 
               </button>
 
               <div className="mt-4 flex items-center justify-between gap-2 border-t border-black/[0.06] pt-3 dark:border-white/[0.06]">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (!removing) {
-                      onRemoveSession(session.id);
-                    }
-                  }}
-                  className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-red/50 motion-reduce:transition-none ${
-                    removing
-                    ? "border-status-red/15 text-status-red cursor-not-allowed disabled:opacity-50"
-                    : "border-status-red/15 text-status-red hover:border-status-red/30 hover:bg-status-red/8"
-                  }`}
-                  style={{ transition: controlTransition }}
-                  title={removing ? removePendingReason : "Remove preview container"}
-
-                  aria-label={removing ? `Removing preview session ${session.sprintName}` : `Remove preview session ${session.sprintName}`}
-                  disabled={removing}
-                  aria-disabled={removing}
-                  aria-busy={removing}
-                  aria-describedby={removing ? removeDescriptionId : undefined}
-                >
-                  {removing ? <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin motion-reduce:animate-none" strokeWidth={2.5} /> : <Trash2 aria-hidden="true" className="h-3 w-3" strokeWidth={2.5} />}
-                  {removing ? "Removing..." : "Remove"}
-                </button>
+                <div className="flex min-w-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onManageEnvironment(session.id);
+                    }}
+                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-black/[0.08] px-3 text-[11px] font-semibold text-slate-600 transition hover:border-black/[0.16] hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/50 motion-reduce:transition-none dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
+                    style={{ transition: controlTransition }}
+                    title="Manage container environment overrides"
+                    aria-label={`Manage environment overrides for preview session ${session.sprintName}`}
+                  >
+                    <SlidersHorizontal aria-hidden="true" className="h-3 w-3" strokeWidth={2.5} />
+                    Env
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (!removing) {
+                        onRemoveSession(session.id);
+                      }
+                    }}
+                    className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-red/50 motion-reduce:transition-none ${
+                      removing
+                      ? "border-status-red/15 text-status-red cursor-not-allowed disabled:opacity-50"
+                      : "border-status-red/15 text-status-red hover:border-status-red/30 hover:bg-status-red/8"
+                    }`}
+                    style={{ transition: controlTransition }}
+                    title={removing ? removePendingReason : "Remove preview container"}
+                    aria-label={removing ? `Removing preview session ${session.sprintName}` : `Remove preview session ${session.sprintName}`}
+                    disabled={removing}
+                    aria-disabled={removing}
+                    aria-busy={removing}
+                    aria-describedby={removing ? removeDescriptionId : undefined}
+                  >
+                    {removing ? <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin motion-reduce:animate-none" strokeWidth={2.5} /> : <Trash2 aria-hidden="true" className="h-3 w-3" strokeWidth={2.5} />}
+                    {removing ? "Removing..." : "Remove"}
+                  </button>
+                </div>
                 <a
                   href={canOpen ? getSafeUrl(origin) : undefined}
                   target="_blank"

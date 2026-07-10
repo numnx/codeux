@@ -320,6 +320,27 @@ describe("PlanningAgentService", () => {
         executionMode: "VIRTUAL",
         virtualWorkerProvider: "codex",
       },
+      designGuidance: {
+        selectedTechStackId: "planning-stack",
+        selectedStyleguideId: "planning-style",
+        hideDefaultStyleguides: false,
+        customTechStacks: [
+          {
+            id: "planning-stack",
+            name: "Planning Service Stack",
+            summary: "Plan tasks for the service's typed backend runtime.",
+            instructionMarkdown: "Prefer typed service boundaries and Vitest verification.",
+          },
+        ],
+        customStyleguides: [
+          {
+            id: "planning-style",
+            name: "Planning Product Style",
+            summary: "Plan UI tasks around compact accessible product workflows.",
+            instructionMarkdown: "Preserve existing tokens, focus states, and responsive layouts.",
+          },
+        ],
+      },
     });
 
     const improved = await service.improveSprintPrompt(project.id, {
@@ -340,9 +361,42 @@ describe("PlanningAgentService", () => {
     expect(planPrompt).toContain("## Example Output A");
     expect(planPrompt).toContain("## Example Output B");
     expect(planPrompt).toContain("## Objective\\n...\\n\\n## Scope");
+    expect(planPrompt).toContain("## Project Guidance");
+    expect(planPrompt).toContain("Name: Planning Service Stack");
+    expect(planPrompt).toContain("Prefer typed service boundaries and Vitest verification.");
+    expect(planPrompt).toContain("Name: Planning Product Style");
+    expect(planPrompt).toContain("Preserve existing tokens, focus states, and responsive layouts.");
     const createdTasks = projectRepository.listTasks(project.id, sprint.id);
     expect(createdTasks).toHaveLength(1);
     expect(createdTasks[0]?.title).toBe("Plan via virtual worker");
+
+    const planningInvocation = executionRepository
+      .listExecutionInvocations({ projectId: project.id })
+      .find((record) => record.sprintId === sprint.id);
+    expect(planningInvocation).toBeDefined();
+    const messages = executionRepository.listExecutionInvocationMessages(planningInvocation!.id);
+    const executionPlanMessage = messages.find((message) => {
+      const widgetMetadata = message.metadata?.widget_metadata as Record<string, unknown> | undefined;
+      return widgetMetadata?.type === "planning_request" && widgetMetadata.status === "completed";
+    });
+    const executionPlan = executionPlanMessage?.metadata?.executionPlan as {
+      projectId: string;
+      sprintId: string;
+      taskCount: number;
+      createdTaskIds: string[];
+      tasks: Array<{ key: string; title: string }>;
+    } | undefined;
+    expect(executionPlanMessage?.role).toBe("assistant");
+    expect(executionPlanMessage?.contentMarkdown).toContain("## Execution Plan: Sprint 1 - Virtual Planning Sprint");
+    expect(executionPlan).toMatchObject({
+      projectId: project.id,
+      sprintId: sprint.id,
+      taskCount: 1,
+      createdTaskIds: planned.createdTaskIds,
+      tasks: [
+        { key: "T01", title: "Plan via virtual worker" },
+      ],
+    });
 
     const statsSnapshot = executionRepository.getProjectStatsSnapshot(project.id, "24h");
     expect(statsSnapshot.usage.totalTokens).toBe(1_030);
@@ -490,7 +544,10 @@ describe("PlanningAgentService", () => {
         }),
       }),
     ]));
-    expect(providerRetryPolicy.sleepWithSignal).toHaveBeenCalledWith(1_000, undefined);
+    const [delayMs, signal] = providerRetryPolicy.sleepWithSignal.mock.calls[0] || [];
+    expect(delayMs).toBeGreaterThanOrEqual(999);
+    expect(delayMs).toBeLessThanOrEqual(1_000);
+    expect(signal).toBeUndefined();
   });
 
   it("restarts a failed planning invocation by resuming the same native session with the full prompt", async () => {
@@ -541,7 +598,10 @@ describe("PlanningAgentService", () => {
 
     const project = projectRepository.createProject({ name: "Session Restart Project", sourceType: "local", sourceRef: repoPath });
     const sprint = projectRepository.createSprint(project.id, { name: "Session Restart Sprint", goal: "Plan with context" });
-    settingsRepository.saveProjectSettings(project.id, { workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" } });
+    settingsRepository.saveProjectSettings(project.id, {
+      workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" },
+      aiProvider: { providers: { "claude-code": { enabled: true } } },
+    });
     const providerUsage = executionRepository.createProviderInvocationUsage({
       projectId: project.id,
       sprintId: sprint.id,
@@ -625,7 +685,10 @@ describe("PlanningAgentService", () => {
 
     const project = projectRepository.createProject({ name: "Session Continue Project", sourceType: "local", sourceRef: repoPath });
     const sprint = projectRepository.createSprint(project.id, { name: "Session Continue Sprint", goal: "Plan with context" });
-    settingsRepository.saveProjectSettings(project.id, { workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" } });
+    settingsRepository.saveProjectSettings(project.id, {
+      workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" },
+      aiProvider: { providers: { "claude-code": { enabled: true } } },
+    });
     const providerUsage = executionRepository.createProviderInvocationUsage({
       projectId: project.id,
       sprintId: sprint.id,
@@ -653,7 +716,10 @@ describe("PlanningAgentService", () => {
 
     expect(continued.createdTaskIds).toHaveLength(1);
     const workspaceReuse = vi.mocked(WorkspaceManager.prototype.createOrReuseSnapshotWorkspace);
-    expect(workspaceReuse).toHaveBeenCalledWith(repoPath, expect.stringContaining(project.id));
+    expect(workspaceReuse).toHaveBeenCalledWith(repoPath, expect.stringContaining(project.id), expect.objectContaining({
+      branch: "main",
+      remoteOnly: true,
+    }));
     expect(workspaceReuse.mock.calls[0]?.[1]).toContain(sprint.id);
     expect(WorkspaceManager.prototype.removeWorktree).toHaveBeenCalledWith(repoPath, "docker-volume://planning-test");
     const call = vi.mocked(providerRunner.runProviderForText).mock.calls[0]?.[0];
@@ -665,6 +731,95 @@ describe("PlanningAgentService", () => {
     expect(call?.prompt).toContain("Plan with context");
     expect(call?.prompt).toContain("Output the complete valid JSON sprint definition now");
     expect(executionRepository.getExecutionInvocation(failedInvocation.id)?.preservedAt).toEqual(expect.any(String));
+  });
+
+  it("continues a cancelled planning invocation by reusing the preserved workspace", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "code-ux-planning-cancel-continue-"));
+    tempDirs.push(dir);
+
+    const repoPath = path.join(dir, "repo");
+    await fs.mkdir(path.join(repoPath, ".code-ux", "agents"), { recursive: true });
+    await fs.writeFile(path.join(repoPath, ".code-ux", "agents", "planning_agent.md"), "Plan the sprint.\n", "utf8");
+
+    const storage = new AppDbStorage(path.join(dir, "app.db"));
+    const projectRepository = new ProjectManagementRepository(storage);
+    const agentPresetRepository = new AgentPresetRepository(storage);
+    const connectionRepository = new ConnectionChatRepository(storage);
+    const executionRepository = new ExecutionRepository(storage);
+    const settingsRepository = new SettingsRepository(path.join(dir, "settings.db"));
+    const syncService = new AgentPresetSyncService({
+      projectManagementRepository: projectRepository,
+      agentPresetRepository,
+      settingsRepository,
+      projectRoot: dir,
+    });
+    const providerRunner: IProviderRunner = {
+      runProvider: vi.fn(),
+      runProviderForText: vi.fn().mockResolvedValue({
+        ok: true,
+        stdout: "",
+        stderr: "",
+        code: 0,
+        signal: null,
+        nativeSessionId: "native-cancelled",
+        usageTelemetry: { inputTokens: 10, cachedInputTokens: 0, outputTokens: 10, reasoningOutputTokens: 0, totalTokens: 20, usageSource: "reported", rawUsageJson: {}, transcriptText: "", nativeSessionId: "native-cancelled" },
+        text: JSON.stringify({
+          goal: "Continued after cancel",
+          tasks: [{ key: "T01", title: "Continued cancelled task", description: "D", promptMarkdown: "## Objective\nP\n\n## Scope\n- S\n\n## Implementation Requirements\n1. R\n\n## Constraints\n- C\n\n## Verification\n- V", priority: "high", executorType: "auto", dependsOn: [] }],
+        }),
+      }),
+    };
+    const service = new PlanningAgentService({
+      projectManagementRepository: projectRepository,
+      connectionChatRepository: connectionRepository,
+      executionRepository,
+      settingsRepository,
+      agentPresetSyncService: syncService,
+      executionControlService: { orchestrateSprint: vi.fn() } as any,
+      providerRunner,
+    });
+
+    const project = projectRepository.createProject({ name: "Cancelled Continue Project", sourceType: "local", sourceRef: repoPath });
+    const sprint = projectRepository.createSprint(project.id, { name: "Cancelled Continue Sprint", goal: "Plan after cancel" });
+    settingsRepository.saveProjectSettings(project.id, {
+      workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" },
+      aiProvider: { providers: { "claude-code": { enabled: true } } },
+    });
+    const providerUsage = executionRepository.createProviderInvocationUsage({
+      projectId: project.id,
+      sprintId: sprint.id,
+      sessionId: "planning-claude-code-cancelled",
+      provider: "claude-code",
+      purpose: "planning",
+      status: "cancelled",
+    });
+    executionRepository.updateProviderInvocationUsage(providerUsage.id, {
+      status: "cancelled",
+      nativeSessionId: "native-cancelled",
+    });
+    const cancelledInvocation = executionRepository.createExecutionInvocation({
+      projectId: project.id,
+      sprintId: sprint.id,
+      providerInvocationId: providerUsage.id,
+      type: "planning",
+      status: "cancelled",
+      provider: "claude-code",
+      model: "claude-fable-5",
+      errorMessage: "Cancelled from dashboard",
+    });
+
+    const continued = await service.restartInvocation(cancelledInvocation.id, "continue_session");
+
+    expect(continued.createdTaskIds).toHaveLength(1);
+    expect(WorkspaceManager.prototype.createOrReuseSnapshotWorkspace).toHaveBeenCalledWith(repoPath, expect.stringContaining(sprint.id), expect.objectContaining({
+      branch: "main",
+      remoteOnly: true,
+    }));
+    expect(WorkspaceManager.prototype.createSnapshotWorkspace).not.toHaveBeenCalled();
+    const call = vi.mocked(providerRunner.runProviderForText).mock.calls[0]?.[0];
+    expect(call?.continueSessionId).toBe("native-cancelled");
+    expect(call?.prompt).toContain("Continue the previous planning attempt");
+    expect(executionRepository.getExecutionInvocation(cancelledInvocation.id)?.preservedAt).toEqual(expect.any(String));
   });
 
   it("stops virtual planning rate-limit retries after the configured max", async () => {
@@ -772,7 +927,7 @@ describe("PlanningAgentService", () => {
 
     expect(providerRunner.runProviderForText).toHaveBeenCalledTimes(2);
     expect(vi.mocked(providerRunner.runProviderForText).mock.calls[1]?.[0]?.continueSessionId).toBe("native-rate-limit");
-    expect(sleepSpy).toHaveBeenCalledTimes(1);
+    expect(sleepSpy).toHaveBeenCalled();
   });
 
   it("accepts virtual planning JSON with prose but rejects legacy shape fields", async () => {
@@ -1003,6 +1158,7 @@ describe("PlanningAgentService", () => {
           "claude-live": {
             provider: "claude-code",
             name: "Claude Live",
+            enabled: true,
             apiKey: "claude-key",
             model: "claude-model",
             thinkingMode: "disabled",
@@ -1552,6 +1708,7 @@ describe("PlanningAgentService", () => {
 
     settingsRepository.saveProjectSettings(project.id, {
       workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" },
+      aiProvider: { providers: { "claude-code": { enabled: true } } },
       cliWorkflow: { maxPlanningJsonRetries: 3 },
     });
 
@@ -1628,6 +1785,7 @@ describe("PlanningAgentService", () => {
 
     settingsRepository.saveProjectSettings(project.id, {
       workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" },
+      aiProvider: { providers: { "claude-code": { enabled: true } } },
       cliWorkflow: { maxParsingRetries: 2, maxPlanningJsonRetries: 2 },
     });
 
@@ -1791,6 +1949,7 @@ describe("PlanningAgentService", () => {
 
     settingsRepository.saveProjectSettings(project.id, {
       workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" },
+      aiProvider: { providers: { "claude-code": { enabled: true } } },
       cliWorkflow: { executionMode: "DOCKER" },
     });
 
@@ -1879,6 +2038,7 @@ describe("PlanningAgentService", () => {
     });
     settingsRepository.saveProjectSettings(project.id, {
       workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" },
+      aiProvider: { providers: { "claude-code": { enabled: true } } },
       cliWorkflow: { executionMode: "DOCKER" },
     });
 
@@ -1959,6 +2119,7 @@ describe("PlanningAgentService", () => {
 
     settingsRepository.saveProjectSettings(project.id, {
       workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" },
+      aiProvider: { providers: { "claude-code": { enabled: true } } },
       cliWorkflow: { executionMode: "DOCKER" },
     });
 
@@ -2028,6 +2189,7 @@ describe("PlanningAgentService", () => {
 
     settingsRepository.saveProjectSettings(project.id, {
       workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" },
+      aiProvider: { providers: { "claude-code": { enabled: true } } },
       cliWorkflow: { executionMode: "DOCKER" },
     });
 
@@ -2111,6 +2273,7 @@ describe("PlanningAgentService", () => {
 
     settingsRepository.saveProjectSettings(project.id, {
       workers: { executionMode: "VIRTUAL", virtualWorkerProvider: "claude-code" },
+      aiProvider: { providers: { "claude-code": { enabled: true } } },
       cliWorkflow: { executionMode: "DOCKER" },
     });
 

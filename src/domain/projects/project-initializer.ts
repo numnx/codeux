@@ -5,6 +5,10 @@ import { createGitHubRepo, createGitLabRepo } from "../../infrastructure/git/rem
 import { validateSafeRepoName, validateSafeClonePath, validateNonEmptyDir } from "../../utils/path-validator.js";
 import type { CreateProjectInput, ProjectSummary } from "../../contracts/project-management-types.js";
 import { getHomeCodeUxPath } from "../../shared/config/code-ux-paths.js";
+import {
+  CODE_UX_AWARD_WINNING_STYLEGUIDE_ID,
+  DEFAULT_DESIGN_GUIDANCE_SETTINGS,
+} from "../settings/design-guidance-catalog.js";
 
 function resolveCloneParentDir(cloneDir?: string): string {
   const trimmed = cloneDir?.trim();
@@ -38,6 +42,48 @@ function resolveNewLocalProjectDir(sourceRef: string, cloneDir?: string): { targ
   };
 }
 
+function withNewProjectDesignGuidance(input: CreateProjectInput): CreateProjectInput {
+  const existingGuidance = input.settingsOverrides?.designGuidance;
+  return {
+    ...input,
+    settingsOverrides: {
+      ...input.settingsOverrides,
+      designGuidance: {
+        ...DEFAULT_DESIGN_GUIDANCE_SETTINGS,
+        ...existingGuidance,
+        selectedStyleguideId: existingGuidance?.selectedStyleguideId || CODE_UX_AWARD_WINNING_STYLEGUIDE_ID,
+      },
+    },
+  };
+}
+
+/**
+ * Keep dashboard conversation ownership project-local. A null route is the
+ * intentional built-in Project manager fallback, and prevents a system-level
+ * Worker override from silently becoming the first contact for a newly added
+ * project. Explicit create-time routing still wins.
+ */
+function withProjectManagerDashboardDefault(input: CreateProjectInput): CreateProjectInput {
+  const existingRouting = input.settingsOverrides?.agents?.routing;
+  return {
+    ...input,
+    settingsOverrides: {
+      ...input.settingsOverrides,
+      agents: {
+        ...input.settingsOverrides?.agents,
+        routing: {
+          ...existingRouting,
+          dashboardReply: existingRouting?.dashboardReply ?? { agentPresetId: null },
+        },
+      },
+    },
+  };
+}
+
+function withNewProjectDefaults(input: CreateProjectInput): CreateProjectInput {
+  return withProjectManagerDashboardDefault(withNewProjectDesignGuidance(input));
+}
+
 export async function initializeProject(
   input: CreateProjectInput,
   deps: {
@@ -55,12 +101,12 @@ export async function initializeProject(
     const safeSourceRef = validateSafeClonePath(targetDir, allowedRoot);
     validateNonEmptyDir(safeSourceRef, allowedRoot);
     await initLocalRepo(safeSourceRef, input.defaultBranch ?? "main", input.name);
-    return deps.createProject({
+    return deps.createProject(withNewProjectDefaults({
       ...input,
       sourceType: "local",
       sourceRef: safeSourceRef,
       initMode: undefined,
-    });
+    }));
   }
 
   if (mode === "new-remote") {
@@ -90,15 +136,15 @@ export async function initializeProject(
         defaultBranch: input.defaultBranch,
       });
     }
-    return deps.createProject({
+    return deps.createProject(withNewProjectDefaults({
       ...input,
       sourceType: "git",
       sourceRef: result.remoteUrl,
       cloneDir: cloneParentDir,
       initMode: undefined,
-    });
+    }));
   }
 
   // "existing" or absent — original behavior
-  return deps.createProject(input);
+  return deps.createProject(withProjectManagerDashboardDefault(input));
 }
