@@ -34,8 +34,10 @@ Controlled by `dashboardSettings.sprintLoopSteps`:
 - `statusDerivation`
 - `startReadyTasks`
 - `protocol`
+- `qaReview`
 - `statusTable`
 - `watchLoop`
+- `completion`
 
 ## Loop Flow Diagram
 
@@ -63,10 +65,16 @@ flowchart TD
   O --> P[start-ready-tasks-step]
   P --> Q{protocol}
   Q --> R[protocol-step]
-  R --> S{statusTable}
+  R --> R1{qaReview}
+  R1 -->|enabled| R2[qa-review-step]
+  R1 -->|disabled| S{statusTable}
+  R2 --> S{statusTable}
   S --> T[status-table-step]
   T --> U{wait && watchLoop}
-  U -->|true| V[watch loop cycles]
+  U -->|true| U1{completion}
+  U1 -->|enabled| U2[completion-step]
+  U1 -->|disabled| V[watch loop cycles]
+  U2 --> V[watch loop cycles]
   U -->|false| W[single-cycle report]
 ```
 
@@ -247,8 +255,8 @@ For `action=status`:
 - In LOCAL mode, before the final `feature -> default` merge, Code UX verifies that the configured target branch exists locally. If it is missing, Code UX creates it from the project's stored default branch, then from `main`/`master` as fallback start points, before attempting the local merge or virtual conflict repair.
 - Main-branch PR creation failures are logged and surfaced in the final merge gate feedback instead of being reduced to an unexplained missing-PR wait state.
 - When the watch loop waits or exits at the final main-merge gate, the dashboard status snapshot is republished with the finalization report so operators can see the current blocker without waiting for a later cycle.
-- If feature PR checks fail, the sprint loop keeps the task in work state and enters the CI-fix guardrail path. When `waitForJulesCiAutofix` (the legacy-named configuration for CI autofix) is enabled for a hosted-provider-managed task, Code UX first notifies the hosted provider session with failed-check context from only the newest branch-matched failed CI run: its id/URL and every failed job, step, and actionable error/assertion excerpt. Older matching failures are excluded. When that toggle is disabled, or the task is not hosted-provider-managed, Code UX skips the hosted provider notification and dispatches a worker-owned `ci_fix_required` item.
-- CI autofix retries are capped by `julesCiAutofixMaxRetries` (the legacy-named setting); once exhausted, the task is escalated as intervention-needed with exact task id, PR URL, failed check names, the newest failed-run summary, and every failed job name (focus: fix CI before merge). The cap applies to the generic CI-fix loop, including worker repairs.
+- If feature PR checks fail, the sprint loop keeps the task in work state and enters the CI-fix guardrail path. When `waitForHostedProviderCiAutofix` (the legacy-named configuration for CI autofix) is enabled for a hosted-provider-managed task, Code UX first notifies the hosted provider session with failed-check context from only the newest branch-matched failed CI run: its id/URL and every failed job, step, and actionable error/assertion excerpt. Older matching failures are excluded. When that toggle is disabled, or the task is not hosted-provider-managed, Code UX skips the hosted provider notification and dispatches a worker-owned `ci_fix_required` item.
+- CI autofix retries are capped by `hostedProviderCiAutofixMaxRetries` (the legacy-named setting); once exhausted, the task is escalated as intervention-needed with exact task id, PR URL, failed check names, the newest failed-run summary, and every failed job name (focus: fix CI before merge). The cap applies to the generic CI-fix loop, including worker repairs.
 - Worker-owned CI autofix attempts are de-duplicated across watch-loop cycles. While a matching `ci_fix_required` attention item is still open or claimed, Code UX treats that attempt as in-flight, keeps the task in `RUNNING`, and does not consume another retry until the worker attempt resolves. This includes the final main-merge gate: after a worker pushes a CI fix and GitHub reports replacement checks as pending, the main-merge `ci_fix_required` item stays active until checks pass, the merge completes, or another blocker replaces it.
 - If restart interrupts a claimed worker-owned CI-fix or merge-conflict attempt, startup clears the stale endpoint claim and requeues the same attention item with its repair-session continuation metadata. The next virtual worker reuses the preserved worktree and logical provider session, passes the previous native session id when supported, and does not count the process interruption as a new guardrail attempt. Successful settlement clears the continuation marker before normal CI/merge gating resumes.
 - Repair attention takes precedence over queued coding dispatches, and virtual-worker admission checks the provider/limit selected by the actual `ci_fix` route. The final provider-slot claim has a 30-second wait bound, so finalization retries or escalates instead of hanging forever behind a saturated or stale provider slot.
@@ -271,6 +279,16 @@ pnpm run lint
 Rollback sprints use the same dependency, Git, conflict-repair, and final merge gates as standard sprints. An automatic rollback enters the loop with a settled audit task and skips completion QA and memory-remediation provider work. Agent-assisted rollbacks run their generated rollback task normally. In remote mode, rollback finalization always enables PR tracking and an otherwise disabled main-PR mode becomes `CREATE_PR` for that rollback only. In local mode, finalization leaves PR monitoring disabled and merges the local rollback branch into the configured default branch through the standard temporary-worktree path.
 
 See [Sprint Rollbacks](../architecture/sprint-rollbacks.md) for safety classification and persistence details.
+
+
+## State Transitions & Recovery
+
+- **Pause**: Transitions `sprint_run` status to `paused` and writes a `sprint_pause_requested` event. For active dispatches, `docker_cli` is aborted, `hosted_provider` receives a halt session message, leases are released, dispatch status becomes `paused`, and `task_run` state becomes `PAUSED` (appending a `dispatch_paused` event). Tasks are reset to `pending` in the database.
+- **Cancel**: Transitions `sprint_run` to `cancelled`, writes a `sprint_cancelled` event, and releases the sprint lease. Active `queued`/`claimed`/`paused` dispatches are set to `cancelled` (with `task_run` -> `BLOCKED`). Running dispatches are force-stopped. Resolves transient merge attention (`merge_required`, `merge_conflict`, and `manual_attention`).
+- **Resume**: Appends a `sprint_resume_requested` event, releases stale leases, transitions the `sprint_run` back to `running` (reusing the same ID), and spawns a new orchestrator cycle.
+- **Emergency Stop**: Counter tracks consecutive task-start failures. If it hits the threshold (default `5`, configured by `maxFailures` or `HOSTED_PROVIDER_API_MAX_FAILS`), the cycle aborts, the watch loop exits, and the sprint run pauses with the error.
+- **Restart Recovery**: Resumes `queued` and `running` sprint runs in place using their original IDs, releases orphaned leases, cleans up stale dispatches (reconciling dispatches to terminal state if their `task_run` is terminal), and transitions stalled runs without a lease to `failed` with reason `orchestration_heartbeat_stalled`.
+- **Cleanup**: Clears temporary workspaces and CLI worktrees, and triggers memory auto-promotion on terminal transitions.
 
 ## Files and Data Used
 
