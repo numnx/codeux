@@ -1430,23 +1430,23 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
             />
           </Row>
         ) : null}
-        <Row label={t(settingsIntegrationsMessages, "julesCiAutofix")} description={t(settingsIntegrationsMessages, localGitMode ? "julesCiAutofixDisabledDescription" : "julesCiAutofixDescription")} badge={getFieldBadge("ciIntelligence.waitForJulesCiAutofix")}>
+        <Row label={t(settingsIntegrationsMessages, "julesCiAutofix")} description={t(settingsIntegrationsMessages, localGitMode ? "julesCiAutofixDisabledDescription" : "julesCiAutofixDescription")} badge={getFieldBadge("ciIntelligence.waitForProviderCiAutofix")}>
           <Toggle
             aria-label={t(settingsIntegrationsMessages, "toggleSetting")}
-            value={localGitMode ? false : editableSettings.ciIntelligence.waitForJulesCiAutofix}
+            value={localGitMode ? false : editableSettings.ciIntelligence.waitForProviderCiAutofix}
             disabled={localGitMode}
             onChange={() => updateEditableSettings((current) => ({
               ...current,
               ciIntelligence: {
                 ...current.ciIntelligence,
-                waitForJulesCiAutofix: !current.ciIntelligence.waitForJulesCiAutofix,
+                waitForProviderCiAutofix: !current.ciIntelligence.waitForProviderCiAutofix,
               },
             }))}
           />
         </Row>
-        <Row label={t(settingsIntegrationsMessages, "julesCiRetries")} description={t(settingsIntegrationsMessages, localGitMode ? "julesCiRetriesDisabledDescription" : "julesCiRetriesDescription")} badge={getFieldBadge("ciIntelligence.julesCiAutofixMaxRetries")} last>
+        <Row label={t(settingsIntegrationsMessages, "julesCiRetries")} description={t(settingsIntegrationsMessages, localGitMode ? "julesCiRetriesDisabledDescription" : "julesCiRetriesDescription")} badge={getFieldBadge("ciIntelligence.ciAutofixMaxRetries")} last>
           <NumberInput
-            value={editableSettings.ciIntelligence.julesCiAutofixMaxRetries}
+            value={editableSettings.ciIntelligence.ciAutofixMaxRetries}
             min={0}
             max={20}
             disabled={localGitMode}
@@ -1454,7 +1454,7 @@ export const SettingsIntegrationsPanel: FunctionComponent<{ state: SettingsPageS
               ...current,
               ciIntelligence: {
                 ...current.ciIntelligence,
-                julesCiAutofixMaxRetries: value,
+                ciAutofixMaxRetries: value,
               },
             }))}
           />

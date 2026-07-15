@@ -29,9 +29,9 @@ describe("sanitizeGuardrails", () => {
     expect(result.perTaskTotalCeiling).toBe(500); // clamped to MAX ceiling
   });
 
-  it("migrates the legacy julesCiAutofixMaxRetries into ci_fix.cap when guardrails is absent", () => {
+  it("migrates the legacy ciAutofixMaxRetries into ci_fix.cap when guardrails is absent", () => {
     const result = sanitizeGuardrails({
-      ciIntelligence: { julesCiAutofixMaxRetries: 7 } as any,
+      ciIntelligence: { ciAutofixMaxRetries: 7 } as any,
     } as any);
     expect(result.jobs.ci_fix.cap).toBe(7);
     // The historical clarification limit of 3 is seeded as the default.
@@ -40,7 +40,7 @@ describe("sanitizeGuardrails", () => {
 
   it("migrates the legacy ci_fix limit even when other guardrail fields are present but jobs.ci_fix is missing", () => {
     const result = sanitizeGuardrails({
-      ciIntelligence: { julesCiAutofixMaxRetries: 9 } as any,
+      ciIntelligence: { ciAutofixMaxRetries: 9 } as any,
       guardrails: {
         enabled: true,
         jobs: { task_coding: { cap: 4, onLimit: "BLOCK_AND_ESCALATE" } },
@@ -52,7 +52,7 @@ describe("sanitizeGuardrails", () => {
 
   it("uses explicit guardrail values over the legacy migration when both are present", () => {
     const result = sanitizeGuardrails({
-      ciIntelligence: { julesCiAutofixMaxRetries: 9 } as any,
+      ciIntelligence: { ciAutofixMaxRetries: 9 } as any,
       guardrails: {
         jobs: { ci_fix: { cap: 2, onLimit: "BLOCK_AND_ESCALATE" } },
       } as any,

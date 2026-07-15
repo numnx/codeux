@@ -185,7 +185,7 @@ describe("Virtual Worker Scheduling Policy", () => {
 
   describe("peekNextWorkerAttention", () => {
     const mockSettings = (overrides: any) => ({
-      ciIntelligence: { resolveMergeConflicts: false, waitForJulesCiAutofix: false, ...overrides?.ciIntelligence },
+      ciIntelligence: { resolveMergeConflicts: false, waitForProviderCiAutofix: false, ...overrides?.ciIntelligence },
       automationInterventions: { autoAnswerClarification: false, autoApprovePlan: false, ...overrides?.automationInterventions }
     } as DashboardSettings);
 
@@ -313,8 +313,8 @@ describe("Virtual Worker Scheduling Policy", () => {
 
     it("handles ci_fix_required independently from the Jules notification setting", () => {
       const item = { ownerType: "worker", status: "open", summaryMarkdown: "", attentionType: "ci_fix_required" } as ProjectAttentionItemRecord;
-      expect(peekNextWorkerAttention([item], () => mockSettings({ ciIntelligence: { waitForJulesCiAutofix: false } }))).toBe(item);
-      expect(peekNextWorkerAttention([item], () => mockSettings({ ciIntelligence: { waitForJulesCiAutofix: true } }))).toBe(item);
+      expect(peekNextWorkerAttention([item], () => mockSettings({ ciIntelligence: { waitForProviderCiAutofix: false } }))).toBe(item);
+      expect(peekNextWorkerAttention([item], () => mockSettings({ ciIntelligence: { waitForProviderCiAutofix: true } }))).toBe(item);
     });
 
     it("handles action_required based on settings", () => {

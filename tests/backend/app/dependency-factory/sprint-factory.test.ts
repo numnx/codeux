@@ -63,7 +63,7 @@ describe("Sprint Factory", () => {
         consecutiveFailures: 1,
       },
       getEffectiveGithubToken: vi.fn(),
-      isJulesApiConfigured: vi.fn(),
+      isProviderApiConfigured: vi.fn(),
       getDashboardPort: vi.fn().mockReturnValue(3001),
       isActionRequiredState: vi.fn(),
       resolveSessionName: vi.fn(),
@@ -172,8 +172,8 @@ describe("Sprint Factory", () => {
     expect(taskArgs.getDashboardSettings({ projectId: "project-1" })).toEqual({ workers: { executionMode: "VIRTUAL" } });
     expect(taskArgs.getDashboardSettings({ projectId: "project-1", sprintId: "sprint-1" })).toEqual({ workers: { executionMode: "VIRTUAL" } });
 
-    taskArgs.isJulesApiConfigured();
-    expect(mockContext.isJulesApiConfigured).toHaveBeenCalled();
+    taskArgs.isProviderApiConfigured();
+    expect(mockContext.isProviderApiConfigured).toHaveBeenCalled();
 
     // Get the arguments passed to SprintOrchestrator constructor
     const sprintArgs = vi.mocked(SprintOrchestrator).mock.calls[0][0];
@@ -220,8 +220,8 @@ describe("Sprint Factory", () => {
     expect(sprintArgs.getDashboardSettings({ projectId: "project-1" })).toEqual({ workers: { executionMode: "VIRTUAL" } });
     expect(sprintArgs.getDashboardSettings({ projectId: "project-1", sprintId: "sprint-1" })).toEqual({ workers: { executionMode: "VIRTUAL" } });
 
-    sprintArgs.isJulesApiConfigured();
-    expect(mockContext.isJulesApiConfigured).toHaveBeenCalledTimes(2); // once from taskService
+    sprintArgs.isProviderApiConfigured();
+    expect(mockContext.isProviderApiConfigured).toHaveBeenCalledTimes(2); // once from taskService
 
     sprintArgs.approveSessionPlan("session1");
     expect(mockCoreDeps.julesApi.approveSessionPlan).toHaveBeenCalledWith("session1");

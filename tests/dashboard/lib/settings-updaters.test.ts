@@ -141,12 +141,12 @@ describe("dashboard settings updater helpers", () => {
     const settings = cloneDefaultSettings();
 
     const ci = updateCiIntelligence(settings, {
-      waitForJulesCiAutofix: true,
-      julesCiAutofixMaxRetries: 7,
+      waitForProviderCiAutofix: true,
+      ciAutofixMaxRetries: 7,
     });
-    expect(ci.ciIntelligence.waitForJulesCiAutofix).toBe(true);
-    expect(ci.ciIntelligence.julesCiAutofixMaxRetries).toBe(7);
-    expect(settings.ciIntelligence.waitForJulesCiAutofix).toBe(false);
+    expect(ci.ciIntelligence.waitForProviderCiAutofix).toBe(true);
+    expect(ci.ciIntelligence.ciAutofixMaxRetries).toBe(7);
+    expect(settings.ciIntelligence.waitForProviderCiAutofix).toBe(false);
 
     const loop = updateSprintLoopSteps(settings, {
       watchLoopIntervalSeconds: 45,

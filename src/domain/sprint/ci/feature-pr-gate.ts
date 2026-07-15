@@ -74,7 +74,7 @@ export interface CiGateContext {
   deleteMergedBranches?: boolean;
   gitStatus: GitTrackingStatus | null;
   guardrailService: GuardrailService;
-  isJulesApiConfigured: () => boolean;
+  isProviderApiConfigured: () => boolean;
   sendSessionMessage: (sessionId: string, message: string) => Promise<void>;
   autoMergeFeaturePr?: (args: { repoPath: string; prNumber: number }) => Promise<AutoMergeFeaturePrResult>;
   persistMergedTask: (task: Subtask) => Promise<void>;
@@ -562,7 +562,7 @@ export class FeaturePrGateService {
     const pr = cachedPr;
     const mergedPr = cachedMergedPr;
 
-      // Jules sessions don't include workerBranch in their API output, so task_runs.worker_branch
+      // Hosted provider sessions don't include workerBranch in their API output, so task_runs.worker_branch
       // can be null even when the PR exists. Backfill it the first time gitStatus surfaces the PR's
       // headRefName so subsequent cycles can find the branch without needing gitStatus.
       if (!workerBranch && context.executionRepository && context.sprintRunId && task.record_id) {
@@ -861,7 +861,7 @@ export class FeaturePrGateService {
         ciIntelligence: context.ciIntelligence,
         automationLevel: context.automationLevel,
         guardrailService: context.guardrailService,
-        isJulesApiConfigured: context.isJulesApiConfigured,
+        isProviderApiConfigured: context.isProviderApiConfigured,
         sendSessionMessage: context.sendSessionMessage,
         repoPath: context.repoPath,
         defaultBranch: context.defaultBranch,

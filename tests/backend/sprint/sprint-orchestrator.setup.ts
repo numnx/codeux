@@ -81,7 +81,7 @@ export const buildDeps = () => {
       }
       return "";
     }),
-    isJulesApiConfigured: () => true,
+    isProviderApiConfigured: () => true,
     loadSubtasks: vi.fn().mockResolvedValue([]),
     updateLastStatus: vi.fn(),
     completedSprints: new Set<string>(),

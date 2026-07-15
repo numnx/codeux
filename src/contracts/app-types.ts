@@ -938,8 +938,8 @@ export interface CiIntelligenceSettings {
   resolveMainMergeFailedChecks: boolean;
   resolveAllCommentsBeforeFeatureMerge: boolean;
   resolveMergeConflicts: boolean;
-  waitForJulesCiAutofix: boolean;
-  julesCiAutofixMaxRetries: number;
+  waitForProviderCiAutofix: boolean;
+  ciAutofixMaxRetries: number;
   featurePrAutoMergeMode: FeaturePrAutoMergeMode;
   mainBranchAutoMergeMode: FeaturePrAutoMergeMode;
 }
