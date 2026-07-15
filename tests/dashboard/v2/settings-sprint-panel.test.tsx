@@ -38,7 +38,7 @@ describe("SettingsSprintPanel", () => {
         resolveMainMergeFailedChecks: true,
         resolveAllCommentsBeforeFeatureMerge: true,
         resolveMergeConflicts: true,
-        waitForJulesCiAutofix: true,
+        waitForProviderCiAutofix: true,
         featurePrAutoMergeMode: "CREATE_PR",
         mainBranchAutoMergeMode: "CREATE_PR",
       },

@@ -266,7 +266,7 @@ export class CycleRunner {
         automationLevel: args.automationLevel,
         settings: args.automationInterventions,
         isActionRequiredState: this.deps.isActionRequiredState,
-        isJulesApiConfigured: this.deps.isJulesApiConfigured,
+        isProviderApiConfigured: this.deps.isProviderApiConfigured,
         approveSessionPlan: this.deps.approveSessionPlan,
         sendSessionMessage: this.deps.sendSessionMessage,
         generateWorkerClarificationReply: this.deps.generateWorkerClarificationReply,
@@ -313,7 +313,7 @@ export class CycleRunner {
         deleteMergedBranches: dashboardSettings.git.deleteMergedBranches,
         gitStatus,
         guardrailService: this.deps.guardrailService,
-        isJulesApiConfigured: this.deps.isJulesApiConfigured,
+        isProviderApiConfigured: this.deps.isProviderApiConfigured,
         sendSessionMessage: async (sessionId, message) => {
           await this.deps.sendSessionMessage(sessionId, message);
         },
@@ -663,7 +663,7 @@ export class CycleRunner {
       deleteMergedBranches: dashboardSettings.git.deleteMergedBranches,
       gitStatus: null,
       guardrailService: this.deps.guardrailService,
-      isJulesApiConfigured: this.deps.isJulesApiConfigured,
+      isProviderApiConfigured: this.deps.isProviderApiConfigured,
       sendSessionMessage: async (sessionId, message) => {
         await this.deps.sendSessionMessage(sessionId, message);
       },

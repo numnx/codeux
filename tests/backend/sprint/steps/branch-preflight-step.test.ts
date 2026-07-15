@@ -21,7 +21,7 @@ const buildDeps = () => {
     settings: { maxFailures: 5 },
     getDashboardSettings: () => buildMockSettings(),
     renderInstruction: vi.fn().mockResolvedValue(""),
-    isJulesApiConfigured: () => true,
+    isProviderApiConfigured: () => true,
     loadSubtasks: vi.fn().mockResolvedValue([]),
     listSessions: vi.fn().mockResolvedValue({ sessions: [] }),
     updateLastStatus: vi.fn(),

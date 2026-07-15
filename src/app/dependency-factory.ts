@@ -31,7 +31,7 @@ export interface ServerContext {
   getEffectiveGithubToken: () => string | undefined;
   getEffectiveGitlabToken: () => string | undefined;
   getDashboardPort: () => number;
-  isJulesApiConfigured: () => boolean;
+  isProviderApiConfigured: () => boolean;
   getMissingJulesApiKeyInstruction: () => string;
   isActionRequiredState: (state?: string) => boolean;
   resolveSessionName: (session: Partial<JulesSession>) => string | undefined;

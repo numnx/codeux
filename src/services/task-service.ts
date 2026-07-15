@@ -21,7 +21,7 @@ export interface TaskServiceDependencies {
   agentPresetSyncService: AgentPresetSyncService;
   resolveJulesSourceId: (args: { repoPath: string; sourceId?: string }) => Promise<string>;
   getDashboardSettings: (scope?: DashboardSettingsScope) => DashboardSettings;
-  isJulesApiConfigured: () => boolean;
+  isProviderApiConfigured: () => boolean;
   cliWorkflowService: CliWorkflowService;
   logger?: Logger;
 }
@@ -118,7 +118,7 @@ export class TaskService {
     const pooledProviders = options?.providerPool;
     const resolved = buildRoute(pooledProviders);
 
-    if (resolved.provider === "jules" && !this.deps.isJulesApiConfigured()) {
+    if (resolved.provider === "jules" && !this.deps.isProviderApiConfigured()) {
       throw new ProviderRoutingError(`Invocation ${invocation} selected Jules, but the Jules API is not configured. Enable Jules credentials or choose a different provider for this route.`);
     }
 

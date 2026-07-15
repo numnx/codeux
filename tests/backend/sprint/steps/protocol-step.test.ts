@@ -10,8 +10,8 @@ describe("protocol-step", () => {
         resolveMainMergeConflicts: false,
         resolveAllCommentsBeforeFeatureMerge: true,
         resolveMergeConflicts: false,
-        waitForJulesCiAutofix: false,
-        julesCiAutofixMaxRetries: 0,
+        waitForProviderCiAutofix: false,
+        ciAutofixMaxRetries: 0,
         featurePrAutoMergeMode: "WHEN_GREEN",
         mainBranchAutoMergeMode: "OFF",
     };

@@ -11,8 +11,8 @@ describe("MainMergeGateService", () => {
     resolveMainMergeConflicts: false,
     resolveAllCommentsBeforeFeatureMerge: true,
     resolveMergeConflicts: false,
-    waitForJulesCiAutofix: false,
-    julesCiAutofixMaxRetries: 0,
+    waitForProviderCiAutofix: false,
+    ciAutofixMaxRetries: 0,
     featurePrAutoMergeMode: "OFF",
     mainBranchAutoMergeMode: "WHEN_GREEN",
   };

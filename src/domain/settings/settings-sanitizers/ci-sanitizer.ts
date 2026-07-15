@@ -48,17 +48,17 @@ export const sanitizeCiIntelligence = (
       ciInput.resolveMergeConflicts,
       DEFAULT_DASHBOARD_SETTINGS.ciIntelligence.resolveMergeConflicts
     ),
-    waitForJulesCiAutofix: readBoolean(
-      ciInput.waitForJulesCiAutofix,
-      DEFAULT_DASHBOARD_SETTINGS.ciIntelligence.waitForJulesCiAutofix
+    waitForProviderCiAutofix: readBoolean(
+      ciInput.waitForProviderCiAutofix,
+      DEFAULT_DASHBOARD_SETTINGS.ciIntelligence.waitForProviderCiAutofix
     ),
-    julesCiAutofixMaxRetries: Math.min(
+    ciAutofixMaxRetries: Math.min(
       MAX_JULES_CI_AUTOFIX_RETRIES,
       Math.max(
         MIN_JULES_CI_AUTOFIX_RETRIES,
         readInteger(
-          ciInput.julesCiAutofixMaxRetries,
-          DEFAULT_DASHBOARD_SETTINGS.ciIntelligence.julesCiAutofixMaxRetries
+          ciInput.ciAutofixMaxRetries,
+          DEFAULT_DASHBOARD_SETTINGS.ciIntelligence.ciAutofixMaxRetries
         )
       )
     ),
@@ -79,10 +79,10 @@ export const sanitizeCiIntelligence = (
 
   if (githubMode === "LOCAL") {
     ciIntelligence.enableLivePrMonitoring = false;
-    ciIntelligence.waitForJulesCiAutofix = false;
+    ciIntelligence.waitForProviderCiAutofix = false;
   }
   if (ciIntelligence.featurePrAutoMergeMode !== "WHEN_GREEN") {
-    ciIntelligence.waitForJulesCiAutofix = false;
+    ciIntelligence.waitForProviderCiAutofix = false;
   }
 
   return ciIntelligence;

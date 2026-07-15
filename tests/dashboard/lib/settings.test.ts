@@ -11,7 +11,7 @@ describe("dashboard settings helpers", () => {
     first.sprintLoopSteps.watchLoopIntervalSeconds = 45;
     first.sprintLoopSteps.watchLoopOutputIntervalSeconds = 480;
     first.automationInterventions.autoAnswerClarification = true;
-    first.ciIntelligence.julesCiAutofixMaxRetries = 9;
+    first.ciIntelligence.ciAutofixMaxRetries = 9;
     first.cliWorkflow.cleanupWorktreeOnFailure = true;
     first.cliWorkflow.resumeFailedTaskInSameWorkspace = false;
     first.cliWorkflow.executionMode = "DOCKER";
@@ -36,7 +36,7 @@ describe("dashboard settings helpers", () => {
     expect(second.sprintLoopSteps.watchLoopIntervalSeconds).toBe(1);
     expect(second.sprintLoopSteps.watchLoopOutputIntervalSeconds).toBe(300);
     expect(second.automationInterventions.autoAnswerClarification).toBe(false);
-    expect(second.ciIntelligence.julesCiAutofixMaxRetries).toBe(5);
+    expect(second.ciIntelligence.ciAutofixMaxRetries).toBe(5);
     expect(second.guardrails.jobs.task_coding.cap).toBe(5);
     expect(second.guardrails.jobs.ci_fix.cap).toBe(5);
     expect(second.cliWorkflow.cleanupWorktreeOnFailure).toBe(false);

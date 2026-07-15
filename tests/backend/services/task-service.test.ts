@@ -31,7 +31,7 @@ describe("TaskService", () => {
       },
       git: { githubMode: "REMOTE", defaultBranch: "main" },
     }) as any,
-    isJulesApiConfigured: () => true,
+    isProviderApiConfigured: () => true,
     cliWorkflowService: { startTask: startCliTask } as any,
   });
 
@@ -151,7 +151,7 @@ describe("TaskService", () => {
         },
         git: { githubMode: "REMOTE", defaultBranch: "main" },
       }) as any,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       cliWorkflowService: { startTask: overrideStartCliTask } as any,
     });
 
@@ -212,7 +212,7 @@ describe("TaskService", () => {
         },
         git: { githubMode: "REMOTE", defaultBranch: "main" },
       }) as any,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       cliWorkflowService: { startTask: startCliTask } as any,
     });
 
@@ -265,7 +265,7 @@ describe("TaskService", () => {
         },
         git: { githubMode: "REMOTE", defaultBranch: "main" },
       }) as any,
-      isJulesApiConfigured: () => false,
+      isProviderApiConfigured: () => false,
       cliWorkflowService: {
         startTask: fallbackStartCliTask,
       } as any,
@@ -318,7 +318,7 @@ describe("TaskService", () => {
         },
         git: { githubMode: "LOCAL", defaultBranch: "main" },
       }) as any,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       cliWorkflowService: { startTask: startCliTask } as any,
     });
 
@@ -350,7 +350,7 @@ describe("TaskService", () => {
         },
         git: { githubMode: "LOCAL", defaultBranch: "main" },
       }) as any,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       cliWorkflowService: { startTask: startCliTask } as any,
     });
 
@@ -393,7 +393,7 @@ describe("TaskService", () => {
         },
         git: { githubMode: "REMOTE", defaultBranch: "main" },
       }) as any,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       cliWorkflowService: { startTask: startCliTask } as any,
       logger: logger as any,
     });
@@ -473,7 +473,7 @@ describe("TaskService", () => {
         },
         git: { defaultBranch: "main" },
       }) as any,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       cliWorkflowService: { startTask: startCliTask } as any,
     });
 
