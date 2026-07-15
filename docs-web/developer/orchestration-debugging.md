@@ -113,7 +113,7 @@ For compiled-runtime stress runs, pass Node profiling flags to the isolated serv
 PROFILE_DIR=.cache/e2e-profiles/large-dag
 mkdir -p "$PROFILE_DIR"
 CODE_UX_E2E_SERVER_NODE_OPTIONS="--cpu-prof --cpu-prof-dir=$PROFILE_DIR --cpu-prof-name=server.cpuprofile --heap-prof --heap-prof-dir=$PROFILE_DIR --heap-prof-name=server.heapprofile" \
-  node scripts/e2e/run-mockup-sprint-pentest.mjs --scenario large-dag-stress --timeout-ms 3600000 --keep-artifacts
+  pnpm run test:orchestration:large-dag -- --keep-artifacts
 ```
 
 For restart stress, let Node auto-name the profile files so each restarted server child writes a separate CPU and heap profile:
@@ -122,7 +122,7 @@ For restart stress, let Node auto-name the profile files so each restarted serve
 PROFILE_DIR=.cache/e2e-profiles/large-dag-restarts
 mkdir -p "$PROFILE_DIR"
 CODE_UX_E2E_SERVER_NODE_OPTIONS="--cpu-prof --cpu-prof-dir=$PROFILE_DIR --heap-prof --heap-prof-dir=$PROFILE_DIR" \
-  node scripts/e2e/run-mockup-sprint-pentest.mjs --scenario large-dag-stress --timeout-ms 3600000 --restart-every-ms 45000 --restart-count 3 --keep-artifacts
+  pnpm run test:orchestration:large-dag -- --restart-every-ms 45000 --restart-count 3 --keep-artifacts
 ```
 
 Compare memory after startup, first task completion, final merge, and cleanup. A passing profile returns near its post-start steady state after Docker worktrees, provider watchers, preview sessions, and memory-promotion jobs settle.
