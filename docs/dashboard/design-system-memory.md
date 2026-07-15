@@ -1,6 +1,6 @@
 # Memory Workspace Design System
 ## Objective
-Make the Memory page feel like a focused knowledge graph tool.
+Make the Memory page feel like a focused memory graph tool.
 
 ## Category Colors
 The Memory UI relies on specific hex colors that match existing app accents:
