@@ -14,9 +14,9 @@
 - `src/index.ts`: CLI + MCP server entrypoint; `src/server/code-ux-server.ts` wires the backend; `src/worker/index.ts` is worker-host mode; `src/electron/main.ts` is the desktop shell.
 - `src/domain/`, `src/sprint/`: sprint orchestration (DAG scheduling, watch loop, CI gating, QA).
 - `src/services/`, `src/infrastructure/providers/cli/`: provider execution in Docker, CLI workflow, git, previews.
-- `src/repositories/` (incl. `db/`): data access over **SQLite** (`~/.code-ux/app.db`, WAL, `node:sqlite`). Sprint subtasks round-trip to markdown with YAML frontmatter in each project's `.code-ux/` dir.
+- `src/repositories/` (incl. `db/`): data access over **SQLite at `~/.code-ux/app.db`** (WAL mode), accessed via Node's built-in `node:sqlite` (`DatabaseSync`). Sprint subtasks round-trip to markdown with YAML frontmatter in each project's `.code-ux/` dir.
 - `src/contracts/`: shared domain + MCP tool types.
-- `dashboard/`: Preact + Tailwind v4 UI (current UI in `dashboard/src/v2/`), served on `:4444`.
+- `dashboard/`: Preact + Tailwind v4 UI (current UI in `dashboard/src/v2/`), served on `http://localhost:4444`.
 - `dist/`: compiled output (`pnpm run build`). `.env` / `.env.example`: local env (most config is set in the dashboard and stored in the DB).
 - `tests/` and dashboard `__tests__/`: Vitest suites. `.github/workflows/`: CI pipelines.
 
@@ -57,7 +57,7 @@ Package manager is **pnpm** (`pnpm@11.13.0`), Node **22.13+**. Use `pnpm`, not `
 - For dashboard changes, also verify the dashboard loads at `http://localhost:4444`.
 - Default test env is Node; UI tests opt into jsdom via `@vitest-environment` pragmas. Tests use an in-memory DB (`VITEST_IN_MEMORY_DB=true`). Mock external boundaries (provider CLIs, Docker, FS, Jules API).
 - Prefer deterministic tests, clear fixtures, and minimal mocking.
-- Coverage thresholds (vitest.config.ts, ratchet-only — never lower): lines 77.4%, functions 71.5%, branches 66.1%, statements 76.0%; `src/server/activity-cache-service.ts` has an 80% line gate.
+- Coverage thresholds (vitest.config.ts, ratchet-only — never lower): lines 77.4%, functions 71.5%, branches 66.1%, statements 76.0%. `src/server/activity-cache-service.ts` has a separate 80% line gate. CI runs on Node 22: lint -> test:backend:coverage -> test:dashboard -> build.
 
 ## CI/CD & Quality Gates
 - All pull requests must pass automated CI before merge.
@@ -172,7 +172,7 @@ Release note rules:
 
 ## Local Dev Access (this environment)
 - **Full access to the database and environment.** The runtime DB is `~/.code-ux/app.db` (SQLite, WAL); read/write it as needed via `node:sqlite`. You may inspect and modify environment state.
-- **Restart the dev server on port 4444 anytime.** The dashboard/backend runs there; restart it (e.g. `pnpm run dev`) whenever a change needs to take effect — no need to ask first.
+- **You may restart the dev server on port 4444 anytime.** The dashboard/backend runs there; restart it (e.g. `pnpm run dev`) whenever a change needs to take effect.
 - **Run test sprints only in the approved local test project.** It is wired to a local model for testing, so dispatching sprints/tasks there is safe and expected. Use it for end-to-end orchestration checks; do not run experimental sprints against real projects.
 
 ## Project Name Privacy
