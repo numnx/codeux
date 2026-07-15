@@ -12,7 +12,7 @@ It now:
 - creates `sprint_runs` for orchestrate executions
 - creates `task_dispatches` and `task_runs` when ready tasks start
 - acquires a sprint-scoped execution lease while the orchestrator owns the loop
-- keeps Docker or CLI-backed execution and Jules execution under the same dispatch flow
+- keeps Docker or CLI-backed execution and hosted provider execution under the same dispatch flow
 - queues explicit `mcp_worker` tasks into the same dispatch model
 - persists auto-merge updates back into DB task records instead of markdown
 - routes dashboard task reruns through the same dispatch service
@@ -106,7 +106,7 @@ Implementation note:
 
 Executor mapping in this slice:
 
-- `jules` provider (hosted) -> `jules` dispatch executor
+- `hosted` provider -> hosted dispatch executor
 - CLI providers (`gemini`, `codex`, `claude-code`) -> `docker_cli` dispatch executor
 - explicit task `executorType = mcp_worker` -> queued `mcp_worker` dispatch
 
@@ -225,7 +225,7 @@ The execution model is now DB-native at the entry, load, dispatch, and merge-per
 Still pending:
 - CI/protocol wording should stop referencing any subtask-file semantics
 - broader executor transcript coverage beyond current session-sync, CLI stage, worker lifecycle, and CI gate events
-- deeper Jules stop semantics beyond the current soft-stop `send_session_message` fallback
+- deeper hosted provider stop semantics beyond the current soft-stop `send_session_message` fallback
 
 Recent runtime update:
 - running dispatch cancellation is now modeled as `cancel_requested` instead of immediately forcing terminal DB state
