@@ -129,6 +129,8 @@ It supports:
 - rebuild when completed task count increases
 - rebuild when a sprint transitions into a completed terminal state
 - auto-stop when a sprint becomes terminal
+- startup is managed via single-flight reconciliation per project/sprint, and port allocation is serialized globally, ensuring interval auto-starts and manual starts cannot race or duplicate sessions.
+- previously healthy sessions or starting sessions disrupted by a process restart receive one automatic recovery attempt.
 
 Rebuild behaviors:
 - Preview start and rebuild now use the shared branch-sync rule. In `REMOTE` git mode, Code UX refreshes `origin` before exporting the preview workspace so remote changes (such as those pushed by hosted provider workers) are reflected in the container. In `LOCAL` git mode, preview export stays local-only.
@@ -238,3 +240,12 @@ To harden against large repository scans, the file browser implements several li
 - **MAX_TREE_ENTRIES (20,000):** Limits the number of file nodes returned by the `getTree` operation.
 - **MAX_FILE_BYTES (2MB):** Caps the maximum size of a file read by `readFile` or diff generation.
 - **Pruned Directories:** Directories like `node_modules`, `.git`, `dist`, `build` are pruned at scan time to prevent unbounded tree generation and expensive reads.
+
+## Security Boundaries
+
+- **Host Path Isolation**: Browser preview and file browser sessions run strictly within scoped Docker containers or isolated proxies. They do not expose private host paths (e.g., `/home/user/...` or `C:\Users\...`) in prompts, API responses, or logs. All paths displayed are container-relative or workspace-relative.
+- **Project Isolation**: Sessions are strongly tied to a specific project and sprint. Path traversal or accessing files outside the exported sprint snapshot is prohibited.
+- **Identifier Masking**: Real project names and confidential identifiers are sanitized in logs and proxy outputs.
+- **Preview Distinctions**: Sprint previews are distinct, isolated environments running a full application stack, separate from internal validation previews which serve a different role for verifying specific checks.
+
+- **Proxy Boundaries**: Dashboard API proxy routes under `/api/browser/sessions/:sessionId/proxy*` strip dashboard cookies and authorization before forwarding to the container. Preview-host requests on `preview-<session>.localhost` are the preview app's own origin and may forward the preview app's `Authorization` and `Cookie` headers for stateful flows, presenting a coherent local upstream boundary while stripping proxy-control headers.
