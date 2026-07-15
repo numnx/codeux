@@ -53,7 +53,6 @@ src/
 ## Constraints
 - Must adhere to the technical standards defined in `GEMINI.md`.
 - All new modules must have associated unit tests.
-- Maintain legacy compatibility with existing `.jules-subagents` file structures during the transition, though `.code-ux/` is the active path.
 
 ## Decision Drivers
 - **Maintainability**: Reducing file sizes and cyclomatic complexity in core services.

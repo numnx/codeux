@@ -819,7 +819,7 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/architecture-data-model',
     section: 'Architecture',
     title: "Data model",
-    description: "This page describes the entities Code UX persists and how they relate. The default backend is SQLite; a Postgres migration is planned but not yet shipped.",
+    description: "This page describes the entities Code UX persists and how they relate. The default and only implemented backend is SQLite (using WAL mode for concurrency), with files typically located at ~/.code-ux/app.db and ~/.code...",
   },
   'architecture-execution-invocation-tracking': {
     id: 'architecture-execution-invocation-tracking',
