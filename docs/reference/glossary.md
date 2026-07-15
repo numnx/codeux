@@ -70,6 +70,3 @@ Sprint-scoped Docker preview session for one `(projectId, sprintId)`, persisted 
 
 ## `manage_code_ux` (Deprecated)
 Deprecated unified MCP dispatcher; dedicated `manage_*` tools are preferred.
-
-## Legacy `.jules-subagents`
-Historical artifact directory used by older docs and migration notes. Current project artifacts live under `.code-ux/`.

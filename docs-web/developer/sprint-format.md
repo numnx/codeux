@@ -171,3 +171,7 @@ Add a "Health checks" section to README and a runbook entry under docs/operation
 ```
 
 `docs-update` runs last because it depends on the two endpoint tasks. `health` and `ready` run in parallel because they share only the `setup-routing` dependency.
+
+## Database versus Mirror Authority
+
+While the `.code-ux/` sprint and task markdown round-tripping allows for portability and human editability (and supports YAML aliases/lists for `depends_on`), the database is the ultimate authority for execution. The parser (`SubtaskParser`) reads the initial state, but runtime progression, dispatches, and activity rely on the database state.

@@ -116,11 +116,6 @@ Runtime/config ownership is:
 - repo-scoped: `<repo>/.code-ux/`
 - home-scoped: `~/.code-ux/`
 
-This replaces:
-
-- `<repo>/.jules-subagents/`
-- `~/.jules-subagents/`
-
 This migration is already in progress and remains required.
 
 ### 2. Projects and sprints are execution scopes
@@ -376,7 +371,6 @@ Required behavior:
 ### Track 0: Rebrand and path migration
 
 - Complete `.code-ux` migration.
-- Remove active `.jules-subagents` execution dependencies.
 
 ### Track 1: DB-native execution schema
 

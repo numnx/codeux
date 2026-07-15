@@ -6,7 +6,7 @@ This page describes the DB-backed execution snapshot now exposed to the dashboar
 
 `/api/status` is still useful for task-centric protocol output, but it is not enough to observe the full control plane.
 
-Code UX now projects execution state directly from sqlite into a dedicated dashboard payload so the UI can see:
+Code UX now projects execution state directly from the local SQLite database (`~/.code-ux/app.db` and `~/.code-ux/settings.db` in WAL mode) into a dedicated dashboard payload so the UI can see:
 
 - sprint runs
 - task dispatch queue state
@@ -143,7 +143,7 @@ That makes multi-sprint and worker execution visible without reconstructing stat
 
 ## Backend Read-Model Optimizations
 
-To support the dashboard resource layer and page-scoped module boundaries, the backend read-model optimizations project data efficiently without altering the underlying data structures. **API routes and backend contracts remain unchanged.** The project execution snapshot path performs one coordinated pass per slice, then uses precomputed ID sets and maps for secondary enrichment:
+To support the dashboard resource layer and page-scoped module boundaries, the backend read-model optimizations project data efficiently without altering the underlying data structures. These optimizations and indexes are implemented specifically for SQLite; Postgres support remains a future-facing design plan. **API routes and backend contracts remain unchanged.** The project execution snapshot path performs one coordinated pass per slice, then uses precomputed ID sets and maps for secondary enrichment:
 
 - Sprint runs are fetched as all active expanded runs (`running`, `queued`, `paused`, and `cancel_requested`) plus enough inactive runs to reach a 12-run visible tail. If no active run exists, the newest visible run is still expanded so the runtime panel has context.
 - Task dispatches are fetched as a 24-row recent-project slice plus an expanded sprint-run slice and then collapsed in memory to the latest dispatch per task. Recency uses heartbeat, start, claim, and queue timestamps with stable ID tie-breaks so stale terminal retries do not shadow newer work.
