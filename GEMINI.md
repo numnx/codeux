@@ -128,9 +128,7 @@ Before a task is complete, all of these MUST pass (`ci` = quality:guardrails -> 
 ### Branching & PRs
 - **`dev` is the integration branch.** Work from a feature branch off `dev` (never commit directly to
   `dev` or `main`). Names: `feat/<scope>`, `fix/<scope>`, `chore/<scope>`. Conventional Commits.
-- **Open PRs into `dev`, not `main`** — `gh pr create --base dev`.
-- **Remotes**: `origin` is the **`numnx/codeux` fork** — push branches there and target it for PRs.
-  `upstream` is `codeux-ai/codeux`; do not push or PR there unless explicitly asked.
+- **Open PRs into `dev`, not `main`** — open pull requests against `codeux-ai/codeux` with base `dev` (`gh pr create --base dev`).
 
 ### Local dev access (this environment)
 - **Full access to the database and environment** — read/write `~/.code-ux/app.db` via `node:sqlite`;
@@ -163,9 +161,9 @@ Before a task is complete, all of these MUST pass (`ci` = quality:guardrails -> 
   temp/scratch files are present in the workspace.
 - **Credentials**: never hardcode `JULES_API_KEY` or other provider keys; never commit `.env`. Most
   provider config is set from the dashboard and stored in the DB, not env vars.
-- **Docs**: source of truth is `docs/` (entrypoint `docs/index.md`, index `docs/SUMMARY.md`);
-  `docs-web/` holds the published user/developer/architecture docs. Update affected pages on behavior
-  changes; add + link a new page for new subsystems.
+- **Docs**: source of truth lives in `docs/` with the main entrypoint at `docs/index.md`.
+  `docs-web/` holds the published user/developer/architecture docs. Update affected pages on behavior changes; add + link a new page for new subsystems.
+  If a new feature or subsystem is introduced, add a dedicated page under the correct `docs/` section and link it from both `docs/index.md` and `docs/SUMMARY.md`. Update both canonical `docs/` and public `docs-web/` consistently. No `docs-release/` directory should be used.
 
 ---
 
