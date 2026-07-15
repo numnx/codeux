@@ -47,7 +47,7 @@ The Projects page and shared creation dialog follow the dashboard language setti
 
 Click the dashed **Add Project** card to open the shared modal in local-import mode, then choose **Local Project**, **Git URL**, or **New Project**. Imported local projects receive only a local git-mode project override, so Code UX operates against local Git state. Imported Git URL projects inherit the system remote-git defaults. Imported projects stay techstack-unassigned until you choose a project techstack in settings, use the top bar selector, or run Project Setup Agent techstack detection.
 
-Click **New Project** on the Projects page to initialize a new repository through the same modal. New project initialization does not scaffold application source files in the dashboard; it sends `new-local` or `new-remote` initialization data to the backend repository creation flow.
+Click **New Project** on the Projects page to initialize a new repository through the same modal. New project initialization sets `new-local` or `new-remote` initialization modes and applies explicit techstack overrides, but it does not scaffold initial application files or change repository structure if files are already present.
 
 Imported and newly initialized projects always start with Tech Stack Guidance and Styleguide set to **None** at project scope. This creation default is independent of system-level or caller-provided guidance selections; choose reusable guidance after creation from the top bar or Settings -> Guidance.
 
@@ -100,7 +100,7 @@ The Settings **Danger Zone** provides a confirmation dialog for its **Delete Pro
 
 ## Running Project Setup Agent
 
-Choose **Setup project** on an existing card to select Agents, Quicksprints, Preview Script, CI, Techstack detection, and optional Docs embedding. Starting setup uses the existing background setup flow; duplicate setup is disabled while the run is active.
+Choose **Setup project** on an existing card to run the setup agent. The operator can select any combination of `Agents`, `Quicksprints`, `Preview Script`, `CI`, `Techstack` detection, and opt-in `Docs` embedding. Starting setup uses the existing background setup flow; duplicate setup is disabled while the run is active.
 
 The page reports setup start, running, completion, and failure through notifications. Once tracking returns an invocation ID, the card's **Project setup running** row opens that invocation in Chat. Completion notifications also retain an **Open invocation** action so generated artifacts and errors can be reviewed after the run finishes.
 

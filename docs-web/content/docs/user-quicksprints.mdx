@@ -43,6 +43,8 @@ Click any template card. A sidebar opens where you can configure the run:
 
 The resulting sprint is identical to one created manually — you can edit subtasks before running.
 
+During planning, progress and failures are reported in the UI. If planning fails, you can retry it or cancel the request. Closing the panel leaves the planning request running in the background.
+
 ## Editing & deleting
 
 From the **⋯** menu on a template card:
