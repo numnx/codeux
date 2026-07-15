@@ -77,6 +77,8 @@ Notification read and dismissed state is stored locally in the browser under `co
 
 Onboarding now starts with a setup-mode choice. New installs default to **Expert** so existing detailed behavior remains available unless the operator chooses a shorter path. **Standard** is the user-facing spelling for the persisted `STANDARD` value.
 
+Mode choices apply system defaults (like provider configuration, git mode, or GitHub workflows), but they do not scaffold initial application files or change repository structure.
+
 Mode choices:
 - **Easy**: short first-run path that introduces Code UX, then configures one CLI provider login plus optional GitHub workflow defaults. Easy hides Docker, concurrency, Jira, MCP, model pricing, and advanced routing controls while keeping Docker as the default execution runtime.
 - **Standard**: balanced setup path that follows the detailed flow and uses the public `Standard` label in the dashboard.

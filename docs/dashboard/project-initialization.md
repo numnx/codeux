@@ -4,9 +4,10 @@ Project Initialization runs a repository-specific setup pass through the `Projec
 
 ## Entry Points
 
-- `Add Project` keeps the existing `Initialize with Project Setup Agent` flow for imported local and git source types.
+- The dashboard natively supports four distinct project initialization modes: imported local, imported Git URL, `new-local`, and `new-remote`.
 - Imported local projects save only a project-level `git.githubMode: LOCAL` override. The same dashboard git-mode updater synchronizes internal `git_manager`, `git_manager_local`, and `git_manager_remote` skills so local imports start with repo-local git behavior.
 - Imported Git URL projects do not receive git-mode or techstack overrides. They continue to inherit the remote git and unassigned techstack defaults unless the operator explicitly changes project or sprint settings or runs setup techstack detection.
+- New project initialization (`new-local` and `new-remote`) does not scaffold initial application source files. Instead, it sends initialization data to apply explicit techstack overrides and classifications, leaving existing repository files intact if already present.
 - `New Project` reuses the same Add Project modal with the `new_project` source selected. The modal exposes `Local Repo` / `Remote Repo` init modes instead of setup scope controls.
 - Chat includes five initial-project create-app quickactions for the currently selected project: `Create Web App`, `Create Desktop App`, `Create Onlineshop` (the Online shop action), `Create Portfolio`, and `Create Game`. These controls post typed `create_app` metadata and launch the matching detached `Plan & Start` quicksprint; they do not open the new-project modal, create/import a Code UX project, or use the normal dashboard-reply route.
 - Project persistence records whether creation used `existing`, `new-local`, or `new-remote`. Imported and pre-migration projects default to `existing`; source type and creation time are never used to infer new-project provenance.
@@ -21,7 +22,7 @@ Project Initialization runs a repository-specific setup pass through the `Projec
 - New remote init clones into the selected clone directory, or `~/.code-ux/projects` when the field is blank, and stores the project base directory as the single checkout root `~/.code-ux/projects/<repo-name>`.
 - Existing projects expose a `Setup Project` action from the project card agent button.
 
-Imported-project setup lets the operator choose which generated artifacts to create. The dashboard keeps Docs disabled by default; selecting it embeds discovered repository documentation into Knowledge docs. Backend and MCP setup requests can also explicitly enable docs embedding:
+Project setup can generate various artifacts based on repository evidence. The dashboard keeps Docs disabled by default; selecting it embeds discovered repository documentation into Knowledge docs. Backend and MCP setup requests can also explicitly request these setup outputs:
 
 - `Agents`
 - `Quicksprints`
