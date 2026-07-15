@@ -7,13 +7,13 @@ Code UX can run as an installable Electron desktop app while preserving the exis
 - Electron boots the compiled backend in the main process from `dist/electron/main.js`.
 - The backend still serves the dashboard over loopback HTTP.
 - The desktop window loads the resolved dashboard URL, usually `http://127.0.0.1:4444`.
-- If the requested dashboard port is busy, the backend keeps the existing retry behavior and the Electron window opens the actual runtime port.
+- If the requested dashboard port is busy, the backend keeps the existing retry behavior and the Electron window opens the actual dynamic runtime port.
 - The Electron shell (`src/electron/main.ts` and `src/electron/dashboard-network-policy.ts`) defines desktop boundaries, native window management, and network policies for the UI. It does not own backend orchestration; it solely hosts the Code UX UI and connects to the existing container-first backend.
 - MCP stdio is disabled in the Electron runtime with `CODE_UX_DISABLE_MCP_STDIO=1` so the GUI process does not attach to desktop process stdio.
-- Mutable dashboard runtime traffic (`/api/*`, `/health`, and `/ready`) is treated as non-cacheable in both the backend response headers and the Electron session. The desktop app clears the Electron HTTP cache on startup, injects no-cache request headers only for runtime `GET`/`HEAD` reads, and injects no-store response headers for all loopback runtime data so stale Chromium cache entries cannot make settings, project, agent, or runtime pages appear frozen after navigation without interfering with JSON upload bodies.
+- Mutable dashboard runtime traffic (`/api/*`, `/health`, and `/ready`) is treated as non-cacheable in both the backend response headers and the Electron session. The desktop app clears the Electron HTTP cache on startup, injects `Cache-Control: no-cache` request headers only for runtime `GET`/`HEAD` reads, and injects `no-store` response headers for all loopback runtime data so stale Chromium cache entries cannot make settings, project, agent, or runtime pages appear frozen after navigation without interfering with JSON upload bodies.
 - Windows packaged builds keep the active WebGL context cap at 16 so the persistent shell canvas, avatar canvases, and route-scoped chart canvases have enough headroom during long navigation sessions while old Chromium contexts are waiting for garbage collection.
-- External links are opened through the host operating system. In-app dashboard and sprint-preview URLs remain inside the Electron app.
-- The desktop shell renders only the resolved dashboard origin and same-port sprint preview origins that match `preview-<session>.localhost:<dashboardPort>` internally. Other `http`, `https`, and `mailto` navigations are denied in the renderer and opened through the host operating system after scheme validation; all other schemes are blocked.
+- External links (`http`, `https`, and `mailto`) are denied in the renderer and opened through the host operating system after scheme validation; all other external schemes are blocked. In-app dashboard and sprint-preview URLs remain inside the Electron app.
+- The desktop shell renders only the resolved dashboard origin and same-port sprint preview origins that match `preview-<session>.localhost:<dashboardPort>` internally for loopback navigation.
 
 ## Desktop System Bar
 
@@ -36,11 +36,11 @@ The native picker and desktop-only commands are exposed through the isolated pre
 
 Renderer Node access remains disabled. The preload exposes only this narrow IPC surface.
 
-Renderer privileges are constrained with `contextIsolation: true`, `nodeIntegration: false`, and `sandbox: true`. The preload bridge keeps the supported desktop API limited to directory selection, zoom control, and window controls. IPC handlers validate renderer input before using it: directory picker defaults must be strings without control characters, and zoom factors must be finite numbers before being clamped to the supported range.
+Renderer privileges are constrained with `contextIsolation: true`, `nodeIntegration: false`, and `sandbox: true` (renderer sandboxing). The preload bridge keeps the supported desktop API limited to directory selection, zoom control, and window controls. IPC handlers validate renderer input before using it: directory picker defaults must be strings without control characters, and zoom factors must be finite numbers before being clamped to the supported range.
 
 Because the renderer remains sandboxed, the preload source is `src/electron/preload.cts` and compiles to `dist/electron/preload.cjs`. Keep the preload CommonJS-emitted and load Electron APIs through `require("electron")`; sandboxed Electron preloads do not run as ESM, and an ESM preload prevents `window.codeUxDesktop.window` from initializing, which hides the renderer-owned system bar.
 
-Electron permission prompts are denied by default for dashboard and preview pages except for microphone capture from the trusted dashboard origin. The desktop session grants `microphone` permission, or Electron `media` permission when the request or permission check is explicitly audio-only, only for the resolved dashboard origin such as `http://127.0.0.1:<runtimePort>` and its `localhost` loopback alias. Sprint preview origins, unrelated origins, camera/video capture, geolocation, notifications, and arbitrary Electron permissions remain denied. Preview origins require a separate documented product need and targeted tests before any permission exception is added.
+Electron permission prompts are denied by default for dashboard and preview pages except for microphone capture from the trusted dashboard origin. The desktop session grants `microphone` permission (or Electron `media` permission when the request or permission check is explicitly audio-only) only for the resolved dashboard origin such as `http://127.0.0.1:<runtimePort>` and its `localhost` loopback alias. Sprint preview origins, unrelated origins, camera/video capture, geolocation, notifications, and arbitrary Electron permissions remain denied. Preview origins require a separate documented product need and targeted tests before any permission exception is added.
 
 The desktop BrowserWindow is frameless and transparent on every supported platform so the renderer-level `.app-shell` clip can expose real rounded window corners. The shell uses a fixed corner radius and subtle gray border in normal windowed mode, then removes that treatment when Electron reports maximized or fullscreen state, matching the host operating system's square maximized-window behavior. Keep the native BrowserWindow `backgroundColor` transparent when changing package settings; an opaque native background will make the corners appear square even if the renderer content is clipped.
 
@@ -67,15 +67,17 @@ macOS DMG builds include the MIT license resource through `build/license_en.txt`
 - `pnpm run electron:dist:win`: build Windows targets.
 - `pnpm run electron:benchmark:runtime`: launch Electron with an isolated temporary user profile, navigate dashboard routes, probe backend endpoints, and write route/API/renderer/runtime metrics under `.cache/electron-runtime-benchmark/`.
 - `pnpm run electron:benchmark:win`: build Windows installers with `normal` and `store` compression and write timing/size data to `release/electron-benchmark/summary.json`.
+- `pnpm run electron:generate-icons`: generate deterministic PNG/ICO/BMP desktop artwork.
 - `pnpm run electron:install-deps`: rebuild native app dependencies for Electron.
+- `pnpm run electron:prepare-deps`: create a production-only, hoisted runtime dependency tree and prune non-runtime files.
 
 The release output is written to `release/electron/`.
 
 Electron package builds run `pnpm run electron:prepare-deps` before Electron Builder. That script creates a production-only, hoisted runtime dependency tree in `.cache/electron-runtime/node_modules`, prunes non-runtime package files, generates deterministic PNG/ICO/BMP desktop artwork, and Electron Builder copies it to `resources/node_modules` so ASAR-packaged builds can resolve pnpm transitive dependencies at runtime.
 
-Electron Builder must include the `docs-web/**` runtime catalog in the app contents because the dashboard Docs page reads its collection and markdown through `/api/docs-web`. Installed desktop builds, npm-installed CLI/server runs, and source checkouts all rely on the same directory living beside the compiled runtime root, where `DocsWebCatalogService` resolves it. Keep `docs-web` in both the Electron Builder `files` list and the npm package `files` list whenever packaging metadata changes.
+Electron Builder must include the `docs-web/**` runtime catalog in the app contents (packaged assets) because the dashboard Docs page reads its collection and markdown through `/api/docs-web`. Installed desktop builds, npm-installed CLI/server runs, and source checkouts all rely on the same directory living beside the compiled runtime root, where `DocsWebCatalogService` resolves it. Keep `docs-web` in both the Electron Builder `files` list and the npm package `files` list whenever packaging metadata changes.
 
-The desktop package must also include `assets/models-dev/catalog.json`. Model pricing resolves this snapshot relative to the compiled runtime, and omitting it makes otherwise known models appear unpriced in Electron even though the npm package calculates their costs correctly. The packaged-default regression test checks both runtime assets and verifies the GPT-5.5 catalogue rate as a representative automatic-pricing entry.
+The desktop package must also include `assets/models-dev/catalog.json` as a packaged asset. Model pricing resolves this snapshot relative to the compiled runtime, and omitting it makes otherwise known models appear unpriced in Electron even though the npm package calculates their costs correctly. The packaged-default regression test checks both runtime assets and verifies the GPT-5.5 catalogue rate as a representative automatic-pricing entry.
 
 CI runs `tests/e2e/navigation/docs-page.spec.ts` as a dedicated Linux Docs smoke gate on every branch push and every pull request targeting `dev` or `main`. The gate loads exactly five routes—the Docs index, its overview route, and three representative user/developer/architecture pages—and fails on HTTP errors, browser console errors, page errors, missing landmarks, or missing compiled markdown. Full cross-platform Playwright matrices remain limited to main validation and manual dispatches.
 
@@ -106,13 +108,13 @@ Linux `electron:pack` benchmark on WSL/Linux after the first installer optimizat
 
 ## GitHub Release Builds
 
-Published desktop artifacts are built by `.github/workflows/release.yml` when a GitHub Release is published. `.github/workflows/desktop-release.yml` is the separate manual `Desktop Release Diagnostics` workflow; it accepts an optional tag/ref and uploads artifact-only rebuilds without modifying a release.
+Published desktop artifacts are built by `.github/workflows/release.yml` (the publishing lane) when a GitHub Release is published. `.github/workflows/desktop-release.yml` is the separate manual `Desktop Release Diagnostics` workflow (the diagnostic lane); it accepts an optional tag/ref and uploads artifact-only rebuilds without modifying a release.
 
 The workflow builds on native runners:
 
-- `ubuntu-latest` runs `pnpm run electron:dist:linux`
-- `windows-latest` runs `pnpm run electron:dist:win`
-- `macos-latest` runs `pnpm run electron:dist:mac`
+- `ubuntu-latest` runs `pnpm run build && pnpm run electron:prepare-deps && pnpm exec electron-builder --config electron-builder.config.cjs --linux --publish never` in the publishing lane (or `pnpm run electron:dist:linux` in diagnostics)
+- `windows-latest` runs `pnpm run build && pnpm run electron:prepare-deps && pnpm exec electron-builder --config electron-builder.config.cjs --win --publish never` in the publishing lane (or `pnpm run electron:dist:win` in diagnostics)
+- `macos-latest` runs `pnpm run build && pnpm run electron:prepare-deps && pnpm exec electron-builder --config electron-builder.config.cjs --mac --publish never` in the publishing lane (or `pnpm run electron:dist:mac` in diagnostics)
 
 Each release job uploads its generated files as a workflow artifact and attaches the same files to the published GitHub Release. Diagnostic rebuilds only upload workflow artifacts.
 
@@ -124,7 +126,7 @@ Use `.github/workflows/release.yml` for published desktop releases. It is the la
 
 ## CI Release Candidate Packages
 
-The no-secret release-candidate package lane is part of `.github/workflows/ci.yml`, named `Code UX CI Pipeline`. It runs for `main` validation and manual dispatches after package smoke, keeping the full desktop package proof out of the routine `dev` lane.
+The no-secret release-candidate package lane (the candidate lane) is part of `.github/workflows/ci.yml`, named `Code UX CI Pipeline`. It runs for `main` validation and manual dispatches after package smoke, keeping the full desktop package proof out of the routine `dev` lane.
 
 The `10 Release Candidate / desktop package` matrix starts as soon as the package smoke job passes, so desktop packaging can run beside the E2E and orchestration matrices instead of waiting for them to finish. It downloads the shared `codeux-build-linux` artifact, installs the cached Electron binary, rebuilds Electron native dependencies, prepares runtime assets, and runs Electron Builder directly with `--linux`, `--mac`, or `--win` plus `--publish never`. The package smoke job that precedes it runs `node scripts/verify-release-install.mjs` with `CODE_UX_SKIP_RELEASE_INSTALL_BUILD=1`, so the npm tarball install check uses the same compiled artifact instead of rebuilding.
 
@@ -138,10 +140,11 @@ Developers can reproduce the main-PR desktop package portion locally with:
 pnpm run build
 node scripts/verify-release-install.mjs
 pnpm run electron:install-deps
-pnpm run electron:dist -- --publish never
+pnpm run electron:prepare-deps
+pnpm exec electron-builder --config electron-builder.config.cjs --publish never
 ```
 
-Use `pnpm run electron:dist:linux -- --publish never`, `pnpm run electron:dist:mac -- --publish never`, or `pnpm run electron:dist:win -- --publish never` when matching a specific GitHub Actions matrix leg.
+Use `pnpm exec electron-builder --config electron-builder.config.cjs --linux --publish never`, `pnpm exec electron-builder --config electron-builder.config.cjs --mac --publish never`, or `pnpm exec electron-builder --config electron-builder.config.cjs --win --publish never` when matching a specific GitHub Actions matrix leg.
 
 ## Cross-Platform Compatibility Findings
 
