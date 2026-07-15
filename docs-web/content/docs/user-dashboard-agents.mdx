@@ -24,6 +24,8 @@ project` when writing reusable instructions, screenshots, docs, or review notes.
 
 Each preset is a card with avatar, name, label tags, and a one-line description. Click a card to open the **detail panel**.
 
+Presets display route badges directly on their showcase cards. These correspond to the settings in **Settings → Routing** and include: Planning, Coding, Coding Roster, CI Fix, Merge Conflict, Dashboard Reply, Clarification Reply, QA Task, QA Sprint, and QA No PR.
+
 ## Avatar preview behavior
 
 The 3D avatar preview uses lightweight WebGL presentation effects only. Its shared SVG/WebGL expression vocabulary is `happy`, `sad`, `angry`, `sleepy`, `bored`, `hyped`, `shake_head`, `nod`, `curious`, `thinking`, `excited`, `laughing`, `surprised`, `wink`, `dance`, and `proud`.
@@ -47,6 +49,14 @@ Click **+ New agent**. The form collects:
 - **Avatar** — auto-generated (geometric/colour seed). You can customize it deeply using the avatar customizer.
 
 Save creates the preset and broadcasts a real-time event so connected clients refresh.
+
+Validation rules apply when saving an agent:
+- **Name**: Required, unique, maximum 60 characters.
+- **Description**: Maximum 180 characters.
+- **Instructions**: Soft limit of 8,000 characters (displays a warning when exceeded), hard validation limit of 12,000 characters (1.5x soft limit).
+- **Custom Memory Template**: Cannot be empty when the override checkbox is enabled.
+
+Validation errors focus and scroll the first invalid field into view, announcing issues via the shared action feedback region.
 
 ## Editing an agent
 
@@ -120,6 +130,10 @@ Where Code UX *uses* a preset is governed by the **invocation routing** settings
 
 A common pattern: have a "Planner" agent (Claude Opus, sober and structured) for `planning`, a "Coder" agent (Codex GPT-5) for `task_coding`, and a "Reviewer" agent for `qa_review`.
 
+### Provider and Model Assignment
+
+The UI dropdown lets users select a configured project AI provider instance or choose **Inherit Route Default** (which falls back to the default provider set for that route). Disabled/paused providers are explicitly labeled as `(paused)`. The model override input field is disabled when the Provider Instance is set to Inherit Route Default. It is editable only when a specific provider instance is selected, defaulting to the provider's default model if left blank.
+
 ## Worker questions and Project manager replies
 
 During task coding, an eligible coding agent can call `request_clarification` when repository evidence cannot resolve a blocking ambiguity or a Project manager decision is required. Code UX captures the project plus any supplied task, sprint, run, dispatch, task-run, and provider-session context in a human-owned project attention item. The coding agent receives only this narrow request grant; it does not gain Project manager management tools and cannot call `reply_to_clarification`.
@@ -150,6 +164,10 @@ When the dashboard loads a storage's contents, it receives only a bounded set of
 
 Persistent skills remain separate from memory templates, knowledge document subscriptions, and MCP access. The narrow `search_skills` retrieval grant can be available to an opted-in agent without enabling the broader Code UX MCP management tools described below.
 
+## Self-reflection
+
+Self-reflection is disabled by default and configured via **Settings → Agents**. It supports explicit max attempts and thresholds, and acts as a planning autostart gate when enabled. The dashboard uses a `SelfReflectionRatingBadge` to display reflection results.
+
 ## MCP access
 
 Agent MCP access is default-deny. If a preset has no saved MCP access record, Code UX built-in tools display as disabled and the agent does not inherit broad project-manager tool access. Custom MCP server links, such as Playwright, are controlled separately and can remain linked without enabling Code UX built-in tools.
@@ -169,3 +187,19 @@ When the assigned Project Manager starts sprint planning, the immediate acknowle
 While guidance remains `in_progress`, the manager does not submit `plan` again, requeue or resubmit work, change provider/model/settings, or treat missing tasks or an elapsed ETA as failure. `succeeded`, `failed`, `cancelled`, and `paused` are terminal; the manager stops checking, reports available error evidence, and verifies actual task/auto-start state before claiming success.
 
 Code UX also creates one existing due-now, non-recurring completion/failure wakeup for planning started from that dashboard thread. If it arrives before an ETA check, the manager cancels its obsolete pending planning-status wakeups for the same invocation or sprint, excluding the wakeup currently executing. Standalone MCP clients have no dashboard-thread wakeup and must poll sprint, task, or telemetry state at the returned timestamps.
+
+## Empty states
+
+When an agent or instruction file is not selected, the right panel shows the message **Select an agent or an instruction file from the left to view and edit it.**
+
+## Sync states and deletion constraints
+
+Agent lists display sync badging: Synced, Out of Sync, Missing Source, and Database Only (Manual). "Push to files" only writes under `.code-ux/agents/`, requires the setting `agents.saveToProjectDirectory` to be enabled, and refuses to overwrite a markdown file already linked to a different agent. Deletion is destructive, requires confirmation, and removes the preset from the dashboard.
+
+## Connection and invocation status
+
+First hydration displays loading indicator states. If no project preset or file exists, a custom quiet-workshop container with dashed borders, a blurred backdrop, and a creation button is displayed.
+
+Connection status transitions (connecting, reconnecting, etc.) are indicated on the transport banner. During disconnection, the UI preserves the current stale data rather than clearing the workspace.
+
+The detail panel lazily queries and displays agent usage summaries (total, completed, failed, and running counts, plus token throughput and cost cents). This query aborts dynamically when the user switches to a different agent.
