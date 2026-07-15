@@ -2,13 +2,7 @@
 
 Solutions to the most common issues. If your problem is not covered here, see the [system overview](../architecture/system-overview.md), the [MCP client guide](./mcp-clients.md), or open an issue.
 
-## Code UX won't start
-
-### `JULES_API_KEY is required` (or similar)
-
-You launched without a Jules key and without enabling a virtual worker provider.
-
-**Fix:** set `JULES_API_KEY` in `.env`, pass `--api-key`, or add it to `~/.code-ux/settings.json`. Alternatively, set `workers.virtualWorkerProvider` in settings to a configured CLI provider — Code UX can run entirely on virtual workers.
+## Server startup
 
 ### Port 4444 already in use
 
@@ -22,7 +16,7 @@ The user running Code UX cannot write to the repo.
 
 **Fix:** Ensure the process has write permissions to the project's `repository path` and to the `.code-ux/` directory therein.
 
-## Dashboard issues
+## Dashboard access
 
 ### Dashboard loads but data is empty
 
@@ -134,7 +128,13 @@ A `VirtualWorkerService` doing `ci_fix` tasks keeps trying and failing.
 
 **Fix:** run the printed `gh pr merge` command. Code UX detects the merge on the next cycle and transitions the sprint to `completed`.
 
-## Provider errors
+## Provider readiness
+
+### Missing Jules API key
+
+The sprint failed to start or a task is blocked because no provider is configured.
+
+**Fix:** Code UX runs without an API key, but tasks require a configured provider. Set a Jules key in **Settings -> Providers**, via the `JULES_API_KEY` environment variable, or enable an authenticated CLI provider.
 
 ### "Provider quota exceeded" / `QUOTA` status
 
