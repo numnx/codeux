@@ -322,19 +322,21 @@ pnpm install
 
 ### Configure providers
 
-You can start Code UX without API keys or environment variables. When you are ready to run agent
+Code UX starts provider-neutrally. You do not need a Jules API key or any provider credential merely to start Code UX. When you are ready to run agent
 work, configure providers from the dashboard. For local CLI providers, authenticate with the
 provider's normal CLI login flow; Code UX can detect and optionally mount local auth for Gemini,
 Codex, Claude Code, Qwen Code, OpenCode, and Antigravity CLI.
 
 ### Run in development
 
+`pnpm run dev` starts the server from source (via `tsnode-register`) alongside a Vite watcher for the dashboard bundle.
+
 ```bash
 pnpm run dev
 pnpm run dev:server-only
 ```
 
-Then open `http://localhost:4444`.
+Then open `http://localhost:4444` (or your configured `DASHBOARD_PORT`).
 
 ### Build and run
 
@@ -368,8 +370,8 @@ pnpm run audit
 
 Additional GitHub Actions behavior:
 
-- Playwright E2E runs only on pushes to `main` and pull requests targeting `main`. It starts `node dist/index.js` and waits on the local `/health` liveness probe.
-- Normal CI runs on every branch push. The models.dev catalogue workflow is a deliberate exception and runs only on pushes to `dev`. When upstream catalogue data changes, it uses the built-in `GITHUB_TOKEN` to push a `chore/models-catalog-dev` update branch and open a PR. The repository or organization must allow GitHub Actions to create pull requests, and the workflow grants `contents: write` plus `pull-requests: write`.
+- Playwright E2E runs on pushes to `main`, pull requests targeting `main`, and manual dispatch. It uses `pnpm exec playwright test` directly against the built bundle.
+- Normal CI runs on pushes and pull requests targeting `main` and `dev`. The models.dev catalogue workflow is a deliberate exception and runs only on pushes to `dev`. When upstream catalogue data changes, it uses the built-in `GITHUB_TOKEN` to push a `chore/models-catalog-dev` update branch and open a PR. The repository or organization must allow GitHub Actions to create pull requests, and the workflow grants `contents: write` plus `pull-requests: write`.
 
 ## Contributing
 
