@@ -25,7 +25,7 @@ A single orchestration *cycle* runs the following pipeline (each step is indepen
 3. **loadSubtasks** — Read subtask markdown files and reconcile with DB state.
 4. **sessionSync** — Synchronize the latest state of every active provider invocation (hosted and CLI providers).
 5. **statusDerivation** — Apply state rules to derive each subtask's effective status (`PENDING`, `RUNNING`, `CODING_COMPLETED`, `COMPLETED`, etc.).
-6. **startReadyTasks** — Find subtasks whose dependencies are met and start a new worker session for each. Concurrency is capped per provider via `maxConcurrentTasks`.
+6. **startReadyTasks** — Find subtasks whose `depends_on` dependencies are all `COMPLETED` and `is_merged: true`. If provider concurrency (`maxConcurrentTasks`) has slack and the emergency stop is not active, start a new worker session for each by creating DB task dispatch records and selecting the provider (hosted for remote, CLI/Docker/host for local execution).
 7. **protocol** — Run the [CI gate](./automation-and-ci.md): create PRs, watch CI, evaluate QA, auto-merge per policy, surface attention items for conflicts and CI failures. Also handles action-required automation for plan approvals, clarification answers, and paused sessions.
 8. **statusTable** — Render the cycle report.
 
@@ -144,7 +144,7 @@ To prevent runaway costs from a misconfiguration, Code UX tracks **consecutive t
 - The watch loop exits.
 - A subsequent run resets the counter from zero.
 
-Override via `maxFailures` in settings or `JULES_API_MAX_FAILS` in the environment. Recommended floor: `3`.
+Override via `maxFailures` in settings or `PROVIDER_API_MAX_FAILS` (formerly `JULES_API_MAX_FAILS`) in the environment. Recommended floor: `3`.
 
 ## Retries
 
@@ -190,13 +190,12 @@ In `LOCAL` mode, the final merge runs in a temporary worktree without waiting fo
 
 ## Cancellation & pause
 
-Both are emitted as **control interventions** picked up at the top of each cycle:
+Control interventions are evaluated at the top of each watch loop cycle:
 
-- **Pause** — exits the loop cleanly. Active sessions are *not* killed.
-- **Cancel requested** — exits the loop and signals dispatches to stop.
-- **Cancelled** — terminal; no further cycles.
-
-Force-cancel skips the graceful path; use only if the orchestrator hangs.
+- **Pause** (`POST /api/sprint-runs/:id/pause`) — exits the loop cleanly. Active sessions are *not* killed and dispatch records remain ready for "resume".
+- **Cancel requested** (`POST /api/sprint-runs/:id/cancel`) — exits the loop and signals running dispatches to stop cooperatively.
+- **Cancelled** — terminal state; no further cycles.
+- **Force cancel** (`POST /api/sprint-runs/:id/force-cancel`) — ignores graceful shutdown requirements and directly transitions running dispatches, QA rows, and the sprint run to `cancelled`. This forces immediate teardown for active task containers without waiting for normal protocol checkpoints. Use only if graceful shutdown is stuck.
 
 ## Heartbeat & leasing
 

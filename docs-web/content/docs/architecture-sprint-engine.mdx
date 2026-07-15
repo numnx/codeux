@@ -150,11 +150,11 @@ if (currentFails >= options.maxFailures) {
 
 Effect: the cycle aborts, the watch loop exits, the sprint pauses with the error attached. A subsequent run resets the counter from 0.
 
-Override: `maxFailures` setting or `JULES_API_MAX_FAILS` env. Recommended floor: 3.
+Override: `maxFailures` setting or `PROVIDER_API_MAX_FAILS` (formerly `JULES_API_MAX_FAILS`) env. Recommended floor: 3.
 
 ## CI autofix retries
 
-Per task, the CI gate tracks attempted CI fix dispatches in the durable guardrail ledger. The legacy `julesCiAutofixMaxRetries` mirror defaults to 5 (min 0, max 20); the generic CI-fix guardrail is authoritative and creates a human handoff at its cap.
+Per task, the CI gate tracks attempted CI fix dispatches in the durable guardrail ledger. The legacy `ciAutofixMaxRetries` (formerly `julesCiAutofixMaxRetries`) mirror defaults to 5 (min 0, max 20); the generic CI-fix guardrail is authoritative and creates a human handoff at its cap.
 
 The ordinary task-coding guardrail also creates a deduplicated human handoff when exhausted, including its attempt count and task/session context. Resolving the handoff clears the `task_coding` ledger and permits one fresh dispatch cycle instead of leaving the sprint in a silent heartbeat loop.
 
@@ -208,7 +208,15 @@ Rerunning a task (`tasks.start`) creates a new dispatch:
 
 The previous failed dispatch is preserved for diagnosis. The task gets a fresh provider session.
 
-## Cancellation flow
+## Terminal states
+
+```
+User clicks Pause
+  → POST /api/sprint-runs/:id/pause
+  → SprintRunStatusService transitions status to "paused"
+  → WatchLoopRunner observes at next cycle top, exits loop gracefully
+  → Dispatch and runner records remain ready for "resume"
+```
 
 ```
 User clicks Cancel
@@ -220,4 +228,4 @@ User clicks Cancel
   → Sprint run transitions to "cancelled"
 ```
 
-Force cancel skips the graceful "cancel_requested" → "cancelled" pause; use only when graceful is stuck.
+Force cancel (`POST /api/sprint-runs/:id/force-cancel`) ignores graceful shutdown requirements ("cancel_requested" phase) and directly transitions running dispatches, QA rows, and the sprint run to `cancelled`. This forces immediate teardown for active task containers without waiting for normal protocol checkpoints or cooperative closure.

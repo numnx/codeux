@@ -11,7 +11,9 @@ Shipped controls:
 - start or resume sprint orchestration for a sprint
 - pause an active sprint run
 - cancel an active sprint run
+- force-cancel an active sprint run
 - cancel queued, claimed, or running task dispatches
+- force-cancel a task dispatch
 - retry terminal task dispatches through the existing task rerun path
 
 These actions operate on `sprint_runs`, `task_dispatches`, `task_runs`, and runtime events.
@@ -24,7 +26,9 @@ The dashboard server now exposes:
 - `POST /api/sprint-runs/:sprintRunId/pause`
 - `POST /api/sprint-runs/:sprintRunId/resume`
 - `POST /api/sprint-runs/:sprintRunId/cancel`
+- `POST /api/sprint-runs/:sprintRunId/force-cancel`
 - `POST /api/task-dispatches/:dispatchId/cancel`
+- `POST /api/task-dispatches/:dispatchId/force-cancel`
 - `POST /api/task-dispatches/:dispatchId/retry`
 - `POST /api/execution/invocations/:invocationId/reset-usage-limit`
 
@@ -103,9 +107,9 @@ That startup pass is intentionally different from stale-runtime cleanup:
 - interrupted local CLI task dispatches (`docker_cli`) are not treated as still running after process restart; they are rewritten to failed/retryable state so the resumed sprint loop can launch them again safely
 - Docker workspace/runtime volumes for those tracked CLI sessions are preserved even after the session is marked `FAILED`, so the retry can bind to the old workspace when same-workspace retry is enabled
 - rerun recovery resolves the resume target from the latest `cli_workspace_bound` task event before falling back to older task-run metadata. This keeps the reusable workspace volume tied to the real workspace session id even when a restarted provider invocation recorded a newer local session id before being interrupted.
-- missing recorded-session recovery is provider-scoped: only Jules task sessions are checked against the Jules API and failed as missing remote sessions. Local CLI session ids such as `cli-codex-*` are not queried through Jules and are left to the CLI runtime/session-tracking recovery paths.
+- missing recorded-session recovery is provider-scoped: only remote hosted task sessions are checked against the provider API and failed as missing remote sessions. Local CLI session ids such as `cli-codex-*` are not queried through the remote provider and are left to the CLI runtime/session-tracking recovery paths.
 - remote/durable executor paths remain attached to the original run:
-  - Jules sessions continue through session-sync against the remote provider state
+  - hosted provider sessions continue through session-sync against the remote provider state
   - connected MCP worker dispatches keep their durable dispatch row and can continue once the worker reconnects with the same connection key
 
 This means a normal app restart no longer requires operators to manually restart an otherwise healthy sprint just to restore the watch loop.
@@ -135,7 +139,7 @@ Executor-specific behavior:
 
 - `docker_cli`: active local process receives an abort signal and transitions to `cancelled` when shutdown completes
 - `mcp_worker`: the next `update_task_dispatch` heartbeat returns `controlAction = "cancel"` so the worker can stop and report back through the same dispatch contract
-- `jules`: Code UX sends an in-session close message immediately and then finalizes the dispatch to `cancelled` without waiting for a separate Jules cancel API
+- `hosted`: Code UX sends an in-session close message immediately and then finalizes the dispatch to `cancelled` without waiting for a separate hosted provider cancel API
 
 ### Retry Dispatch
 
@@ -162,17 +166,17 @@ If the invocation is no longer active or no longer has usage-limit retry metadat
 
 ## Remaining Limitation
 
-Code UX now has cooperative stop behavior for local CLI work and connected workers, while Jules uses an immediate close-message path:
+Code UX now has cooperative stop behavior for local CLI work and connected workers, while hosted providers use an immediate close-message path:
 
 - active Docker/CLI executions are aborted through the local process runner, not a kernel-level descendant tree manager
-- active Jules sessions still cannot be terminated through an official REST cancel API, so Code UX treats the close message as terminal and reconciles runtime state locally
+- active hosted provider sessions still cannot be terminated through an official REST cancel API, so Code UX treats the close message as terminal and reconciles runtime state locally
 - worker cancellation depends on the worker honoring the returned `controlAction = "cancel"` contract
 
 That limitation is explicit in the runtime model:
 
 - Code UX records `cancel_requested` separately from final `cancelled`
 - live runtime panels show stop-pending state while work is still shutting down
-- terminal outcomes are only written once the executor path actually reports back or exits, except for Jules where Code UX finalizes immediately after sending the close message
+- terminal outcomes are only written once the executor path actually reports back or exits, except for hosted providers where Code UX finalizes immediately after sending the close message
 
 ## Idle Overhead Optimization
 
