@@ -48,6 +48,7 @@ action-specific fields, and an optional `approval` object for destructive action
 | `request_clarification` | orchestration | Raise an idempotent, project-owned Markdown question from an eligible coding agent. |
 | `reply_to_clarification` | orchestration | Answer a pending clarification as the eligible project-manager agent or an unscoped project-manager client. |
 | `manage_projects` | orchestration | List, get, create, update, select, set up, and delete projects. |
+| `manage_code_ux` | advanced | (Deprecated) Manage internal Code UX state. Used for configuration and destructive actions. Destructive actions require approval confirmation. |
 | `manage_sprints` | orchestration | Save unplanned follow-up drafts; plan, start, pause, cancel, inspect, import issues into, and edit sprints. |
 | `manage_tasks` | orchestration | Create, edit, start, stop, pause, and inspect tasks. |
 | `manage_quicksprints` | orchestration | Manage quicksprint templates and execute them. |
@@ -66,6 +67,9 @@ action-specific fields, and an optional `approval` object for destructive action
 | `manage_custom_dashboards` | platform | Manage project custom dashboard drafts, metadata-only credential bindings, revisions, detached validation sessions, publication, archiving, and data catalog lookup. |
 | `manage_chat_providers` | platform | Manage external chat provider setup definitions, connections, bindings, and outbound delivery state. |
 | `manage_telemetry` | platform | Read execution snapshots, invocations, sprint runs, and dispatches. |
+| `register_worker_endpoint` | platform | Register or refresh an external Code UX worker endpoint and its eligible project scope. |
+| `pull_task_dispatch` | platform | Claim the next eligible worker task dispatch for a registered external worker. |
+| `update_task_dispatch` | platform | Refresh worker dispatch heartbeat/state and return any control-plane action such as cancellation. |
 
 Every tool uses the existing `project_manager` gateway runtime role and is enabled by default. Clarification tools additionally require their worker or project-manager audience grant; unknown, cross-project, and unauthorized agent calls return `MethodNotFound`.
 
@@ -121,6 +125,7 @@ Clarification states are `pending`, `replied`, `expired`, and `cancelled`. Repea
 | Tool | `action` values |
 | --- | --- |
 | `manage_projects` | `list`, `get`, `create`, `update`, `select`, `setup`, `delete` |
+| `manage_code_ux` | (action depends on domain payload) |
 | `manage_sprints` | `list`, `get`, `create`, `followup`, `update`, `delete`, `start`, `pause`, `cancel`, `force_cancel`, `inspect_run`, `import_issues`, `plan` |
 | `manage_tasks` | `list`, `get`, `create`, `update`, `delete`, `start`, `stop`, `force_stop`, `pause`, `inspect_run` |
 | `manage_quicksprints` | `list_templates`, `get_template`, `create_template`, `update_template`, `delete_template`, `execute`, `start` |
@@ -135,6 +140,9 @@ Clarification states are `pending`, `replied`, `expired`, and `cancelled`. Repea
 | `manage_custom_dashboards` | `list`, `get`, `create`, `update`, `create_revision`, `validate_revision`, `validation_status`, `validation_logs`, `publish_revision`, `archive`, `data_catalog`, `list_credential_slots`, `bind_credential`, `unbind_credential` |
 | `manage_chat_providers` | `list_provider_definitions`, `list_connections`, `get_connection`, `create_connection`, `update_connection`, `delete_connection`, `list_channel_bindings`, `create_channel_binding`, `update_channel_binding`, `delete_channel_binding`, `list_outbound_deliveries` |
 | `manage_telemetry` | `get_project_stats_snapshot`, `get_project_execution_snapshot`, `list_execution_invocations`, `list_execution_invocation_messages`, `list_sprint_runs`, `list_task_dispatches` |
+| `register_worker_endpoint` | (no specific action enum) |
+| `pull_task_dispatch` | (no specific action enum) |
+| `update_task_dispatch` | (no specific action enum) |
 
 For `manage_projects` setup, clients may send setup options either as `setup.options` or as top-level `options`. `options.docs: true` is opt-in and embeds discovered repository documentation into the Knowledge docs library.
 

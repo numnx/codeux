@@ -27,6 +27,7 @@ These cover:
 - `manage_custom_dashboards`
 - `manage_chat_providers`
 - `manage_telemetry`
+- `manage_code_ux`
 - `register_worker_endpoint`
 - `pull_task_dispatch`
 - `update_task_dispatch`
@@ -67,6 +68,7 @@ These cover:
 - `manage_custom_dashboards`
 - `manage_chat_providers`
 - `manage_telemetry`
+- `manage_code_ux`
 
 ### Worker control plane
 - `register_worker_endpoint`
@@ -1348,22 +1350,7 @@ Settings patch and replacement calls still require the stateful human-confirmati
 
 ## Removed Legacy Surface
 
-These legacy MCP tools are no longer registered:
-
-- `get_source`
-- `list_sources`
-- `list_all_sources`
-- `create_session`
-- `list_sessions`
-- `approve_session_plan`
-- `send_session_message`
-- `wait_for_session_completion`
-- `get_activity`
-- `list_activities`
-- `list_all_activities`
-- `task_agent`
-
-Code UX now keeps orchestration inside its own DB-backed dispatch layer. External MCP clients interact through listener, inbox, dispatch, and control-plane tools instead of direct Jules session management.
+Code UX now keeps orchestration inside its own DB-backed dispatch layer. External MCP clients interact through listener, inbox, dispatch, and control-plane tools instead of direct Jules session management. The legacy Jules session management tools (such as `get_source`, `list_sources`, `create_session`, `task_agent`, etc.) are no longer registered. `manage_code_ux` remains registered as a deprecated compatibility tool.
 
 ## Stability Expectations
 
