@@ -127,6 +127,7 @@ Locale state is owned by the dependency-free root internationalization provider.
 - Handles JSON encoding / decoding.
 - Surfaces structured errors (`{ error: { code, message } }`).
 - Cancels in-flight requests via `AbortSignal` when the caller passes one.
+- Default to `cache: "no-store"` so the browser always fetches live runtime data.
 
 Every REST endpoint listed in the [HTTP API reference](/docs/developer-http-api) has a matching wrapper function.
 

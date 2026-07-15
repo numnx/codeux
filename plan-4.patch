@@ -1,0 +1,5 @@
+<<<<<<< SEARCH
+   The browser UI renders the exact snapshot it receives over HTTP `/api/live` or websockets. It does not attempt to reconcile competing sources, merge partial updates manually, or maintain local hidden state that contradicts the snapshot.
+=======
+   The browser UI renders the exact snapshot it receives over HTTP `/api/live` or websockets. It does not attempt to reconcile competing sources, merge partial updates manually, or maintain local hidden state that contradicts the snapshot. HTTP endpoints serving this live data send `Cache-Control: no-store` headers so the browser does not serve stale responses across sessions.
+>>>>>>> REPLACE

@@ -1,0 +1,12 @@
+<<<<<<< SEARCH
+- Prefixes all paths with the dashboard origin.
+- Handles JSON encoding / decoding.
+- Surfaces structured errors (`{ error: { code, message } }`).
+- Cancels in-flight requests via `AbortSignal` when the caller passes one.
+=======
+- Prefixes all paths with the dashboard origin.
+- Handles JSON encoding / decoding.
+- Surfaces structured errors (`{ error: { code, message } }`).
+- Cancels in-flight requests via `AbortSignal` when the caller passes one.
+- Default to `cache: "no-store"` so the browser always fetches live runtime data.
+>>>>>>> REPLACE

@@ -1,0 +1,5 @@
+<<<<<<< SEARCH
+- websocket server wiring in `src/server/dashboard-server.ts`
+=======
+- websocket server wiring in `src/server/dashboard-server.ts` (via `src/server/dashboard-realtime-websocket-server.ts`)
+>>>>>>> REPLACE
