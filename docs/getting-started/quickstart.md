@@ -6,7 +6,7 @@ This guide gets the MCP server and dashboard running locally with minimal setup.
 
 - Node.js 22.13+
 - pnpm 11.13.0 (only for building from source)
-- A valid Jules API key
+- Docker (required for containerized execution)
 - Optional for remote git intelligence: GitHub CLI (`gh`) authenticated
 
 ## Install and Build (from source)
@@ -18,40 +18,17 @@ pnpm install
 pnpm run build
 ```
 
-## Configure API Key
-
-Use one of these methods:
-
-1. CLI argument (highest priority)
-```bash
-node dist/index.js --api-key YOUR_KEY
-```
-
-2. Environment variable
-```bash
-export JULES_API_KEY=YOUR_KEY
-pnpm start
-```
-
-3. `.env` file in project root
-```env
-JULES_API_KEY=YOUR_KEY
-```
-
-4. `.code-ux/settings.json` (project or home)
-```json
-{
-  "julesApiKey": "YOUR_KEY"
-}
-```
-
 ## Run in Development
 
 ```bash
+# Starts both the server (via ts-node) and the dashboard bundler in watch mode
 pnpm run dev
+
+# Starts only the server without the dashboard bundler
+pnpm run dev:server-only
 ```
 
-This starts the server directly from TypeScript source through Node's `ts-node` ESM register hook, so local development uses the same `.js` import specifiers as the production build without requiring a precompile step.
+These start the server directly from TypeScript source through Node's `ts-node` ESM register hook, so local development uses the same `.js` import specifiers as the production build without requiring a precompile step.
 
 ## Run Compiled Server
 
@@ -78,6 +55,36 @@ curl http://localhost:4444/api/system-settings
 curl http://localhost:4444/api/git-status
 ```
 
+## Configure Providers
+
+Code UX requires at least one provider to dispatch work. This is configured *after* startup. Use one of these methods:
+
+1. Dashboard (recommended)
+   Navigate to **Settings -> Providers** in the dashboard to set an API key or enable local CLI providers.
+
+2. CLI argument (highest priority)
+```bash
+node dist/index.js --api-key YOUR_KEY
+```
+
+3. Environment variable
+```bash
+export JULES_API_KEY=YOUR_KEY
+pnpm start
+```
+
+4. `.env` file in project root
+```env
+JULES_API_KEY=YOUR_KEY
+```
+
+5. `.code-ux/settings.json` (project or home)
+```json
+{
+  "julesApiKey": "YOUR_KEY"
+}
+```
+
 ## Common First Workflow
 
 1. Configure system settings in dashboard, then adjust project settings and sprint overrides as needed.
@@ -89,8 +96,6 @@ curl http://localhost:4444/api/git-status
 
 ## Troubleshooting
 
-- `Jules API Key is missing`
-  - Confirm key source and priority order.
 - Dashboard port in use
   - Set `DASHBOARD_PORT` in `.env` (e.g., `DASHBOARD_PORT=5555 pnpm run dev`), or configure `dashboardPort` in `config.json` or System Settings.
 
