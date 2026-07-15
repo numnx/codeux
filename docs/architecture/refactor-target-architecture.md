@@ -18,6 +18,7 @@ src/
   app/
     runtime-context.ts          # Centralized application state
     dependency-factory.ts       # Composition root for all services
+    dependency-factory/         # Composition root factories
   shared/
     logging/                    # Structured logging and correlation IDs
     config/                     # Unified path resolution and value parsing

@@ -21,6 +21,9 @@ Source trees are intentionally kept free of editor and merge backup artifacts. F
 `.orig` are ignored under `src/` and `dashboard/src/`, and repository hygiene tests fail if those
 backup files appear there.
 
+- `app/`
+  - `dependency-factory.ts`, `dependency-factory/`
+  - Application dependency composition root and factories.
 - `index.ts`
   - Minimal bootstrap (`dotenv`, app config, server launch).
 - `electron/`
@@ -46,6 +49,8 @@ backup files appear there.
   - `jules-api-client.ts`
   - Jules API HTTP client.
 - `server/`
+  - `dashboard-route-registration.ts`
+  - Dashboard API route registration and grouping.
   - `code-ux-server.ts`
   - Main runtime composition wiring backend services (dashboard API on default port 4444 and MCP server).
   - `mcp-request-router.ts`

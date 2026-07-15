@@ -43,7 +43,7 @@ Authenticated headless automation is composed from a fail-closed principal/role 
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-The primary CLI/management entrypoint is `src/index.ts`, which loads configuration and starts `CodeUxServer.run()`. `CodeUxServer` wires all backend services. The dashboard/API serves on a configured port (default 4444), while the worker host and Electron shell operate as separate entrypoints. Lifecycle:
+The primary CLI/management entrypoint is `src/index.ts`, which loads configuration and starts `CodeUxServer.run()`. `CodeUxServer` wires all backend services. The dashboard/API serves on a configured port (default 4444), while the worker host (`src/worker/index.ts`) and Electron shell (`src/electron/main.ts`) operate as separate entrypoints. Dashboard dependency composition lives in `src/app/dependency-factory.ts` and `src/app/dependency-factory/`. Dashboard API route registration is handled in `src/server/dashboard-route-registration.ts`. Lifecycle:
 
 1. **Boot settings** — load and migrate the settings DB.
 2. **Refresh API key** — pull from CLI / env / settings.
@@ -52,7 +52,7 @@ The primary CLI/management entrypoint is `src/index.ts`, which loads configurati
 5. **Docker asset pruning** — remove orphaned worker images / containers.
 6. **Boot dashboard** — bind Express on `DASHBOARD_PORT`.
 7. **Boot MCP stdio transport** — connect to stdin/stdout if not a TTY.
-8. **Boot MCP HTTP transport** *(optional)* — bind the JSON-RPC HTTP listener.
+8. **Boot MCP HTTP transport** *(optional)* — binds the `StreamableHTTPServerTransport` JSON-RPC listener at `/mcp` to expose the remote worker control-plane gateway.
 9. **Mark MCP service bound and finish startup recovery** — `/ready` flips to ready after listener binding and runtime recovery complete.
 10. **Start background loops** — runtime cleanup (15 s), sprint preview reconciliation (15 s), live snapshot refresh (30 s).
 11. **Start virtual worker service** — begin reconcile cycle (3 s).
@@ -84,8 +84,9 @@ Detail: [Virtual workers](/docs/architecture-virtual-workers).
 
 `McpServer` from `@modelcontextprotocol/sdk` plus our `ToolRegistry` and `McpRequestRouter`.
 
-- **Stdio transport** — `StdioServerTransport`.
-- **HTTP transport** — `StreamableHTTPServerTransport` over Express, mounted at `/mcp`.
+- **Stdio transport** — `StdioServerTransport` for local, zero-setup human-driven MCP clients (e.g., local IDE integrations or CLI runs).
+- **HTTP transport** — `StreamableHTTPServerTransport` mounted at `/mcp` to support remote worker registrations, heartbeats, and dispatch claims.
+- **Worker execution boundary** — Remote workers poll the main server's HTTP gateway for tasks, then spin up a local headless Code UX instance using `src/worker/index.ts` in `worker-host` mode to execute code locally over a stdio connection.
 
 Detail: [MCP server](/docs/architecture-mcp-server).
 
