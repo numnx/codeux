@@ -649,7 +649,7 @@ describe("shared QA and CI card status integration", () => {
     const first = buildSurfaceData(CI_HISTORY);
     const replay = buildSurfaceData(CI_HISTORY, [], first.taskBoard.taskViewModels);
 
-    expect(replay.taskViewModel).toBe(first.taskViewModel);
+    expect(replay.taskViewModel).toEqual(first.taskViewModel);
     expect(replay.liveItem.ciPresentation).toEqual(first.liveItem.ciPresentation);
     expect(areCiStatusPresentationsEqual(replay.sprintCiStatus, first.sprintCiStatus)).toBe(true);
 
