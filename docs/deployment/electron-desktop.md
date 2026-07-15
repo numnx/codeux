@@ -7,13 +7,13 @@ Code UX can run as an installable Electron desktop app while preserving the exis
 - Electron boots the compiled backend in the main process from `dist/electron/main.js`.
 - The backend still serves the dashboard over loopback HTTP.
 - The desktop window loads the resolved dashboard URL, usually `http://127.0.0.1:4444`.
-- If the requested dashboard port is busy, the backend keeps the existing retry behavior and the Electron window opens the actual runtime port.
+- If the requested dashboard port is busy, the backend keeps the existing retry behavior and the Electron window opens the actual dynamic runtime port.
 - The Electron shell (`src/electron/main.ts` and `src/electron/dashboard-network-policy.ts`) defines desktop boundaries, native window management, and network policies for the UI. It does not own backend orchestration; it solely hosts the Code UX UI and connects to the existing container-first backend.
 - MCP stdio is disabled in the Electron runtime with `CODE_UX_DISABLE_MCP_STDIO=1` so the GUI process does not attach to desktop process stdio.
 - Mutable dashboard runtime traffic (`/api/*`, `/health`, and `/ready`) is treated as non-cacheable in both the backend response headers and the Electron session. The desktop app clears the Electron HTTP cache on startup, injects no-cache request headers only for runtime `GET`/`HEAD` reads, and injects no-store response headers for all loopback runtime data so stale Chromium cache entries cannot make settings, project, agent, or runtime pages appear frozen after navigation without interfering with JSON upload bodies.
 - Windows packaged builds keep the active WebGL context cap at 16 so the persistent shell canvas, avatar canvases, and route-scoped chart canvases have enough headroom during long navigation sessions while old Chromium contexts are waiting for garbage collection.
 - External links are opened through the host operating system. In-app dashboard and sprint-preview URLs remain inside the Electron app.
-- The desktop shell renders only the resolved dashboard origin and same-port sprint preview origins that match `preview-<session>.localhost:<dashboardPort>` internally. Other `http`, `https`, and `mailto` navigations are denied in the renderer and opened through the host operating system after scheme validation; all other schemes are blocked.
+- The desktop shell renders only the resolved dashboard origin and same-port sprint preview loopback navigations that match `preview-<session>.localhost:<dashboardPort>` internally. Other `http`, `https`, and `mailto` navigations are denied in the renderer and opened through the host operating system after scheme validation; all other schemes are blocked.
 
 ## Desktop System Bar
 
@@ -68,6 +68,8 @@ macOS DMG builds include the MIT license resource through `build/license_en.txt`
 - `pnpm run electron:benchmark:runtime`: launch Electron with an isolated temporary user profile, navigate dashboard routes, probe backend endpoints, and write route/API/renderer/runtime metrics under `.cache/electron-runtime-benchmark/`.
 - `pnpm run electron:benchmark:win`: build Windows installers with `normal` and `store` compression and write timing/size data to `release/electron-benchmark/summary.json`.
 - `pnpm run electron:install-deps`: rebuild native app dependencies for Electron.
+- `pnpm run electron:generate-icons`: generate deterministic PNG/ICO/BMP desktop artwork.
+- `pnpm run electron:prepare-deps`: prepare production runtime dependencies for packaging.
 
 The release output is written to `release/electron/`.
 
@@ -106,7 +108,7 @@ Linux `electron:pack` benchmark on WSL/Linux after the first installer optimizat
 
 ## GitHub Release Builds
 
-Published desktop artifacts are built by `.github/workflows/release.yml` when a GitHub Release is published. `.github/workflows/desktop-release.yml` is the separate manual `Desktop Release Diagnostics` workflow; it accepts an optional tag/ref and uploads artifact-only rebuilds without modifying a release.
+Published desktop artifacts are built by `.github/workflows/release.yml` (the publishing lane) when a GitHub Release is published. `.github/workflows/desktop-release.yml` is the separate manual `Desktop Release Diagnostics` workflow (the diagnostic lane); it accepts an optional tag/ref and uploads artifact-only rebuilds without modifying a release.
 
 The workflow builds on native runners:
 
@@ -124,7 +126,7 @@ Use `.github/workflows/release.yml` for published desktop releases. It is the la
 
 ## CI Release Candidate Packages
 
-The no-secret release-candidate package lane is part of `.github/workflows/ci.yml`, named `Code UX CI Pipeline`. It runs for `main` validation and manual dispatches after package smoke, keeping the full desktop package proof out of the routine `dev` lane.
+The no-secret release-candidate package lane (the candidate lane) is part of `.github/workflows/ci.yml`, named `Code UX CI Pipeline`. It runs for `main` validation and manual dispatches after package smoke, keeping the full desktop package proof out of the routine `dev` lane.
 
 The `10 Release Candidate / desktop package` matrix starts as soon as the package smoke job passes, so desktop packaging can run beside the E2E and orchestration matrices instead of waiting for them to finish. It downloads the shared `codeux-build-linux` artifact, installs the cached Electron binary, rebuilds Electron native dependencies, prepares runtime assets, and runs Electron Builder directly with `--linux`, `--mac`, or `--win` plus `--publish never`. The package smoke job that precedes it runs `node scripts/verify-release-install.mjs` with `CODE_UX_SKIP_RELEASE_INSTALL_BUILD=1`, so the npm tarball install check uses the same compiled artifact instead of rebuilding.
 
