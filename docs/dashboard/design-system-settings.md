@@ -42,13 +42,28 @@ This document defines the visual patterns and rules for the Settings workspace. 
 3.  **High-Risk Actions**:
     *   Destructive actions in the Danger Zone (`Wipe Project`, `Wipe Database`) use the `danger` tone, yielding clear semantic `bg-status-red text-white` presentation. Panels themselves hint at danger via red-tinted borders and backgrounds.
 
+## Provider setup and interactive login
+
+Settings > AI Models and Settings > Integrations expose provider instances. Provider cards distinguish between three authentication modes:
+*   **API Key Mode**: Renders a write-only, password-masked field. The input provides show/hide toggles but never allows reading back the configured key.
+*   **Local Copy Mode**: Uses the local file picker to configure a host path pointing directly to credentials.
+*   **Dashboard Login Mode**: Dispatches an interactive terminal session inside a modal. The authentication credentials file is automatically mapped to `~/.code-ux/credentials/{providerConfigId}`.
+
+Specific providers enforce mode restrictions. Qwen Code exposes `MODEL_PROVIDER` (custom base URLs, protocols) or `ALIBABA_CODING_PLAN` (automated regional endpoints). OpenCode exposes `ENV_KEY` or `CUSTOM_PROVIDER`. Jules only supports API key entry.
+
+The interactive terminal login modal (`TerminalLoginModal`) transitions from Booting to Ready, displaying the container build status. The terminal uses xterm.js, intercepts standard copy/paste events, and supports a custom context menu for clipboard access. The scanner watches for `[CONTAINER_OPEN_URL]:` prefixes to expose an explicit Authorize button. An exit code `0` sets a `lastLoginAt` timestamp to mark the provider draft as dirty, requiring the user to Save Changes. Non-zero exits expose the failure code in a connection error banner.
+
+Card-level changes present inline validation through `ActionFeedbackRegion`. Mode switches or enablement toggles surface unsaved-change warnings. The card's removal flow arms the control and exposes an inline confirmation step before destructive deletion, restoring focus upon completion.
+
 ## Chat connector settings
 
 Settings > Integrations presents Discord prominently, followed by WhatsApp, iMessage, Telegram, Slack, and Microsoft Teams. Catalog cards report only verified active connections as healthy. Connector definitions, supported modes, official-documentation links, and limitations come from the Code UX backend; the browser never calls provider APIs directly.
 
 The chat connector workspace is composed from focused catalog, connection, verification, binding, and delivery-history components. Mode choices distinguish provider-native APIs, managed bridges, custom webhooks, and native bridges. Arrow keys operate the mode radiogroup, every editor and delivery list has a named region, controls retain visible focus rings, and narrow layouts wrap actions and fields without horizontal overflow. Catalog-to-detail transitions settle immediately without a GSAP timeline when the shared reduced-motion preference is enabled. Pending and success messages use polite status feedback; errors remain in an assertive live region until cleared.
 
-Connection activation requires all required setup fields, required write-only credentials, and a successful **Test connection** result. Blank credential inputs preserve stored values. Material mode, endpoint, command, setup, or credential edits make the previous verification stale; those edits save the connection as a draft and require another test. Endpoint/command changes and credential replacement use the shared confirmation dialog, as do connection/binding deletion.
+Connection activation requires all required setup fields, required write-only credentials, and a successful **Test connection** result. The editor tracks local modifications; if the configuration is dirty, **Test connection** is disabled with a helper tooltip warning the user to save changes first.
+
+Blank credential inputs preserve stored values. Material mode, endpoint, command, setup, or credential edits make the previous verification stale, triggering a reconnect flow; those edits save the connection as a draft and require another test. Modifying sensitive fields like transport modes or ingress URLs prompts a confirmation modal detailing the impact before saving. After saving, the verification check validates the connection and renders results in the verification feedback region.
 
 Bindings expose provider-specific channel identifiers, project and optional thread routing, project-selector ambiguity guidance, agent presets, inbound/outbound toggles, and rich-widget suppression. Delivery history never renders payload bodies, signed URLs, or stored secrets. It shows status, attempt count, next retry, terminal/retryable/ambiguous state, and redacted diagnostics. Connection and binding mutation failures and verification outcome issues pass through the same redaction boundary before entering persistent alert state, so token-shaped values and URLs are never rendered. Retry and cancellation require confirmation because either can affect an external provider. Failed history refreshes preserve previously loaded records and display the failure instead of presenting a false empty state.
 
