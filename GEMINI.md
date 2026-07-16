@@ -15,6 +15,8 @@ software instead of model reasoning.
 The runtime ships three ways from one codebase: the **CLI/server** (`codeux`), an **Electron desktop
 app**, and an **MCP server** (stdio + optional HTTPS worker gateway).
 
+> Historical note: this began as an MCP server. The **Code UX runtime** now supports several local CLI providers (Gemini, Codex, Claude Code, Qwen, OpenCode, Antigravity). Jules remains available as a hosted provider. Do not treat the codebase as Jules-specific.
+
 ---
 
 ## 🛠️ 2. Core Technology Stack
@@ -23,6 +25,7 @@ app**, and an **MCP server** (stdio + optional HTTPS worker gateway).
 - **Runtime**: Node.js **22.13+** (strict ESM, `"type": "module"`, NodeNext resolution).
 - **Package manager**: **pnpm** (`pnpm@11.13.1`) — use `pnpm`, not `npm`.
 - **Language**: TypeScript 5.9 (strict, `ES2022` target).
+- **Key Commands**: `pnpm run dev` (Server from source + dashboard `vite build --watch` side by side), `pnpm run dev:server-only` (Server from source only, no dashboard watcher), `pnpm run build` (tsc server + tsc dashboard typecheck + vite build).
 - **Protocol**: Model Context Protocol via `@modelcontextprotocol/sdk`.
 - **HTTP**: Express 5 for the dashboard/API; Axios for Jules + Jira REST.
 - **Persistence**: **SQLite at `~/.code-ux/app.db`** (WAL) via Node's built-in `node:sqlite`
@@ -129,8 +132,7 @@ Before a task is complete, all of these MUST pass (`ci` = quality:guardrails -> 
 - **`dev` is the integration branch.** Work from a feature branch off `dev` (never commit directly to
   `dev` or `main`). Names: `feat/<scope>`, `fix/<scope>`, `chore/<scope>`. Conventional Commits.
 - **Open PRs into `dev`, not `main`** — `gh pr create --base dev`.
-- **Remotes**: `origin` is the **`numnx/codeux` fork** — push branches there and target it for PRs.
-  `upstream` is `codeux-ai/codeux`; do not push or PR there unless explicitly asked.
+- **Open pull requests against `codeux-ai/codeux` with base `dev`.**
 
 ### Local dev access (this environment)
 - **Full access to the database and environment** — read/write `~/.code-ux/app.db` via `node:sqlite`;
@@ -165,7 +167,7 @@ Before a task is complete, all of these MUST pass (`ci` = quality:guardrails -> 
   provider config is set from the dashboard and stored in the DB, not env vars.
 - **Docs**: source of truth is `docs/` (entrypoint `docs/index.md`, index `docs/SUMMARY.md`);
   `docs-web/` holds the published user/developer/architecture docs. Update affected pages on behavior
-  changes; add + link a new page for new subsystems.
+  changes; add + link a new page for new subsystems. First update canonical `docs/`, then run `node scripts/sync-docs-web.mjs` (verify with `pnpm run check:docs-web`). No `docs-release/` directory should be used.
 
 ---
 

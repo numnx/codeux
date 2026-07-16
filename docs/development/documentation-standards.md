@@ -38,6 +38,7 @@ When behavior changes:
 **Publication Workflow:**
 - `docs/` is the canonical source of truth, and `docs-web/` is the publication and reference mirror.
 - Update canonical `docs/` first, then align the matching `docs-web/` page consistently whenever public-facing behavior changes or new subsystems are introduced.
+- First update canonical `docs/`, then run `node scripts/sync-docs-web.mjs` (verify with `pnpm run check:docs-web`).
 - A `docs-release/` directory should not be created or used.
 
 ## Source of Truth Hierarchy
