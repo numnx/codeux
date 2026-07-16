@@ -138,9 +138,14 @@ For a local CLI or dashboard-adjacent session that supports MCP HTTP, configure:
 Verify without exposing the token:
 
 ```bash
+# /health checks liveness (listener is up)
 curl --fail http://127.0.0.1:4445/health
+
+# /ready checks readiness (startup recovery finished, dependencies available)
 curl --fail http://127.0.0.1:4445/ready
 ```
+
+Note: `/health` may pass before `/ready` passes. Startup readiness refuses execution until background recovery, branch reaping, and key providers are operational. If credentials are bad, `/ready` returns 503, but `/health` is UP.
 
 Then verify through the MCP client by listing tools or running a read-only management action such as listing projects. Do not use `curl -v`, shell tracing, or command transcripts that print the authorization header.
 
@@ -226,24 +231,24 @@ Existing HTTP sessions authenticated with the previous token should be treated a
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-| --- | --- | --- |
-| Startup fails with a server-mode token error | `--server-mode` or `CODE_UX_SERVER_MODE=true` is set without an explicit valid bearer token. | Set `MCP_HTTP_AUTH_TOKEN` or `MCP_HTTPS_AUTH_TOKEN`, or pass the matching CLI flag. Use at least 32 bearer-safe characters. |
-| Startup fails when binding `0.0.0.0`, `::`, or a LAN address | MCP HTTP is reachable beyond loopback without an active token. | Configure an explicit bearer token and put TLS/auth network controls in front of the HTTP listener. |
-| Dashboard URL is unavailable | Expected in server mode. | Use MCP HTTP clients and `/health` or `/ready`. Start a separate dashboard-mode process only when an operator UI is required. |
-| HTTP returns `401 Unauthorized` | Missing `Authorization: Bearer <token>`, wrong token, duplicate authorization headers, or a client still using the old token after rotation. | Reinstall or update the client secret, reconnect, and avoid printing headers in diagnostics. |
-| HTTP returns `400` on a new MCP session | The first request was not JSON-RPC `initialize`, or `mcp-session-id` / `x-code-ux-agent` was malformed. | Let the MCP SDK initialize the session, or clear stale session state and reconnect. |
-| Session cap errors appear | Too many active Streamable HTTP sessions, usually from leaked clients or a cluster larger than the default cap. | Stop stale clients, shorten `MCP_HTTP_SESSION_TIMEOUT_MS`, or raise `MCP_HTTP_MAX_SESSIONS` within server capacity. |
-| Worker appears stale or offline | Heartbeats stopped, the worker process is down, network access failed, or the stable connection key changed unexpectedly. | Restart the worker with the same `--connection-key`, verify `/ready`, and check logs for bounded connection metadata. |
-| Worker connects but does not claim work | No active project assignment, project not included in `--project-id` / `--active-project-id`, stale endpoint status, task executor mismatch, or no lease returned. | Confirm project assignment and worker status, then verify queued dispatches. Do not start local execution without a lease token. |
-| `/health` passes but `/ready` fails | Listener is alive but runtime readiness has not completed or the server is degraded. | Wait for startup recovery to finish, then inspect structured logs. Use `/ready` for load balancer readiness gates. |
-| `/ready` reports credential custody unavailable | The explicit mounted-file, Vault, or KMS provider is missing, insecure, unhealthy, or cannot return the required key version. | Keep runners disabled, inspect metadata-only readiness and provider configuration, and restore the exact provider/key version. Do not print key material or substitute a new key for encrypted rows. |
-| A credential operation returns a version conflict | Another operator changed metadata, scope, capabilities, status, or encrypted value first. | Refresh the metadata-only record, review the new version, and intentionally retry with that version. Do not bypass optimistic concurrency. |
-| Secret values appear in an exported settings bundle | The export was explicitly approved with `includeSecrets: true`. | Store the bundle only in approved secret storage, rotate exposed credentials if it was shared, and prefer redacted exports for review. |
-
+| Symptom | Safe Diagnostics & Likely cause | Recovery & Fix | Rollback & Escalation |
+| --- | --- | --- | --- |
+| Startup fails with a server-mode token error | `--server-mode` or `CODE_UX_SERVER_MODE=true` is set without an explicit valid bearer token. | Set `MCP_HTTP_AUTH_TOKEN` or `MCP_HTTPS_AUTH_TOKEN`, or pass the matching CLI flag. Use at least 32 bearer-safe characters. | Do not use weak tokens. Revert configuration if headless is not needed. |
+| Startup fails when binding `0.0.0.0`, `::`, or a LAN address | MCP HTTP is reachable beyond loopback without an active token. | Configure an explicit bearer token and put TLS/auth network controls in front of the HTTP listener. | Revert bind to `127.0.0.1`. |
+| Dashboard URL is unavailable | Expected in server mode. | Use MCP HTTP clients and `/health` or `/ready`. Start a separate dashboard-mode process only when an operator UI is required. | No rollback needed. |
+| HTTP returns `401 Unauthorized` | Missing `Authorization: Bearer <token>`, wrong token, duplicate authorization headers, or a client still using the old token after rotation. | Reinstall or update the client secret, reconnect. | Avoid printing headers in diagnostics. Escalate if valid tokens fail. |
+| HTTP returns `400` on a new MCP session | The first request was not JSON-RPC `initialize`, or `mcp-session-id` / `x-code-ux-agent` was malformed. | Let the MCP SDK initialize the session, or clear stale session state and reconnect. | Revert client updates if incompatible. |
+| Session cap errors appear | Too many active Streamable HTTP sessions, usually from leaked clients or a cluster larger than the default cap. | Stop stale clients, shorten `MCP_HTTP_SESSION_TIMEOUT_MS`, or raise `MCP_HTTP_MAX_SESSIONS` within server capacity. | Revert cap increases if memory pressure occurs. |
+| Worker appears stale or offline | Heartbeats stopped, the worker process is down, network access failed, or the stable connection key changed unexpectedly. | Restart the worker with the same `--connection-key`, verify `/ready`. | Escalate if worker repeatedly drops. Check logs for bounded connection metadata. |
+| Worker connects but does not claim work | No active project assignment, project not included in `--project-id` / `--active-project-id`, stale endpoint status, task executor mismatch, or no lease returned. | Confirm project assignment and worker status, then verify queued dispatches. | Do not start local execution without a lease token. |
+| `/health` passes but `/ready` fails | Listener is alive but runtime readiness has not completed or the server is degraded. | Wait for startup recovery to finish, then inspect structured logs. | Use `/ready` for load balancer readiness gates. Escalate if startup recovery loops. |
+| `/ready` reports credential custody unavailable | The explicit mounted-file, Vault, or KMS provider is missing, insecure, unhealthy, or cannot return the required key version. | Keep runners disabled, inspect metadata-only readiness and provider configuration, and restore the exact provider/key version. | Do not print key material or substitute a new key for encrypted rows. |
+| A credential operation returns a version conflict | Another operator changed metadata, scope, capabilities, status, or encrypted value first. | Refresh the metadata-only record, review the new version, and intentionally retry with that version. | Do not bypass optimistic concurrency. |
+| Secret values appear in an exported settings bundle | The export was explicitly approved with `includeSecrets: true`. | Store the bundle only in approved secret storage, rotate exposed credentials if it was shared. | Prefer redacted exports for review. |
 ## Related Docs
 
-- [MCP Tools](/docs/developer-mcp-tools)
+- [MCP Runtime and Dispatch](../mcp/runtime-and-dispatch.md)
+- [Streamable HTTP Worker Gateway](../architecture/streamable-http-worker-gateway.md)
 - [Security Hardening](/docs/operations-security-hardening)
 - [Automation Credential Security](/docs/operations-credential-security)
-- [Runtime Configuration](/docs/developer-configuration)
+- [CLI Commands Reference](../reference/cli-commands.md)

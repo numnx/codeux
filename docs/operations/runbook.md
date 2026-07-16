@@ -41,8 +41,8 @@ Database maintenance (`DatabaseMaintenanceService`) is scheduled after normal st
 3. Open dashboard and verify settings.
 4. Confirm `/api/status` and `/api/git-status` (via `GitStatusService`) are responding.
 5. Confirm `/health` and `/ready` probes:
-   - `/health`: Liveness probe. In dashboard mode it is served by the dashboard server; in server mode it is served by the MCP HTTP listener.
-   - `/ready`: Readiness probe from the dashboard server or MCP HTTP listener. A success (`{"status":"READY"}` or `{"status":"UP"}`) means the server considers required startup/runtime dependencies ready enough to serve normal traffic. It does not validate every provider, project, Docker workspace, or external service.
+   - `/health`: Liveness probe. In dashboard mode it is served by the dashboard server; in server mode it is served by the MCP HTTP listener. A success (`{"status":"UP"}`) means the listener is bound and accepting connections.
+   - `/ready`: Readiness probe from the dashboard server or MCP HTTP listener. A success (`{"status":"READY"}` or `{"status":"UP"}`) means the server considers required startup/runtime dependencies ready enough to serve normal traffic. It does not validate every provider, project, Docker workspace, or external service. Note that `/health` may pass before `/ready` passes. Startup readiness refuses execution until background recovery, branch reaping, and key providers are operational. If credentials are bad, `/ready` returns 503, but `/health` is UP.
 
 ### Headless Server Mode
 
@@ -418,7 +418,14 @@ Keep failed connections disabled until retention is satisfied. Cancel unwanted p
   - optional downstream reset rewrites dependent tasks to fresh pending execution snapshots so old completed/running descendants do not keep stale runtime metadata
   - if a task already merged code, operators can check the **Undo the Git merge** option to automatically revert the merge commit programmatically in the feature branch before restarting the task cleanly.
 
-### 10. Accidentally Exposed Dashboard or MCP Endpoints
+### 10. Runtime Cleanup and Recovery
+Code UX manages periodic maintenance and startup recovery to keep system state clean.
+- **Interrupted Dispatches**: `RuntimeStartupRecoveryService` closes active dispatch/task-run rows whose linked provider invocation already reached a terminal state or where the backing container/CLI session was lost during a restart. The dispatch mirrors completion if the task was already code-complete; otherwise, the task is reset to pending for a clean retry instead of staying in a stale running state.
+- **Stale Leases**: `RuntimeCleanupService` periodically reaps expired execution leases. When a worker lease expires before completion, the dispatch is moved to `blocked` and the sprint is notified.
+- **WAL Maintenance**: The SQLite connection uses WAL mode and issues periodic checkpoint pragmas during lifecycle maintenance.
+- **Docker Assets**: Stale runtime paths and orphaned Docker startup assets are pruned periodically and on startup to avoid unbounded resource usage without removing live volumes.
+
+### 11. Accidentally Exposed Dashboard or MCP Endpoints
 Symptoms:
 - Unexpected or unauthorized activities appearing in the dashboard logs.
 - Connections originating from unknown IP addresses.
