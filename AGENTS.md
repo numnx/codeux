@@ -23,11 +23,12 @@
 ## Build, Test, and Development Commands
 Package manager is **pnpm** (`pnpm@11.13.1`), Node **22.13+**. Use `pnpm`, not `npm`.
 - `pnpm install`: Install dependencies.
-- `pnpm run dev`: Run server from source (`node --import ./scripts/tsnode-register.mjs src/index.ts`).
+- `pnpm run dev`: Server from source + dashboard `vite build --watch` side by side (`scripts/dev.mjs`).
+- `pnpm run dev:server-only`: Server from source only, no dashboard watcher.
 - `pnpm run build`: server `tsc` + dashboard typecheck + `vite build`.
 - `pnpm run typecheck` / `pnpm run lint`: strict `tsc --noEmit` (the two are the same command).
 - `pnpm run test`: full Vitest run. `pnpm run test:backend` / `pnpm run test:dashboard`: scoped suites.
-- `pnpm run test:watch`: watch mode. `pnpm run test:coverage`: coverage with threshold enforcement.
+- `pnpm run test:watch`: watch mode. `pnpm run test:coverage`: coverage with threshold enforcement. `pnpm test tests/backend/smoke.test.ts`: single test file.
 - `pnpm run ci`: local CI equivalent (`quality:guardrails -> audit -> lint -> test:backend:coverage -> test:dashboard -> build`).
 - `pnpm run audit`: `pnpm audit --audit-level=high`.
 - `pnpm start`: run compiled `dist/index.js`. `node dist/index.js --help`: list CLI flags / env vars.
@@ -185,7 +186,7 @@ Release note rules:
 - `docs-web/` holds the published user/developer/architecture docs. Update affected pages on behavior changes; add + link a new page for new subsystems.
 - The assistant must read relevant documentation at any time during task execution, especially before architectural or behavioral changes.
 - After each finished task, the assistant must extend or rewrite the affected documentation pages so docs remain current with code behavior.
-- If a new feature or subsystem is introduced, add a dedicated page under the correct `docs/` section and link it from both `docs/index.md` and `docs/SUMMARY.md`. Update both canonical `docs/` and public `docs-web/` consistently. No `docs-release/` directory should be used.
+- If a new feature or subsystem is introduced, add a dedicated page under the correct `docs/` section and link it from both `docs/index.md` and `docs/SUMMARY.md`. Update both canonical `docs/` and public `docs-web/` consistently. First update canonical `docs/`, then run `node scripts/sync-docs-web.mjs` (verify with `pnpm run check:docs-web`). No `docs-release/` directory should be used.
 
 ## Frontend Design Quality
 - Treat dashboard UX as production-grade: polished, accessible, and visually distinctive.
