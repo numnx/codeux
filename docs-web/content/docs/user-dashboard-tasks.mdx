@@ -10,7 +10,7 @@ The Tasks page follows the dashboard language setting and is fully available in 
 
 Localization never rewrites task data or worker output. Task keys, titles, descriptions, Markdown prompts, project and sprint names, branch and pull-request details, provider and agent names, QA and review text, execution messages, and backend error details remain exactly as stored or received. Switching the dashboard language therefore changes only the surrounding interface, not the content sent to a worker or persisted through create, edit, rerun, dependency, and delete operations.
 
-Sprint schedules on this page are formatted in the selected language directly from their start and end dates. Sprints without valid dates show a localized open-schedule fallback. The task-time labels produced by the dashboard for completed, review, active, not-started, and optimistic states are also localized, while provider and API runtime values remain verbatim.
+Sprint schedules on this page are formatted in the selected language directly from their start and end dates. Sprints without valid dates show a localized open-schedule fallback. The task-time labels produced by the dashboard for completed, review, active, and not-started states are also localized, while provider and API runtime values remain verbatim.
 
 ## Project and sprint scope
 
@@ -39,7 +39,7 @@ Each lane is a named region whose accessible name includes its count, such as **
 
 Reduced-motion mode removes board, card, selector, progress, menu, and drop-target movement and disables pointer dragging. Static labels, borders, focus rings, progress values, lane counts, empty states, action availability reasons, and drag-disabled guidance remain available.
 
-Each task card shows its task identifier, title, status, and priority first. Compact metadata can then show a non-default executor or worker agent, session state and identifier, the unified delivery workflow, dependency blocker count, optimistic saving state, source and assignee, runtime duration, pull-request state, creation or live-start time, and an optional self-reflection rating. The footer always keeps the task-labelled **Actions** trigger visible. Dragging a card to another lane changes its status when that transition is available.
+Each task card shows its task identifier, title, status, and priority first. Compact metadata can then show a non-default executor or worker agent, session state and identifier, the unified delivery workflow, dependency blocker count, source and assignee, runtime duration, pull-request state, creation or live-start time, and an optional self-reflection rating. The footer always keeps the task-labelled **Actions** trigger visible. Dragging a card to another lane changes its status when that transition is available.
 
 When a worker reports a task-run self-reflection rating, the shared rating badge appears in the compact card metadata near the task id, status, and priority. It shows the overall `overallRating` as a numeric score with a compact 5-star meter. Hovering the badge, or focusing it with the keyboard, opens a viewport-positioned details panel with each section from `sections`: the section label, matching stars, numeric rating, and any note captured by the worker. Tasks without a captured rating, including older tasks that never produced one, do not render an empty badge slot.
 
@@ -96,7 +96,7 @@ The editor includes:
 | **Status** | Current board state for the task. |
 | **Priority** | Planning priority used for board sorting and visual emphasis. |
 | **Dependencies** | Other tasks that must be completed first. Dependency choices remain selected even when filtering hides them. |
-| **Executor mode** | Task execution preference: automatic, CLI-backed worker, or Jules-backed worker where available. |
+| **Executor mode** | Task execution preference: automatic, CLI-backed worker, or provider-backed worker where available. |
 | **Worker agent** | Optional task-level worker-agent override. The built-in worker leaves `agentPresetId` empty; choosing a configured agent preset saves that preset id on the task. |
 
 Validation keeps the current draft visible. If a required field is missing, the editor focuses the first invalid field and shows the error inline.
@@ -117,7 +117,7 @@ Every task card keeps a visible, task-labelled **Actions** trigger in its footer
 
 The menu opens with click, Enter, Space, Arrow Up, or Arrow Down. Opening focuses the first enabled action; Arrow Up opens at the last enabled action. Arrow keys wrap between enabled actions, Home and End jump to the first and last enabled actions, and Enter or Space activates the focused action. Escape or clicking outside closes the menu and restores focus to the trigger.
 
-Unavailable actions included by the current task and project settings stay visible but inert, with the reason directly beneath the action label. For example, Preview explains when a task has no sprint, Live explains when runtime has not started, and every action explains when an optimistic save temporarily makes it unavailable. The trigger remains available while a card is saving so these reasons are still discoverable, while duplicate mutations remain suppressed. When project settings disable task pull requests and the task has no existing PR, the menu omits the PR entry instead of showing a misleading pending action.
+Unavailable actions included by the current task and project settings stay visible but inert, with the reason directly beneath the action label. For example, Preview explains when a task has no sprint, Live explains when runtime has not started, and every action explains when an update temporarily makes it unavailable. The trigger remains available while a card is saving so these reasons are still discoverable, while duplicate mutations remain suppressed. When project settings disable task pull requests and the task has no existing PR, the menu omits the PR entry instead of showing a misleading pending action.
 
 Edit does not ask for confirmation: it opens the editor with the current task values, and Cancel closes the editor without saving. Save keeps the selected sprint scope and active filters in place. Delete closes the menu and opens a **Delete Task** confirmation that names the task, states that removal cannot be undone, and requires holding the destructive button until confirmation completes. Cancelling or pressing Escape leaves the task in place and returns focus to that card's **Actions** trigger.
 
@@ -125,7 +125,7 @@ Edit does not ask for confirmation: it opens the editor with the current task va
 
 On wide screens, the three lanes share one row when space permits. On phones, they stack vertically and card titles, dependency identifiers, and action menus remain within the page width without creating document-level horizontal scrolling. Menus are positioned inside the current viewport even when their card is near an edge.
 
-The board keeps accessible lane counts and status announcements during loading, filtering, optimistic saves, realtime refreshes, and empty or error states. Opening a task menu with the keyboard moves focus to its first enabled action; `Escape` returns focus to the same task-labelled trigger. Cancelling deletion also returns focus to that trigger, and reduced-motion mode preserves the same status text and focus treatment while disabling drag movement.
+The board keeps accessible lane counts and status announcements during loading, filtering, realtime refreshes, and empty or error states. Opening a task menu with the keyboard moves focus to its first enabled action; `Escape` returns focus to the same task-labelled trigger. Cancelling deletion also returns focus to that trigger, and reduced-motion mode preserves the same status text and focus treatment while disabling drag movement.
 
 ## Status legend
 
