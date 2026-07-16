@@ -57,6 +57,14 @@ Electron serializes first-use root-key creation, persists only the OS-protected 
 
 Back up root keys independently from `app.db`. For the normal local dashboard, back up `~/.code-ux/security/credential-root.key` while preserving owner-only handling; for external providers, retain every referenced key version. Losing a required key version makes its ciphertext unrecoverable by design. Restoring only SQLite is insufficient.
 
+Safe token rotation involves:
+1. Generating a new token in the secret manager.
+2. Updating client and worker secret references.
+3. Restarting the server-mode process with the new token.
+4. Restarting or reconnecting MCP clients and workers so they initialize new sessions.
+5. Confirming `/ready` passes.
+6. Revoking the old token.
+
 Credential creation commits metadata and its first envelope in one SQLite transaction. Rotation/replacement and promotion likewise commit the new envelope, metadata, version, and rotation record atomically. Compare-and-swap guards apply to every lifecycle mutation so losing callers must refresh metadata and retry instead of overwriting newer state. Root-key providers must retain old key IDs and versions until envelopes are rewrapped. Revocation wins against in-flight resolutions and preserves audit metadata.
 
 Lifecycle successes and denials emit correlation-aware automation audit records containing credential IDs and policy metadata only. Validation updates report `valid`, `invalid`, or `unavailable` without including tested values or low-level cryptographic errors.

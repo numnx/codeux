@@ -120,7 +120,9 @@ CLI-backed tasks refresh the remote branch before preparing the worker branch. T
 
 A `VirtualWorkerService` doing `ci_fix` tasks keeps trying and failing.
 
-**Fix:** inspect the latest run before assuming the failure is still current. GitHub may retain an older cancelled or failed check beside a successful rerun; Code UX evaluates only the latest timestamped observation per workflow/check and sends repair evidence only when the newest branch run failed. If the newest run still fails, reproduce it locally, fix it, push, and resolve the attention item. A CI-blocked task should remain code-complete and must not start another ordinary coding invocation. Optionally lower the CI-fix guardrail cap to fail faster next time.
+**Diagnostics**: Inspect the latest run. Code UX evaluates only the latest timestamped observation per workflow/check.
+
+**Fix**: If the newest run still fails, reproduce it locally, fix it, push, and resolve the attention item. A CI-blocked task should remain code-complete and must not start another ordinary coding invocation. Optionally lower the CI-fix guardrail cap to fail faster next time.
 
 ### Sprint paused at finalisation
 
@@ -132,15 +134,19 @@ A `VirtualWorkerService` doing `ci_fix` tasks keeps trying and failing.
 
 ### Missing Jules API key
 
-The sprint failed to start or a task is blocked because no provider is configured.
+**Symptom**: The sprint failed to start or a task is blocked because no provider is configured.
 
-**Fix:** Code UX runs without an API key, but tasks require a configured provider. Set a Jules key in **Settings -> Providers**, via the `JULES_API_KEY` environment variable, or enable an authenticated CLI provider.
+**Diagnostics**: Check Settings -> Providers, or the CLI provider authentication.
+
+**Fix**: Set a Jules key via UI, `JULES_API_KEY`, or enable an authenticated CLI provider.
 
 ### "Provider quota exceeded" / `QUOTA` status
 
-Your API key hit a rate or token quota.
+**Symptom**: Your API key hit a rate or token quota.
 
-**Fix:** wait, raise the quota, or route the affected invocation to a different provider via Settings → Routing. Tasks in `QUOTA` are retried automatically each cycle.
+**Diagnostics**: Check provider dashboards for rate limits.
+
+**Fix**: Wait, raise the quota, or route the affected invocation to a different provider via Settings -> Routing. Tasks in `QUOTA` are retried automatically.
 
 ### "Provider auth not detected" badge in settings
 
@@ -152,17 +158,9 @@ The CLI is installed but not logged in.
 
 The Docker daemon is unreachable, or the worker image cannot be pulled.
 
-**Fix:** verify `docker ps` works. Pre-pull the image: `docker pull node:24-bookworm`. For preview/file-browser issues specifically, triage routes through preview host middleware (`src/server/preview-host-middleware.ts`) and cleanup/rebuild/restart steps. Ensure any commands used are safe and avoid exposing local DB contents, tokens, hostnames, or private paths.
+**Diagnostics**: Verify `docker ps` works. If the header Docker status control shows the red `Runtime not ready` warning, open the Docker status menu for the dependency list.
 
-If the header Docker status control shows the red `Runtime not ready` warning, open the Docker status menu for the dependency list. The warning is tied to `GET /api/onboarding/readiness` and reflects required Docker CLI and Docker daemon checks; it clears only after the runtime reports those required checks as ready. Backend Git work runs through containerized helpers, so host Git is not part of readiness.
-
-For packaged Windows builds, Docker errors that show `C:\...` as a container `--workdir`, `HOME`, or mount target indicate an outdated build. Current preview containers mount Windows/macOS/Linux host runtime storage at Linux container paths under `/code-ux-preview-runtime`.
-
-Current preview routing fixes **Forbidden: Untrusted host** without weakening application allowlists by presenting one coherent local upstream host boundary. Exit-code-137 previews report the actual termination and previously healthy previews receive one bounded recovery attempt. Docker commands require the explicit Docker Access setting and grant effective host-level control.
-
-For packaged Windows builds, `spawn ENAMETOOLONG` during Docker provider launch indicates an outdated build or a launch path still passing a large prompt through the host command line. Current Docker provider runs mount provider arguments from a generated file so large prompts do not become `docker run` arguments.
-
-Chromium `tile_manager.cc` warnings about tile memory limits indicate renderer pressure. Current builds use an opaque desktop shell and GPU memory hints; hidden dashboard tabs also release animated WebGL and realtime resources, and the Nodes canvas uses a static background automatically. Returning to a tab reconnects realtime data and performs a fallback refresh. If warnings persist on older builds, switch to a lighter animation or set background mode to Static in Settings > Appearance.
+**Fix**: Pre-pull the image: `docker pull node:24-bookworm`. For preview/file-browser issues, ensure safe commands. Current builds use an opaque desktop shell and GPU memory hints; if Chromium `tile_manager.cc` warnings appear, switch to Static background. For Windows `spawn ENAMETOOLONG`, ensure you use a recent build that mounts arguments via file. Do not recommend destructive Docker cleanup before safer scoped recovery steps.
 
 ## Memory & embeddings
 
