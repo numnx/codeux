@@ -596,7 +596,7 @@ Legacy runtime:
 - Chat page logs invocation activity explicitly in the background, providing observable execution artifacts directly in the chat view.
 - Chat page filters the "Threads" mode to show user-facing conversation threads (`scope === "project"`).
 - Chat page "Invocations" mode provides a read-only list with metadata for active/completed execution invocations without cluttering the main thread rail.
-- Chat -> Invocations streams live normalized tokens and structured transcript messages from all six supported local CLI parsers: Gemini CLI, Codex, Claude Code, Qwen Code, OpenCode, and Antigravity. The shared provider execution path applies this behavior to planning, QA, dashboard chat and worker replies, project setup, memory remediation, CI and merge-conflict repair, task follow-up, and task coding. The transcript maps provider turns into user, assistant, explicit readable reasoning, tool-call, tool-result, and injected-context messages; malformed records are skipped without hiding neighboring valid records, and opaque or token-only reasoning is never presented as readable reasoning. When a provider exposes only final text, the completed invocation appends that assistant text while preserving existing prompt, retry, routing, and audit messages. Jules remains on its separate remote transcript and estimated-usage synchronization path.
+- Chat -> Invocations streams live normalized tokens and structured transcript messages from all six supported local CLI parsers: Gemini CLI, Codex, Claude Code, Qwen Code, OpenCode, and Antigravity. The shared provider execution path applies this behavior to planning, QA, dashboard chat and worker replies, project setup, memory remediation, CI and merge-conflict repair, task follow-up, and task coding. The transcript maps provider turns into user, assistant, explicit readable reasoning, tool-call, tool-result, and injected-context messages; malformed records are skipped without hiding neighboring valid records, and opaque or token-only reasoning is never presented as readable reasoning. When a provider exposes only final text, the completed invocation appends that assistant text while preserving existing prompt, retry, routing, and audit messages.
 - Sprint-planning invocation transcripts include the execution plan generated for that invocation's linked sprint. The plan card is replayed from persisted invocation message metadata (`metadata.widget_metadata.type = "planning_request"` plus `metadata.executionPlan`), so historical transcripts do not change when the operator selects another sprint or replans the same project later.
 - Invocation cards and detail headers now show the resolved provider model when available, so planning runs expose the same model visibility as worker cards.
 - Invocation cards and the invocation message stream now surface classified provider errors such as `Rate limit` and `Quota reset`, including retry wait information when Code UX is backing off automatically. If Code UX restarts while an invocation is sleeping until a retry time, startup recovery closes the stale running invocation with a recovery message and moves task-backed work back to a retryable state so the recovered sprint loop can start a fresh continuation.
@@ -620,7 +620,7 @@ Legacy runtime:
 - When no project is selected, `/chat` shows a local onboarding assistant with exactly five quick bubbles: Add my first project, Build a desktop app, Build a web app, Explain Code UX, and Change settings. These turns stay local to the browser page; they do not create persistent conversation threads or call project-scoped chat APIs. Provider-backed project chat starts only after a project exists.
 - Chat composer now sends on `Enter` and inserts a newline on `Shift+Enter`
 - Thread assignment control is explicitly labeled as `Worker:` in the thread header to make routing intent clearer
-- Virtual-worker-routed tasks are created from the same task editor and appear in the same board; the executor badge shows whether work is automatic, CLI-backed, Jules-backed, or handled by the virtual worker lane
+- Virtual-worker-routed tasks are created from the same task editor and appear in the same board; the executor badge shows whether work is automatic, provider-backed, or handled by the virtual worker lane
 - Settings page now exposes Browser Preview as its own primary left-rail category, covering preview enablement, in-app browser visibility, launch/rebuild automation, Git sync on rebuild, maximum active preview containers, port allocation, and the project-relative preview startup script path
 - The Integrations settings panel now returns the selected detail view to normal document flow after the slide animation completes, so tall forms like GitHub configuration can extend to full height instead of being clipped to the shorter integrations list.
 
@@ -670,7 +670,6 @@ Sprints, Tasks, and Live use the unified interactive workflow badge for persiste
 - The Live sidebar invocation feed is scoped to the selected sprint when a sprint is selected, while still falling back to project-wide recent invocations when no sprint context exists
 - The Live sidebar attention queue follows the same selected-sprint scope for active `open` and `claimed` items, including sprint-run-scoped blockers for that sprint; when no sprint is selected, the queue remains project-wide
 - The Live API includes all invocation records for the selected sprint plus all invocation records for expanded active/paused/queued sprint runs, so paused or stopped sprint feeds remain visible and concurrent live sprints do not evict each other from the feed
-- Jules task dispatches now appear in the Live invocation feed and Chat invocation tab immediately with a running placeholder row; Jules live/terminal sync later replaces the placeholder transcript with the real remote conversation and estimated usage
 - The Live page now keeps the Git/CI/PR card in a dedicated `GitCIStatusPanel` component so the page shell stays focused on wiring runtime state, controls, and layout
 - Live task stats, filter counts, the active filtered task list, and per-card runtime payloads are memoized from the selected project's runtime snapshot so high-frequency realtime updates do not repeatedly recompute unchanged projections
 - Live status timestamps are normalized before localized formatting. ISO values, Unix seconds, Unix milliseconds, and the legacy 12-hour time-only value emitted by runtime status assembly render safely; malformed values hide the optional **Updated** label instead of failing the page render.
@@ -735,7 +734,6 @@ Sprints, Tasks, and Live use the unified interactive workflow badge for persiste
 - Running dispatch cancel is now request-based instead of instant-terminal:
   - local CLI runs move to `cancel_requested` and abort through the process runner
   - worker runs move to `cancel_requested` and surface a stop request through the worker heartbeat response
-  - Jules runs move to `cancel_requested` and get a best-effort in-session stop message
 - Sprint runs also use `cancel_requested` while active work is shutting down, then finalize to `cancelled` once no active dispatches remain
 - Dashboard rerun and cancel actions now rely on DB task/task-run/dispatch records instead of patching the selected-project runtime snapshot directly
 - Live activity sidebar
@@ -842,14 +840,12 @@ AI Provider settings now support:
 - Provider-instance toggles (`enabled`)
 - Model selection
   - CLI providers expose curated model lists or configured custom endpoint models where supported
-  - Jules remains hosted/managed and does not expose local CLI model controls
 - Provider-specific thinking/reasoning selection
   - Gemini: `minimal`, `low`, `medium`, `high`
   - Codex: `low`, `medium`, `high`, `xhigh`
   - Claude Code and Qwen Code: `low`, `medium`, `high`, `xhigh`, `max`
   - OpenCode: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`
   - Antigravity: `low`, `high`
-  - Jules does not render a thinking control
 - Invocation routing at the provider-instance level, including instance pools and sparse per-instance overrides
 
 Behavior:
@@ -871,10 +867,6 @@ Effect:
 - These settings influence protocol text generated by orchestrator.
 - When `featurePrAutoMergeMode = WHEN_GREEN` (REMOTE mode), merge readiness is gated by real feature-PR checks (not instruction text only).
 - `enableLivePrMonitoring` can disable live PR/CI polling gates entirely; in `LOCAL` git mode it is forced off.
-- Jules-specific clarification and failed-CI feedback controls are shown under Settings -> Integrations -> Jules, including auto-answer clarifications, clarification answer mode/template, `waitForProviderCiAutofix`, and `ciAutofixMaxRetries`.
-- `waitForProviderCiAutofix` controls only the Jules-specific failed-CI feedback path:
-  - enabled: a Jules-managed task receives failed-check context in its existing Jules session before worker fallback.
-  - disabled: Code UX skips the Jules session notification and dispatches worker-owned CI repair directly.
 - `ciAutofixMaxRetries` sets how many CI-fix attempts are allowed before escalation. Escalation output includes exact task ids, PR links, failed check names, and only the newest branch-matched failed run, with every failed job, step, and actionable assertion/error excerpt from that run so no manual searching is needed.
 - `featurePrAutoMergeMode = CREATE_PR` opens or reuses the feature PR and then stops before auto-merge, marking the task settled with `PR_ONLY`.
 - `featurePrAutoMergeMode = WHEN_GREEN` executes feature-PR auto-merge once checks are green and review blockers are clear.
@@ -884,7 +876,7 @@ Effect:
 - Tasks that are still waiting on feature-PR CI now persist as `in_progress` in the dashboard task store instead of staying marked `completed` just because the provider session finished.
 - Feature PRs already in GitHub `DIRTY` merge state are surfaced as merge conflicts before any CI wait, so branch-protection deadlocks do not leave the task stuck in perpetual pending-check state.
 - If a matched feature PR has no checks, Code UX now consults local workflow definitions and only keeps waiting when a `pull_request` or `pull_request_target` workflow actually applies to that PR base branch; otherwise the task skips CI waiting and proceeds to merge readiness/review gating.
-- Feature PR review gates ignore incidental comment counts when GitHub has no review decision, so Jules bot introduction comments do not appear as actionable review blockers.
+- Feature PR review gates ignore incidental comment counts when GitHub has no review decision, so bot introduction comments do not appear as actionable review blockers.
 - CI Runs in `Feature PR CI` tracking include recent runs from PR head branches targeting the feature implementation branch (plus feature branch runs), sorted newest-first; the panel shows the latest 5.
 - Failed CI runs in tracking are enriched with failed job details and failed-job log excerpts (bounded) from Git host API/CLI data.
 - Main merge stage (`feature -> main`) now emits live CI/review gate feedback with failed check names and ready-to-run `gh` commands.
@@ -922,11 +914,10 @@ Use case:
 
 ## No-Key Startup Mode
 
-Server startup no longer exits when Jules API key is missing. Code UX also performs startup availability checks for Gemini, Codex, and Claude Code, looking for API-key hints and stable local auth artifacts to prepare future onboarding decisions.
+Server startup no longer exits when a provider API key is missing. Code UX also performs startup availability checks for Gemini, Codex, and Claude Code, looking for API-key hints and stable local auth artifacts to prepare future onboarding decisions.
 
 Behavior:
 - MCP server and dashboard still start.
-- Startup does not emit warning logs solely because the Jules API key is missing.
 - API-backed tools return setup guidance until key is configured.
 - Guidance points to:
   - `.env` (`JULES_API_KEY`)
@@ -954,7 +945,7 @@ CLI provider instances also expose a **Provider Config** control that is indepen
 - **Copy Host**: Copy the provider's standard host config file path when it exists, such as Codex `~/.codex/config.toml`, Gemini `~/.gemini/settings.json`, Claude Code `~/.claude.json`, Qwen Code `~/.qwen/settings.json`, OpenCode `~/.config/opencode/opencode.json`, or Antigravity `~/.gemini/antigravity-cli/mcp_config.json`. The path is shown as read-only context so users do not have to type it.
 - **File**: Copy a specific local config file selected with the accessible file picker. Use this for alternate profiles, checked-out config files, or provider-specific runtime experiments that should not depend on the default host location.
 
-Jules and the internal mock provider do not show Provider Config controls. Changing Provider Config does not clear API keys, local-auth paths, custom endpoints, or dashboard-login credentials.
+Changing Provider Config does not clear API keys, local-auth paths, custom endpoints, or dashboard-login credentials.
 
 ### Mutual-Exclusion Contract
 To prevent credential and runtime config conflicts, provider configurations enforce a strict mutual-exclusion contract between API keys and local mounting:
