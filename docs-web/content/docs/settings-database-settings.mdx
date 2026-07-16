@@ -22,6 +22,39 @@ and optional startup page reclaim releases a bounded amount of free SQLite space
 | Retention days | Applies to completed task runs, invocation trees, resolved attention items, and terminal provider sessions. Raw terminal provider activity has a one-day window because the durable execution transcript remains available. | Preserved execution invocations and their parent task history are excluded. |
 | Startup vacuum | Requests at most 256 pages through SQLite incremental vacuum. Automatic maintenance never executes a full-file `VACUUM`. | Older database files that predate incremental auto-vacuum may not release file space; the request remains a safe no-op for them. |
 
+## Database map
+
+Code UX state is distributed across three SQLite databases to isolate credential boundaries, runtime projections, and provider execution telemetry.
+
+| Database | Role | Persistence & Impact |
+| --- | --- | --- |
+| `app.db` | Primary execution graph and runtime state. Contains sprint plans, task dispatches, provider routing rules, agent presets, node flows, custom dashboards, memory vector storage, attention items, and active preview tracking. | Authoritative graph. If lost, active sprint dispatches and agent configurations are reset. |
+| `settings.db` | System credentials, external integrations, selected catalogs, and scoped configurations (system, project, sprint overrides). | Contains API keys and user onboarding state. |
+| `session-tracking.db` | Historical telemetry and provider invocation transcripts. | Append-only observability and usage estimation. Safe to truncate without breaking active orchestration. |
+
+## SQLite Operational Lifecycle
+
+- **Engine:** `node:sqlite` Native synchronous driver configured for high-concurrency Node.js event loops.
+- **Concurrency & I/O:** `WAL` (Write-Ahead Logging) is enabled with `NORMAL` synchronous mode to prevent disk I/O from blocking event-loop execution.
+- **Integrity:** Foreign keys are strictly enforced on all writes (`PRAGMA foreign_keys = ON`). Migrations temporarily disable them.
+- **Migrations:** Versioned schemas advance safely via explicitly ordered schema and data migrations (`src/repositories/db/app-db-migrations.ts`).
+- **Deferred Indexes:** Non-unique search indexes are rebuilt asynchronously in background jobs using `src/repositories/db/deferred-index-builder.ts` to unblock startup.
+- **In-Memory Mode:** `:memory:` overrides are fully supported for unit testing without mutating host storage.
+- **Maintenance & Pruning:** Bounded automatic pruning (`src/services/database-maintenance-service.ts`) runs periodically in the background (default: maximum 500 rows mutated per table). Old invocation artifacts and session trees are swept based on configured retention limits.
+- **Incremental Vacuum:** `PRAGMA auto_vacuum = INCREMENTAL` avoids full database rewrites; startup limits space reclamation to 256 pages to prevent initialization delays.
+- **Provider-Work Deferral:** Heavy pruning and vacuum operations are deferred when provider invocations are active to prioritize orchestration latency.
+- **Passive Checkpoints:** While active provider work defers heavy pruning, `PASSIVE` WAL checkpoints continue running to bound disk growth during continuously busy DAGs, as they do not block active SQLite readers or writers.
+
+## SQLite-to-Markdown Task & Agent Mirrors
+
+The SQLite databases (`app.db` and `settings.db`) are the **sole authoritative sources of truth** for all execution logic, agent configurations, and task state.
+
+While Code UX materializes project-local markdown files under `.code-ux/sprints/` and `.code-ux/agents/`, these files are strictly import/export round-trip mirrors designed for human visibility, review, and external Git merging.
+
+- **Authoritative logic:** The orchestrator reads only from SQLite during execution.
+- **Synchronization:** When the orchestrator updates a task state, it writes to `app.db` and *then* materializes a fresh `.code-ux` mirror file.
+- **Edits:** If a user edits a mirror file externally, the dashboard import/sync flows can detect those changes and update the authoritative SQLite record.
+
 ## Recommended Configuration
 
 Keep pruning enabled. Leave startup page reclaim disabled unless bounded free-page reclamation is
