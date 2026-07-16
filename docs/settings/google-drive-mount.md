@@ -82,4 +82,4 @@ The Docker daemon, not only the Code UX process, must be able to access the bind
 - [Settings overview](./index.md)
 - [Integrations](./integrations.md)
 - [Docker Runtime](./docker-runtime.md)
-- [Configuration and Storage](../configuration-and-storage.md)
+- [Configuration and Storage](./configuration-and-storage.md)

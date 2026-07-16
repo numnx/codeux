@@ -61,6 +61,6 @@ If QA follow-up fails due to branch resolution issues (e.g. unavailable remotes 
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Quality Assurance Agent](../../architecture/quality-assurance-agent.md)
-- [Provider Routing](../provider-routing.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Quality Assurance Agent](../architecture/quality-assurance-agent.md)
+- [Provider Routing](./provider-routing.md)

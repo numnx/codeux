@@ -21,42 +21,25 @@ The flow and its guided dashboard tour follow the active English or German dashb
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+| Launch Onboarding | Opens the guided setup flow (Easy, Standard, Expert). | Note that completing onboarding can overwrite system defaults. |
 
 ## Recommended Configuration
 
 Use it when setting up a new machine or after adding provider credentials.
 
-A practical review flow is:
-
-1. Start from the inherited default and change only the fields that solve a concrete operational problem.
-2. Save the smallest scope that should own the change. Use System for defaults that every project should inherit, and Project for repository-specific behavior.
-3. Reopen the Settings page after saving when the value controls startup behavior, provider routing, preview runtime, or destructive maintenance.
+Use it when setting up a new machine or after adding provider credentials to ensure all core settings are initialized.
 
 ## Risks And Gotchas
 
-Saving new onboarding choices can overwrite the current system defaults.
-
-Before applying changes, check:
-
-- Whether the value affects provider credentials, Docker runtime behavior, Git automation, memory retention, or destructive cleanup.
-- Whether a project override is masking the system value you expected to change.
-- Whether a running sprint needs to be paused, restarted, or allowed to finish before the new value can be observed.
+Saving new onboarding choices can overwrite the current system defaults for providers and docker runtimes.
 
 ## Troubleshooting
 
-If the saved setting does not appear to take effect:
-
-- Verify the active Settings scope in the sticky command bar.
-- Check for a project or sprint override that takes precedence over the system value.
-- Refresh the affected dashboard page if the setting controls a rendered surface.
-- Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
+If you accidentally overwrite settings during onboarding, you can reset them manually in their respective settings panels.
 
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Dashboard Onboarding](../../dashboard/onboarding.md)
-- [Quickstart](../../getting-started/quickstart.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Dashboard Onboarding](../dashboard/onboarding.md)
+- [Quickstart](../getting-started/quickstart.md)

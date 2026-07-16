@@ -1,77 +1,46 @@
 # Docker Runtime
 
-Code UX defaults to a managed, auto-updating Linux runtime instead of building an agent image on each user's machine.
+Defines the default container environment used by Docker-backed provider CLIs.
 
 > Settings area: `docker-runtime`
 > Dashboard documentation route: `/docs/settings-docker-runtime`
 
-## Managed Mode
+## What This Area Is For
 
-Managed mode pulls the public `ghcr.io/codeux-ai/codeux-runtime` image family:
+Defines the default container environment used by Docker-backed provider CLIs. This page expands the short Settings-page help text into an operator reference for deciding when to change this area, what behavior the controls affect, and what to verify after saving.
 
-- `base` includes Node 24 on Debian Trixie, JavaScript package managers, Python, Git/GitHub CLI, compilers, keyring support, preview utilities, and common Linux tools.
-- `browser` adds pinned Playwright, Playwright MCP, and browser OS dependencies, but no browser payload.
+Use it when you are configuring a new project, auditing inherited settings, or debugging behavior that changed after a system, project, or sprint override was saved.
 
-Code UX checks for runtime updates in the background when the persisted update watermark is older than six hours. It resolves the immutable repository digest, verifies Node 24 in the image, and routes only future containers to the verified digest. Restarts inside the freshness window reuse the cached digest without another pull. Running containers are not interrupted. Registry or verification failure retains the previous working digest and does not block the dashboard.
+## Controls And Runtime Effect
 
-Provider CLIs are not baked into either image. Activated providers are downloaded from fixed official sources into versioned Docker volumes and mounted read-only. Automatic stable-update discovery uses the same six-hour freshness window; manual preparation still checks immediately.
+Image, setup script, memory limit, setup image caching, and Playwright browser preinstall shape each worker container.
 
-The browser payload follows the same pattern. When enabled, Code UX downloads the browser matched to the pinned Playwright version directly into a user-local versioned volume, verifies it offline, and mounts it read-only. Code UX does not redistribute the browser through GHCR.
+Managed provider preparation installs registry-resolved CLI versions into isolated Docker volumes. npm lifecycle scripts remain blocked unless a fixed provider catalog entry explicitly requires them: only Claude Code's `@anthropic-ai/claude-code` package and OpenCode's `opencode-ai` package receive that narrow permission. A failed preparation reports the provider package and resolved version, removes the incomplete volume, and remains retryable.
 
-## Controls
+| Control Surface | Runtime Effect | Review Before Saving |
+| --- | --- | --- |
+| Base Image | Determines the OS and toolchain available inside worker containers. | Ensure the image has required dependencies (e.g., Node, Python). |
+| Setup Script | Runs inside the container before the provider CLI starts. | Test scripts locally to avoid container startup crashes. |
+| Memory Limit | Constrains the RAM available to the worker container. | High limits may starve the host; low limits cause OOM kills. |
+| Playwright Preinstall | Pre-downloads browser binaries for Playwright tasks. | Disable if not using Playwright to speed up container start. |
 
-| Control | Behavior |
-| --- | --- |
-| Runtime image mode | `Managed` follows the Code UX runtime channel; `Custom` uses the image field below. |
-| Custom container image | Used only in Custom mode. Existing non-default legacy images remain custom during migration. |
-| Container setup script | Optional project-specific extension. An empty value performs no build in Managed mode. |
-| Cache custom setup extension | Builds a content-addressed extension image only for an explicit setup script. |
-| Memory limit | Applies a hard Docker memory and memory-swap ceiling; `0` disables the cap. |
-| Preload Playwright browser | Selects the managed browser-dependency image and preloads its matched browser into a reusable local volume. Disable it to use the smaller base image. |
-| Run as root | Privileged compatibility escape hatch; leave disabled unless a trusted project requires it. |
+## Recommended Configuration
 
-The default managed path never runs `docker build`. Login, coding, QA, previews, and custom dashboard validation share the same resolver instead of building separate base images.
+Keep the default image unless your repo needs a custom toolchain; enable Playwright browser preload for browser-heavy QA.
 
-Packaged installs seed the lightweight baseline setup script into `~/.code-ux/container/setup.sh` when needed. Concurrent seed requests share one operation, and the verified result is reused for five minutes rather than rescanning the same bundled files on every agent lookup. Code UX migrates the recognized legacy provider-install bootstrap once, while an already-current baseline or a user-authored setup script remains untouched.
+Keep the default image unless your repo needs a custom toolchain; enable Playwright browser preload for browser-heavy QA. Assign memory limits based on available host resources (e.g., 4GB default).
 
-## Provider Preparation
+## Risks And Gotchas
 
-Selecting a provider during onboarding starts preparation immediately, before Login. Login and invocations join the same preparation job, so a ready provider performs no download.
+Broken setup scripts or overly tight memory limits can fail every provider invocation in the scope. OOM kills are surfaced as container exits with code 137.
 
-Managed npm installs keep lifecycle scripts blocked by default. Code UX explicitly allows them only for the fixed `@anthropic-ai/claude-code` and `opencode-ai` provider packages, whose postinstall steps are required to materialize their runtime executable. The package installed into the volume is still pinned to the stable version returned by npm. Preparation failures identify that package and version, remove the incomplete volume, and remain retryable.
+## Troubleshooting
 
-Runtime, browser, and tool states are available from `GET /api/runtime-assets/status`. Retry browser or provider preparation with:
-
-```http
-POST /api/provider-tools/codex/prepare
-POST /api/playwright-browser/prepare
-```
-
-If an update fails, Code UX keeps the previous verified provider volume. If no verified compatible version exists, only that provider's Login or invocation is blocked with a retryable error.
-
-Provider credentials are never written into tool volumes. Provider-owned self-updaters are disabled inside invocations so mounted binaries remain immutable.
-
-## Custom Images
-
-Custom mode preserves operator-controlled images and explicit setup scripts. Provider tools receive a compatibility key derived from the custom image, so a volume prepared for the managed Debian runtime is not silently reused in an incompatible image.
-
-Custom images must supply Node, Bash, and the installer dependencies required by the selected CLI. Setup-extension builds remain available, but provider installation no longer falls back into each workspace.
-
-## Cleanup And Recovery
-
-Runtime state is stored under `~/.code-ux/runtime/`. Code UX retains the current and previous managed digests plus active browser/provider volume pointers. Unreferenced volumes older than 30 days are pruned while recent rollback candidates are preserved.
-
-For failures:
-
-1. Confirm Docker is ready in onboarding or the top navigation status.
-2. Inspect `GET /api/runtime-assets/status`.
-3. Retry the affected provider preparation.
-4. Verify GHCR and npm/vendor release endpoints are reachable.
-5. Switch to Custom mode only when a repository needs a genuinely different base image.
+If a worker fails to start, check the setup script for syntax errors. If tasks fail mid-execution, monitor host memory and increase the limit if OOM killed.
 
 ## Related Documentation
 
-- [Managed Container Runtime](/docs/architecture-managed-container-runtime)
-- [Providers and models](/docs/user-providers-and-models)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Troubleshooting](/docs/user-troubleshooting)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Configuration and Storage](./configuration-and-storage.md)
+- [Security Hardening](../operations/security-hardening.md)

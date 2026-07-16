@@ -17,9 +17,8 @@ The list configures built-in tool access, custom server enablement, transport, p
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+| Configured Servers | Lists active and inactive external MCP servers. | Review server connection states before relying on their tools. |
+| Enable/Disable Toggle | Connects or disconnects the server from provider sessions. | Disabling a server immediately removes its tools from agents. |
 
 ## Recommended Configuration
 
@@ -27,11 +26,7 @@ Keep built-in tools enabled and restrict custom servers to the CLIs that need th
 
 The built-in Playwright entry uses stdio with command `npx` and argument `@playwright/mcp@latest`. This lets an assigned chat or coding agent launch the published Playwright MCP package without requiring a separate `playwright-mcp` executable. Existing untouched entries that still use that legacy executable with no arguments are repaired automatically when settings are resolved.
 
-A practical review flow is:
-
-1. Start from the inherited default and change only the fields that solve a concrete operational problem.
-2. Save the smallest scope that should own the change. Use System for defaults that every project should inherit, and Project for repository-specific behavior.
-3. Reopen the Settings page after saving when the value controls startup behavior, provider routing, preview runtime, or destructive maintenance.
+Disable servers that are offline or failing health checks to prevent agents from attempting to use broken tools.
 
 ## Localization And Protected Values
 
@@ -39,26 +34,15 @@ MCP categories, installation controls, token actions, validation guidance, statu
 
 ## Risks And Gotchas
 
-Broad custom MCP access can expose external tools to more providers than intended.
-
-Before applying changes, check:
-
-- Whether the value affects provider credentials, Docker runtime behavior, Git automation, memory retention, or destructive cleanup.
-- Whether a project override is masking the system value you expected to change.
-- Whether a running sprint needs to be paused, restarted, or allowed to finish before the new value can be observed.
+Servers that require authentication will fail to connect if credentials expire, leaving agents without necessary capabilities.
 
 ## Troubleshooting
 
-If the saved setting does not appear to take effect:
-
-- Verify the active Settings scope in the sticky command bar.
-- Check for a project or sprint override that takes precedence over the system value.
-- Refresh the affected dashboard page if the setting controls a rendered surface.
-- Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
+If a server is listed as Disconnected, verify its network address and check if its host process is running.
 
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [MCP Tools and Contracts](../../mcp/tools-and-contracts.md)
-- [MCP Runtime and Dispatch](../../mcp/runtime-and-dispatch.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [MCP Tools and Contracts](../mcp/tools-and-contracts.md)
+- [MCP Runtime and Dispatch](../mcp/runtime-and-dispatch.md)

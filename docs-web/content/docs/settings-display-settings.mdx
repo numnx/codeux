@@ -30,34 +30,19 @@ The accent palette is intentionally limited to accessible presets: Code UX, Ocea
 
 Use System theme, Code UX accent, and Auto reduced motion unless you need a fixed accessibility or personalization preference.
 
-A practical review flow is:
-
-1. Start from the inherited default and change only the fields that solve a concrete operational problem.
-2. Save the smallest scope that should own the change. Use System for defaults that every project should inherit, and Project for repository-specific behavior.
-3. Reopen the Settings page after saving when the value controls startup behavior, provider routing, preview runtime, or destructive maintenance.
+Use System theme, Code UX accent, and Auto reduced motion unless you need a fixed accessibility or personalization preference.
 
 ## Risks And Gotchas
 
-High zoom or dense sidebars can reduce visible workspace on small screens.
-
-Before applying changes, check:
-
-- Whether the value affects provider credentials, Docker runtime behavior, Git automation, memory retention, or destructive cleanup.
-- Whether a project override is masking the system value you expected to change.
-- Whether a running sprint needs to be paused, restarted, or allowed to finish before the new value can be observed.
+High zoom or dense sidebars can reduce visible workspace on small screens. Reduced motion disables visual feedback for some long-running processes.
 
 ## Troubleshooting
 
-If the saved setting does not appear to take effect:
-
-- Verify the active Settings scope in the sticky command bar.
-- Check for a project or sprint override that takes precedence over the system value.
-- Refresh the affected dashboard page if the setting controls a rendered surface.
-- Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
+If the layout appears broken, reset Zoom to 100%. If animations are missing unexpectedly, verify Reduced Motion is set to Auto or Off.
 
 ## Related Documentation
 
 - [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Dashboard Accessibility Patterns](/docs/user-dashboard-overview)
-- [Mobile Responsiveness](/docs/user-dashboard-overview)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Dashboard Accessibility Patterns](../dashboard/dashboard-guide.md#accessibility-patterns)
+- [Mobile Responsiveness](../dashboard/mobile-responsiveness.md)
