@@ -13,13 +13,13 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 ## Controls And Runtime Effect
 
-Short-term, long-term, and all-memory actions apply globally.
+The system memory page provides immediate confirmation-protected `DELETE` actions. These bypass standard page-save behavior and directly mutate the database.
 
-| Control Surface | Runtime Effect | Review Before Saving |
+| Control Surface | Runtime Effect | Scope |
 | --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+| Clear short-term memory | Deletes active and completed sprint task observations. | Global (every project). |
+| Clear long-term memory | Deletes canonical claims, supporting evidence, and vectorized knowledge indices. | Global (every project). |
+| Clear all memory | Deletes all short-term sprint observations and all durable long-term knowledge. | Global (every project). |
 
 ## Recommended Configuration
 
@@ -33,7 +33,7 @@ A practical review flow is:
 
 ## Risks And Gotchas
 
-System memory clears are broad and irreversible.
+System memory clears are broad and irreversible. This globally clears memory tiers across all projects in the database, but it does not delete Agent Knowledge Base documents or persistent skills, which are managed separately.
 
 Before applying changes, check:
 
@@ -53,6 +53,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Memory Claims and Evidence](../../architecture/memory-claims.md)
-- [Operations Runbook](../../operations/runbook.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Memory Claims and Evidence](../architecture/memory-claims.md)
+- [Operations Runbook](../operations/runbook.md)

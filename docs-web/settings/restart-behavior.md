@@ -13,7 +13,7 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 ## Controls And Runtime Effect
 
-Sprint policy continues, pauses, or cancels active sprints; invocation policy continues, cancels, or restarts interrupted work.
+Sprint policy continues, pauses, or cancels active sprints; invocation policy continues, cancels, or restarts interrupted work. Restart policies are read from the authoritative SQLite `settings.db` rather than environmental fallbacks, ensuring recovery behavior remains deterministic.
 
 The invocation policy applies to every provider-backed orchestration stage, not only task coding. Under `continue`, Code UX durably resumes task coding, QA review, QA-requested coding follow-up, CI-fix, and merge-conflict work from their recorded logical session and workspace. When the provider exposed a resumable native session, the replacement invocation continues that native conversation as well.
 
@@ -77,6 +77,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Operations Runbook](../../operations/runbook.md)
-- [Atomic Sprint Loop](../../sprint-loop/atomic-loop.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Operations Runbook](../operations/runbook.md)
+- [Atomic Sprint Loop](../sprint-loop/atomic-loop.md)

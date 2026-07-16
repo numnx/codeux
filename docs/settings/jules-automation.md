@@ -17,42 +17,28 @@ Clarification auto-answer, answer mode/template, Jules CI autofix, and retry cap
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+| Clarification Auto-Answer | Decides if hosted provider automatically replies to unclear tasks. | Check if the project requires explicit human approval for all tasks. |
+| Answer Mode/Template | Sets the tone and structure of automated replies. | Ensure template covers necessary context for the hosted provider. |
+| CI Autofix | Automatically hands off failed CI runs to hosted provider for repair. | Review if CI failures often require human intervention. |
+| Retry Cap | Limits how many times hosted provider can retry a CI repair. | High caps can consume excessive tokens on failing builds. |
 
 ## Recommended Configuration
 
 Use template answers for routine clarifications and keep retry caps low.
 
-A practical review flow is:
-
-1. Start from the inherited default and change only the fields that solve a concrete operational problem.
-2. Save the smallest scope that should own the change. Use System for defaults that every project should inherit, and Project for repository-specific behavior.
-3. Reopen the Settings page after saving when the value controls startup behavior, provider routing, preview runtime, or destructive maintenance.
+Use template answers for routine clarifications and keep retry caps low (1-3) to avoid token exhaustion. Ensure Jules automation is strictly scoped to the hosted provider, not local models.
 
 ## Risks And Gotchas
 
-Automatic clarification replies can answer with stale assumptions if the template is too broad.
-
-Before applying changes, check:
-
-- Whether the value affects provider credentials, Docker runtime behavior, Git automation, memory retention, or destructive cleanup.
-- Whether a project override is masking the system value you expected to change.
-- Whether a running sprint needs to be paused, restarted, or allowed to finish before the new value can be observed.
+Automatic clarification replies can answer with stale assumptions if the template is too broad. High retry caps on CI autofix can rapidly drain QA budgets if the fix is fundamentally blocked.
 
 ## Troubleshooting
 
-If the saved setting does not appear to take effect:
-
-- Verify the active Settings scope in the sticky command bar.
-- Check for a project or sprint override that takes precedence over the system value.
-- Refresh the affected dashboard page if the setting controls a rendered surface.
-- Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
+If CI autofix doesn't trigger, verify the retry cap hasn't been reached and the hosted provider is configured properly. See [Provider Routing](./provider-routing.md), [MCP Servers](./mcp-servers.md), and [Configuration and Storage](./configuration-and-storage.md) for related setup.
 
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Operations Runbook](../../operations/runbook.md)
-- [Provider Routing](../provider-routing.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Operations Runbook](../operations/runbook.md)
+- [Provider Routing](./provider-routing.md)

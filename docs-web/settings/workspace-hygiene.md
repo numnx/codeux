@@ -13,7 +13,7 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 ## Controls And Runtime Effect
 
-Success and failure cleanup toggles decide whether Code UX removes temporary execution workspace state.
+Success and failure cleanup toggles decide whether Code UX removes temporary execution workspace state. Hygiene settings are stored securely in `settings.db`, allowing granular project overrides without modifying environmental files.
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
@@ -53,6 +53,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Operations Runbook](../../operations/runbook.md)
-- [Security Hardening](../../operations/security-hardening.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Operations Runbook](../operations/runbook.md)
+- [Security Hardening](../operations/security-hardening.md)

@@ -41,6 +41,8 @@ External APIs send memory text to the configured endpoint and require careful ke
 
 Before applying changes, check:
 
+- Whether the configured embedding service is available and properly initialized. No-model conditions surface as an error instead of a silent success.
+- Documents remain in a pending or error state until embeddings exist, and `KnowledgeService` skips unindexed documents in manifests and search.
 - Whether the value affects provider credentials, Docker runtime behavior, Git automation, memory retention, or destructive cleanup.
 - Whether a project override is masking the system value you expected to change.
 - Whether a running sprint needs to be paused, restarted, or allowed to finish before the new value can be observed.
@@ -57,6 +59,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Memory Architecture and Search](../../dashboard/memory.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Memory Architecture and Search](../dashboard/memory.md)
 - [Security Hardening](/docs/operations-security-hardening)

@@ -76,6 +76,6 @@ If task dispatches complain about dirty workspaces, check if a previous task fai
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Operations Runbook](../../operations/runbook.md)
-- [Instruction Template System](../../instructions/markdown-template-system.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Operations Runbook](../operations/runbook.md)
+- [Instruction Template System](../instructions/markdown-template-system.md)

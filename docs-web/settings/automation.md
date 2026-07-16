@@ -57,6 +57,6 @@ If the orchestrator stops unexpectedly with dirty-workspace complaints, ensure t
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Operations Runbook](../../operations/runbook.md)
-- [Security Hardening](../../operations/security-hardening.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Operations Runbook](../operations/runbook.md)
+- [Security Hardening](../operations/security-hardening.md)

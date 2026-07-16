@@ -1,6 +1,6 @@
 # Agent Knowledge Base
 
-The agent knowledge base is a project-scoped document library used to ground agent presets. Documents are ingested once, embedded with the active local embedding model, and then attached to individual agents through subscriptions.
+The agent knowledge base is a project-scoped document library used to ground agent presets. Documents are ingested once, embedded with the configured embedding service, and then attached to individual agents through subscriptions.
 
 ## Runtime Flow
 
@@ -14,11 +14,11 @@ Supported ingest paths:
 - Ingest an in-repo file or directory through `POST /api/projects/:projectId/knowledge/documents` with `path`.
 - Import selected documents from another project through `POST /api/projects/:projectId/knowledge/documents/import-project` with `sourceProjectId` and optional `documentIds`.
 
-Repo-path ingestion resolves `path` inside the selected project's `baseDir`, rejects traversal outside the project directory, and skips common generated or dependency directories when walking a directory.
+Repo-path ingestion resolves `path` inside the selected project's `baseDir`, rejects traversal outside the project directory, and skips common generated or dependency directories when walking a directory. This ensures container-safe ingestion and does not grant arbitrary filesystem or host storage access.
 
 `ProjectDocsAutoEmbedService` provides a reusable setup-time path for automatically finding documentation-like repository files and passing them through `KnowledgeService.ingestDocument` as `sourceType: "repo_path"` documents. It only selects root documentation files (`README*`, `CHANGELOG*`, `CONTRIBUTING*`, assistant instruction markdown) plus supported documentation extensions under `docs/`, skips generated/dependency/cache/VCS directories and symlinks, enforces file-count and byte limits, and reports per-file errors without duplicating chunking, embedding, or content-hash logic.
 
-Project imports copy extracted document text into the target project as `sourceType: "project"` documents. The target project embeds the copied documents with the active embedding model and still deduplicates by content hash inside that project.
+Project imports copy extracted document text into the target project as `sourceType: "project"` documents. The target project embeds the copied documents with the configured embedding service and still deduplicates by content hash inside that project.
 
 ## Memory Auto-Capture
 
@@ -59,11 +59,18 @@ The server validates the agent preset and stores only documents that belong to t
 { "documentIds": ["..."] }
 ```
 
-At runtime, subscribed ready documents are rendered into the agent manifest. The manifest instructs the agent to call `search_knowledge` for exact passages before using attached documents.
+At runtime, subscribed ready documents are rendered into the agent manifest. The manifest instructs the agent to call `search_knowledge` for exact passages from these subscribed documents before use, rather than accessing arbitrary workspace states.
 
 The dashboard writes subscription changes immediately so knowledge selection is not lost if the
 editor closes. Those changes also mark the agent editor dirty, enabling Save Agent as an explicit
 acknowledgement step after selecting or deselecting knowledge.
+
+## Failure States
+
+Knowledge search will fail or return incomplete results if:
+- The configured embedding service is unavailable or unconfigured. No-model conditions surface as an error instead of a silent success.
+- An attached document is unindexed. Documents remain in a pending or error state until embeddings exist, and `KnowledgeService` skips unindexed documents in manifests and search.
+- The caller agent preset does not match the active project subscriptions.
 
 ## Route Registration
 

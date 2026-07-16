@@ -61,6 +61,6 @@ If GitHub operations block indefinitely or timeout, check that your token is val
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Security Hardening](../../operations/security-hardening.md)
-- [Operations Runbook](../../operations/runbook.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Security Hardening](../operations/security-hardening.md)
+- [Operations Runbook](../operations/runbook.md)

@@ -91,6 +91,7 @@ Route-specific thinking overrides are optional. When the AI Models route card is
 
 Runtime delivery matches each CLI's reliable headless surface. Codex receives `model_reasoning_effort` via CLI config overrides, Claude Code receives `--effort`, Qwen Code receives generated runtime config `model.reasoningEffort`, and OpenCode receives `--variant`. Gemini and Antigravity do not expose a reliable per-run headless flag in the supported CLI path, so Code UX adds provider-specific prompt guidance for those providers only.
 
+Legacy saved values of `ORCHESTRATOR` are normalized to `AGENT` when settings are loaded. The old rule-based provider picker is no longer exposed.
 
 Manual route selection is authoritative for that route. Code UX never falls back from a manually selected provider instance to another enabled provider. If the selected or inherited instance is disabled, missing, unavailable for the invocation type, or blocked by LOCAL Git/Jules constraints, the invocation fails with a clear routing error so the operator can enable that exact instance or choose a different route provider. Dashboard/API routes return these provider-selection failures as visible `409` responses with the routing message; only unexpected internal failures are masked as `Internal Server Error`. A route can deliberately enable an otherwise disabled provider instance with `providers.<id>.enabled = true`; otherwise disabled instances remain unavailable.
 

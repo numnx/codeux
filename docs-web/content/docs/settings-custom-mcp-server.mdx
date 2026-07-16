@@ -17,42 +17,28 @@ Display name, server key, transport, URL or command, args/env/headers, descripti
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+| Server Key & Name | Identifies the custom server in logs and routing. | Ensure the key is unique and descriptive. |
+| Transport & URL/Command | Configures HTTP/SSE endpoint or stdio command. | Verify the URL is reachable or the command is installed in the container. |
+| Args/Env/Headers | Passes context and authentication to the server. | Do not leak sensitive auth headers in plain text if possible. |
+| CLI Restrictions | Limits which CLIs can access this server. | Restrict sensitive servers to specific trusted CLIs. |
 
 ## Recommended Configuration
 
 Prefer HTTP/SSE for managed remote servers and restrict sensitive servers to specific CLIs.
 
-A practical review flow is:
-
-1. Start from the inherited default and change only the fields that solve a concrete operational problem.
-2. Save the smallest scope that should own the change. Use System for defaults that every project should inherit, and Project for repository-specific behavior.
-3. Reopen the Settings page after saving when the value controls startup behavior, provider routing, preview runtime, or destructive maintenance.
+Prefer HTTP/SSE for managed remote servers and restrict sensitive servers to specific CLIs to minimize exposure.
 
 ## Risks And Gotchas
 
-Invalid JSON, unavailable commands, or leaked auth headers can break provider startup or expose secrets.
-
-Before applying changes, check:
-
-- Whether the value affects provider credentials, Docker runtime behavior, Git automation, memory retention, or destructive cleanup.
-- Whether a project override is masking the system value you expected to change.
-- Whether a running sprint needs to be paused, restarted, or allowed to finish before the new value can be observed.
+Invalid JSON, unavailable commands, or leaked auth headers can break provider startup or expose secrets. Stdio servers running missing commands will crash the provider process.
 
 ## Troubleshooting
 
-If the saved setting does not appear to take effect:
-
-- Verify the active Settings scope in the sticky command bar.
-- Check for a project or sprint override that takes precedence over the system value.
-- Refresh the affected dashboard page if the setting controls a rendered surface.
-- Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
+If the custom server fails to start, check the provider logs for JSON parse errors or command not found. Verify network access if using HTTP/SSE.
 
 ## Related Documentation
 
 - [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [External MCP Worker Client](../../architecture/external-mcp-worker-client.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [External MCP Worker Client](../architecture/external-mcp-worker-client.md)
 - [Security Hardening](/docs/operations-security-hardening)

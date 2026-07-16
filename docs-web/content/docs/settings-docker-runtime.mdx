@@ -19,42 +19,28 @@ Managed provider preparation installs registry-resolved CLI versions into isolat
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+| Base Image | Determines the OS and toolchain available inside worker containers. | Ensure the image has required dependencies (e.g., Node, Python). |
+| Setup Script | Runs inside the container before the provider CLI starts. | Test scripts locally to avoid container startup crashes. |
+| Memory Limit | Constrains the RAM available to the worker container. | High limits may starve the host; low limits cause OOM kills. |
+| Playwright Preinstall | Pre-downloads browser binaries for Playwright tasks. | Disable if not using Playwright to speed up container start. |
 
 ## Recommended Configuration
 
 Keep the default image unless your repo needs a custom toolchain; enable Playwright browser preload for browser-heavy QA.
 
-A practical review flow is:
-
-1. Start from the inherited default and change only the fields that solve a concrete operational problem.
-2. Save the smallest scope that should own the change. Use System for defaults that every project should inherit, and Project for repository-specific behavior.
-3. Reopen the Settings page after saving when the value controls startup behavior, provider routing, preview runtime, or destructive maintenance.
+Keep the default image unless your repo needs a custom toolchain; enable Playwright browser preload for browser-heavy QA. Assign memory limits based on available host resources (e.g., 4GB default).
 
 ## Risks And Gotchas
 
-Broken setup scripts or overly tight memory limits can fail every provider invocation in the scope.
-
-Before applying changes, check:
-
-- Whether the value affects provider credentials, Docker runtime behavior, Git automation, memory retention, or destructive cleanup.
-- Whether a project override is masking the system value you expected to change.
-- Whether a running sprint needs to be paused, restarted, or allowed to finish before the new value can be observed.
+Broken setup scripts or overly tight memory limits can fail every provider invocation in the scope. OOM kills are surfaced as container exits with code 137.
 
 ## Troubleshooting
 
-If the saved setting does not appear to take effect:
-
-- Verify the active Settings scope in the sticky command bar.
-- Check for a project or sprint override that takes precedence over the system value.
-- Refresh the affected dashboard page if the setting controls a rendered surface.
-- Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
+If a worker fails to start, check the setup script for syntax errors. If tasks fail mid-execution, monitor host memory and increase the limit if OOM killed.
 
 ## Related Documentation
 
 - [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Configuration and Storage](../configuration-and-storage.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Configuration and Storage](/docs/settings-configuration-and-storage)
 - [Security Hardening](/docs/operations-security-hardening)

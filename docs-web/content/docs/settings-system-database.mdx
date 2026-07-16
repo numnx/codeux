@@ -13,7 +13,7 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 ## Controls And Runtime Effect
 
-The hard reset action removes projects, sprints, tasks, histories, and system state.
+The hard reset action removes projects, sprints, tasks, histories, and system state. Resetting the system database directly clears the authoritative `settings.db` state, unlike older file-backed configuration models.
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
@@ -53,6 +53,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Configuration and Storage](../configuration-and-storage.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Configuration and Storage](/docs/settings-configuration-and-storage)
 - [Operations Runbook](/docs/operations-runbook)

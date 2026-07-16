@@ -13,7 +13,7 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 ## Controls And Runtime Effect
 
-Preview enablement, in-app browser visibility, auto-start, rebuild triggers, and auto-stop define the preview lifecycle.
+Preview enablement, in-app browser visibility, auto-start, rebuild triggers, and auto-stop define the preview lifecycle. Visibility controls are managed inside the SQLite `settings.db` cascade (System -> Project -> Sprint), removing the need for local file-backed modifications.
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
@@ -53,6 +53,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Browser Preview](../../dashboard/browser-preview.md)
-- [Sprint Preview Browser](../../architecture/sprint-preview-browser.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Browser Preview](../dashboard/browser-preview.md)
+- [Sprint Preview Browser](../architecture/sprint-preview-browser.md)
