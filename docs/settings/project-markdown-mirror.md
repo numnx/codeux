@@ -13,7 +13,7 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 ## Controls And Runtime Effect
 
-The mirror toggle writes companion files under `.code-ux/agents` for selected project agents.
+The mirror toggle writes companion files under `.code-ux/agents` for selected project agents. Settings edits are preserved durably in the SQLite `settings.db`. Field-level precedence correctly handles array-order semantics when merging system defaults with project and sprint overrides.
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
