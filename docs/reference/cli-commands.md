@@ -44,8 +44,8 @@ Before parsing regular management commands, the CLI intercepts startup flags.
 - The CLI parses global start-up flags with values (e.g. `--api-key`, `--runtime-role`) before routing to the management handler.
 
 ## Flag Coercion
-
 The CLI parser automatically coerces certain flags into appropriate types before forwarding them to the management handlers:
+- **CamelCase Conversion**: Kebab-case flags are converted to camelCase (e.g. `--task-count` becomes `taskCount`, `--no-task-limit` becomes `noTaskLimit`).
 - **Booleans**: Flags like `--auto-start`, `--replan`, or `--no-task-limit` will be parsed as true/false depending on value (e.g. `true`, `yes`, `1`, `on` vs `false`, `no`, `0`, `off`).
 - **Numbers**: Numeric flags like `--tasks` (`taskCount`), `--limit`, or `--min-similarity` are parsed as finite numbers.
 - **Arrays**: Certain flags accept array values by repeating the flag multiple times. For example: `--memory-ids mem-1 --memory-ids mem-2` will be merged into an array `["mem-1", "mem-2"]`.
@@ -118,23 +118,22 @@ The CLI accepts the same compact flag names used by the dashboard and MCP layers
 - `--json` for raw JSON output
 
 The CLI also prompts for missing required flags when it is connected to an interactive terminal. Empty answers fall back to the prompt default when the prompt defines one.
-
 ## Required Flags At A Glance
 
 Use these core flags most often:
 
 - Projects: `--project` for `get`, `update`, `select`, `setup`, and `delete`; `--name` for `create`
-- Sprints: `--project` for `list`, `import_issues`, and `plan`; `--project` plus `--sprint` for `start` and `inspect_run`; `--sprint` for `get`, `update`, and `delete`
+- Sprints: `--project` for `list`, `import_issues`, and `plan`; `--project` plus `--sprint` for `start` and `inspect_run`; `--sprint` for `get`, `update`, and `delete`; `--sprint-run` for `pause`, `cancel`, and `force_cancel`
+- Tasks: `--project` for `list`; `--task` for `get`, `update`, `delete`, `start`, `stop`, `force_stop`, `pause`, and `inspect_run`; `--project` plus `--sprint` for `create`
 - Quicksprints: `--project` for `list_templates`; `--project` plus `--template` for `get_template`, `update_template`, `delete_template`, `start`, and `execute`; `create_template` also requires `--name`, `--description`, `--icon`, `--category`, and `--agent-instruction-markdown`
-- Scheduler: `--project` plus `--scheduled-for` for `create` and `schedule_*`; add `--sprint`, `--template`, or `--body-markdown` depending on the target type; generic `create` also needs `--target-type` or a payload with `targetType`; `--entry` for `update` and `delete`
-- Settings: `--settings-json` for replace actions; `--project` and `--sprint` when the scope is project or sprint specific; `--path` and `--value` for patch actions; `reset_project_settings` needs `--project` and `reset_sprint_settings` needs `--sprint`
-- Agents: `--project` for `list`, `create`, and `sync`; `--project` plus `--preset` for `get`, `update`, and `delete`
-- Memory: `--project` plus `--query` for `search`; `--project` plus `--content` for `create`; `--project` plus `--memory-ids` for `promote`; `--memory` for `get`, `update`, and `delete`; claim actions use `--project` plus `--claim-id` where applicable and are easiest to automate with `--payload-json` for numeric fields such as `confidence`, `durability`, and evidence `weight`
+- Scheduler: `--project` plus `--scheduled-for` for `create` and `schedule_*`; add `--sprint`, `--template`, or `--body-markdown` depending on the target type; generic `create` also needs `--target-type` or a payload with `targetType`; `--entry` for `update` and `delete`; `run_due` requires no flags
+- Settings: `--settings-json` for `replace_system_settings`; `--project` plus `--settings-json` for `replace_project_settings`; `--project` plus `--sprint` plus `--settings-json` for `replace_sprint_settings`; `--path` plus `--value` for `patch_system_setting`; `--project` plus `--path` plus `--value` for `patch_project_setting`; `--project` plus `--sprint` plus `--path` plus `--value` for `patch_sprint_setting`; `--project` for `reset_project_settings` and `resolve_project_effective` and `get_project_override`; `--sprint` for `reset_sprint_settings` and `get_sprint_override`; `--project` plus `--sprint` for `resolve_sprint_effective`; `--bundle-json` for `apply_settings_bundle`; `export_settings_bundle` and `get_system` require no flags
+- Agents: `--project` for `list` and `sync`; `--project` plus `--name` for `create`; `--project` plus `--preset` for `get`, `update`, and `delete`
+- Memory: `--project` plus `--query` for `search`; `--project` plus `--content` for `create`; `--project` plus `--memory-ids` for `promote`; `--memory` for `get`, `update`, and `delete`; `--project` for `list`, `start_reembed`, `get_map`; `--project` plus `--scope` for `count`; `model_status` requires no flags; claim actions use `--project` plus `--claim-id` where applicable and are easiest to automate with `--payload-json` for numeric fields such as `confidence`, `durability`, and evidence `weight`
 - Preview: `--project` for `list_sessions`; `--project` plus `--sprint` for `start_session` and `get_script`; `--session` for `rebuild_session`, `stop_session`, `remove_session`, `get_logs`, and `get_url`
 - Telemetry: `--project` for `get_project_execution_snapshot`, `get_project_stats_snapshot`, and `list_execution_invocations`; `--project` plus `--sprint` for `list_sprint_runs`; add `--task` for `list_task_dispatches`; `--invocation` for `list_execution_invocation_messages`
 
 ## Destructive Approval Handling
-
 Some commands intentionally block on approval before they mutate state:
 
 - `delete_*` actions
@@ -142,7 +141,7 @@ Some commands intentionally block on approval before they mutate state:
 - `replace_*` settings actions
 - selected scheduler delete operations
 
-When one of those commands runs without approval, Code UX returns an approval request instead of mutating anything. Re-run the same command with `--payload-json '{"approval":{"confirmed":true}}'` once the user approves the change.
+When one of those commands runs without approval, Code UX returns an approval request instead of mutating anything. Re-run the exact same command with `--payload-json '{"approval":{"confirmed":true}}'` within a 15-minute window once the user approves the change. In non-interactive mode (when `stdin` is not a TTY), failure to provide confirmation fails outright.
 
 ## Domain Examples
 
@@ -150,33 +149,42 @@ When one of those commands runs without approval, Code UX returns an approval re
 
 ```bash
 codeux projects list
-codeux projects get --project proj-1
+codeux projects get --project proj-123
 codeux projects create --name "Website Refresh"
 ```
 
 ### Sprints
 
 ```bash
-codeux sprints plan --project proj-1 --name "SPR-12" --goal "Ship the pricing page redesign"
-codeux sprints start --project proj-1 --sprint sprint-1
-codeux sprints import_issues --project proj-1
+codeux sprints plan --project proj-123 --name "SPR-12" --goal "Ship the pricing page redesign"
+codeux sprints start --project proj-123 --sprint sprint-456
+codeux sprints import_issues --project proj-123
+```
+
+### Tasks
+
+```bash
+codeux tasks list --project proj-123
+codeux tasks start --task task-789
+codeux tasks get --task task-789
 ```
 
 ### Quicksprints
 
 ```bash
-codeux quicksprints list_templates --project proj-1
-codeux quicksprints start --project proj-1 --template qs-audit --tasks 5
-codeux quicksprints execute --project proj-1 --template qs-ui --no-task-limit
+codeux quicksprints list_templates --project proj-123
+codeux quicksprints start --project proj-123 --template qs-audit --tasks 5
+codeux quicksprints execute --project proj-123 --template qs-ui --no-task-limit
 ```
 
 ### Scheduler
 
 ```bash
-codeux scheduler list --project proj-1
-codeux scheduler schedule-quicksprint --project proj-1 --template qs-ui --at 2026-06-01T12:00:00Z
-codeux scheduler schedule-chat --project proj-1 --body-markdown "Standup check-in" --at 2026-06-01T13:00:00Z
-codeux scheduler update --entry sched-1 --status paused
+codeux scheduler list --project proj-123
+codeux scheduler schedule-quicksprint --project proj-123 --template qs-ui --at 2026-06-01T12:00:00Z
+codeux scheduler schedule-chat --project proj-123 --body-markdown "Standup check-in" --at 2026-06-01T13:00:00Z
+codeux scheduler update --entry sched-456 --status paused
+codeux scheduler run_due
 ```
 
 Minute-level recurrence is supplied through `--payload-json` or the dashboard/MCP payload using the same `recurrence.frequency = minutely` literal accepted by the API and MCP payloads.
@@ -185,44 +193,47 @@ Minute-level recurrence is supplied through `--payload-json` or the dashboard/MC
 
 ```bash
 codeux settings get_system
-codeux settings resolve_project_effective --project proj-1
-codeux settings patch_project_setting --project proj-1 --path git.defaultBranch --value main
-codeux settings replace_sprint_settings --project proj-1 --sprint sprint-1 --settings-json '{"git":{"autoCreatePr":true}}'
+codeux settings resolve_project_effective --project proj-123
+codeux settings patch_project_setting --project proj-123 --path git.defaultBranch --value main
+codeux settings export_settings_bundle --json
+codeux settings apply_settings_bundle --bundle-json '{"metadata":{"schemaVersion":1}}'
 ```
 
 ### Agents
 
 ```bash
-codeux agents list --project proj-1
-codeux agents sync --project proj-1
-codeux agents update --project proj-1 --preset qa-agent --payload-json '{"instructionMarkdown":"Review for regressions"}'
+codeux agents list --project proj-123
+codeux agents sync --project proj-123
+codeux agents update --project proj-123 --preset qa-agent --payload-json '{"instructionMarkdown":"Review for regressions"}'
 ```
 
 ### Memory
 
 ```bash
-codeux memory search --project proj-1 --query "pricing page"
-codeux memory promote --project proj-1 --memory-ids mem-1 --memory-ids mem-2
-codeux memory start_reembed --project proj-1
-codeux manage --payload-json '{"domain":"memory","action":"create_claim","payload":{"projectId":"proj-1","claim":"Use dependency factory composition for service wiring.","category":"patterns","confidence":0.9,"durability":0.85}}'
+codeux memory search --project proj-123 --query "pricing page"
+codeux memory promote --project proj-123 --memory-ids mem-1 --memory-ids mem-2
+codeux memory start_reembed --project proj-123
+codeux memory get_map --project proj-123
+codeux memory model_status
+codeux manage --payload-json '{"domain":"memory","action":"create_claim","payload":{"projectId":"proj-123","claim":"Use dependency factory composition for service wiring.","category":"patterns","confidence":0.9,"durability":0.85}}'
 ```
 
-Durable claim actions exposed through the management surface are `create_claim`, `list_claims`, `get_claim`, `update_claim`, `add_claim_evidence`, and `deprecate_claim`. `deprecate_claim` follows the destructive approval flow: the first call returns an approval request, and the confirmed retry must include `--payload-json '{"approval":{"confirmed":true}}'`.
+Durable claim actions exposed through the management surface are `create_claim`, `list_claims`, `get_claim`, `update_claim`, `add_claim_evidence`, and `deprecate_claim`. `deprecate_claim` follows the destructive approval flow: the first call returns an approval request, and the confirmed retry must include `--payload-json '{"approval":{"confirmed":true}}'` within a 15-minute window.
 
 ### Preview
 
 ```bash
-codeux preview list_sessions --project proj-1
-codeux preview start_session --project proj-1 --sprint sprint-1
-codeux preview get_url --session preview-1 --path /
+codeux preview list_sessions --project proj-123
+codeux preview start_session --project proj-123 --sprint sprint-456
+codeux preview get_url --session preview-789 --path /
 ```
 
 ### Telemetry
 
 ```bash
-codeux telemetry get_project_stats_snapshot --project proj-1
-codeux telemetry list_execution_invocations --project proj-1
-codeux telemetry list_execution_invocation_messages --invocation inv-1
+codeux telemetry get_project_stats_snapshot --project proj-123
+codeux telemetry list_execution_invocations --project proj-123
+codeux telemetry list_execution_invocation_messages --invocation inv-456
 ```
 
 ## Notes

@@ -36,6 +36,12 @@ The system should not keep a separate legacy execution model based on repo-local
 - `conversation_threads`
 - `conversation_messages`
 
+### Database Storage Model
+
+- **Database Locations:** The system uses `~/.code-ux/app.db` for global runtime state and project tracking, and `~/.code-ux/settings.db` strictly for scoped settings persistence.
+- **WAL Setup:** The SQLite connections are initialized with `PRAGMA journal_mode = WAL;` and `PRAGMA auto_vacuum = INCREMENTAL;` to safely handle high-concurrency operations.
+- **Bounded Maintenance Claims:** Data migration and historical cleanup use bounded row-id windows tracking state in `maintenance_migration_state` to prevent scanning the entire history and blocking the runtime on startup.
+
 ## Scope Model
 
 The old prototype treated execution as:

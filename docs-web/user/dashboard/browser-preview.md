@@ -65,6 +65,12 @@ The right sidebar keeps **Launch Container** expanded so new previews are always
 
 The preview session cards sit below the browser pane, keeping the browser workspace as the primary surface while still showing every running session across the current project. Use the bottom rail to switch sessions, open environment overrides, or remove a stopped preview.
 
+
+## Container Lifecycle
+
+- **Startup Script Lookup**: Resolution checks the explicit project setting `sprintPreview.startupScriptPath`, then the default `.code-ux/browser/start-preview.sh`, and falls back to generated scripts via command detection if no script exists.
+- **Startup Restoration**: On backend process restart, sessions that were running, starting, or unexpectedly exited get one automatic recovery attempt, including manually launched previews whose sprints are complete. If a process interruption leaves a session marked "starting" before the container exists, reconciliation retries the spawn rather than deadlocking.
+
 ## Stopping & removing
 
 - **Stop** — Halts the container but keeps the session row, including logs and script.
@@ -82,3 +88,10 @@ The page shows the count of running preview containers. Code UX does not enforce
 ## Programmatic control
 
 The MCP `preview` management domain provides equivalent controls — `list_sessions`, `start_session`, `rebuild_session`, `stop_session`, `remove_session`, `get_script`, `update_script`. See [Management actions → preview](../../developer/management-actions.md#preview).
+
+## Security Boundaries
+
+- **Host Path Isolation**: Browser preview and file browser sessions run strictly within scoped Docker containers or isolated proxies. They do not expose private host paths (e.g., `/home/user/...` or `C:\Users\...`) in prompts, API responses, or logs. All paths displayed are container-relative or workspace-relative.
+- **Project Isolation**: Sessions are strongly tied to a specific project and sprint. Path traversal or accessing files outside the exported sprint snapshot is prohibited.
+- **Identifier Masking**: Real project names and confidential identifiers are sanitized in logs and proxy outputs.
+- **Preview Distinctions**: Sprint previews are distinct, isolated environments running a full application stack, separate from internal validation previews which serve a different role for verifying specific checks.

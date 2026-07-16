@@ -98,7 +98,7 @@ describe("settings-sanitizer", () => {
       },
       ciIntelligence: {
         enabled: "bad",
-        waitForJulesCiAutofix: "bad",
+        waitForProviderCiAutofix: "bad",
       },
       sprintLoopSteps: {
         watchLoopIntervalSeconds: "bad",
@@ -152,7 +152,7 @@ describe("settings-sanitizer", () => {
     expect(settings.appearance.experienceMode).toBe("EXPERT");
     expect(settings.aiProvider.provider).toBe("jules");
     expect(settings.git.githubMode).toBe("REMOTE");
-    expect(settings.ciIntelligence.waitForJulesCiAutofix).toBe(false);
+    expect(settings.ciIntelligence.waitForProviderCiAutofix).toBe(false);
     expect(settings.ciIntelligence.featurePrAutoMergeMode).toBe("ALWAYS");
     expect(settings.ciIntelligence.mainBranchAutoMergeMode).toBe("ALWAYS");
     expect(settings.ciIntelligence.resolveMergeConflicts).toBe(true);

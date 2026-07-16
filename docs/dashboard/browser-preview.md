@@ -19,6 +19,15 @@ The browser preview provides an integrated environment for interacting with runn
 - A preview that was observed healthy, or belongs to an active auto-start sprint, gets one automatic recovery attempt per unexpectedly exited container. This includes manually launched previews after their sprint finishes; a persistent application or startup failure remains visible instead of entering an infinite rebuild loop.
 - Exit code 137 is reported as container termination rather than attaching an unrelated warning from otherwise healthy application logs.
 
+
+## Container Lifecycle
+
+- **Startup Script Lookup**: Resolution checks the explicit project setting `sprintPreview.startupScriptPath`, then the default `.code-ux/browser/start-preview.sh`, and falls back to generated scripts via command detection if no script exists.
+- **Rebuild**: Stops the existing container, recreates it from the latest worktree (including updated package manager installs), and restarts it. Port mappings remain pinned.
+- **Stop**: Halts the container gracefully but keeps the session row, logs, and script visible.
+- **Removal**: Destructively removes the session row and the container using isolated batched removals (and helper containers on Windows to bypass path length limits).
+- **Startup Restoration**: On backend process restart, sessions that were running, starting, or unexpectedly exited get one automatic recovery attempt, including manually launched previews whose sprints are complete. If a process interruption leaves a session marked "starting" before the container exists, reconciliation retries the spawn rather than deadlocking.
+
 ## Interaction Contracts
 
 - Preview refresh, launch, rebuild, stop, remove, navigation, and startup-script save operations use visible async feedback plus local status text. Page-level operation results use `ActionFeedbackRegion` where available; control-specific progress stays beside the control that is pending.
@@ -120,3 +129,10 @@ rg "interaction|reduced motion|aria-busy|asyncFeedback" docs/dashboard docs/inde
 ```
 
 For Browser UI changes, focused coverage includes `tests/dashboard/v2/browser-page-components.test.tsx`; page-level tests often mock browser rail, chrome, and launch-panel components so BrowserPage assertions can focus on page state.
+
+## Security Boundaries
+
+- **Host Path Isolation**: Browser preview and file browser sessions run strictly within scoped Docker containers or isolated proxies. They do not expose private host paths (e.g., `/home/user/...` or `C:\Users\...`) in prompts, API responses, or logs. All paths displayed are container-relative or workspace-relative.
+- **Project Isolation**: Sessions are strongly tied to a specific project and sprint. Path traversal or accessing files outside the exported sprint snapshot is prohibited.
+- **Identifier Masking**: Real project names and confidential identifiers are sanitized in logs and proxy outputs.
+- **Preview Distinctions**: Sprint previews are distinct, isolated environments running a full application stack, separate from internal validation previews which serve a different role for verifying specific checks.

@@ -49,6 +49,8 @@ Before applying changes, check:
 - CI-owned tasks do not open `merge_required` attention. CI repair or its human handoff remains the only active blocker until checks settle.
 - Coding-budget and CI-repair guardrail handoffs use distinct deduplication keys. Resolving one handoff resets only its matching guardrail purpose.
 - When the task later settles as completed, Code UX resolves any remaining task guardrail handoff so the dashboard does not retain a stale intervention.
+- CI autofix follow-up work reuses the existing task workspace for the same worker branch when available instead of always creating a fresh workspace.
+- If Docker is unavailable during a CI autofix follow-up, Code UX falls back to a host-backed git worktree for that repair run instead of escalating immediately or creating another doomed Docker attempt.
 
 ## Troubleshooting
 
@@ -60,9 +62,11 @@ If the saved setting does not appear to take effect:
 - Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
 - If repair repeats after a rerun passed, inspect the PR rollup timestamps and the newest branch run. Historical failed rows should no longer count once a later observation for the same workflow/check is pending or successful.
 
+If CI autofix is continuously failing due to environment issues, check the Docker socket permissions or fall back to local mode which uses host-backed worktrees for autofix. Wait for stale remote CI runs to reflect in the webhook/API responses before forcing retries.
+
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Operations Runbook](../../operations/runbook.md)
-- [Security Hardening](../../operations/security-hardening.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Operations Runbook](../operations/runbook.md)
+- [Security Hardening](../operations/security-hardening.md)

@@ -1,4 +1,3 @@
-.jules-subagents/worktrees/
 node_modules
 dist
 .env
@@ -10,7 +9,6 @@ server.log
 coverage/
 release/
 .cache/
-.jules-subagents/debug.log
 .sprint-os/debug.log
 .sprint-os/runtime/
 .sprint-os/worktrees/

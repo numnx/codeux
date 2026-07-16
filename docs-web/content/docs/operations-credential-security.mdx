@@ -57,6 +57,14 @@ Electron serializes first-use root-key creation, persists only the OS-protected 
 
 Back up root keys independently from `app.db`. For the normal local dashboard, back up `~/.code-ux/security/credential-root.key` while preserving owner-only handling; for external providers, retain every referenced key version. Losing a required key version makes its ciphertext unrecoverable by design. Restoring only SQLite is insufficient.
 
+Safe token rotation involves:
+1. Generating a new token in the secret manager.
+2. Updating client and worker secret references.
+3. Restarting the server-mode process with the new token.
+4. Restarting or reconnecting MCP clients and workers so they initialize new sessions.
+5. Confirming `/ready` passes.
+6. Revoking the old token.
+
 Credential creation commits metadata and its first envelope in one SQLite transaction. Rotation/replacement and promotion likewise commit the new envelope, metadata, version, and rotation record atomically. Compare-and-swap guards apply to every lifecycle mutation so losing callers must refresh metadata and retry instead of overwriting newer state. Root-key providers must retain old key IDs and versions until envelopes are rewrapped. Revocation wins against in-flight resolutions and preserves audit metadata.
 
 Lifecycle successes and denials emit correlation-aware automation audit records containing credential IDs and policy metadata only. Validation updates report `valid`, `invalid`, or `unavailable` without including tested values or low-level cryptographic errors.
@@ -69,15 +77,15 @@ Existing global credentials created before management ownership was stored are m
 
 Project-scoped routes live under `/api/projects/:projectId/credentials`. Supported operations are create, bounded-name update (`PATCH /:credentialId`), bind, metadata-only compatibility assessment, test, rotate, replace, revoke, promote, and restrict. Compatibility evaluates key-backend readiness, configuration, active status, project access, allowed kinds, and all required capabilities without resolving plaintext. A backend is ready only when it is available and secure and reports both a non-empty key ID and a key version; missing key identity metadata produces the stable `backend_unavailable` compatibility issue. List, compatibility, health, and mutation responses return metadata or policy results only. Existing dashboard authentication and remote credential-management guards apply before these routes.
 
-Validation failures return `400`, project/management denials return `403`, concurrent-write conflicts return `409`, invalid encrypted state returns `422`, and unavailable key custody returns `503` with a safe recovery message.
+Runtime validation failures return `400`, project/management denials return `403`, compare-and-swap conflicts return `409`, invalid encrypted state returns `422`, and unavailable key custody returns an actionable `503` response.
 
 ## Integrated verification contract
 
-Credential security is verified against an isolated normal local runtime. A composition-root restart test constructs successive `CodeUxServer` instances against the same home, confirming that production wiring recovers SQLite metadata, local-file key identity, named bindings, and authorized runtime resolution. Automated coverage also provisions custody concurrently and confirms that public REST and MCP payloads remain value-free. It covers lifecycle conflicts and mutations, typed validation failures, explicit key-provider outages, and custom-dashboard MCP slot listing, approval-gated binding, stale-conflict refresh/retry, and unbinding.
+Credential security changes are exercised against a normal isolated local runtime, not only mocked service boundaries. A composition-root restart test constructs two successive `CodeUxServer` instances against the same isolated home, proving that production dependency wiring recovers the SQLite metadata, local-file key identity, named binding, and authorized runtime resolution. The broader integration suite also provisions local key custody concurrently and verifies that public REST and MCP payloads remain value-free. Lifecycle coverage includes optimistic conflicts, validation, rotation/replacement, monotonic restriction, confirmed promotion, revocation, malformed input, and explicit key-provider outages. Custom-dashboard MCP coverage performs metadata-only slot listing, approval-gated binding, a stale optimistic conflict, explicit refresh and retry, and unbinding through the real management handler.
 
-Credentialed automation tests require missing, revoked, cross-project, wrong-kind, insufficient-capability, and unavailable-backend bindings to fail before provider or custom-node invocation. A distinctive disclosure canary is scanned across public responses, structured records, SQLite text columns, workspaces, Docker inputs, validation artifacts, graph/dashboard records, and browser or iframe state; only encrypted binary envelopes may contain it.
+The credentialed-automation drill proves that missing, revoked, cross-project, wrong-kind, insufficient-capability, and unavailable-backend bindings fail before a provider or custom node can be invoked. Its disclosure canary is checked across public responses, structured records, SQLite text columns, generated workspaces, Docker command inputs, validation artifacts, graph JSON, dashboard records, and browser/iframe-visible state; encrypted binary envelopes are the only intentional storage location.
 
-Production-bundle browser coverage enables the documented Nodes and Custom Dashboards gates in an isolated Playwright runtime. It exercises Settings lifecycle feedback, node binding through publication and a local mock-provider run, custom-dashboard build/runtime slots and publication blocking, keyboard focus restoration, and narrow-viewport operation without external providers or network access.
+Production-bundle Playwright coverage enables the documented Nodes and Custom Dashboards feature gates inside its isolated runtime. It exercises Settings lifecycle feedback and recovery, node binding/replacement/unbinding through publication and a local mock-provider run, custom-dashboard build/runtime slots and publication blocking, keyboard focus restoration, and narrow-viewport operation without external provider or network dependencies. A second independently homed runtime explicitly selects the mounted-file provider without a configured file; the browser verifies unavailable health and recovery guidance, preserves visible non-secret metadata, and proves create, test, rotate, replace, promote, and revoke controls cannot emit mutation requests until custody recovers.
 
 ## Troubleshooting without disclosure
 

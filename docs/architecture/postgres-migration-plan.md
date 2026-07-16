@@ -1,6 +1,9 @@
 # Postgres Migration Plan
 
 ## Context
+
+Note: This is currently a plan for future implementation. The actual implemented storage backend is SQLite.
+
 Code UX currently uses SQLite for its runtime state. We are preparing to migrate to Postgres to support distributed deployments and richer operational tooling, but we must do so without causing a split-brain runtime or regressing local-first ease of use.
 
 ## Foundation Seams (Landed)

@@ -32,6 +32,8 @@ Templates are stored in the `agents.instructionTemplates` settings section:
 4. runtime resolution uses the project override when `repoPath` maps to a known project
 5. no filesystem instruction-template lookup remains; templates resolve from built-in defaults and scoped settings only
 
+To enforce database authority, the filesystem instruction-template lookup has been completely removed. Templates resolve exclusively from built-in defaults and scoped settings in `settings.db`.
+
 ## Template IDs in Catalog
 
 Examples:

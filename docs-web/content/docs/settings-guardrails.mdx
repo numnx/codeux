@@ -25,6 +25,14 @@ On upgrade, a persisted guardrail profile that exactly matches the former comple
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
 
+### Handoff Deduplication and Resolution
+
+Guardrail handoffs use stable, task-specific deduplication keys (e.g., `guardrail:task_coding:${taskId}` and `guardrail:ci_fix:${taskId}`) when creating human-escalation attention items. This prevents duplicate handoffs from being opened for the same task.
+
+When a task settles as completed, the orchestrator automatically resolves active guardrail handoffs of type `human_escalation_required` or `dashboard_reply_required` with a reason of `settled_task_guardrail_handoff_cleared`.
+
+When a user triggers a manual task rerun, Code UX automatically clears both the task QA verdict budget and resets the guardrail ledger so that the new execution attempt is not blocked by historical failures.
+
 ## Recommended Configuration
 
 Keep guardrails enabled and use block-and-escalate for expensive or destructive job types.
@@ -57,6 +65,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Quality Guardrails](/docs/user-automation-and-ci)
-- [Operations Runbook](/docs/user-troubleshooting)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Quality Guardrails](../architecture/quality-guardrails.md)
+- [Operations Runbook](/docs/operations-runbook)

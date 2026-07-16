@@ -8,7 +8,7 @@ This guide explains runtime config sources, precedence, and persistence.
 
 1. CLI `--api-key`
 2. `JULES_API_KEY` or `JULES_KEY`
-3. `.code-ux/settings.json` key fields
+
 
 Additional startup config:
 - `JULES_API_BASE_URL` (default: `https://jules.googleapis.com/v1alpha`)
@@ -54,7 +54,7 @@ For `.code-ux/settings.json` (used primarily for credential hints during initial
 - project root
 - home directory
 
-Note: `.code-ux/settings.json` is not the primary configuration source; Code UX reads its execution settings from the SQLite `settings.db`.
+Note: Code UX reads its execution settings from the SQLite `settings.db`. Outdated file-backed or environment-first configuration approaches are no longer the primary source of truth.
 
 ## Scoped Settings Persistence
 
@@ -77,7 +77,7 @@ Storage:
   - persistent agent skill storage uses separate `skill_storages`, `skills`, `skill_embeddings`, and `agent_skill_storage_bindings` tables. These are distinct from project workspaces, `memories`, and `knowledge_documents`; agent presets attach to named storage records through normalized bindings rather than by storing workspace paths on the preset row.
 
 Runtime resolution:
-- effective runtime settings always resolve as `system -> project -> sprint`
+- effective runtime settings always resolve as `system -> project -> sprint`. System settings are the baseline truth in `settings.db`. Project settings overrides, including explicit `null` fields to mask system defaults, are applied on top. Sprint settings act as transient, sparse overrides on top of the resolved project settings.
 - project settings inherit live system defaults; they do not snapshot them
 - project saves are diffed against the current system defaults, not hardcoded app defaults
 - sprint settings are sparse temporary overrides on top of resolved project settings
@@ -537,8 +537,8 @@ Container execution notes:
 - when `featurePrAutoMergeMode = "WHEN_GREEN"` but a matched feature PR has no checks, Code UX inspects local `.github/workflows/*.yml` files and skips CI waiting only when it can confidently determine that no `pull_request` or `pull_request_target` workflow applies to that PR base branch.
 - feature PR review blocking treats `CHANGES_REQUESTED` as authoritative and no longer blocks solely because GitHub reports incidental PR comments while `reviewDecision` is empty. This avoids Jules bot introduction comments holding otherwise merge-ready task PRs.
 - remote GitHub polling keeps recorded task PR URLs in scope for merged-PR filtering and asks GraphQL for the maximum merged-PR page size, so older merged task PRs can still settle their tasks instead of falling back to an endless merge-required state.
-- `waitForJulesCiAutofix` (default `false`): shown under Settings -> Integrations -> Jules. When enabled with `featurePrAutoMergeMode = "WHEN_GREEN"`, failed feature-PR checks on Jules-managed tasks are first sent back to the existing Jules session with CI context. When disabled, Code UX skips that Jules-specific notification path and dispatches a worker-owned `ci_fix_required` item instead. Pending/failed CI still keeps the task in work status until checks clear or guardrails escalate.
-- `julesCiAutofixMaxRetries` (legacy mirror default `5`, clamped to `0..20`): shown under Settings -> Integrations -> Jules. Max CI autofix attempts before escalation to intervention (`FULL -> AGENT`, `SEMI_AUTO/ALWAYS_ASK -> HUMAN`) with explicit task IDs, PR links, and failed check names. The generic guardrail is authoritative and defaults to five attempts; the retry cap applies whether the attempt is a Jules session notification or a worker repair.
+- `waitForProviderCiAutofix` (default `false`): shown under Settings -> Integrations -> Jules. When enabled with `featurePrAutoMergeMode = "WHEN_GREEN"`, failed feature-PR checks on Jules-managed tasks are first sent back to the existing Jules session with CI context. When disabled, Code UX skips that Jules-specific notification path and dispatches a worker-owned `ci_fix_required` item instead. Pending/failed CI still keeps the task in work status until checks clear or guardrails escalate.
+- `ciAutofixMaxRetries` (legacy mirror default `5`, clamped to `0..20`): shown under Settings -> Integrations -> Jules. Max CI autofix attempts before escalation to intervention (`FULL -> AGENT`, `SEMI_AUTO/ALWAYS_ASK -> HUMAN`) with explicit task IDs, PR links, and failed check names. The generic guardrail is authoritative and defaults to five attempts; the retry cap applies whether the attempt is a Jules session notification or a worker repair.
 - `featurePrAutoMergeMode` (default `"ALWAYS"`):
   - `"OFF"`: no feature PR auto-merge
   - `"CREATE_PR"`: open or reuse the feature PR, then stop before auto-merge and mark the task settled with `PR_ONLY`
@@ -641,7 +641,7 @@ Git manager skill toggles are mode-aware:
 ## Dashboard Port Resolution
 
 Runtime precedence for dashboard port is:
-1. Bound runtime port (actual listening port; may differ when fallback increments)
+1. Bound runtime port (actual listening port; may differ when fallback increments. Note that dashboard port changes require a runtime restart to take effect)
 2. Dashboard settings (`dashboardPort`) in sqlite settings
 3. `.code-ux/settings.json` (`dashboardPort`)
 4. `.env` (`DASHBOARD_PORT`)

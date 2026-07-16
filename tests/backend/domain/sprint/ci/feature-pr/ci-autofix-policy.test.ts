@@ -38,7 +38,7 @@ const baseArgs = {
   failedRuns: [],
   failedJobLabels: [],
   automationLevel: "FULL" as const,
-  isJulesApiConfigured: () => true,
+  isProviderApiConfigured: () => true,
   sendSessionMessage: vi.fn(),
   repoPath: "/repo",
   featureBranch: "feature/sprint1",
@@ -89,7 +89,7 @@ describe("handleCiAutofixEscalation", () => {
     expect(record).not.toHaveBeenCalled();
   });
 
-  it("notifies Jules and records the ci_fix invocation when under the cap", async () => {
+  it("notifies hosted-provider and records the ci_fix invocation when under the cap", async () => {
     const task = makeTask({ session_id: "s1" });
     const { service, record } = makeGuardrail(allow(1, 3));
     const sendSessionMessage = vi.fn().mockResolvedValue(undefined);
@@ -104,11 +104,11 @@ describe("handleCiAutofixEscalation", () => {
     expect(task.status).toBe("RUNNING");
     expect(record).toHaveBeenCalledWith({ projectId: "proj-1", sprintId: "sprint-1" }, "rec-T1", "ci_fix");
     expect(sendSessionMessage).toHaveBeenCalled();
-    expect(result.reportTextAddition).toContain("Jules session notified to fix CI");
+    expect(result.reportTextAddition).toContain("Provider session notified to fix CI");
     expect(result.workerCiFixRequired).toBe(false);
   });
 
-  it("dispatches to a worker (without recording) when Jules API is not configured", async () => {
+  it("dispatches to a worker (without recording) when hosted-provider API is not configured", async () => {
     const task = makeTask({ session_id: "s1" });
     const { service, record } = makeGuardrail(allow(0, 3));
     const sendSessionMessage = vi.fn();
@@ -117,7 +117,7 @@ describe("handleCiAutofixEscalation", () => {
       ...baseArgs,
       task,
       guardrailService: service,
-      isJulesApiConfigured: () => false,
+      isProviderApiConfigured: () => false,
       sendSessionMessage,
     });
 
@@ -131,7 +131,7 @@ describe("handleCiAutofixEscalation", () => {
     expect(record).not.toHaveBeenCalled();
   });
 
-  it("dispatches to a worker without notifying Jules when the Jules notification path is disabled", async () => {
+  it("dispatches to a worker without notifying hosted-provider when the hosted-provider notification path is disabled", async () => {
     const task = makeTask({ session_id: "s1" });
     const { service, record } = makeGuardrail(allow(0, 3));
     const sendSessionMessage = vi.fn();
@@ -141,7 +141,7 @@ describe("handleCiAutofixEscalation", () => {
       task,
       guardrailService: service,
       sendSessionMessage,
-      allowJulesSessionNotification: false,
+      allowProviderSessionNotification: false,
     });
 
     expect(sendSessionMessage).not.toHaveBeenCalled();
@@ -151,7 +151,7 @@ describe("handleCiAutofixEscalation", () => {
     expect(record).not.toHaveBeenCalled();
   });
 
-  it("dispatches to a worker for non-Jules-managed tasks without recording", async () => {
+  it("dispatches to a worker for non-hosted-provider-managed tasks without recording", async () => {
     const task = makeTask({ provider: "gemini" });
     const { service, record } = makeGuardrail(allow(0, 3));
     const sendSessionMessage = vi.fn();

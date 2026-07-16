@@ -22,7 +22,7 @@ export function evaluateMergeReadiness(
     ? checks.length === 0 || checks.some((check) => isCiPending(check.status ?? "", check.conclusion ?? ""))
     : false;
   const normalizedReviewDecision = (reviewDecision || "").trim().toUpperCase();
-  // GitHub's PR comment count includes non-review chatter such as Jules' own intro comment.
+  // GitHub's PR comment count includes non-review chatter such as the hosted provider's own intro comment.
   // Treat comments as blockers only when GitHub has already established an approved review state.
   const hasReviewBlockers = resolveAllCommentsBeforeFeatureMerge
     ? normalizedReviewDecision === "CHANGES_REQUESTED"

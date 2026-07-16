@@ -22,7 +22,7 @@ const buildDeps = () => {
         if (id === "actionRequiredAgentHeader") return "### AGENT INTERVENTION NEEDED\n";
         return "";
     }),
-    isJulesApiConfigured: () => true,
+    isProviderApiConfigured: () => true,
     isActionRequiredState: (state?: string) => state === "AWAITING_PLAN_APPROVAL" || state === "AWAITING_USER_FEEDBACK" || state === "PAUSED",
     subtaskRepository,
     listSessions: vi.fn(),

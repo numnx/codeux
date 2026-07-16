@@ -1,6 +1,6 @@
 # Data model
 
-This page describes the entities Code UX persists and how they relate. The default backend is SQLite; a Postgres migration is planned but not yet shipped.
+This page describes the entities Code UX persists and how they relate. The default and only implemented backend is **SQLite** (using WAL mode for concurrency), with files typically located at `~/.code-ux/app.db` and `~/.code-ux/settings.db`. A Postgres migration is planned but not yet shipped.
 
 The on-disk markdown form for sprints and subtasks is documented separately in [Sprint format](../developer/sprint-format.md).
 
@@ -170,6 +170,8 @@ A granular event in a sprint run (cycle start, task transition, gate decision, M
 
 ## AgentPreset
 
+Agent presets are strictly DB-backed and cascade on project deletion.
+
 | Field | Type | Notes |
 | --- | --- | --- |
 | `id` | string | – |
@@ -188,6 +190,7 @@ A granular event in a sprint run (cycle start, task transition, gate decision, M
 ## Persistent Skill Storage
 
 Persistent skills are stored separately from project workspaces, memories, knowledge documents, and model attachments.
+Persistent skills are strictly DB-backed and project-owned.
 
 | Table | Purpose |
 | --- | --- |
@@ -201,6 +204,7 @@ Skill markdown is imported from YAML-like frontmatter plus a body. Frontmatter m
 ## NodeFlow
 
 Node flows are project-scoped repeatable workflow graphs managed from the Nodes dashboard and the `manage_node_flows` MCP tool.
+Node flows are strictly DB-backed and project-owned, cascading on project deletion.
 
 | Table | Purpose |
 | --- | --- |

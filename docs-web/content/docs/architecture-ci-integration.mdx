@@ -21,7 +21,7 @@ interface CiGateContext {
   githubMode: "REMOTE" | "LOCAL";
   gitStatus: GitTrackingStatus | null;
   ciAutofixRetryCounts: Map<string, number>;
-  isJulesApiConfigured: () => boolean;
+  isProviderApiConfigured: () => boolean;
   sendSessionMessage: (sessionId, message) => Promise<void>;
   autoMergeFeaturePr?: (args) => Promise<AutoMergeFeaturePrResult>;
   persistMergedTask: (task) => Promise<void>;
@@ -64,7 +64,7 @@ For every subtask in `CODING_COMPLETED`, per cycle:
    │     → Else: openCiFixAttentionItems
    │
    ├── CI failing
-   │     → If waitForJulesCiAutofix and retries < julesCiAutofixMaxRetries:
+   │     → If waitForProviderCiAutofix and retries < ciAutofixMaxRetries:
    │           dispatch ci_fix worker, increment counter
    │     → Else:
    │           openCiFixAttentionItems
@@ -125,7 +125,7 @@ Defaults: both `OFF`. Opt in deliberately.
 
 ## CI autofix worker
 
-When `waitForJulesCiAutofix: true` and a PR has failing CI:
+When `waitForProviderCiAutofix: true` and a PR has failing CI:
 
 1. The guardrail ledger is evaluated for the task, or for a stable sprint-run key during final-merge repair.
 2. If an equivalent worker-owned `ci_fix_required` item is already open or claimed, the gate waits without consuming another attempt.

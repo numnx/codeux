@@ -1,5 +1,5 @@
 import { getFailedJobLabels, getFailedLogSnippets, summarizeFailedRuns } from "../../../../sprint/ci-status-utils.js";
-import { isJulesManagedTask, resolveTaskSessionId } from "../../../../sprint/action-required-automation.js";
+import { isProviderManagedTask, resolveTaskSessionId } from "../../../../sprint/action-required-automation.js";
 import type { AutomationLevel, GitCiRunStatus, Subtask } from "../../../../contracts/app-types.js";
 import type { GuardrailScope, GuardrailService } from "../../../../services/guardrail-service.js";
 
@@ -22,7 +22,7 @@ export function resolveCiEscalationOwner(automationLevel: AutomationLevel): "AGE
   return automationLevel === "FULL" ? "AGENT" : "HUMAN";
 }
 
-export async function notifyJulesAboutFailedCi(args: {
+export async function notifyProviderAboutFailedCi(args: {
   task: Subtask;
   prNumber: number;
   prUrl: string;
@@ -31,14 +31,14 @@ export async function notifyJulesAboutFailedCi(args: {
   failedRuns: GitCiRunStatus[];
   attempt: number;
   maxRetries: number;
-  isJulesApiConfigured: () => boolean;
+  isProviderApiConfigured: () => boolean;
   sendSessionMessage: (sessionId: string, message: string) => Promise<void>;
 }): Promise<{ sent: boolean; reason?: string }> {
-  if (!isJulesManagedTask(args.task)) {
-    return { sent: false, reason: "Task is not Jules-managed." };
+  if (!isProviderManagedTask(args.task)) {
+    return { sent: false, reason: "Task is not hosted-provider-managed." };
   }
-  if (!args.isJulesApiConfigured()) {
-    return { sent: false, reason: "Jules API key is not configured." };
+  if (!args.isProviderApiConfigured()) {
+    return { sent: false, reason: "Provider API key is not configured." };
   }
   const sessionId = resolveTaskSessionId(args.task);
   if (!sessionId) {
@@ -123,12 +123,12 @@ export interface CiAutofixEscalationArgs {
   failedJobLabels: string[];
   automationLevel: AutomationLevel;
   guardrailService: GuardrailService;
-  isJulesApiConfigured: () => boolean;
+  isProviderApiConfigured: () => boolean;
   sendSessionMessage: (sessionId: string, message: string) => Promise<void>;
   repoPath: string;
   featureBranch: string;
   defaultBranch: string;
-  allowJulesSessionNotification?: boolean;
+  allowProviderSessionNotification?: boolean;
   hasActiveWorkerCiFixAttempt?: (task: Subtask, prNumber: number) => boolean;
   onGuardrailExhausted?: (handoff: CiFixGuardrailHandoff) => void;
 }
@@ -203,8 +203,8 @@ export async function handleCiAutofixEscalation(args: CiAutofixEscalationArgs): 
     return { reportTextAddition, workerCiFixRequired: false, workerCiFixPayload: null };
   }
 
-  if (args.allowJulesSessionNotification !== false) {
-    const notifyResult = await notifyJulesAboutFailedCi({
+  if (args.allowProviderSessionNotification !== false) {
+    const notifyResult = await notifyProviderAboutFailedCi({
       task: args.task,
       prNumber: args.prNumber,
       prUrl: args.prUrl,
@@ -213,20 +213,20 @@ export async function handleCiAutofixEscalation(args: CiAutofixEscalationArgs): 
       failedRuns: args.failedRuns,
       attempt: currentRetries + 1,
       maxRetries: cap,
-      isJulesApiConfigured: args.isJulesApiConfigured,
+      isProviderApiConfigured: args.isProviderApiConfigured,
       sendSessionMessage: args.sendSessionMessage,
     });
 
     if (notifyResult.sent) {
       recordCiFix();
-      reportTextAddition += `   - Jules session notified to fix CI and continue work (attempt ${
+      reportTextAddition += `   - Provider session notified to fix CI and continue work (attempt ${
         currentRetries + 1
       }/${capLabel}).\n`;
       return { reportTextAddition, workerCiFixRequired: false, workerCiFixPayload: null };
     }
   }
 
-  // Task is not using the Jules notification path, or notification failed — dispatch to a worker.
+  // Task is not using the provider notification path, or notification failed — dispatch to a worker.
   const payload = buildWorkerCiFixPayload({
     task: args.task,
     prNumber: args.prNumber,

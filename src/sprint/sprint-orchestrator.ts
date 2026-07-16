@@ -87,7 +87,7 @@ export interface SprintOrchestratorDependencies {
   ) => Promise<StartSprintDispatchResult>;
   updateLastStatus: (status: DashboardStatusSnapshot) => void;
   getDashboardSettings: (scope?: DashboardSettingsScope) => DashboardSettings;
-  isJulesApiConfigured: () => boolean;
+  isProviderApiConfigured: () => boolean;
   approveSessionPlan: (sessionId: string) => Promise<unknown>;
   sendSessionMessage: (sessionId: string, prompt: string) => Promise<unknown>;
   generateWorkerClarificationReply?: (args: {

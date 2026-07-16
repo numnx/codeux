@@ -22,6 +22,13 @@ session for. These correspond directly to the technical backend API routes:
 - `/api/file-browser/sessions/:sessionId/rebuild`
 - `DELETE /api/file-browser/sessions/:sessionId` (remove)
 
+
+## Container Lifecycle
+
+- **Path Validation**: Operations enforce strict path boundaries preventing traversal outside the sprint snapshot workspace.
+- **Cleanup and Stale Containers**: Automatic cleanup happens during server startup, resetting persisted sessions and pruning orphaned volumes using Docker label filters (`code-ux.file-browser-volume=true`). On Windows, deeply nested `node_modules` that exceed the `MAX_PATH` are safely deleted via a helper `alpine` Docker container before host-side fallback.
+- **Reconnects and Failures**: Sessions track their health. Failed or unexpectedly exited sessions reflect an error status.
+
 ## Files mode
 
 In **Files** mode you get a file tree for the project plus a viewer:
@@ -38,3 +45,10 @@ In **Changes** mode you review what a sprint has modified:
 
 This makes it easy to review a sprint's work — or an individual task's output — before merging,
 complementing the PR/CI review handled by the [merge protocol](/docs/user-automation-and-ci).
+
+## Security Boundaries
+
+- **Host Path Isolation**: Browser preview and file browser sessions run strictly within scoped Docker containers or isolated proxies. They do not expose private host paths (e.g., `/home/user/...` or `C:\Users\...`) in prompts, API responses, or logs. All paths displayed are container-relative or workspace-relative.
+- **Project Isolation**: Sessions are strongly tied to a specific project and sprint. Path traversal or accessing files outside the exported sprint snapshot is prohibited.
+- **Identifier Masking**: Real project names and confidential identifiers are sanitized in logs and proxy outputs.
+- **Preview Distinctions**: Sprint previews are distinct, isolated environments running a full application stack, separate from internal validation previews which serve a different role for verifying specific checks.

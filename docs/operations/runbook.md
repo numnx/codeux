@@ -41,8 +41,8 @@ Database maintenance (`DatabaseMaintenanceService`) is scheduled after normal st
 3. Open dashboard and verify settings.
 4. Confirm `/api/status` and `/api/git-status` (via `GitStatusService`) are responding.
 5. Confirm `/health` and `/ready` probes:
-   - `/health`: Liveness probe. In dashboard mode it is served by the dashboard server; in server mode it is served by the MCP HTTP listener.
-   - `/ready`: Readiness probe from the dashboard server or MCP HTTP listener. A success (`{"status":"READY"}` or `{"status":"UP"}`) means the server considers required startup/runtime dependencies ready enough to serve normal traffic. It does not validate every provider, project, Docker workspace, or external service.
+   - `/health`: Liveness probe. In dashboard mode it is served by the dashboard server; in server mode it is served by the MCP HTTP listener. A success (`{"status":"UP"}`) means the listener is bound and accepting connections.
+   - `/ready`: Readiness probe from the dashboard server or MCP HTTP listener. A success (`{"status":"READY"}` or `{"status":"UP"}`) means the server considers required startup/runtime dependencies ready enough to serve normal traffic. It does not validate every provider, project, Docker workspace, or external service. Note that `/health` may pass before `/ready` passes. Startup readiness refuses execution until background recovery, branch reaping, and key providers are operational. If credentials are bad, `/ready` returns 503, but `/health` is UP.
 
 ### Headless Server Mode
 
@@ -274,7 +274,7 @@ Checks:
 - To retry before the provider reset timestamp, open Chat -> Invocations and use **Reset timer** on the active quota/rate-limit invocation. This clears the invocation retry timestamp, records an audit message, and wakes the active provider retry loop so the same invocation can retry immediately.
 - For tasks stuck in a CI/QA gate after QA requested fixes, compare the latest `qa_review_runs` row with later `execution_invocations` for the same task run. A completed `cli_task_followup` after the latest `changes_requested` QA result should trigger a verification QA run on the next orchestration cycle; if no follow-up exists, the task is intentionally waiting on fix work or human intervention.
 - When a task has multiple QA reviewers configured, inspect all `qa_review_runs` rows for the latest `run_index`, not just one row. The task remains blocked if any reviewer row in that cycle is `running`, `failed`, or `completed` with `changes_requested`; the cycle clears only when every reviewer row passed. Reviewer-specific `agent_preset_id`, `agent_name`, and payload fields identify which reviewer blocked the cycle.
-- For tasks stuck at `CODING_COMPLETED` with merge indicator `CI`, inspect the feature PR checks. When GitHub returns both an older cancelled/failed check and a newer rerun for the same workflow/check name, only the latest timestamped observation should count. A newer successful branch run must also suppress historical failed-run repair evidence. A current failed check should open a worker-owned `ci_fix_required` item until the CI-fix guardrail is reached; the task must remain code-complete and must not launch another ordinary coding invocation. The `waitForJulesCiAutofix` toggle only controls whether Code UX first sends failed-check context to an existing Jules session; when it is disabled, Code UX should skip Jules and dispatch a worker CI fix instead. Human/agent intervention should appear only after the guardrail is exhausted.
+- For tasks stuck at `CODING_COMPLETED` with merge indicator `CI`, inspect the feature PR checks. When GitHub returns both an older cancelled/failed check and a newer rerun for the same workflow/check name, only the latest timestamped observation should count. A newer successful branch run must also suppress historical failed-run repair evidence. A current failed check should open a worker-owned `ci_fix_required` item until the CI-fix guardrail is reached; the task must remain code-complete and must not launch another ordinary coding invocation. The `waitForProviderCiAutofix` toggle only controls whether Code UX first sends failed-check context to an existing Jules session; when it is disabled, Code UX should skip Jules and dispatch a worker CI fix instead. Human/agent intervention should appear only after the guardrail is exhausted.
 - Do not treat a later full task run as task-QA follow-up work. Task QA fixes should continue the same task session and branch through `cli_task_followup`; sprint-review failures create follow-up tasks instead.
 - For tasks showing `QA_PENDING` with a `running` `qa_review_runs` row but no matching provider container, check the latest `qa_review` row in `execution_invocations`. Code UX now fails stale running QA rows automatically when the invocation never linked provider runtime or when its Docker-backed `provider_invocations.session_id` is absent from running `code-ux.session-id` container labels; the next cycle should enqueue a fresh QA review.
 - For Jules-backed tasks stuck in `RUNNING`, compare the recorded task session with the live Jules API. If the session is absent from both the list snapshot and a direct `getSession` lookup returns not found, session sync now fails the stale provider/execution/task-run rows and requeues the task when failed-task retry is enabled.
@@ -418,7 +418,14 @@ Keep failed connections disabled until retention is satisfied. Cancel unwanted p
   - optional downstream reset rewrites dependent tasks to fresh pending execution snapshots so old completed/running descendants do not keep stale runtime metadata
   - if a task already merged code, operators can check the **Undo the Git merge** option to automatically revert the merge commit programmatically in the feature branch before restarting the task cleanly.
 
-### 10. Accidentally Exposed Dashboard or MCP Endpoints
+### 10. Runtime Cleanup and Recovery
+Code UX manages periodic maintenance and startup recovery to keep system state clean.
+- **Interrupted Dispatches**: `RuntimeStartupRecoveryService` closes active dispatch/task-run rows whose linked provider invocation already reached a terminal state or where the backing container/CLI session was lost during a restart. The dispatch mirrors completion if the task was already code-complete; otherwise, the task is reset to pending for a clean retry instead of staying in a stale running state.
+- **Stale Leases**: `RuntimeCleanupService` periodically reaps expired execution leases. When a worker lease expires before completion, the dispatch is moved to `blocked` and the sprint is notified.
+- **WAL Maintenance**: The SQLite connection uses WAL mode and issues periodic checkpoint pragmas during lifecycle maintenance.
+- **Docker Assets**: Stale runtime paths and orphaned Docker startup assets are pruned periodically and on startup to avoid unbounded resource usage without removing live volumes.
+
+### 11. Accidentally Exposed Dashboard or MCP Endpoints
 Symptoms:
 - Unexpected or unauthorized activities appearing in the dashboard logs.
 - Connections originating from unknown IP addresses.

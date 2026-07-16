@@ -13,7 +13,7 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 ## Controls And Runtime Effect
 
-Project name is editable; project id, source type, and base directory explain how Code UX addresses and enters the workspace.
+Project name is editable; project id, source type, and base directory explain how Code UX addresses and enters the workspace. Settings are resolved from the SQLite `settings.db` using a System -> Project -> Sprint precedence. Explicit `null` overrides at the project level take precedence over system defaults.
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
@@ -53,6 +53,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Configuration and Storage](../configuration-and-storage.md)
-- [Dashboard Guide](../../dashboard/dashboard-guide.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Configuration and Storage](./configuration-and-storage.md)
+- [Dashboard Guide](../dashboard/dashboard-guide.md)

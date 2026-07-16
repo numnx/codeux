@@ -7,7 +7,7 @@ The **Memory** page (`/memory`) manages Code UX's two-tier semantic memory syste
 | Tier | Scope | Lifetime |
 | --- | --- | --- |
 | **Short-term** | One sprint | Created during a sprint run. Promoted to long-term on completion (if eligible) or pruned. |
-| **Long-term** | One project | Stable knowledge — architectural decisions, codebase landmarks, recurring constraints. |
+| **Long-term** | One project | Stable memory — architectural decisions, codebase landmarks, recurring constraints. |
 
 Both tiers are vector-indexed using a locally-running embedding model (ONNX Runtime). No memory ever leaves your machine.
 
@@ -15,7 +15,7 @@ Both tiers are vector-indexed using a locally-running embedding model (ONNX Runt
 
 The Memory route follows the dashboard's active English or German locale. Page controls, map and sidebar labels, filters, search status, confirmations, validation, empty/loading/error guidance, accessible announcements, and embedding-model actions are translated. Dates, counts, strengths, percentages, sizes, and plural forms use locale-aware formatting.
 
-Localization never rewrites persisted knowledge or backend/catalog data. Memory content, claims, evidence, tags, agent names, model IDs and descriptions, language and license metadata, URLs, filenames, and server/API diagnostics remain verbatim. German category terms such as `Architektur` can match the corresponding stable stored category key without changing that key.
+Localization never rewrites persisted memory or backend/catalog data. Memory content, claims, evidence, tags, agent names, model IDs and descriptions, language and license metadata, URLs, filenames, and server/API diagnostics remain verbatim. German category terms such as `Architektur` can match the corresponding stable stored category key without changing that key.
 
 ## Categories
 
@@ -80,7 +80,7 @@ Worker `.task-learnings.md` files still create short-term memories from `## Cate
 
 ## Project Manager direct memory
 
-The dashboard reply route defaults to the **Project manager**. It keeps the normal short-term and long-term context, and it also receives `add_long_term_memory`, a dedicated direct-write lane for explicit remember/learn requests and stable knowledge it judges valuable.
+The dashboard reply route defaults to the **Project manager**. It keeps the normal short-term and long-term context, and it also receives `add_long_term_memory`, a dedicated direct-write lane for explicit remember/learn requests and stable context it judges valuable.
 
 A successful direct write creates a canonical long-term claim plus a searchable project-memory mirror. The Project Manager then re-emits the exact returned statement, category, claim id, and mirror-memory id in a `codeux:memory` block, which the dashboard renders as a rich confirmation widget. Short-term sprint evidence and normal remediation/promotion remain unchanged.
 

@@ -17,42 +17,26 @@ The text area controls exactly what workers are asked to observe and write into 
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+| Custom Instructions | Passed to the worker agent as context during execution. | Keep instructions concise and relevant to the project. |
+| Rules & Constraints | Defines strict boundaries for agent behavior. | Overly strict rules can block agents from completing valid tasks. |
 
 ## Recommended Configuration
 
 Keep instructions specific to reusable engineering lessons and avoid asking workers to record secrets.
 
-A practical review flow is:
-
-1. Start from the inherited default and change only the fields that solve a concrete operational problem.
-2. Save the smallest scope that should own the change. Use System for defaults that every project should inherit, and Project for repository-specific behavior.
-3. Reopen the Settings page after saving when the value controls startup behavior, provider routing, preview runtime, or destructive maintenance.
+Use clear, actionable instructions (e.g., 'Always use pnpm, never npm'). Avoid conflicting rules that might confuse the agent.
 
 ## Risks And Gotchas
 
-Overbroad instructions can capture noisy or sensitive details.
-
-Before applying changes, check:
-
-- Whether the value affects provider credentials, Docker runtime behavior, Git automation, memory retention, or destructive cleanup.
-- Whether a project override is masking the system value you expected to change.
-- Whether a running sprint needs to be paused, restarted, or allowed to finish before the new value can be observed.
+Contradictory instructions can cause agents to loop or fail to generate code. Long instructions consume valuable prompt context tokens.
 
 ## Troubleshooting
 
-If the saved setting does not appear to take effect:
-
-- Verify the active Settings scope in the sticky command bar.
-- Check for a project or sprint override that takes precedence over the system value.
-- Refresh the affected dashboard page if the setting controls a rendered surface.
-- Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
+If the agent behaves erratically or ignores constraints, review the custom instructions for ambiguity or length.
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Memory Architecture and Search](/docs/user-dashboard-memory)
-- [Instruction Template System](/docs/developer-configuration)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Memory Architecture and Search](../dashboard/memory.md)
+- [Instruction Template System](../instructions/markdown-template-system.md)

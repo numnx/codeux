@@ -152,13 +152,12 @@ In this working environment you have broad latitude to operate the running syste
 
 - Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`). **`dev` is the integration branch** —
   branch off `dev` and open PRs **into `dev`** (not `main`) after CI passes; use `gh` for PR workflow.
-- Remotes: `origin` is the **`numnx/codeux` fork** — push branches there and target it for PRs.
-  `upstream` is `codeux-ai/codeux`; do not push or PR there unless explicitly asked.
+- Open pull requests against `codeux-ai/codeux` with base `dev`.
 - 2-space indent, `camelCase` vars/functions, `PascalCase` types/components. Strict typing — avoid
   `any`. No new plain-JS modules. Tailwind is the only styling approach; don't add UI frameworks.
-- Documentation source of truth is `docs/` (entrypoint `docs/index.md`, index `docs/SUMMARY.md`).
-  `docs-web/` holds the published user/developer/architecture docs referenced from the README. Update
-  the affected docs page when you change behavior; add a new page + link it for new subsystems.
+- Documentation source of truth lives in `docs/` with the main entrypoint at `docs/index.md`.
+  `docs-web/` holds the published user/developer/architecture docs. Update affected pages on behavior changes; add + link a new page for new subsystems.
+  If a new feature or subsystem is introduced, add a dedicated page under the correct `docs/` section and link it from both `docs/index.md` and `docs/SUMMARY.md`. Update both canonical `docs/` and public `docs-web/` consistently. No `docs-release/` directory should be used.
 
 ## Reference docs
 

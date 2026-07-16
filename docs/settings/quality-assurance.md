@@ -21,6 +21,12 @@ QA toggles, route choices, and trigger selectors decide when and how final revie
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
 
+### QA Workspaces and Follow-up
+
+- QA review execution uses an isolated snapshot workspace in Docker so review inspection does not mutate the task workspace directly.
+- QA-requested CLI follow-up work continues in the original task workspace when that workspace is still available. Code UX resolves the worker branch from task metadata first and falls back to the preserved workspace branch when metadata is missing, then fast-forwards the preserved workspace against `origin/<worker-branch>` when possible without cleaning local QA state.
+- If neither worker-branch metadata nor a resumable workspace branch is available, QA follow-up fails with an actionable error that names both missing branch metadata and the missing/non-resolvable resume workspace session.
+
 ## Recommended Configuration
 
 Keep QA enabled for multi-task sprints and route it to a provider with strong review behavior.
@@ -50,9 +56,11 @@ If the saved setting does not appear to take effect:
 - Refresh the affected dashboard page if the setting controls a rendered surface.
 - Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
 
+If QA follow-up fails due to branch resolution issues (e.g. unavailable remotes or protected branches blocking fast-forward), ensure the worker branch is still available on origin. If it was deleted, you may need to recreate the branch from the current task HEAD before follow-up can proceed.
+
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Quality Assurance Agent](../../architecture/quality-assurance-agent.md)
-- [Provider Routing](../provider-routing.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Quality Assurance Agent](../architecture/quality-assurance-agent.md)
+- [Provider Routing](./provider-routing.md)

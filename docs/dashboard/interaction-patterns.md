@@ -162,9 +162,10 @@ DropdownMenus and Popovers are expected to be fully keyboard accessible:
 - Task cards and active stream rows keep status, dependency blockers, QA review state, PR/live duration metadata, drag limitations, and action availability available without relying on pointer hover. Pointer drag remains pointer-only; its visual helper chip is no longer card metadata, but screen-reader drag guidance remains available. Reduced-motion users receive static drag-disabled messaging instead of keyboard drag-and-drop.
 - Kanban task cards keep one persistent, task-labelled Actions trigger in the metadata footer instead of an expanded action rail. The shared portal-backed menu groups execution/navigation actions, Edit, and destructive Delete; it supports standard trigger keys, looping arrow traversal, Home/End, Escape, outside dismissal, trigger focus restoration, and pointer-event isolation from card drag. Unavailable and optimistic actions remain visible as inert menu items with exact row-level reasons and `aria-describedby`, while safe internal/external links keep their destination and protection attributes. Dependency summaries retain blocker counts, and each list row visibly shows only the task identifier plus normalized resolved, blocked, in-progress, ready-for-QA, QA-failed, or unknown status; full titles and blocker context remain accessible. Task cards expose `PR pending` only when task PR creation is enabled by effective project git settings, while real PR-ready links remain visible whenever a historical or runtime-enriched PR URL exists. Live runtime, QA review, optimistic saving, focus, pressed, dragging, and reduced-motion states remain available through static text, borders, badges, and accessible labels.
 
-See the [Dashboard Accessibility Quality Audit](./accessibility-quality-audit.md) for verification expectations.
+See the [Dashboard Accessibility Quality Audit](accessibility-quality-audit.md) for verification expectations.
 
 ## Verification Guidance
+- `pnpm run typecheck:dashboard`
 
 For documentation-only changes to dashboard interaction guidance, run the dashboard typecheck and verify entrypoint links and anchors:
 

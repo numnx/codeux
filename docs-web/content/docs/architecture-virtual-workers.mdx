@@ -175,7 +175,7 @@ The virtual worker can claim and act on these attention item categories:
 | Category | Behaviour |
 | --- | --- |
 | `merge_conflict` | Provision a worker on the conflicting worktree; instruct the CLI to resolve and push. |
-| `ci_failure` | Provision a worker; instruct the CLI to read the failing CI log and apply a fix; respects `julesCiAutofixMaxRetries`. |
+| `ci_failure` | Provision a worker; instruct the CLI to read the failing CI log and apply a fix; respects `ciAutofixMaxRetries`. |
 
 Repair attention is scheduled before ordinary coding dispatches. Code UX does not lease a coding task while CI-fix or merge-conflict attention is waiting, and capacity is checked against the provider selected by the invocation-specific route rather than the generic virtual-worker provider. The final provider-slot wait is bounded to 30 seconds so sprint finalization cannot wait forever on a saturated or stale route.
 

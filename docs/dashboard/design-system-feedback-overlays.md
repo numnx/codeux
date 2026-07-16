@@ -83,3 +83,9 @@ Feedback surfaces indicate system status or asynchronous progress.
 - Spinning or pinging indicators must respect reduced motion by using `motion-reduce:animate-none` or `motion-safe` variants.
 - Notification panel reveal/list motion and toast entrance, dismissal, and reordering must resolve through the shared motion tokens. Reduced motion changes these states immediately while preserving severity text, read/unread text, context, action labels, focus behavior, and live-region announcements.
 - Destructive hold-to-confirm buttons must communicate progress textually as well as visually. Releasing, pointer-cancelling, pointer-leaving, or key-up cancellation must reset progress immediately in reduced motion and must not call the destructive handler before the tokenized hold completes.
+
+## Verification Guidance
+
+```bash
+pnpm run typecheck:dashboard
+```

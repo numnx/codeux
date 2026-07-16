@@ -9,7 +9,7 @@ This page covers cloning, building, running, and contributing.
 - **Node.js >=22.13** — The project targets Node 22 in CI and uses ES2022 / NodeNext modules.
 - **pnpm 11.13.0** — The package manager declared in `packageManager`.
 - **Git** — only needed for the manual `git clone` step or contributor workflows.
-- **Docker** — required for normal runtime operation, including containerized helper Git, virtual workers in DOCKER mode, and sprint preview browsers.
+- **Docker** — required for normal runtime operation, including containerized helper Git, virtual workers in DOCKER mode, sprint preview browsers, and Docker-backed mockup E2E/CI-DAG orchestration tests.
 
 ## Clone & install
 
@@ -20,13 +20,6 @@ pnpm install
 ```
 
 `pnpm install` will hydrate `node_modules/` plus the dashboard's transitive deps. The repo uses `pnpm.overrides` to lock a few transitive vulnerabilities — leave those alone.
-
-## Set up env
-
-```bash
-cp .env.example .env
-# edit .env to set JULES_API_KEY (at minimum)
-```
 
 ## Build
 
@@ -83,10 +76,8 @@ This starts Vite at the dashboard port (default `4444`) with hot module reload. 
 ## Run after build
 
 ```bash
-node dist/index.js --api-key YOUR_KEY
+pnpm start
 ```
-
-Or `pnpm start`.
 
 ## Global link (for testing the binary)
 
@@ -155,7 +146,7 @@ pnpm run test:watch            # vitest watch mode
 pnpm run test:backend          # backend only
 pnpm run test:dashboard        # dashboard only
 pnpm run test:coverage         # full coverage report
-pnpm run test:backend:coverage # backend coverage with threshold gate
+pnpm run test:backend:coverage # backend coverage with threshold gate (lines: 77.4, functions: 71.5, branches: 66.1, statements: 76.0, activity-cache-service.ts lines: 80)
 pnpm run ci                    # local CI: quality:guardrails -> audit -> lint -> test:backend:coverage -> test:dashboard -> build
 pnpm run audit                 # pnpm audit --audit-level=high
 pnpm run smoke-test            # node dist/index.js --help

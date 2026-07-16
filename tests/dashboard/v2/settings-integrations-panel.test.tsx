@@ -566,8 +566,8 @@ describe("SettingsIntegrationsPanel", () => {
         autoResumePaused: true,
       },
       ciIntelligence: {
-        waitForJulesCiAutofix: false,
-        julesCiAutofixMaxRetries: 3,
+        waitForProviderCiAutofix: false,
+        ciAutofixMaxRetries: 3,
       },
     };
     const state = {
@@ -598,7 +598,7 @@ describe("SettingsIntegrationsPanel", () => {
       projectSources: {
         "automationInterventions.autoAnswerClarification": "project",
         "automationInterventions.autoAnswerClarificationMode": "project",
-        "ciIntelligence.waitForJulesCiAutofix": "project",
+        "ciIntelligence.waitForProviderCiAutofix": "project",
       },
       selectedIntegration: "jules",
       setSelectedIntegration: vi.fn(),
@@ -640,7 +640,7 @@ describe("SettingsIntegrationsPanel", () => {
 
     const ciRow = screen.getByText("Jules CI autofix").closest(".group") as HTMLElement;
     fireEvent.click(within(ciRow).getByLabelText("Toggle setting"));
-    expect(updatedSettings.ciIntelligence.waitForJulesCiAutofix).toBe(true);
+    expect(updatedSettings.ciIntelligence.waitForProviderCiAutofix).toBe(true);
   });
 
   it("shows editable git identity only when local git config copying is disabled", async () => {

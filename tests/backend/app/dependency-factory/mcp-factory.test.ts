@@ -46,7 +46,7 @@ describe("MCP Factory", () => {
       normalizeName: vi.fn(),
       resolveSessionName: vi.fn(),
       fetchRecentActivities: vi.fn(),
-      isJulesApiConfigured: vi.fn(),
+      isProviderApiConfigured: vi.fn(),
       getMissingJulesApiKeyInstruction: vi.fn(),
       isTrackedCliSession: vi.fn(),
     };

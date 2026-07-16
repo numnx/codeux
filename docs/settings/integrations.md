@@ -17,9 +17,9 @@ Cards show connection state, auth hints, active/configured importer status, and 
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+| Automation Credentials | Used during API calls to services (e.g., Jira, Slack). Validates auth and connection health before saving. | Verify capabilities and scope are correct before granting access. |
+| Provider Connections | Used for model routing and AI capability endpoints. | Ensure external API allows connections from Code UX. |
+| Importer Configs | Read-only imports trigger immediately. | Review the imported scopes carefully. |
 
 ## Automation Credential Management
 
@@ -48,11 +48,7 @@ Configure provider and importer credentials at system scope and use project over
 
 For Google Drive, link an existing host-side sync or mount directory and enable the opt-in Docker mount only for projects that need it. The mount defaults to read-only; see [Google Drive Project Mount](./google-drive-mount.md) for access, inheritance, security, and troubleshooting details. This integration does not configure Google Drive API synchronization or credentials.
 
-A practical review flow is:
-
-1. Start from the inherited default and change only the fields that solve a concrete operational problem.
-2. Save the smallest scope that should own the change. Use System for defaults that every project should inherit, and Project for repository-specific behavior.
-3. Reopen the Settings page after saving when the value controls startup behavior, provider routing, preview runtime, or destructive maintenance.
+Configure provider and importer credentials at system scope and use project overrides only for repository-specific git hosts or importer defaults. Automation credentials follow their own project-aware ownership and allowlist policy rather than Settings inheritance.
 
 ## Localization And Protected Values
 
@@ -60,24 +56,11 @@ The Integrations interface follows the dashboard language for setup guidance, au
 
 ## Risks And Gotchas
 
-Imported hints can reveal local auth paths; broad importer tokens can expose external workspaces to search.
-
-Before applying changes, check:
-
-- Whether the value affects provider credentials, Docker runtime behavior, Git automation, memory retention, or destructive cleanup.
-- Whether a project override is masking the system value you expected to change.
-- Whether a running sprint needs to be paused, restarted, or allowed to finish before the new value can be observed.
+Imported hints can reveal local auth paths; broad importer tokens can expose external workspaces to search. Saving invalid credentials causes provider dispatches to fail with authentication errors.
 
 ## Troubleshooting
 
-If the saved setting does not appear to take effect:
-
-- Verify the active Settings scope in the sticky command bar.
-- Check for a project or sprint override that takes precedence over the system value.
-- Refresh the affected dashboard page if the setting controls a rendered surface.
-- Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
-- If secure custody is unavailable, keep the metadata view open, restore the deployment's supported custody provider, and use **Refresh**. Local loopback CLI/dashboard mode provisions its owner-only user-home key automatically; do not add mounted-key configuration for a normal local user.
-- If a save reports stale metadata, review the refreshed record before retrying with its new version. Never copy secret fields into notes, browser storage, logs, or a repository as a workaround.
+If a provider dispatch fails with authentication errors, verify the credentials in the active scope. If an integration is not found, check if it is overridden by the project scope.
 
 ## Related Documentation
 

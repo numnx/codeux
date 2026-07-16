@@ -76,8 +76,8 @@ function migrateLegacyDefaultAttemptCaps(value: unknown): boolean {
   jobs.ci_fix.cap = 5;
 
   const ciIntelligence = value.defaults.ciIntelligence;
-  if (isRecord(ciIntelligence) && ciIntelligence.julesCiAutofixMaxRetries === 3) {
-    ciIntelligence.julesCiAutofixMaxRetries = 5;
+  if (isRecord(ciIntelligence) && ciIntelligence.ciAutofixMaxRetries === 3) {
+    ciIntelligence.ciAutofixMaxRetries = 5;
   }
   return true;
 }

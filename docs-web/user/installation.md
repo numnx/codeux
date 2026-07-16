@@ -107,8 +107,16 @@ pnpm 11.13.0.
 git clone https://github.com/codeux-ai/codeux.git
 cd codeux
 pnpm install
+
+# Build and start the production server
 pnpm run build
 pnpm start
+
+# Or, start in development mode with hot-reloading dashboard
+pnpm run dev
+
+# Or, start only the development server
+pnpm run dev:server-only
 ```
 
 See [Building from source](../developer/building-from-source.md) for the full developer workflow.
@@ -122,7 +130,8 @@ When Code UX starts it:
 3. Loads any settings it finds, then waits for you to add a project and configure providers.
 
 Nothing is required to reach this point — no API keys, no environment variables. Configure providers
-when you are ready to dispatch work (see [Configuring providers](#configuring-providers)).
+when you are ready to dispatch work (see [Configuring providers](#configuring-providers)). Note that
+Docker must be running for Code UX to execute containerized tasks.
 
 For headless server deployments, use `--server-mode` with an explicit MCP HTTP bearer token. Server mode does not bind dashboard routes or websockets; operators connect through authenticated MCP HTTP and probe `/health` and `/ready` on the MCP listener.
 

@@ -25,7 +25,7 @@ The mirror toggle writes companion files under `.code-ux/agents` for selected pr
 
 Enable it when agent instructions should be reviewable with project changes.
 
-For the built-in Planning agent and Project manager, a mirrored file matching the tracked baseline can receive an instruction-only bundled update. A file edit that diverges from the baseline is treated as customization and preserved together with all non-instruction metadata.
+For the built-in Planning agent and Project manager, the mirror participates in bundled revision safety. A mirrored file matching the tracked baseline can receive an instruction-only bundled update, while a file edit that diverges from that baseline is recorded as customization and preserved. Non-instruction preset metadata remains unchanged.
 
 A practical review flow is:
 
@@ -54,7 +54,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Agent Sync And Planning Agent](/docs/user-dashboard-agents)
-- [Agent Routing](/docs/user-dashboard-agents)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Agent Sync And Planning Agent](../architecture/agent-sync-and-planning-agent.md)
+- [Agent Routing](../architecture/agent-routing.md)

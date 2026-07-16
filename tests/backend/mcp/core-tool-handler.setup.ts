@@ -15,7 +15,7 @@ export const buildDeps = () => {
     normalizeName: (type: string, id: string) => `${type}/${id.replace(`${type}/`, "")}`,
     resolveSessionName: (session: Partial<JulesSession>) => session.name,
     fetchRecentActivities,
-    isJulesApiConfigured: () => true,
+    isProviderApiConfigured: () => true,
     getMissingJulesApiKeyInstruction: () => "missing key",
     isTrackedCliSession: () => false,
     getTrackedSession: () => null,

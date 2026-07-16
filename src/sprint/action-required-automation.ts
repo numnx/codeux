@@ -5,7 +5,7 @@ import type {
   Subtask,
 } from "../contracts/app-types.js";
 
-export const isJulesManagedTask = (task: Subtask): boolean => {
+export const isProviderManagedTask = (task: Subtask): boolean => {
   if (task.provider && task.provider !== "jules") {
     return false;
   }
@@ -253,7 +253,7 @@ export interface ApplyActionRequiredAutomationArgs {
   automationLevel: AutomationLevel;
   settings: AutomationInterventionsSettings;
   isActionRequiredState: (state?: string) => boolean;
-  isJulesApiConfigured: () => boolean;
+  isProviderApiConfigured: () => boolean;
   approveSessionPlan: (sessionId: string) => Promise<unknown>;
   sendSessionMessage: (sessionId: string, prompt: string) => Promise<unknown>;
   generateWorkerClarificationReply?: (args: {
@@ -294,7 +294,7 @@ export const applyActionRequiredAutomation = async (
       continue;
     }
 
-    if (!isJulesManagedTask(task)) {
+    if (!isProviderManagedTask(task)) {
       task.intervention_owner = "AGENT";
       task.intervention_hint = "Task is not Jules-managed; resolve manually in provider-specific workflow.";
       emitTaskEvent(task, "action_required_manual_intervention", {
@@ -305,7 +305,7 @@ export const applyActionRequiredAutomation = async (
       continue;
     }
 
-    if (!args.isJulesApiConfigured()) {
+    if (!args.isProviderApiConfigured()) {
       task.intervention_owner = "HUMAN";
       task.intervention_hint = "Jules API key is not configured; automatic intervention is unavailable.";
       emitTaskEvent(task, "action_required_manual_intervention", {

@@ -84,4 +84,10 @@ Fixed bottom navigation elements, such as the `KineticDock`, must account for mo
 2. **Horizontal Scroll Boundaries**: For horizontally scrolling lists inside constrained boundaries (e.g., `snap-x`), add an explicit right spacer (`<div className="w-[1px] shrink-0" aria-hidden="true" />`) and apply horizontal scroll padding (`scroll-px-*`) to prevent the last navigation item from being clipped visually or causing focus states to overflow out of bounds.
 3. **Route Change Feedback**: Bottom navigation should expose a polite live status for the active route and keep focus-visible rings inside the scroll boundary. Active, pressed, focus-visible, and disabled-like states must be visible without hover, fisheye, or indicator movement.
 
-For route-level responsive checks, use the [Dashboard Accessibility Quality Audit](./accessibility-quality-audit.md).
+For route-level responsive checks, use the [Dashboard Accessibility Quality Audit](accessibility-quality-audit.md).
+
+## Verification Guidance
+
+```bash
+pnpm run typecheck:dashboard
+```

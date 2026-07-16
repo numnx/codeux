@@ -78,6 +78,12 @@ Current fields include:
 - lease token
 - acquire / expiry / heartbeat timestamps
 
+## Entity Ownership and Lineage
+
+- **Ownership:** Execution tables (like `task_runs` and `sprint_runs`) maintain strict foreign keys cascading from `project_id`. Deleting a project safely purges all of its associated runtime history.
+- **Lineage:** Execution lineage flows transparently from `sprints` to `sprint_runs`, and then down to `task_dispatches` and `task_runs`.
+- **Run Tracking:** The `task_runs.sprint_run_id` explicitly links the task execution to a specific attempt. This structure avoids reliance on isolated filesystem states and ensures the database is the source of truth for runtime progress.
+
 ## Repository Surface
 
 `ExecutionRepository` is the stable public facade for execution persistence. Callers should continue using it rather than importing lower-level persistence modules directly.

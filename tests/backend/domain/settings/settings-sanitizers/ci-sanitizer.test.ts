@@ -7,9 +7,9 @@ describe("sanitizeCiIntelligence", () => {
     expect(result.enableLivePrMonitoring).toBe(false);
   });
 
-  it("disables waitForJulesCiAutofix when github mode is LOCAL", () => {
-    const result = sanitizeCiIntelligence({ ciIntelligence: { waitForJulesCiAutofix: true } }, "LOCAL");
-    expect(result.waitForJulesCiAutofix).toBe(false);
+  it("disables waitForProviderCiAutofix when github mode is LOCAL", () => {
+    const result = sanitizeCiIntelligence({ ciIntelligence: { waitForProviderCiAutofix: true } }, "LOCAL");
+    expect(result.waitForProviderCiAutofix).toBe(false);
   });
 
   it("keeps live pr monitoring when github mode is REMOTE", () => {

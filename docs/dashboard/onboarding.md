@@ -20,6 +20,7 @@ Operational values remain verbatim in every locale: provider and dependency name
 
 The onboarding UI is orchestrated by `OnboardingExperience.tsx`, which delegates rendering logic to individual step components under `dashboard/src/v2/components/onboarding/`:
 - `OnboardingInstallationStep.tsx`
+- `OnboardingIntro.tsx`
 - `OnboardingIntroductionStep.tsx`
 - `OnboardingProvidersStep.tsx`
 - `OnboardingProviderSetupStep.tsx`
@@ -28,6 +29,7 @@ The onboarding UI is orchestrated by `OnboardingExperience.tsx`, which delegates
 - `OnboardingDefaultsStep.tsx`
 - `OnboardingAutomationStep.tsx`
 - `OnboardingAppearanceStep.tsx`
+- `GuidedDashboardTour.tsx`
 
 Navigation and step-sequencing state is managed by the shared `useOnboardingStepFlow` hook, allowing the orchestrator to act purely as a view-router and state-manager while the step components remain thin and focused. The hook owns a typed reducer for the onboarding session: modal visibility, active step, readiness payload, selected providers, the settings draft, saving state, and the displayed error. `OnboardingExperience.tsx` still performs the API calls, but it commits API results and user interactions through explicit reducer actions instead of coordinating independent `useState` setters.
 
@@ -76,6 +78,8 @@ Notification read and dismissed state is stored locally in the browser under `co
 ## Onboarding Steps
 
 Onboarding now starts with a setup-mode choice. New installs default to **Expert** so existing detailed behavior remains available unless the operator chooses a shorter path. **Standard** is the user-facing spelling for the persisted `STANDARD` value.
+
+Mode choices apply system defaults (like provider configuration, git mode, or GitHub workflows), but they do not scaffold initial application files or change repository structure.
 
 Mode choices:
 - **Easy**: short first-run path that introduces Code UX, then configures one CLI provider login plus optional GitHub workflow defaults. Easy hides Docker, concurrency, Jira, MCP, model pricing, and advanced routing controls while keeping Docker as the default execution runtime.

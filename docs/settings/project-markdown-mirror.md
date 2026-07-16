@@ -13,7 +13,7 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 ## Controls And Runtime Effect
 
-The mirror toggle writes companion files under `.code-ux/agents` for selected project agents.
+The mirror toggle writes companion files under `.code-ux/agents` for selected project agents. Settings edits are preserved durably in the SQLite `settings.db`. Field-level precedence correctly handles array-order semantics when merging system defaults with project and sprint overrides.
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
@@ -55,6 +55,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Agent Sync And Planning Agent](../../architecture/agent-sync-and-planning-agent.md)
-- [Agent Routing](../../architecture/agent-routing.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Agent Sync And Planning Agent](../architecture/agent-sync-and-planning-agent.md)
+- [Agent Routing](../architecture/agent-routing.md)

@@ -20,8 +20,15 @@ Container cap, host port start/end, internal app port, startup path/command, and
 | Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
-| Default startup command | Replaces auto-detected preview startup for this scope. A Browser sidebar container override takes precedence. | Keep the preview host/port variables in commands that start a listener. |
-| Allow Docker access | Mounts and validates the local Unix Docker daemon socket. | Enable only for trusted repositories; daemon access is host-level control. |
+| Default startup command | Replaces auto-detected preview startup for this scope. A Browser sidebar container override takes precedence. | Keep `HOST=0.0.0.0` and the Code UX preview port variables in commands that start a listener. |
+| Allow Docker access | Mounts the local Unix Docker socket and validates Docker CLI/daemon access before app startup. | Treat this as host-level control and enable it only for trusted repositories. |
+
+### Docker Limits and Behavior
+
+- **Memory Limits:** Docker containers are subject to `containerMemoryLimitMb`, which defaults to `6144` MiB as a hard ceiling (passed as both `--memory` and `--memory-swap`). Setting this to `0` disables memory limits.
+- **Preview Limits:** Previews are bound to `127.0.0.1` and are port-allocated from the configured host port range. `maxConcurrentContainers` caps active preview containers per project by terminating the oldest running previews before starting a new one.
+- **Container Names:** Docker provider runs use readable container names such as `code-ux-codex-<session>` and stage provider argv in a temporary host file. Interactive provider login containers use readable names such as `code-ux-login-<provider>-<session>`.
+- **Cleanup:** On startup, Code UX schedules Docker asset pruning in the background using label-filtered queries so dashboard boot is not blocked by Docker cleanup. When a Docker-backed provider run is cancelled, Code UX directly kills the backing container on abort instead of relying on the local client to tear it down.
 
 ## Recommended Configuration
 
@@ -35,7 +42,7 @@ A practical review flow is:
 
 ## Risks And Gotchas
 
-Port collisions or wrong startup scripts prevent previews from becoming reachable.
+Port collisions, wrong startup commands, missing Docker tooling, or daemon permissions prevent previews from becoming reachable.
 
 Before applying changes, check:
 
@@ -54,7 +61,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Browser Preview](/docs/user-dashboard-browser-preview)
-- [Security Hardening](/docs/user-troubleshooting)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Browser Preview](../dashboard/browser-preview.md)
+- [Security Hardening](../operations/security-hardening.md)

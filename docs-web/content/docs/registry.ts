@@ -108,7 +108,12 @@ export type DocsSlug =
   | 'operations-runbook'
   | 'operations-security-hardening'
   | 'operations-server-mode'
+  | 'settings-chat-provider-integrations'
+  | 'settings-configuration-and-storage'
   | 'settings-google-drive-mount'
+  | 'settings-opencode-integration'
+  | 'settings-provider-routing'
+  | 'settings-qwen-code-integration'
   | 'user-dashboard-custom-dashboards'
   | 'architecture-card-ci-status-projection'
   | 'architecture-chat-connector-runtime-reliability'
@@ -378,7 +383,7 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/settings-docker-runtime',
     section: 'User Guide',
     title: "Docker Runtime",
-    description: "Code UX defaults to a managed, auto-updating Linux runtime instead of building an agent image on each user's machine.",
+    description: "Defines the default container environment used by Docker-backed provider CLIs.",
   },
   'settings-system-runtime': {
     id: 'settings-system-runtime',
@@ -819,7 +824,7 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/architecture-data-model',
     section: 'Architecture',
     title: "Data model",
-    description: "This page describes the entities Code UX persists and how they relate. The default backend is SQLite; a Postgres migration is planned but not yet shipped.",
+    description: "This page describes the entities Code UX persists and how they relate. The default and only implemented backend is SQLite (using WAL mode for concurrency), with files typically located at ~/.code-ux/app.db and ~/.code...",
   },
   'architecture-execution-invocation-tracking': {
     id: 'architecture-execution-invocation-tracking',
@@ -860,15 +865,15 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     id: 'operations-runbook',
     path: '/docs/operations-runbook',
     section: 'User Guide',
-    title: "Authenticated Automation Runbook",
-    description: "Run recovery drills only against the approved local test project and mocked job/email providers.",
+    title: "Operations Runbook",
+    description: "Run these drills against the approved local test project with mocked job/email boundaries only:",
   },
   'operations-security-hardening': {
     id: 'operations-security-hardening',
     path: '/docs/operations-security-hardening',
     section: 'User Guide',
-    title: "Headless Security Hardening",
-    description: "Remote dashboard/API access requires a service-token or trusted OIDC reverse-proxy boundary, TLS, project-scoped roles, and request correlation. A non-loopback DASHBOARD_HOST does not make credential routes public: ca...",
+    title: "Security Hardening",
+    description: "Remote dashboard/API access must use either digest-backed service identities or an OIDC-capable trusted reverse proxy as documented in Secure Headless Server Mode. Never expose credential management by setting only DA...",
   },
   'operations-server-mode': {
     id: 'operations-server-mode',
@@ -877,12 +882,47 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     title: "Secure Headless Server Mode",
     description: "Server mode runs Code UX as an authenticated MCP HTTP control plane without binding the dashboard UI, dashboard REST routes, dashboard realtime websocket, terminal websocket, or static dashboard assets. Use it for hea...",
   },
+  'settings-chat-provider-integrations': {
+    id: 'settings-chat-provider-integrations',
+    path: '/docs/settings-chat-provider-integrations',
+    section: 'User Guide',
+    title: "Chat Provider Integrations",
+    description: "External chat connectors accept provider messages, route them into authorized project chat threads, and deliver assistant replies through the same provider-native or bridge transport. Configure them under Settings -&g...",
+  },
+  'settings-configuration-and-storage': {
+    id: 'settings-configuration-and-storage',
+    path: '/docs/settings-configuration-and-storage',
+    section: 'User Guide',
+    title: "Configuration and Storage",
+    description: "This guide explains runtime config sources, precedence, and persistence.",
+  },
   'settings-google-drive-mount': {
     id: 'settings-google-drive-mount',
     path: '/docs/settings-google-drive-mount',
     section: 'User Guide',
     title: "Google Drive Project Mount",
     description: "The Google Drive project mount makes an existing local Google Drive sync or mount directory available to Docker-backed provider runs. Code UX does not connect to the Google Drive API, manage Google credentials, or syn...",
+  },
+  'settings-opencode-integration': {
+    id: 'settings-opencode-integration',
+    path: '/docs/settings-opencode-integration',
+    section: 'User Guide',
+    title: "OpenCode Integration",
+    description: "Code UX supports OpenCode as a first-class virtual CLI provider alongside Gemini, Codex, Claude Code, and Qwen Code.",
+  },
+  'settings-provider-routing': {
+    id: 'settings-provider-routing',
+    path: '/docs/settings-provider-routing',
+    section: 'User Guide',
+    title: "Provider Routing",
+    description: "This page describes how Code UX resolves provider, model, and provider pool selection for each invocation type.",
+  },
+  'settings-qwen-code-integration': {
+    id: 'settings-qwen-code-integration',
+    path: '/docs/settings-qwen-code-integration',
+    section: 'User Guide',
+    title: "Qwen Code Integration",
+    description: "Code UX supports Qwen Code as a first-class virtual CLI provider alongside Gemini, Codex, and Claude Code.",
   },
   'user-dashboard-custom-dashboards': {
     id: 'user-dashboard-custom-dashboards',
@@ -1153,7 +1193,12 @@ export const orderedDocs: DocsRegistryEntry[] = [
   docsRegistry['operations-runbook'],
   docsRegistry['operations-security-hardening'],
   docsRegistry['operations-server-mode'],
+  docsRegistry['settings-chat-provider-integrations'],
+  docsRegistry['settings-configuration-and-storage'],
   docsRegistry['settings-google-drive-mount'],
+  docsRegistry['settings-opencode-integration'],
+  docsRegistry['settings-provider-routing'],
+  docsRegistry['settings-qwen-code-integration'],
   docsRegistry['user-dashboard-custom-dashboards'],
   docsRegistry['architecture-card-ci-status-projection'],
   docsRegistry['architecture-chat-connector-runtime-reliability'],

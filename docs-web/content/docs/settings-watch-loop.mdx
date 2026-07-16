@@ -21,6 +21,11 @@ The watch-loop toggle, evaluation interval, and output interval drive recurring 
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
 
+### Timing Configurations
+
+- **Evaluation Interval:** `watchLoopIntervalSeconds` controls the check frequency. It defaults to `10` seconds and is clamped between `1` and `3600` seconds.
+- **Output Interval:** `watchLoopOutputIntervalSeconds` controls the maximum watch-loop runtime before returning an in-progress status and initiating a rerun instruction. It defaults to `300` seconds and is clamped between `60` and `3600` seconds.
+
 ## Recommended Configuration
 
 Keep the loop enabled with moderate intervals for active sprints.
@@ -53,6 +58,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Atomic Sprint Loop](/docs/user-sprint-orchestration)
-- [Operations Runbook](/docs/user-troubleshooting)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Atomic Sprint Loop](../sprint-loop/atomic-loop.md)
+- [Operations Runbook](/docs/operations-runbook)

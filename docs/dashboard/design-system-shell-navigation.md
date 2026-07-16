@@ -51,11 +51,11 @@ The shell relies on reusable layout components from `dashboard/src/v2/components
 Primary navigation is filtered by the persisted **Experience Mode** from Settings -> General. The stored values are `EASY`, `STANDARD`, and `EXPERT`; the dashboard labels them **Easy**, **Standard**, and **Expert**, and Expert is the default for new or legacy settings.
 
 Mode-specific navigation:
-- **Easy**: Chat, Browser Preview, Stats, Live, Settings/Config, and the internal Docs page.
-- **Standard**: Chat, Overview, Sprints, Tasks, Agents, Stats, Browser Preview, Docs, and Settings/Config.
-- **Expert**: the full set: Chat, Overview, Sprints, Tasks, Agents, Stats, Schedule, Memory, Knowledge, Browser Preview, Files, Live, Docs, and Settings/Config.
+- **Easy**: Chat, Sprint Preview Browser, Stats, Live, Settings, and the internal Docs page.
+- **Standard**: Chat, Overview, Sprints, Tasks, Agents, Stats, Sprint Preview Browser, Docs, and Settings.
+- **Expert**: the full set: Chat, Overview, Sprints, Tasks, Agents, Stats, Scheduler, Memory, Knowledge, Sprint Preview Browser, File Browser, Live, Docs, and Settings.
 
-The Settings route is labeled **Settings** in the sidebar and **Config** in the dock. Docs is an external navigation item. Browser Preview still obeys the existing sprint-preview and in-app browser visibility checks; hidden mode-filtered routes remain registered routes rather than being removed from the app.
+The Settings route is labeled **Settings** in the sidebar and **Config** in the dock. Docs is an external navigation item. Sprint Preview Browser still obeys the existing sprint-preview and in-app browser visibility checks; hidden mode-filtered routes remain registered routes rather than being removed from the app.
 
 ### 6. Hover and Active Indicators
 - **Motion Tokens:** Shell navigation must use the interaction contracts in `dashboard/src/v2/lib/motion`. Use `controlFeedback` for hover, focus, icon color, and label feedback; `selectionMovement` for active route backgrounds, vertical markers, and minimized/expanded label reveal; and `enterExit` for mobile drawer and backdrop transitions.
