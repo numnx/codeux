@@ -1,181 +1,162 @@
-# System overview
+# System Overview
 
-Code UX is a single Node process that hosts multiple cooperating services. This page describes that process model, the major services, and how data flows through them.
+Code UX is a container-first multi-provider runtime with an integrated dashboard and a DB-backed sprint orchestration engine.
 
-Authenticated headless automation is composed from a fail-closed principal/role boundary, key/audit/runner readiness, durable redacted audit export, SLO sampling, and project-scoped runner lease ownership. The dashboard API enforces these controls before route handlers; startup verifies recovery keys before binding listeners when encrypted data exists.
+## Core Responsibilities
 
-## Process topology
+- Expose structured MCP tools for listener, dispatch, and worker control flows.
+- Orchestrate sprint subtasks with dependency-aware scheduling.
+- Inject editable database-backed agent prompts into planning and worker flows.
+- Provide an operational dashboard for status, activity, git, CI, and settings.
+- Emit structured logs with request correlation IDs across dashboard and MCP dispatch paths.
+- Support editable database-backed instruction templates for sprint loop messaging.
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                  codeux (container-first multi-provider runtime) │
-│                                                                  │
-│  ┌────────────────────────┐   ┌────────────────────────────┐    │
-│  │   Dashboard Server      │   │   MCP Server                │    │
-│  │   (Express, port 4444)  │   │   ┌──────────────────────┐  │    │
-│  │                          │   │   │ stdio transport     │  │    │
-│  │   • REST routes         │◄──┤   ├──────────────────────┤  │    │
-│  │   • WebSocket /realtime │   │   │ HTTP transport      │  │    │
-│  │   • Static dashboard    │   │   │ (optional, port +1) │  │    │
-│  └────────────┬────────────┘   │   └──────────────────────┘  │    │
-│               │                └─────────────┬──────────────┘    │
-│               │                              │                   │
-│               ▼                              ▼                   │
-│  ┌──────────────────────────────────────────────────────────┐    │
-│  │                  Application Services                     │    │
-│  │                                                            │    │
-│  │  Sprint Orchestrator   ←→   Virtual Worker Service        │    │
-│  │  Settings Service      ←→   Memory / Embedding Service    │    │
-│  │  Conversation Service  ←→   Connection / Listener Service │    │
-│  │  Project Service       ←→   Preview / Docker Service      │    │
-│  │  Telemetry Service     ←→   Heartbeat & Lease Service     │    │
-│  └─────────────┬──────────────────────────┬──────────────────┘    │
-│                │                          │                        │
-│                ▼                          ▼                        │
-│  ┌────────────────────────┐   ┌──────────────────────────┐        │
-│  │  Repositories (DB)     │   │  External integrations    │        │
-│  │  • SQLite (default)    │   │  • Jules Agent API        │        │
-│  │  • Postgres (planned)  │   │  • Provider CLIs          │        │
-│  │  • Markdown filesystem │   │  • GitHub / gh CLI        │        │
-│  │                         │   │  • Docker daemon          │        │
-│  └────────────────────────┘   └──────────────────────────┘        │
-│                                                                    │
-└────────────────────────────────────────────────────────────────────┘
-```
+## Runtime Components
 
-The primary CLI/management entrypoint is `src/index.ts`, which loads configuration and starts `CodeUxServer.run()`. `CodeUxServer` wires all backend services. The dashboard/API serves on a configured port (default 4444), while the worker host and Electron shell operate as separate entrypoints. Lifecycle:
+### 1. Entrypoint and runtime composition
+- CLI/MCP entrypoint: `src/index.ts`
+  - Loads `.env` and startup config.
+  - Constructs and runs `CodeUxServer`.
+- Worker entrypoint: `src/worker/index.ts` (worker-host mode for headless local execution on worker machines)
+- Electron shell: `src/electron/main.ts` (desktop shell)
 
-1. **Boot settings** — load and migrate the settings DB.
-2. **Refresh API key** — pull from CLI / env / settings.
-3. **Prune connections** — clean stale MCP connections from the prior run.
-4. **Cleanup sprint previews** — remove stale Docker preview containers.
-5. **Docker asset pruning** — remove orphaned worker images / containers.
-6. **Boot dashboard** — bind Express on `DASHBOARD_PORT`.
-7. **Boot MCP stdio transport** — connect to stdin/stdout if not a TTY.
-8. **Boot MCP HTTP transport** *(optional)* — bind the JSON-RPC HTTP listener.
-9. **Mark MCP service bound and finish startup recovery** — `/ready` flips to ready after listener binding and runtime recovery complete.
-10. **Start background loops** — runtime cleanup (15 s), sprint preview reconciliation (15 s), live snapshot refresh (30 s).
-11. **Start virtual worker service** — begin reconcile cycle (3 s).
+- Runtime composition boundary: `src/server/code-ux-server.ts`
+  - Instantiates the dependency factory (`src/app/dependency-factory.ts`), repositories, services, and the orchestrator.
+  - Registers MCP request handlers via `src/server/mcp-request-router.ts`.
+  - Starts the dashboard HTTP server (defaults to port 4444) and lifecycle services.
+  - Starts MCP stdio transport only for an attached MCP pipe/socket or explicit `CODE_UX_ENABLE_MCP_STDIO=1`; daemon stdin such as `/dev/null` keeps stdio disabled.
+  - Reports `/ready` only after settings, dashboard/MCP binding, and startup recovery have completed; `/health` remains the liveness probe.
+  - Serves cached dashboard live activity and git status via `src/server/activity-cache-service.ts`.
+- Dashboard dependencies are composed in `src/app/dependency-factory/dashboard-factory.ts`. When two dashboard services must be constructed before both concrete instances exist, the factory uses `LateBoundDependency<T>` from `src/shared/late-bound-dependency.ts` and links it synchronously before returning dependencies. This is purely a construction-time wiring mechanism; it does not act as a service locator or expose a dynamic public registry. Consumers resolve these holders at action time so missing links fail with an explicit late-bound dependency error instead of placeholder objects or private-field mutation.
 
-Source: `src/server/code-ux-server.ts:870-994`.
+### 2. MCP tool handlers
+- `src/mcp/core-tool-handler.ts`
+  - Handles `get_session`, listen-mode, inbox, dispatch, and attention tool calls.
+- `src/mcp/agent-tool-handler.ts`
+  - Handles worker-local execution and reply helpers.
 
-## Major services
+### 3. Sprint orchestration engine
+- `src/sprint/sprint-orchestrator.ts`
+- `src/domain/sprint/orchestrator/*`
+- `src/domain/sprint/ci/*`
+- Atomic step modules in `src/sprint/steps/*`
+- Git-mode behavior is split at the final merge gate. REMOTE mode waits for the hosted completion PR to be observed as merged before marking a run complete. LOCAL mode performs the final `feature -> default` merge in the host repository, restores the user's prior checkout afterward, and keeps the run active or paused with merge attention when the local merge fails.
+- Completed sprints can be reversed through the [Sprint Rollback](./sprint-rollbacks.md) subsystem. It creates a dedicated rollback sprint and chooses a deterministic detached-worktree revert only when history is provably isolated; otherwise it routes a dependency-aware rollback task through an agent. Remote mode ends at a required PR gate, while local mode merges the rollback branch into the configured local default branch without a PR.
 
-### Sprint orchestrator
+### 4. Instruction template system
+- `src/instructions/instruction-template-service.ts`
+- `src/instructions/instruction-template-renderer.ts`
+- Template catalog defaults in `src/instructions/instruction-template-catalog.ts`
+- Templates persisted in scoped settings under `agents.instructionTemplates`
 
-Handles the lifecycle of sprints and tasks. Built around three runners:
+### 5. Dashboard server and frontend
+- API host: `src/server/dashboard-server.ts`
+- Frontend app: `dashboard/src/v2/*`
+- Settings view-models: `dashboard/src/v2/lib/settings-view-models.ts` is a compatibility barrel over focused helpers in `dashboard/src/v2/lib/settings/`. Provider instance/auth helpers, model option catalogs, model pricing refs, project override/source helpers, display metadata, and branch naming helpers are kept in separate typed modules so dashboard components can share behavior without changing settings API contracts or saved settings shapes.
+- Custom dashboard management uses `src/server/custom-dashboard-routes.ts`, `src/repositories/custom-dashboard-repository.ts`, and `src/services/custom-dashboard-validation-service.ts` to store drafts/revisions, validate generated bundles in detached Docker sessions, and publish only revisions with passed validation reports. See [Custom Dashboards](../dashboard/custom-dashboards.md) and [Custom Dashboard Foundation](./custom-dashboard-foundation.md).
 
-- **`SprintActionRunner`** (`src/domain/sprint/orchestrator/sprint-action-runner.ts`) — top-level dispatcher for `plan` / `status` / `orchestrate`.
-- **`CycleRunner`** (`src/domain/sprint/orchestrator/cycle-runner.ts`) — executes one cycle of the pipeline.
-- **`WatchLoopRunner`** (`src/domain/sprint/orchestrator/watch-loop-runner.ts`) — wraps the cycle runner in the continuous monitoring loop.
+### 6. Data and settings repositories
+- Persistence uses SQLite via `node:sqlite`.
+- Subtasks: `src/repositories/subtask-repository.ts`
+- Settings DB: `src/repositories/settings-repository.ts`
+- Settings defaults/sanitization/storage: `src/repositories/settings-defaults.ts`, `src/repositories/settings-sanitizer.ts`, `src/repositories/settings-db-storage.ts`
 
-Detail: [Sprint engine](./sprint-engine.md).
+### 7. CLI workflow execution helpers
+- Docker and host CLI providers implementations are in `src/infrastructure/providers/cli/`.
+- `src/services/cli-workflow-service.ts`
+- `src/services/cli-process-runner.ts`
+- `src/services/cli-docker-utils.ts`
+- `src/services/cli-workflow-text-utils.ts`
+- `src/infrastructure/providers/cli/invocation-workspace-preparer.ts` owns Docker invocation workspace policy. Call sites use its shared provider-invocation option builder for snapshot checkout, git policy, and fresh/continue lifecycle values, and its continuation resolver for preserved workspace lookup. In `REMOTE` git mode, fresh Docker-backed invocations materialize from explicit `origin/<branch>` refs for the target or effective default branch and do not fall back to the host repo's current checkout; HOST-mode invocations continue to use their existing cwd behavior.
 
-### Virtual worker service
+### 8. Shared logging and correlation
+- `src/shared/logging/logger.ts`
+- `src/shared/logging/correlation-id.ts`
 
-Provisions ephemeral workers (Docker container or host process) to handle attention items.
+### 9. Authenticated headless automation boundary
 
-- **`VirtualWorkerService`** (`src/services/virtual-worker-service.ts`).
-- Reconciles every **3 s**, polls session state every **2 s**.
+- `src/services/headless-auth-service.ts` resolves local, trusted-proxy, or digest-backed service principals and applies role/project authorization before dashboard administrative routes.
+- `src/services/headless-operational-readiness-service.ts` combines encrypted-data key recovery, durable audit storage, and runner identity checks. The server asserts key recovery before binding listeners.
+- `src/services/automation-audit-export-service.ts` persists correlation-linked, recursively redacted audit rows and exports bounded NDJSON.
+- `src/services/distributed-node-flow-runner-service.ts` grants compare-and-set leases only to project-scoped `automation_runner` service principals.
+- `src/services/automation-slo-service.ts` publishes bounded management latency/error and delivery baselines.
 
-Detail: [Virtual workers](./virtual-workers.md).
+## Runtime Architecture Diagram
 
-### MCP server
+```mermaid
+flowchart TD
+  A[CLI/MCP Client] -->|stdio| B[src/index.ts]
+  E1[Desktop Shell] -->|IPC/HTTP| E2[src/electron/main.ts]
+  W1[Remote Worker] -->|HTTP| W2[src/worker/index.ts]
 
-`McpServer` from `@modelcontextprotocol/sdk` plus our `ToolRegistry` and `McpRequestRouter`.
+  B --> R[src/server/code-ux-server.ts]
+  E2 --> R
+  W2 --> R
 
-- **Stdio transport** — `StdioServerTransport`.
-- **HTTP transport** — `StreamableHTTPServerTransport` over Express, mounted at `/mcp`.
+  R --> Q[MCP transports: stdio / HTTP]
+  Q --> Router[src/server/mcp-request-router.ts]
 
-Detail: [MCP server](./mcp-server.md).
+  Router --> MTH[src/mcp/management-tool-handler.ts]
+  Router --> C[src/mcp/core-tool-handler.ts]
+  Router --> D[src/mcp/agent-tool-handler.ts]
 
-### Dashboard server
+  MTH --> F[src/sprint/sprint-orchestrator.ts]
+  C --> F
+  D --> F
 
-- Express 5 application.
-- 100+ REST routes.
-- WebSocket server at `/api/realtime` for push updates.
-- Static dashboard bundle from `dashboard/dist/`.
+  F --> S[Docker/host CLI providers & Providers API]
+  F --> G[src/sprint/steps/*]
 
-Detail: [Dashboard architecture](./dashboard-architecture.md).
+  R --> L[Express dashboard HTTP/WebSocket routes]
+  L --> M[Dashboard UI dashboard/src/v2/*]
+  M -->|poll + ws| N[/api/live, /api/realtime, etc]
 
-### Repositories
+  R --> Previews[Sprint Previews / Detached Docker]
+  L --> Previews
 
-All DB access goes through repository classes (`src/repositories/`). The default backend is **SQLite**. A migration plan to Postgres exists (see `docs/architecture/postgres-migration-plan.md` in the engineering archive).
+  F --> O[SQLite repositories]
+  L --> O
+  Previews --> O
 
-Subtask data is *also* persisted as markdown files for portability — see [Sprint format](../developer/sprint-format.md).
-
-### External integrations
-
-- **Jules Agent API** — REST via Axios (`src/integrations/jules-api-client.ts`), used as one provider among several.
-- **Provider CLIs** — via spawn (`gemini`, `codex`, `claude`, `qwen`, `opencode`).
-- **GitHub** — via `gh` CLI in `REMOTE` mode, local Git in `LOCAL` mode.
-- **Docker** — via the Docker socket (HTTP API).
-
-## Data flow: a sprint cycle
-
-```
-Dashboard click "Orchestrate"            MCP client calls grouped tools (e.g., manage_sprints:start) (manage_code_ux is deprecated)
-            │                                            │
-            ▼                                            ▼
-      POST /api/sprints/.../orchestrate        ToolRegistry → sprint-actions.ts
-            │                                            │
-            └────────────────────┬───────────────────────┘
-                                 ▼
-                        SprintActionRunner.runOrchestrate
-                                 │
-                                 ▼
-                       WatchLoopRunner.run (loop)
-                                 │
-              ┌──────────────────┴──────────────────┐
-              ▼                                      ▼
-         CycleRunner.run                   sleep(watchLoopInterval)
-              │
-   ┌──────────┴──────────────────────────────┐
-   ▼          ▼          ▼          ▼         ▼
- branch  load    session  status   start    merge
- preflight subtasks sync  derivation ready  protocol
-                                    tasks
-                                       │
-                       ┌───────────────┴────────────────┐
-                       ▼                                ▼
-              JulesApiClient.startTask        VirtualWorkerService.runProjectCycle
-                       │                                │
-                       ▼                                ▼
-                Jules hosted session          Docker / host CLI worker
-                       │                                │
-                       └────────────┬───────────────────┘
-                                    ▼
-                          Worker session events
-                                    │
-                                    ▼
-                  Real-time WebSocket → Dashboard
+  O --> DB1[(app.db)]
+  O --> DB2[(settings.db)]
+  O --> DB3[(session-tracking.db)]
 ```
 
-## Background loops (heartbeat services)
+## High-Level Data Flow
 
-| Loop | Interval | Purpose |
-| --- | --- | --- |
-| Runtime cleanup | 15 s | Prune dead MCP connections, expired leases. |
-| Sprint preview reconciliation | 15 s | Match preview session DB rows against running containers. |
-| Live snapshot refresh | 30 s | Recompute the dashboard live snapshot. |
-| Virtual worker reconcile | 3 s | Pick up new attention items, dispatch workers. |
-| Virtual worker session poll | 2 s | Poll active worker sessions for state. |
-| WebSocket heartbeat | 30 s (default) | Ping connected dashboard clients. |
+1. Client (MCP project-manager transport, dashboard HTTP/WebSocket, or worker) initiates a request.
+2. The server routes the request via the MCP router or Express HTTP layer.
+3. Handlers invoke the DB-backed orchestration engine, inbox system, or provider execution layer.
+4. Orchestrator executes atomic steps (via Docker, host CLI, or provider APIs) and updates runtime state.
+5. Dashboard polls `/api/live` for one combined runtime snapshot, while websocket updates and the execution event log keep task feeds fresh between polls.
+6. UI renders task pipeline, protocol instructions, and git/CI state.
+7. Custom dashboard drafts and revisions are persisted in SQLite; validation materializes an immutable revision in a project runtime directory, starts a detached Docker preview, records the validation report/log metadata, and leaves publication as a separate gated repository operation.
 
-## Failure modes
+## Configuration Priority Model
 
-- **Dashboard port in use** — Code UX increments the port and rebinds. The bound URL is logged.
-- **MCP stdio in TTY** — Code UX assumes interactive launch and skips stdio binding (so it does not garble your terminal). Use `--headless` or pipe stdin to engage stdio explicitly.
-- **API key missing** — boot continues; affected provider is marked `disabled` in detection. Tasks routed to that provider error.
-- **Heartbeat lease expiry** — a sprint run with an expired lease can be re-acquired by another runner instance. The original runner detects on next cycle and exits.
-- **Emergency stop** — see [Sprint engine → emergency stop](./sprint-engine.md#emergency-stop).
+Settings live in sqlite and are resolved by scope rather than file search.
 
-## Process supervision
+Priority order:
+1. sprint override
+2. project override
+3. system defaults
+4. built-in code defaults
 
-Code UX exits with non-zero status on:
+## Safety and Guardrails
 
-- Unhandled error during boot.
-- SIGTERM (graceful) / SIGINT.
-- Critical orchestration failure (rare; emergency stop is *recoverable*, not a process exit).
+- Consecutive session creation failures trigger emergency stop (`maxFailures`).
+- Branch preflight can block plan/orchestrate until local and remote sprint branch exist.
+- Planning preflight can block status/orchestrate until subtask files exist.
+- CI Intelligence settings add protocol-level merge guidance for comments/check gates.
+- `pnpm run ci` starts with the local quality guardrail script, which blocks stale artifacts, unsafe dependency placeholders, realtime snapshot persistence regressions, duplicate optimistic task insertion, and substantial duplicate implementation blocks before broader validation runs.
+- Hot realtime, execution projection, provider telemetry, session sync, and dashboard rendering paths must follow the [Code Quality And Performance Contracts](./code-quality-performance-contracts.md), including bounded snapshot slices and owner-specific verification commands.
 
-Use a process supervisor (systemd, pm2, Kubernetes deployment) for production. Code UX is stateless across restarts except for what's in the DB; restart frequency does not affect correctness.
+## Extensibility Model
+
+The system is designed for independent edits in these layers:
+- Tool interface layer (`src/mcp/*`)
+- Orchestration control layer (`src/sprint/sprint-orchestrator.ts`)
+- Step behavior layer (`src/sprint/steps/*`)
+- Human-facing protocol text layer (`agents.instructionTemplates` in settings)
+- Dashboard settings/presentation layer (`dashboard/src/v2/*`)

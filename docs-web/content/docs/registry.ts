@@ -776,8 +776,8 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     id: 'architecture-system-overview',
     path: '/docs/architecture-system-overview',
     section: 'Architecture',
-    title: "System overview",
-    description: "Code UX is a single Node process that hosts multiple cooperating services. This page describes that process model, the major services, and how data flows through them.",
+    title: "System Overview",
+    description: "Code UX is a container-first multi-provider runtime with an integrated dashboard and a DB-backed sprint orchestration engine.",
   },
   'architecture-mcp-server': {
     id: 'architecture-mcp-server',

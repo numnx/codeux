@@ -15,21 +15,19 @@ Code UX is a container-first multi-provider runtime with an integrated dashboard
 
 ### 1. Entrypoint and runtime composition
 - CLI/MCP entrypoint: `src/index.ts`
-- Responsibilities:
-  - Load `.env` and startup config.
-  - Construct and run `CodeUxServer`.
-- Worker entrypoint: `src/worker/index.ts` (worker-host mode)
+  - Loads `.env` and startup config.
+  - Constructs and runs `CodeUxServer`.
+- Worker entrypoint: `src/worker/index.ts` (worker-host mode for headless local execution on worker machines)
 - Electron shell: `src/electron/main.ts` (desktop shell)
 
-- Runtime composition file: `src/server/code-ux-server.ts`
-- Responsibilities:
-  - Instantiate repositories, services, handlers, orchestrator.
-  - Register MCP request handlers via `src/server/mcp-request-router.ts`.
-  - Start dashboard HTTP server (defaults to port 4444).
-  - Start MCP stdio transport only for an attached MCP pipe/socket or explicit `CODE_UX_ENABLE_MCP_STDIO=1`; daemon stdin such as `/dev/null` keeps stdio disabled.
-  - Report `/ready` only after settings, dashboard/MCP binding, and startup recovery have completed; `/health` remains the liveness probe.
-  - Serve cached dashboard live activity and git status via `src/server/activity-cache-service.ts`.
-- Dashboard dependency composition lives in `src/app/dependency-factory/dashboard-factory.ts`. When two dashboard services must be constructed before both concrete instances exist, the factory uses `LateBoundDependency<T>` from `src/shared/late-bound-dependency.ts` and links it synchronously before returning dependencies. Consumers resolve these holders at action time so missing links fail with an explicit late-bound dependency error instead of placeholder objects or private-field mutation.
+- Runtime composition boundary: `src/server/code-ux-server.ts`
+  - Instantiates the dependency factory (`src/app/dependency-factory.ts`), repositories, services, and the orchestrator.
+  - Registers MCP request handlers via `src/server/mcp-request-router.ts`.
+  - Starts the dashboard HTTP server (defaults to port 4444) and lifecycle services.
+  - Starts MCP stdio transport only for an attached MCP pipe/socket or explicit `CODE_UX_ENABLE_MCP_STDIO=1`; daemon stdin such as `/dev/null` keeps stdio disabled.
+  - Reports `/ready` only after settings, dashboard/MCP binding, and startup recovery have completed; `/health` remains the liveness probe.
+  - Serves cached dashboard live activity and git status via `src/server/activity-cache-service.ts`.
+- Dashboard dependencies are composed in `src/app/dependency-factory/dashboard-factory.ts`. When two dashboard services must be constructed before both concrete instances exist, the factory uses `LateBoundDependency<T>` from `src/shared/late-bound-dependency.ts` and links it synchronously before returning dependencies. This is purely a construction-time wiring mechanism; it does not act as a service locator or expose a dynamic public registry. Consumers resolve these holders at action time so missing links fail with an explicit late-bound dependency error instead of placeholder objects or private-field mutation.
 
 ### 2. MCP tool handlers
 - `src/mcp/core-tool-handler.ts`
@@ -87,34 +85,50 @@ Code UX is a container-first multi-provider runtime with an integrated dashboard
 
 ```mermaid
 flowchart TD
-  A[CLI/MCP Client] -->|launch / stdio| B[src/index.ts]
+  A[CLI/MCP Client] -->|stdio| B[src/index.ts]
+  E1[Desktop Shell] -->|IPC/HTTP| E2[src/electron/main.ts]
+  W1[Remote Worker] -->|HTTP| W2[src/worker/index.ts]
+
   B --> R[src/server/code-ux-server.ts]
-  R --> C[src/mcp/core-tool-handler.ts]
-  R --> D[src/mcp/agent-tool-handler.ts]
-  C --> E[src/integrations/jules-api-client.ts]
-  D --> F[src/sprint/sprint-orchestrator.ts]
+  E2 --> R
+  W2 --> R
+
+  R --> Q[MCP transports: stdio / HTTP]
+  Q --> Router[src/server/mcp-request-router.ts]
+
+  Router --> MTH[src/mcp/management-tool-handler.ts]
+  Router --> C[src/mcp/core-tool-handler.ts]
+  Router --> D[src/mcp/agent-tool-handler.ts]
+
+  MTH --> F[src/sprint/sprint-orchestrator.ts]
+  C --> F
+  D --> F
+
+  F --> S[Docker/host CLI providers & Providers API]
   F --> G[src/sprint/steps/*]
-  F --> H[src/instructions/instruction-template-service.ts]
-  H --> I[(settings.db)]
-  D --> J[src/services/task-service.ts]
-  R --> L[Express dashboard/API]
+
+  R --> L[Express dashboard HTTP/WebSocket routes]
   L --> M[Dashboard UI dashboard/src/v2/*]
-  M -->|poll| N[/api/live + /api/git-status/]
-  L --> O[SQLite repositories]
-  O --> P[(~/.code-ux/settings.db)]
-  R --> Q[MCP stdio/HTTP gateway]
-  F --> S[Docker/host CLI providers]
-  L --> T[Custom dashboard validation service]
-  T --> U[Detached Docker validation runtime]
-  T --> O
+  M -->|poll + ws| N[/api/live, /api/realtime, etc]
+
+  R --> Previews[Sprint Previews / Detached Docker]
+  L --> Previews
+
+  F --> O[SQLite repositories]
+  L --> O
+  Previews --> O
+
+  O --> DB1[(app.db)]
+  O --> DB2[(settings.db)]
+  O --> DB3[(session-tracking.db)]
 ```
 
 ## High-Level Data Flow
 
-1. MCP client sends tool call (e.g., grouped tools like `manage_sprints:start`, rather than the deprecated `manage_code_ux`) over stdio.
-2. Server dispatches tool to core or agent handler.
-3. Handler invokes the DB-backed dispatch engine, inbox system, and provider execution layer.
-4. Orchestrator runs atomic steps and updates `lastStatus`.
+1. Client (MCP project-manager transport, dashboard HTTP/WebSocket, or worker) initiates a request.
+2. The server routes the request via the MCP router or Express HTTP layer.
+3. Handlers invoke the DB-backed orchestration engine, inbox system, or provider execution layer.
+4. Orchestrator executes atomic steps (via Docker, host CLI, or provider APIs) and updates runtime state.
 5. Dashboard polls `/api/live` for one combined runtime snapshot, while websocket updates and the execution event log keep task feeds fresh between polls.
 6. UI renders task pipeline, protocol instructions, and git/CI state.
 7. Custom dashboard drafts and revisions are persisted in SQLite; validation materializes an immutable revision in a project runtime directory, starts a detached Docker preview, records the validation report/log metadata, and leaves publication as a separate gated repository operation.
