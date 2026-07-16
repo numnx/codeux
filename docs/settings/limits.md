@@ -21,6 +21,12 @@ Thresholds and maximum counts bound sprint/project memory volume and neural-map 
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
 
+### Memory and Graph Limits
+
+- **Memory Promotion:** `promotionThreshold` defaults to `0.5` (AI remediation can review candidates down to `0.45` before promotion).
+- **Storage Boundaries:** The total memory volume is capped by `maxSprintMemories` and `maxProjectMemories`.
+- **Graph Density:** Neural-map edge density is capped by `mapMaxEdgesPerNode`.
+
 ## Recommended Configuration
 
 Keep defaults until memory search becomes noisy or storage grows too quickly.

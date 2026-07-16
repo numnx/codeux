@@ -14,7 +14,7 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 ## Controls And Runtime Effect
 
 Pruning advances old runtime history in bounded idle-time batches, retention sets the age window,
-and optional startup page reclaim releases a bounded amount of free SQLite space.
+and optional startup page reclaim releases a bounded amount of free SQLite space. All local retention configurations are stored authoritatively in the SQLite `settings.db`, discarding legacy environment-first defaults.
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |

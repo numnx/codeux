@@ -8,7 +8,9 @@ planning prompts.
 ## Views
 
 - **Calendar** — a month view of upcoming occurrences.
-- **Day** — a focused list of what runs on a given day.
+- **24 Hours** — shows the selected day as an hour-by-hour timeline.
+
+The Calendar / 24 Hours switcher is implemented as a two-tab control supporting keyboard navigation (arrows, Home, and End keys). During a data refresh or reconnect, the UI retains cached entries and occurrences, marks the panel busy, and notifies assistive technology that cached data is being displayed.
 
 The Scheduler follows the dashboard's active English or German locale. Headers, controls, recurrence summaries, validation, confirmations, schedule statuses, sprint statuses in dependent-schedule choices, and announcements are translated, while dates and times use locale-aware formatting. Scheduled-entry details are formatted in the schedule's saved timezone and display its timezone ID unchanged. If a saved timezone ID is invalid or unsupported by the host, the page falls back to safe locale formatting and keeps the saved ID visible without changing it. Changing the dashboard language never changes saved timestamps, recurrence rules, sprint or target enums, payloads, names, prompts, messages, execution output, or server errors.
 
@@ -23,6 +25,8 @@ Each scheduler entry has a **target** — the thing that runs when it fires:
 | **Node flow** | Runs a saved project [node flow](./node-flows.md) with optional JSON object input. |
 | **Message** | Posts a project message (for example, a recurring planning or status prompt). |
 | **Memory remediation** | Runs the long-term memory cleanup workflow on a schedule. |
+
+The scheduler form validates absolute dates, positive recurrence intervals/counts, and recurrence end windows before submission, and suppresses duplicate submissions while a save is in flight. For node-flow schedules, the optional JSON input field must be a valid JSON object; empty input is omitted.
 
 Node-flow entries store `nodeFlowTarget = { flowId, input?, versionSelection }` inside the existing
 target JSON payload, validate that the flow belongs to the selected project, and run through the
@@ -56,12 +60,7 @@ explicitly overrides the default. Standalone MCP calls have no originating threa
 targets remain threadless. Both contextual and explicit targets must belong to the selected project when
 the wakeup is delivered.
 
-Completion-anchored wakeups are one-time entries. A sprint anchor resolves only when its source
-sprint reaches effective successful `completed` status; failed, cancelled, and otherwise non-completed
-source sprints do not trigger it. The scheduler uses the latest successful sprint run finish time when
-available, otherwise the completed sprint `endDate`, and then applies the configured offset. Task
-anchors continue to use terminal task run or dispatch finish evidence before falling back to the
-task update time.
+Relative anchoring allows schedules to run **After another sprint ends** or **After another task ends**. Anchored schedules are one-time only (recurrence is disabled) and show a relative timing summary in the UI (e.g., `After Release Prep ends + 15 minutes`) instead of a static "Next run" timestamp. A sprint anchor resolves only when its source sprint reaches effective successful `completed` status; failed, cancelled, and otherwise non-completed source sprints do not trigger it.
 
 When a scheduled sprint becomes due, the scheduler submits it through the same Start path as the
 dashboard and MCP API. A sprint with existing tasks proceeds directly to orchestration. A draft with
@@ -100,8 +99,14 @@ From the page you can:
 
 - **Create** an entry — pick a target, set the time, and choose a recurrence rule.
 - **Edit** a dashboard-created entry's target, time, or recurrence.
-- **Pause / resume** an entry without deleting it.
-- **Delete** an entry.
+- **Pause / resume** an entry without deleting it. Pausing stops automated runs without deleting history. Resuming recalculates execution to the first *future* occurrence, preventing a catch-up storm of missed executions.
+- **Delete** an entry. Executing destructive actions like deletion via developer CLI/MCP tools requires explicit confirmation/approval gates.
+
+While operators can fully edit dashboard-created schedules (including customizable titles), agent-created wakeups (`agent_wakeup` and `task` targets) are display-only in the form to preserve metadata. Operators can still pause, resume, or delete them.
+
+### Failures & Execution Outcomes
+
+If a scheduled execution fails, the schedule status moves to `failed` and displays the error in the dashboard schedule list. For sprint targets, planning errors are shown directly on the scheduler entry's status, but once planning succeeds and the sprint begins, subsequent provider failures are tracked on the sprint runs instead of rewriting the schedule entry.
 
 Scheduler changes broadcast over the dashboard's realtime channel, so the calendar stays in sync
 across open clients. Scheduled runs appear in the [Live Session](./live-session.md) and
