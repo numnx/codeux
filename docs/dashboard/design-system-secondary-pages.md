@@ -40,3 +40,9 @@ export function SecondaryPage() {
   );
 }
 ```
+
+## Verification Guidance
+
+```bash
+pnpm run typecheck:dashboard
+```

@@ -224,7 +224,7 @@ Cards are the primary container. Every card follows this base:
                 border border-black/[0.06] dark:border-white/[0.06]
                 rounded-[1.75rem]
                 p-7
-                shadow-[0_2px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)]
+                var(--elevation-base) dark:var(--elevation-raised)
                 group">
 ```
 
@@ -295,7 +295,7 @@ A contained tab strip — not individual tab buttons:
 ```tsx
 <div className="flex gap-1 p-1 bg-black/[0.04] dark:bg-white/[0.04] rounded-xl">
     {filters.map(filter => (
-        <button className={`text-xs font-semibold tracking-wide px-3 py-1.5 rounded-lg transition-all duration-200
+        <button className={`text-xs font-semibold tracking-wide px-3 py-1.5 rounded-lg transition-all duration-[var(--interaction-control-feedback-duration)]
             ${isActive
                 ? 'bg-white dark:bg-void-700 text-slate-900 dark:text-white shadow-[0_1px_4px_rgba(0,0,0,0.08)]'
                 : 'text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
@@ -313,7 +313,7 @@ A contained tab strip — not individual tab buttons:
                 bg-white/95 dark:bg-void-800/95 backdrop-blur-2xl
                 border border-black/[0.06] dark:border-white/[0.08]
                 rounded-2xl
-                shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)]
+                var(--elevation-floating) dark:var(--elevation-floating)
                 overflow-hidden z-50">
 ```
 
@@ -347,12 +347,12 @@ A contained tab strip — not individual tab buttons:
 
 | Use case | Duration |
 |---|---|
-| Color / opacity (instant feedback) | `duration-200` |
-| Border / background (card hover) | `duration-300` |
-| Filter / glow | `duration-400` |
-| Border trace expansion | `duration-500` to `duration-700` |
-| Wave fade-in | `duration-700` |
-| Theme transition | `duration-700` |
+| Color / opacity (instant feedback) | `var(--interaction-control-feedback-duration)` |
+| Border / background (card hover) | `var(--interaction-enter-exit-duration)` |
+| Filter / glow | `var(--interaction-expansion-collapse-duration)` |
+| Border trace expansion | `var(--interaction-list-reveal-duration)` to `var(--interaction-async-feedback-duration)` |
+| Wave fade-in | `var(--interaction-async-feedback-duration)` |
+| Theme transition | `var(--interaction-async-feedback-duration)` |
 
 ### Organic Morph Animation
 
@@ -392,8 +392,8 @@ style={{ width: '200%', left: 0, animation: 'wave-drift 9s linear infinite rever
 The 3-edge border trace that appears on metric card hover:
 
 ```
-Bottom:  scale-x-0 → scale-x-100, origin-center, duration-700, ease cubic-bezier(0.4,0,0.2,1)
-Sides:   scale-y-0 → scale-y-[0.7], origin-bottom, duration-500, delay-200
+Bottom:  scale-x-0 → scale-x-100, origin-center, var(--interaction-async-feedback-duration), ease cubic-bezier(0.4,0,0.2,1)
+Sides:   scale-y-0 → scale-y-[0.7], origin-bottom, var(--interaction-list-reveal-duration), delay-200
 ```
 
 The delay means bottom fires first, then sides rise — creating a sequential "framing" motion. The gradient on each line fades to transparent at its ends so it blends naturally with the card corner.
@@ -550,11 +550,11 @@ Opacity values: 3%–6% in light mode, 5%–10% in dark mode. These should be ba
 
 | Context | Shadow |
 |---|---|
-| Card (light) | `shadow-[0_2px_20px_rgba(0,0,0,0.04)]` |
-| Card (dark) | `shadow-[0_4px_24px_rgba(0,0,0,0.2)]` |
-| Dropdown | `shadow-[0_20px_40px_rgba(0,0,0,0.12)]` dark: `..._rgba(0,0,0,0.4)]` |
-| Dock | `shadow-[0_20px_50px_rgba(0,0,0,0.08)]` dark: `..._rgba(0,0,0,0.5)]` |
-| Button CTA | `shadow-[0_4px_12px_rgba(0,0,0,0.15)]` |
+| Card (light) | `var(--elevation-base)` |
+| Card (dark) | `var(--elevation-raised)` |
+| Dropdown | `var(--elevation-floating)` dark: `..._rgba(0,0,0,0.4)]` |
+| Dock | `var(--elevation-floating)` dark: `..._rgba(0,0,0,0.5)]` |
+| Button CTA | `var(--elevation-raised)` |
 
 **Rule:** `rgba(0,0,0,x)` for all shadows — never colored shadows on structural elements. Colored glows (`shadow-[0_0_10px_rgba(0,224,160,0.6)]`) are only for status dots and active state indicators.
 
@@ -662,4 +662,13 @@ dashboard/src/v2/
         HeaderStats.tsx               — Metric cards with sparklines + wave hover
         SourcesGrid.tsx               — Organic blob project cells
         TasksList.tsx                 — Active task rows with filter strip
+```
+
+
+## Verification Guidance
+
+For documentation-only primitive changes, run:
+
+```bash
+pnpm run typecheck:dashboard
 ```

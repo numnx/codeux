@@ -59,7 +59,7 @@ When the styleguide remains `none`, Project Setup still asks the setup agent to 
 
 ## Related Docs
 
-- [Dashboard Guide](./dashboard-guide.md)
+- [Dashboard Guide](dashboard-guide.md)
 - [Guidance Settings](../settings/guidance.md)
 - [Configuration and Storage](../settings/configuration-and-storage.md)
-- [Project Initialization](./project-initialization.md)
+- [Project Initialization](project-initialization.md)
