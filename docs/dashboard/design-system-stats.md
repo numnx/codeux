@@ -4,7 +4,7 @@
 
 The `/stats` page is Code UX's project-scoped analytics workspace. It turns `ProjectExecutionStatsSnapshot` data, Git rollups, and invocation records into a dense operational surface for usage trends, composition, model performance, provider reliability, task and sprint ledgers, Git telemetry, and system invocation inspection.
 
-Stats should feel aligned with the broader dashboard design system, but it is intentionally denser than the chat and overview surfaces. Chat remains a conversation workspace, Overview remains a cross-project operations summary, and Stats is the place for repeated measurement, comparison, filtering, and audit-style review. For adjacent visual language, see [Chat Design System](./design-system-chat.md), [Dashboard Design System Overview](./design-system-overview.md), and [Usage Telemetry And Stats](../architecture/usage-telemetry-and-stats.md).
+Stats should feel aligned with the broader dashboard design system, but it is intentionally denser than the chat and overview surfaces. Chat remains a conversation workspace, Overview remains a cross-project operations summary, and Stats is the place for repeated measurement, comparison, filtering, and audit-style review. For adjacent visual language, see [Chat Design System](design-system-chat.md), [Dashboard Design System Overview](design-system-overview.md), and [Usage Telemetry And Stats](../architecture/usage-telemetry-and-stats.md).
 
 ## Data Contract
 
@@ -220,7 +220,7 @@ The Cost task/sprint ledger consumes those prepared detail rows directly. Its Ta
 - Tables, chart summaries, filter bars, date validation messages, pagination, and transcript panels must not create page-level horizontal scrolling.
 - Touch targets and keyboard focus order remain usable at phone widths.
 
-See [Mobile Responsiveness](./mobile-responsiveness.md) for dashboard-wide constraints.
+See [Mobile Responsiveness](mobile-responsiveness.md) for dashboard-wide constraints.
 
 ## Accessibility
 

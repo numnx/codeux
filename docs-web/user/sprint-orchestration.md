@@ -26,8 +26,10 @@ A single orchestration *cycle* runs the following pipeline (each step is indepen
 4. **sessionSync** — Synchronize the latest state of every active provider invocation (hosted and CLI providers).
 5. **statusDerivation** — Apply state rules to derive each subtask's effective status (`PENDING`, `RUNNING`, `CODING_COMPLETED`, `COMPLETED`, etc.).
 6. **startReadyTasks** — Find subtasks whose dependencies are met and start a new worker session for each. Concurrency is capped per provider via `maxConcurrentTasks`.
-7. **protocol** — Run the [CI gate](./automation-and-ci.md): create PRs, watch CI, evaluate QA, auto-merge per policy, surface attention items for conflicts and CI failures. Also handles action-required automation for plan approvals, clarification answers, and paused sessions.
-8. **statusTable** — Render the cycle report.
+7. **protocol** — Run the [CI gate](./automation-and-ci.md): create PRs, watch CI, auto-merge per policy, surface attention items for conflicts and CI failures. Also handles action-required automation for plan approvals, clarification answers, and paused sessions.
+8. **qaReview** — Optional QA review pass.
+9. **statusTable** — Render the cycle report.
+10. **completion** — Sprint completion evaluation.
 
 Each step is independently catchable; a failure in one step does not crash the cycle. Errors are logged and surface as attention items.
 
@@ -144,7 +146,7 @@ To prevent runaway costs from a misconfiguration, Code UX tracks **consecutive t
 - The watch loop exits.
 - A subsequent run resets the counter from zero.
 
-Override via `maxFailures` in settings or `JULES_API_MAX_FAILS` in the environment. Recommended floor: `3`.
+Override via `maxFailures` in settings or `HOSTED_PROVIDER_API_MAX_FAILS` in the environment. Recommended floor: `3`.
 
 ## Retries
 

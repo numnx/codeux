@@ -41,9 +41,10 @@ A cycle runs the following steps. Each step is independently togglable via `spri
 | `sessionSync` | Synchronizes hosted provider sessions and local/CLI/worker dispatch state through execution records and provider invocations. |
 | `statusDerivation` | Applies pre-CI status normalization rules (e.g., `COMPLETED` returning to `CODING_COMPLETED` for pending merges). |
 | `startReadyTasks` | Finds `PENDING` tasks with resolved dependencies and concurrency slack, creates DB dispatches, and starts the session via a provider (hosted or CLI/Docker). |
-| `actionRequiredProtocol` | Provider-agnostic auto-handling of plan approvals, clarification replies (using Project manager preset), and paused sessions. |
-| `mergeProtocol` | Evaluates completed coding work (`CODING_COMPLETED`) against QA review budgets, CI gates, and PR merge readiness. Includes logic for transitions back to in-progress when work is rejected or unready. |
+| `protocol` | Handles action-required automation and merge protocol. |
+| `qaReview` | Optional QA review pass. |
 | `statusTable` | Compiles the cycle report and aggregates attention items. |
+| `completion` | Sprint completion evaluation. |
 
 Each step catches its own errors. A failure logs the error, surfaces an attention item if appropriate, and proceeds to the next step. The cycle does *not* abort.
 
@@ -150,7 +151,7 @@ if (currentFails >= options.maxFailures) {
 
 Effect: the cycle aborts, the watch loop exits, the sprint pauses with the error attached. A subsequent run resets the counter from 0.
 
-Override: `maxFailures` setting or `JULES_API_MAX_FAILS` env. Recommended floor: 3.
+Override: `maxFailures` setting or `HOSTED_PROVIDER_API_MAX_FAILS` env. Recommended floor: 3.
 
 ## CI autofix retries
 

@@ -18,11 +18,13 @@ Switch scope with the selector at the top:
 - **Project** — applies to the active project.
 - **Sprint** — applies to the selected sprint within the active project.
 
-The sticky command/status bar keeps the System/Project selector, project availability or inheritance context, active panel, and the Reset Project / Save Changes actions visible together while you scroll. Smart Find stays compact by showing only the search field until you type; active searches then show result status and match-preview chips while the exact category total remains available to assistive technology.
+The sticky command/status bar keeps the System/Project selector, project availability or inheritance context, active panel, and the Reset Project / Save Changes actions visible together while you scroll. The bar maintains a unified sticky, theme-aware tinted surface. The child scope selector, context chips, and active-panel status own their tokenized borders, glass fills, focus rings, and reduced-motion-safe saved/dirty cues. Unsaved edits remain safely in the draft until explicitly submitted, and switching the scope selector itself persists the last active scope without implicitly committing dirty form fields from the unrelated previous scope.
+
+Project scope exposes a visible inherited/overridden summary while preserving per-field badge semantics: inherited fields stay neutral, and project overrides display as an amber badge resettable only when the active scope allows clearing them. Invalid save attempts immediately scroll the first invalid enabled control into view within the active panel without discarding drafts. Danger actions, such as resets or deletions, retain a status-red treatment and prompt for verification.
 
 On desktop, categories stay visible in the left rail and the active settings content starts at the top of the right workspace. Labels and linked controls within a setting row also align from the top when either side wraps onto multiple lines. On smaller screens, the command bar shows one compact current-category button instead of the full rail. Open it to use the same Smart Find-filtered category list and match previews in a drawer. Arrow keys move between categories, Enter or Space selects one, and Escape closes the drawer and restores focus to the category button.
 
-The last selected **System** or **Project** scope is remembered in the local database as part of system runtime settings. Changing only that selector is saved immediately and does not save unrelated draft edits in the active settings form.
+Smart Find stays compact by showing only the search field until you type; active searches then show result status and match-preview chips while the exact category total remains available to assistive technology.
 
 ## Categories
 
@@ -30,7 +32,7 @@ The desktop rail and mobile category drawer include these Expert-mode categories
 
 | Category | What it covers |
 | --- | --- |
-| **General** | Scope context, experience mode, automation posture, runtime logging, Docker runtime, restart behavior, onboarding, and System legal actions. |
+| **General** | Scope context, experience mode, automation posture, runtime logging, Docker runtime, restart behavior, onboarding, open source software, and legal actions. |
 | **Appearance** | Theme, accessible accent preset, navigation mode, motion preference, background, and desktop zoom. |
 | **AI Models** | Language-first local speech setup, downloadable embedding/STT/TTS catalogs, API speech settings, provider anchors, routing, model choices, thinking mode, weighting, and pricing. |
 | **Sprint & Git** | Git flow, PR behavior, merge gates, QA, guardrails, branch naming, and execution runtime controls. |
@@ -61,7 +63,7 @@ No model downloads automatically. **Download recommended** opens the named model
 
 AI Models and Memory settings follow the active dashboard language. German mode translates routing, model and speech controls, pricing, catalog filters, download confirmation, and memory remediation labels. Counts, model sizes, percentages, prices, and memory limits use German number separators where applicable. Provider/model IDs, language tags, BCP-47 values, voice IDs, API-returned language and model metadata, license and attribution text, and runtime diagnostics remain unchanged.
 
-## General legal actions
+## Legal actions and open source software
 
 In System scope, the General category includes a legal-actions card alongside its runtime and setup controls:
 

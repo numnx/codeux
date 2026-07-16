@@ -23,6 +23,13 @@ Container cap, host port start/end, internal app port, startup path/command, and
 | Default startup command | Replaces auto-detected preview startup for this scope. A Browser sidebar container override takes precedence. | Keep `HOST=0.0.0.0` and the Code UX preview port variables in commands that start a listener. |
 | Allow Docker access | Mounts the local Unix Docker socket and validates Docker CLI/daemon access before app startup. | Treat this as host-level control and enable it only for trusted repositories. |
 
+### Docker Limits and Behavior
+
+- **Memory Limits:** Docker containers are subject to `containerMemoryLimitMb`, which defaults to `6144` MiB as a hard ceiling (passed as both `--memory` and `--memory-swap`). Setting this to `0` disables memory limits.
+- **Preview Limits:** Previews are bound to `127.0.0.1` and are port-allocated from the configured host port range. `maxConcurrentContainers` caps active preview containers per project by terminating the oldest running previews before starting a new one.
+- **Container Names:** Docker provider runs use readable container names such as `code-ux-codex-<session>` and stage provider argv in a temporary host file. Interactive provider login containers use readable names such as `code-ux-login-<provider>-<session>`.
+- **Cleanup:** On startup, Code UX schedules Docker asset pruning in the background using label-filtered queries so dashboard boot is not blocked by Docker cleanup. When a Docker-backed provider run is cancelled, Code UX directly kills the backing container on abort instead of relying on the local client to tear it down.
+
 ## Recommended Configuration
 
 Keep preview ports on localhost-only ranges and set the app port to the project dev server port.

@@ -58,3 +58,5 @@ The contracts below are implemented across `dashboard/src/v2/components/ui/*`, `
 - Run `pnpm run build` after documentation or dashboard changes so server build, dashboard typecheck, and Vite packaging agree.
 - When runnable, start `pnpm run dev` and verify the dashboard route still responds with `GET http://localhost:4444` or the logged fallback port.
 - For accessibility regressions, prefer deterministic tests that assert roles, accessible names, labels, live-region urgency, `aria-busy`, `aria-sort`, mobile labels, focus restoration, and overflow-safe classes over broad snapshots.
+
+- Run `pnpm run typecheck:dashboard` to verify documentation-only changes.

@@ -20,6 +20,7 @@ Operational values remain verbatim in every locale: provider and dependency name
 
 The onboarding UI is orchestrated by `OnboardingExperience.tsx`, which delegates rendering logic to individual step components under `dashboard/src/v2/components/onboarding/`:
 - `OnboardingInstallationStep.tsx`
+- `OnboardingIntro.tsx`
 - `OnboardingIntroductionStep.tsx`
 - `OnboardingProvidersStep.tsx`
 - `OnboardingProviderSetupStep.tsx`
@@ -28,6 +29,7 @@ The onboarding UI is orchestrated by `OnboardingExperience.tsx`, which delegates
 - `OnboardingDefaultsStep.tsx`
 - `OnboardingAutomationStep.tsx`
 - `OnboardingAppearanceStep.tsx`
+- `GuidedDashboardTour.tsx`
 
 Navigation and step-sequencing state is managed by the shared `useOnboardingStepFlow` hook, allowing the orchestrator to act purely as a view-router and state-manager while the step components remain thin and focused. The hook owns a typed reducer for the onboarding session: modal visibility, active step, readiness payload, selected providers, the settings draft, saving state, and the displayed error. `OnboardingExperience.tsx` still performs the API calls, but it commits API results and user interactions through explicit reducer actions instead of coordinating independent `useState` setters.
 

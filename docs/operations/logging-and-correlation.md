@@ -74,15 +74,14 @@ The Dashboard General settings page stores separate system runtime settings for 
 
 ## MCP Correlation Flow
 
-1. `src/server/code-ux-server.ts` passes a correlation wrapper to `registerMcpRequestHandlers`.
-2. For each MCP `CallTool` request:
-   - correlation ID is read from request metadata/arguments when present,
-   - otherwise generated.
+1. `src/server/code-ux-server.ts` defines `runWithMcpCorrelationContext`, which extracts `correlationId` from `request.params._meta?.["x-correlation-id"]` or request arguments when present; otherwise, it generates one.
+2. This context wrapper is passed to `registerMcpRequestHandlers` in `src/server/mcp-request-router.ts`.
 3. Dispatch runs inside `AsyncLocalStorage`, so logs from the dispatch path include the same correlation ID.
 
 ## Dependency Injection
 
-`src/app/dependency-factory.ts` creates the root logger once and injects scoped child loggers into runtime services (core tool handler, activity cache, task rerun, CLI workflow, and router/dashboard paths).
+- `src/app/dependency-factory.ts` and factories under `src/app/dependency-factory/` construct the root logger once.
+- Scoped child loggers are injected into runtime services (e.g., core tool handler, activity cache, task rerun, CLI workflow, and router/dashboard paths).
 
 ## Provider Telemetry Events
 
@@ -151,9 +150,21 @@ Realtime event storage is deliberately bounded:
 - Live-only snapshot events are not persisted, but their in-memory scope watermarks force `snapshot_required` when a reconnecting client missed them.
 - Invalid scopes return no replay rows instead of falling back to an all-history scan.
 
+## Triage Example: Request Correlation vs Invocation Context
+
+Logs use scoped identifiers so you can trace what triggered an action without combining multiple concepts into one string.
+
+- **HTTP Request Context:** Follow the `correlationId` (`x-correlation-id`). This groups the route lifecycle (e.g., `req`, `res`, `SEC` auth checks, `HTTP` parser, `EntityNotFoundError`) into one traceable flow. Do not log credentials, raw auth tokens, or private user details.
+- **Provider Invocation Context:** Follow the `invocationId`, `sessionId`, and `nativeSessionId`. These track specific provider telemetry events like `INVK` token usage and rate limits, decoupling them from whichever dashboard request or MCP tool actually initiated the poll.
+
+Example: An MCP request fails because of rate limits.
+1. Grep for `correlationId` to see the exact HTTP request flow (`MCP` tool start, auth, `MCP` tool failure).
+2. Look at the failing tool log to find the associated `invocationId`.
+3. Grep for `invocationId` to see the specific `INVK` rate limit warning.
+
 ## Route Error Status Behavior
 
-Dashboard HTTP requests handled by `syncRoute` or `asyncRoute` automatically map thrown errors to an `HttpRouteError` with the appropriate HTTP status code:
+Dashboard HTTP requests handled by `syncRoute` or `asyncRoute` in `src/server/route-utils.ts` automatically map thrown errors via `src/server/http-errors.ts` to an `HttpRouteError` with the appropriate HTTP status code:
 - `ValidationError` maps to `400 Bad Request`.
 - Request parser exceptions (errors with messages starting with "Invalid " or "Missing ") map to `400 Bad Request`.
 - `EntityNotFoundError` maps to `404 Not Found`.

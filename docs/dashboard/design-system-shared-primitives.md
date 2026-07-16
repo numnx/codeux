@@ -112,6 +112,7 @@ For primitive UI changes, run source-adjacent component tests for the changed pr
 pnpm exec vitest run dashboard/src/v2/components/ui/__tests__ dashboard/src/v2/components/forms/__tests__
 pnpm run test:dashboard
 pnpm run typecheck:dashboard
+rg "Avantgarde" dashboard/src/v2/components/ui/
 ```
 
-For route-level verification, see the [Dashboard Accessibility Quality Audit](./accessibility-quality-audit.md).
+For route-level verification, see the [Dashboard Accessibility Quality Audit](accessibility-quality-audit.md).

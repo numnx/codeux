@@ -21,6 +21,12 @@ Tokens, GitHub auth mounting, auth paths, local git config copy, and container g
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
 
+### Auth Modes
+
+HTTPS remotes use the configured dashboard token as a temporary Git extraheader during origin refresh, remote branch checks, and branch pushes. HTTPS origin refreshes and branch preflight network checks run with interactive credential prompts disabled and a bounded timeout so orchestration cannot remain stuck waiting on local credential helpers.
+
+SSH remotes continue to use the local SSH agent/key setup unchanged. Ensure SSH keys are available to the host environment when running Code UX.
+
 ## Recommended Configuration
 
 Prefer least-privilege tokens and use local auth copy only on trusted machines.
@@ -49,6 +55,8 @@ If the saved setting does not appear to take effect:
 - Check for a project or sprint override that takes precedence over the system value.
 - Refresh the affected dashboard page if the setting controls a rendered surface.
 - Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
+
+If GitHub operations block indefinitely or timeout, check that your token is valid and that you aren't using an unauthenticated HTTPS endpoint that falls back to interactive credential prompts.
 
 ## Related Documentation
 

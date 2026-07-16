@@ -34,8 +34,10 @@ Controlled by `dashboardSettings.sprintLoopSteps`:
 - `statusDerivation`
 - `startReadyTasks`
 - `protocol`
+- `qaReview`
 - `statusTable`
 - `watchLoop`
+- `completion`
 
 ## Loop Flow Diagram
 
@@ -63,10 +65,16 @@ flowchart TD
   O --> P[start-ready-tasks-step]
   P --> Q{protocol}
   Q --> R[protocol-step]
-  R --> S{statusTable}
+  R --> R1{qaReview}
+  R1 -->|enabled| R2[qa-review-step]
+  R1 -->|disabled| S{statusTable}
+  R2 --> S{statusTable}
   S --> T[status-table-step]
   T --> U{wait && watchLoop}
-  U -->|true| V[watch loop cycles]
+  U -->|true| U1{completion}
+  U1 -->|enabled| U2[completion-step]
+  U1 -->|disabled| V[watch loop cycles]
+  U2 --> V[watch loop cycles]
   U -->|false| W[single-cycle report]
 ```
 
@@ -271,6 +279,16 @@ pnpm run lint
 Rollback sprints use the same dependency, Git, conflict-repair, and final merge gates as standard sprints. An automatic rollback enters the loop with a settled audit task and skips completion QA and memory-remediation provider work. Agent-assisted rollbacks run their generated rollback task normally. In remote mode, rollback finalization always enables PR tracking and an otherwise disabled main-PR mode becomes `CREATE_PR` for that rollback only. In local mode, finalization leaves PR monitoring disabled and merges the local rollback branch into the configured default branch through the standard temporary-worktree path.
 
 See [Sprint Rollbacks](../architecture/sprint-rollbacks.md) for safety classification and persistence details.
+
+
+## State Transitions & Recovery
+
+- **Pause**: Transitions `sprint_run` status to `paused` and writes a `sprint_pause_requested` event. For active dispatches, `docker_cli` is aborted, `hosted_provider` receives a halt session message, leases are released, dispatch status becomes `paused`, and `task_run` state becomes `PAUSED` (appending a `dispatch_paused` event). Tasks are reset to `pending` in the database.
+- **Cancel**: Transitions `sprint_run` to `cancelled`, writes a `sprint_cancelled` event, and releases the sprint lease. Active `queued`/`claimed`/`paused` dispatches are set to `cancelled` (with `task_run` -> `BLOCKED`). Running dispatches are force-stopped. Resolves transient merge attention (`merge_required`, `merge_conflict`, and `manual_attention`).
+- **Resume**: Appends a `sprint_resume_requested` event, releases stale leases, transitions the `sprint_run` back to `running` (reusing the same ID), and spawns a new orchestrator cycle.
+- **Emergency Stop**: Counter tracks consecutive task-start failures. If it hits the threshold (default `5`, configured by `maxFailures` or `HOSTED_PROVIDER_API_MAX_FAILS`), the cycle aborts, the watch loop exits, and the sprint run pauses with the error.
+- **Restart Recovery**: Resumes `queued` and `running` sprint runs in place using their original IDs, releases orphaned leases, cleans up stale dispatches (reconciling dispatches to terminal state if their `task_run` is terminal), and transitions stalled runs without a lease to `failed` with reason `orchestration_heartbeat_stalled`.
+- **Cleanup**: Clears temporary workspaces and CLI worktrees, and triggers memory auto-promotion on terminal transitions.
 
 ## Files and Data Used
 

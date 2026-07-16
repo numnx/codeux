@@ -21,6 +21,13 @@ Cadence, remediation mode, and local run time create or pause a project-specific
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
 
+### Database Maintenance and Cleanup
+
+Code UX schedules automated database maintenance in the background when `dbPruningEnabled` is true (the default).
+- Each idle pass scans and mutates at most `500` rows per table while pruning old task runs, realtime events, and logs.
+- Completed runs and logs are retained for `dbRetentionDays` (default `14` days).
+- Automatic maintenance never issues full `VACUUM` or `TRUNCATE` operations. The optional startup reclaim process requests at most `256` incremental-vacuum pages, and controlled WAL maintenance uses `PASSIVE` checkpoints only when no provider invocation is active.
+
 ## Recommended Configuration
 
 Use weekly deterministic cleanup for active projects with steady sprint volume.

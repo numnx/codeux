@@ -22,7 +22,7 @@ Canvas dragging is previewed in component-local state and commits one graph posi
 
 Validation and dry run report structural errors, requested capabilities, credential requirements, side-effect changes, and policy findings; dry run does not invoke handlers. Publication requires the current draft revision, a valid governed review, and every required credential binding. Published snapshots are immutable, and version comparison and rollback preserve that history. Only published versions run.
 
-The debugger reads persisted flow runs, node runs, attempts, retry decisions, approvals, invocation links, timing, and redacted input and output. Cancellation, safe retry, and approval decisions update the same durable pinned run rather than creating an unrelated execution. Scheduling targets a pinned or latest-published version from the [Scheduler](./scheduler.md).
+The debugger reads persisted flow runs, node runs, attempts, retry decisions, approvals, invocation links, timing, and redacted input and output. Cancellation, safe retry, and approval decisions update the same durable pinned run rather than creating an unrelated execution. Scheduling targets a pinned or latest-published version from the [Scheduler](scheduler.md).
 
 The inspector loads project-owned agent presets and the selected flow's current skill attachments. Attach and detach operations refresh those bindings through the governed backend routes, while project and flow transitions clear stale UI state and cancel or ignore obsolete reads. Only agent and skill metadata is rendered; agent instructions, custom source, credentials, and decrypted values remain outside this surface.
 
@@ -34,4 +34,4 @@ The Nodes workspace is available in English and German through the dashboard loc
 
 Localization never mutates the governed workflow. Node and edge ids, node types, widget keys, configuration and select values, graph JSON, command names, migration storage keys, attachment skill names, API diagnostics, run logs, and provider payloads remain byte-for-byte contract data. A project or flow change also invalidates late run-history reads so an older flow cannot repopulate the localized debugger.
 
-For the detailed editing contract, see [Nodes Canvas](./nodes-canvas.md). For API behavior, publication, execution, and scheduling, see [Node Flows Dashboard](./node-flows.md).
+For the detailed editing contract, see [Nodes Canvas](nodes-canvas.md). For API behavior, publication, execution, and scheduling, see [Node Flows Dashboard](node-flows.md).

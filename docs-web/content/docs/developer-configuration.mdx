@@ -170,10 +170,12 @@ Docker-backed provider runs read persisted scoped settings from `cliWorkflow`.
 
 ## Logging
 
-Code UX emits structured JSON logs to stdout. Log levels respect `NODE_ENV`:
+Code UX emits structured JSON logs to stdout and/or a debug file. Log levels generally respect `NODE_ENV` (e.g., `production` defaults to JSON formatting, while other environments default to single-line colored text if stdout is a TTY).
 
-- `production` → `info` and above.
-- `development` (default) → `debug` and above.
-- `test` → `warn` and above.
+Log visibility can be managed specifically with configuration:
+- `consoleLogLevel`: Sets the threshold for stdout (can be `off`, `debug`, `info`, `warn`, or `error`).
+- `debugLogFileLevel`: Sets the threshold for `.code-ux/debug.log` (can be `off`, `debug`, `info`, `warn`, or `error`).
 
-Each log line includes a `correlationId`. Cycles, dispatches, and HTTP requests propagate their correlation IDs so you can grep across the whole pipeline.
+Each log line is categorized by a stable `logPurpose` (such as `INVK` for provider invocation, `HTTP` for requests, `MCP` for tools, `LIVE` for realtime events, `SEC` for security, etc.) and includes a `correlationId`.
+
+Cycles, dispatches, HTTP requests, and MCP tools automatically propagate their correlation IDs (often managed via the `x-correlation-id` header or metadata contexts) so you can grep across the whole pipeline reliably without relying on custom log strings.
