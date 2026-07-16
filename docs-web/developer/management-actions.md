@@ -185,7 +185,7 @@ Attempt projections expose numbered status history, failure classifications, ret
 | `delete` | ✅ | `entryId` | Delete a scheduler entry. |
 | `run_due` | – | optional `now` ISO date override | Evaluate due entries immediately, mostly for operational verification. |
 
-`create` accepts nested targets (`sprintTarget`, `quicksprintTarget`, `chatTarget`, `nodeFlowTarget`) or the flattened fields used by the `schedule_*` aliases. `schedule_sprint`, `schedule_quicksprint`, `schedule_chat`, and `schedule_node_flow` infer the target type. Scheduling supports an absolute time (`scheduledFor`) or an `after_sprint_end` anchor via `scheduleMode` or `anchorMode`, with `sourceSprintId` / `anchorSourceSprintId` and optional `offsetMinutes` / `anchorOffsetMinutes`.
+`create` accepts nested targets (`sprintTarget`, `quicksprintTarget`, `chatTarget`, `nodeFlowTarget`) or the flattened fields used by the `schedule_*` aliases. `schedule_sprint`, `schedule_quicksprint`, `schedule_chat`, and `schedule_node_flow` infer the target type. Scheduling supports an absolute time (`scheduledFor`) or an anchor completion event via `scheduleMode` (aliased as `anchorMode`). Supported anchors are `after_sprint_end` (using `sourceSprintId` or `anchorSourceSprintId`) and `after_task_end` (using `sourceTaskId` or `anchorSourceTaskId`), both with optional `offsetMinutes` (aliased as `anchorOffsetMinutes`).
 
 Memory remediation schedules use `targetType: "memory_remediation"` but have their own dedicated `/api/projects/:projectId/scheduler/memory-remediation` HTTP routes separate from the normal scheduler entries.
 
@@ -363,3 +363,5 @@ Read-only execution telemetry.
 - `create` actions are *not* idempotent — repeated calls create multiple rows. Track returned IDs.
 - `update`, `select`, `start`, `pause`, `cancel`, `stop` are idempotent within their state class.
 - `delete` is idempotent after the first successful call (subsequent calls return NOT_FOUND).
+- `request_clarification` deduplicates strictly on its `deduplicationKey`. Identical requests return the active record; key reuse across different content/scopes is rejected.
+- `manage_memory` search and claim actions guarantee deduplication within their project scopes to ensure safe retries.
