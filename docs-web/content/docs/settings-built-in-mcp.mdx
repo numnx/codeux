@@ -17,42 +17,26 @@ Tool-category and individual-tool toggles decide what providers may call on thei
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+| Tool Categories | Toggles access to built-in Code UX MCP tool suites (e.g., File System). | Verify providers actually need these capabilities. |
+| Individual Tools | Toggles specific built-in tools within a category. | Disabling required tools can break provider workflows. |
 
 ## Recommended Configuration
 
 Disable only categories you know a provider should not access.
 
-A practical review flow is:
-
-1. Start from the inherited default and change only the fields that solve a concrete operational problem.
-2. Save the smallest scope that should own the change. Use System for defaults that every project should inherit, and Project for repository-specific behavior.
-3. Reopen the Settings page after saving when the value controls startup behavior, provider routing, preview runtime, or destructive maintenance.
+Keep all standard built-in categories enabled unless you are enforcing strict sandbox rules for a specific provider. Disable only categories you know a provider should not access.
 
 ## Risks And Gotchas
 
-Disabling required tools can make provider workflows fail; enabling broad tools increases capability exposure.
-
-Before applying changes, check:
-
-- Whether the value affects provider credentials, Docker runtime behavior, Git automation, memory retention, or destructive cleanup.
-- Whether a project override is masking the system value you expected to change.
-- Whether a running sprint needs to be paused, restarted, or allowed to finish before the new value can be observed.
+Disabling required tools (like file-read) can make provider workflows fail; enabling broad tools increases capability exposure.
 
 ## Troubleshooting
 
-If the saved setting does not appear to take effect:
-
-- Verify the active Settings scope in the sticky command bar.
-- Check for a project or sprint override that takes precedence over the system value.
-- Refresh the affected dashboard page if the setting controls a rendered surface.
-- Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
+If a provider complains about missing capabilities, verify the required Built-in MCP category is enabled in the active scope.
 
 ## Related Documentation
 
 - [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [MCP Tools and Contracts](/docs/developer-mcp-tools)
-- [Security Hardening](/docs/user-troubleshooting)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [MCP Tools and Contracts](../mcp/tools-and-contracts.md)
+- [Security Hardening](/docs/operations-security-hardening)

@@ -53,6 +53,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Security Hardening](../../operations/security-hardening.md)
-- [Operations Runbook](../../operations/runbook.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Security Hardening](../operations/security-hardening.md)
+- [Operations Runbook](../operations/runbook.md)

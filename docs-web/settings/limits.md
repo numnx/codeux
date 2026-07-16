@@ -52,7 +52,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Memory Architecture and Search](/docs/user-dashboard-memory)
-- [Memory Claims and Evidence](/docs/user-dashboard-memory)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Memory Architecture and Search](../dashboard/memory.md)
+- [Memory Claims and Evidence](../architecture/memory-claims.md)

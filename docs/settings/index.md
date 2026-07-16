@@ -152,5 +152,5 @@ The OS Software catalog is a static reference. It does not participate in Settin
 ## Related Documentation
 
 - [Dashboard Settings](../../docs-web/user/dashboard/settings.md)
-- [Configuration and Storage](../configuration-and-storage.md)
-- [Provider Routing](../provider-routing.md)
+- [Configuration and Storage](./configuration-and-storage.md)
+- [Provider Routing](./provider-routing.md)

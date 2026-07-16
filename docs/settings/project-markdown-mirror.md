@@ -55,6 +55,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Agent Sync And Planning Agent](../../architecture/agent-sync-and-planning-agent.md)
-- [Agent Routing](../../architecture/agent-routing.md)
+- [Dashboard Settings](../dashboard/design-system-settings.md)
+- [Agent Sync And Planning Agent](../architecture/agent-sync-and-planning-agent.md)
+- [Agent Routing](../architecture/agent-routing.md)
