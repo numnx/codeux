@@ -24,7 +24,7 @@ export async function evaluateInProgressState(args: {
   ciIntelligence: CiIntelligenceSettings;
   automationLevel: AutomationLevel;
   guardrailService: GuardrailService;
-  isJulesApiConfigured: () => boolean;
+  isProviderApiConfigured: () => boolean;
   sendSessionMessage: (sessionId: string, message: string) => Promise<void>;
   repoPath: string;
   defaultBranch: string;
@@ -63,12 +63,12 @@ export async function evaluateInProgressState(args: {
       failedJobLabels,
       automationLevel: args.automationLevel,
       guardrailService: args.guardrailService,
-      isJulesApiConfigured: args.isJulesApiConfigured,
+      isProviderApiConfigured: args.isProviderApiConfigured,
       sendSessionMessage: args.sendSessionMessage,
       repoPath: args.repoPath,
       featureBranch: args.featureBranch,
       defaultBranch: args.defaultBranch,
-      allowJulesSessionNotification: args.ciIntelligence.waitForJulesCiAutofix,
+      allowProviderSessionNotification: args.ciIntelligence.waitForProviderCiAutofix,
       hasActiveWorkerCiFixAttempt: args.hasActiveWorkerCiFixAttempt,
       onGuardrailExhausted: args.onCiFixGuardrailExhausted,
     });

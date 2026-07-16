@@ -41,7 +41,7 @@ const buildDeps = () => {
     guardrailService,
     getDashboardSettings: () => buildMockSettings(),
     renderInstruction: vi.fn().mockResolvedValue(""),
-    isJulesApiConfigured: () => true,
+    isProviderApiConfigured: () => true,
     isActionRequiredState: (state?: string) => state === "AWAITING_PLAN_APPROVAL" || state === "AWAITING_USER_FEEDBACK" || state === "PAUSED",
     subtaskRepository,
     listSessions: vi.fn(),
@@ -94,8 +94,8 @@ describe("SprintOrchestrator - CI & Merge Gates", () => {
         resolveMainMergeConflicts: false,
         resolveAllCommentsBeforeFeatureMerge: true,
         resolveMergeConflicts: false,
-        waitForJulesCiAutofix: true,
-        julesCiAutofixMaxRetries: 3,
+        waitForProviderCiAutofix: true,
+        ciAutofixMaxRetries: 3,
         featurePrAutoMergeMode: "WHEN_GREEN",
       }
     });
@@ -173,8 +173,8 @@ describe("SprintOrchestrator - CI & Merge Gates", () => {
         resolveMainMergeConflicts: false,
         resolveAllCommentsBeforeFeatureMerge: true,
         resolveMergeConflicts: false,
-        waitForJulesCiAutofix: true,
-        julesCiAutofixMaxRetries: 0,
+        waitForProviderCiAutofix: true,
+        ciAutofixMaxRetries: 0,
         featurePrAutoMergeMode: "WHEN_GREEN",
       }
     });

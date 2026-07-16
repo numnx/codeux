@@ -348,7 +348,7 @@ describe("CodeUxServer", () => {
         listSessions: vi.fn().mockReturnValue({ sessions: [trackedSession] })
       };
 
-      const isJulesApiConfiguredSpy = vi.spyOn(server as any, "isJulesApiConfigured").mockReturnValue(true);
+      const isProviderApiConfiguredSpy = vi.spyOn(server as any, "isProviderApiConfigured").mockReturnValue(true);
       const getCachedSessionsSpy = vi.spyOn((server as any).julesApi, "getCachedSessions").mockResolvedValue([remoteSession]);
 
       const result = await (server as any).listSessionsForSync();
@@ -359,7 +359,7 @@ describe("CodeUxServer", () => {
       expect((server as any).sessionTracking.listSessions).toHaveBeenCalledWith(300);
       expect(getCachedSessionsSpy).toHaveBeenCalled();
 
-      isJulesApiConfiguredSpy.mockRestore();
+      isProviderApiConfiguredSpy.mockRestore();
     });
 
     it("should handle jules api errors gracefully", async () => {
@@ -369,13 +369,13 @@ describe("CodeUxServer", () => {
         listSessions: vi.fn().mockReturnValue({ sessions: [trackedSession] })
       };
 
-      const isJulesApiConfiguredSpy = vi.spyOn(server as any, "isJulesApiConfigured").mockReturnValue(true);
+      const isProviderApiConfiguredSpy = vi.spyOn(server as any, "isProviderApiConfigured").mockReturnValue(true);
       vi.spyOn((server as any).julesApi, "getCachedSessions").mockRejectedValue(new Error("API Error"));
 
       const result = await (server as any).listSessionsForSync();
       expect(result.sessions).toEqual([trackedSession]);
 
-      isJulesApiConfiguredSpy.mockRestore();
+      isProviderApiConfiguredSpy.mockRestore();
     });
 
     it("should return only tracked sessions if jules api is not configured", async () => {
@@ -385,14 +385,14 @@ describe("CodeUxServer", () => {
         listSessions: vi.fn().mockReturnValue({ sessions: [trackedSession] })
       };
 
-      const isJulesApiConfiguredSpy = vi.spyOn(server as any, "isJulesApiConfigured").mockReturnValue(false);
+      const isProviderApiConfiguredSpy = vi.spyOn(server as any, "isProviderApiConfigured").mockReturnValue(false);
       const getCachedSessionsSpy = vi.spyOn((server as any).julesApi, "getCachedSessions");
 
       const result = await (server as any).listSessionsForSync();
       expect(result.sessions).toEqual([trackedSession]);
       expect(getCachedSessionsSpy).not.toHaveBeenCalled();
 
-      isJulesApiConfiguredSpy.mockRestore();
+      isProviderApiConfiguredSpy.mockRestore();
     });
 
     it("should deduplicate sessions based on id or name", async () => {
@@ -406,7 +406,7 @@ describe("CodeUxServer", () => {
           listSessions: vi.fn().mockReturnValue({ sessions: [trackedSession1, trackedSession2] })
         };
 
-        const isJulesApiConfiguredSpy = vi.spyOn(server as any, "isJulesApiConfigured").mockReturnValue(true);
+        const isProviderApiConfiguredSpy = vi.spyOn(server as any, "isProviderApiConfigured").mockReturnValue(true);
         vi.spyOn((server as any).julesApi, "getCachedSessions").mockResolvedValue([remoteSession1, remoteSession2, remoteSession3]);
 
         const extractSessionIdSpy = vi.spyOn(server as any, "extractSessionId").mockReturnValue(undefined);
@@ -418,7 +418,7 @@ describe("CodeUxServer", () => {
           { ...remoteSession3, provider: "jules" }
         ]);
 
-        isJulesApiConfiguredSpy.mockRestore();
+        isProviderApiConfiguredSpy.mockRestore();
         extractSessionIdSpy.mockRestore();
     });
   });
@@ -434,25 +434,25 @@ describe("CodeUxServer", () => {
     });
 
     it("should fetch from jules api for non-cli sessions if configured", async () => {
-      const isJulesApiConfiguredSpy = vi.spyOn(server as any, "isJulesApiConfigured").mockReturnValue(true);
+      const isProviderApiConfiguredSpy = vi.spyOn(server as any, "isProviderApiConfigured").mockReturnValue(true);
       const julesApiFetchRecentActivitiesSpy = vi.spyOn((server as any).julesApi, "fetchRecentActivities").mockResolvedValue(["activity2"] as any);
 
       const result = await (server as any).fetchRecentActivities("other-123", 10);
       expect(result).toEqual(["activity2"]);
       expect(julesApiFetchRecentActivitiesSpy).toHaveBeenCalledWith("other-123", 10);
 
-      isJulesApiConfiguredSpy.mockRestore();
+      isProviderApiConfiguredSpy.mockRestore();
     });
 
     it("should return empty array for non-cli sessions if jules api is not configured", async () => {
-      const isJulesApiConfiguredSpy = vi.spyOn(server as any, "isJulesApiConfigured").mockReturnValue(false);
+      const isProviderApiConfiguredSpy = vi.spyOn(server as any, "isProviderApiConfigured").mockReturnValue(false);
       const julesApiFetchRecentActivitiesSpy = vi.spyOn((server as any).julesApi, "fetchRecentActivities");
 
       const result = await (server as any).fetchRecentActivities("other-123", 10);
       expect(result).toEqual([]);
       expect(julesApiFetchRecentActivitiesSpy).not.toHaveBeenCalled();
 
-      isJulesApiConfiguredSpy.mockRestore();
+      isProviderApiConfiguredSpy.mockRestore();
     });
   });
 
@@ -937,7 +937,7 @@ describe("CodeUxServer", () => {
       const bootMcpArgs = (bootMcpTransport as any).mock.calls[0][0];
       expect(bootMcpArgs.server).toBeDefined();
       expect(bootMcpArgs.logger).toBeDefined();
-      expect(bootMcpArgs.isJulesApiConfigured).toBeUndefined();
+      expect(bootMcpArgs.isProviderApiConfigured).toBeUndefined();
       expect(bootMcpArgs.getMissingJulesApiKeyInstruction).toBeUndefined();
     }, 30000);
 

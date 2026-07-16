@@ -79,8 +79,8 @@ describe("FeaturePrGateService", () => {
         resolveMainMergeConflicts: false,
         resolveAllCommentsBeforeFeatureMerge: true,
         resolveMergeConflicts: false,
-        waitForJulesCiAutofix: true,
-        julesCiAutofixMaxRetries: 3,
+        waitForProviderCiAutofix: true,
+        ciAutofixMaxRetries: 3,
         featurePrAutoMergeMode: "WHEN_GREEN",
         mainBranchAutoMergeMode: "OFF",
       },
@@ -107,7 +107,7 @@ describe("FeaturePrGateService", () => {
         mergedPullRequests: [],
       } as unknown as GitTrackingStatus,
       guardrailService: guardrail as any,
-      isJulesApiConfigured: vi.fn().mockReturnValue(true),
+      isProviderApiConfigured: vi.fn().mockReturnValue(true),
       sendSessionMessage: vi.fn().mockResolvedValue(undefined),
       autoMergeFeaturePr: vi.fn().mockResolvedValue({ ok: true }),
       persistMergedTask: vi.fn().mockResolvedValue(undefined),
@@ -473,7 +473,7 @@ jobs:
     expect(result.subtasks[0].status).toBe("RUNNING");
     expect(context.sendSessionMessage).toHaveBeenCalled();
     expect(guardrail.counts.get("task-record-1:ci_fix")).toBe(1);
-    expect(result.reportText).toContain("Jules session notified to fix CI");
+    expect(result.reportText).toContain("Provider session notified to fix CI");
   });
 
   it("blocks task when autofix retries are exhausted", async () => {
@@ -620,7 +620,7 @@ jobs:
     expect(result.subtasks[0].merge_indicator).toBe("MERGE_CONFLICT");
   });
 
-  it("calls openCiFixAttention for non-Jules tasks with failed CI", async () => {
+  it("calls openCiFixAttention for non-hosted-provider tasks with failed CI", async () => {
     subtasks[0].session_id = undefined;
     subtasks[0].provider = "gemini" as any;
     context.gitStatus.openPullRequests[0].checks = [
@@ -730,7 +730,7 @@ jobs:
     expect(result.reportText).toContain("Worker CI fix already running");
   });
 
-  it("does not call openCiFixAttention for Jules-managed tasks", async () => {
+  it("does not call openCiFixAttention for hosted-provider-managed tasks", async () => {
     context.gitStatus.openPullRequests[0].checks = [
       { name: "build", status: "completed", conclusion: "failure" }
     ];

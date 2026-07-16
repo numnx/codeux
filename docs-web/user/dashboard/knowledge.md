@@ -2,7 +2,7 @@
 
 The **Knowledge** page (`/knowledge`) is a per-project knowledge base. You add documents, Code UX
 chunks and embeds them, and agents can retrieve the relevant pieces during planning and coding —
-giving them grounded project context without pasting it into every prompt.
+giving them grounded project context during execution.
 
 ## Adding documents
 
@@ -42,8 +42,8 @@ quick way to sanity-check what an agent would find for a given query.
 - **Re-embed** a document after switching embedding models, or to reprocess a failed import.
 - **Delete** a document to remove it and its chunks from the index.
 
-Knowledge uses the embedding models managed on the [Memory](./memory.md) page. If search returns
-nothing, confirm documents are **Ready** and embedded with the currently active model.
+Semantic search requires an active embedding model. Knowledge uses the same local embedding models managed on the [Memory](./memory.md) page. If search returns
+nothing, confirm documents are **Ready** and that an active embedding model is available.
 
 ## Knowledge vs. memory
 

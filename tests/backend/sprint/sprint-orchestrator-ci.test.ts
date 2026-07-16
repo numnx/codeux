@@ -19,7 +19,7 @@ describe("SprintOrchestrator CI logic", () => {
       ciIntelligence: {
         ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence,
         featurePrAutoMergeMode: "WHEN_GREEN",
-        waitForJulesCiAutofix: true,
+        waitForProviderCiAutofix: true,
       },
     });
     deps.getCiStatusForScope = vi.fn().mockResolvedValue({
@@ -141,8 +141,8 @@ describe("SprintOrchestrator CI logic", () => {
       ciIntelligence: {
         ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence,
         featurePrAutoMergeMode: "WHEN_GREEN",
-        waitForJulesCiAutofix: true,
-        julesCiAutofixMaxRetries: 0,
+        waitForProviderCiAutofix: true,
+        ciAutofixMaxRetries: 0,
       },
     });
     deps.getCiStatusForScope = vi.fn().mockResolvedValue({
@@ -672,7 +672,7 @@ describe("SprintOrchestrator CI logic", () => {
       ciIntelligence: {
         ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence,
         featurePrAutoMergeMode: "WHEN_GREEN",
-        waitForJulesCiAutofix: false,
+        waitForProviderCiAutofix: false,
       },
     });
     deps.getCiStatusForScope = vi.fn().mockResolvedValue({

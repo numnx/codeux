@@ -148,7 +148,7 @@ describe("SettingsRepository", () => {
         ...system.defaults,
         ciIntelligence: {
           ...system.defaults.ciIntelligence,
-          julesCiAutofixMaxRetries: 3,
+          ciAutofixMaxRetries: 3,
         },
         guardrails: {
           enabled: true,
@@ -171,7 +171,7 @@ describe("SettingsRepository", () => {
 
     expect(migrated.defaults.guardrails.jobs.task_coding.cap).toBe(5);
     expect(migrated.defaults.guardrails.jobs.ci_fix.cap).toBe(5);
-    expect(migrated.defaults.ciIntelligence.julesCiAutofixMaxRetries).toBe(5);
+    expect(migrated.defaults.ciIntelligence.ciAutofixMaxRetries).toBe(5);
     expect(repo.getSettingsResolutionRevision()).toBeGreaterThan(revisionBeforeMigration);
     const persisted = repo.getDatabase().prepare("SELECT payload FROM system_settings WHERE id = 1").get() as { payload: string };
     expect(JSON.parse(persisted.payload).defaults.guardrails.jobs).toMatchObject({
@@ -189,7 +189,7 @@ describe("SettingsRepository", () => {
         ...system.defaults,
         ciIntelligence: {
           ...system.defaults.ciIntelligence,
-          julesCiAutofixMaxRetries: 3,
+          ciAutofixMaxRetries: 3,
         },
         guardrails: {
           enabled: true,
@@ -213,7 +213,7 @@ describe("SettingsRepository", () => {
     expect(preserved.defaults.guardrails.jobs.task_coding.cap).toBe(8);
     expect(preserved.defaults.guardrails.jobs.ci_fix.cap).toBe(3);
     expect(preserved.defaults.guardrails.jobs.merge_conflict.cap).toBe(4);
-    expect(preserved.defaults.ciIntelligence.julesCiAutofixMaxRetries).toBe(3);
+    expect(preserved.defaults.ciIntelligence.ciAutofixMaxRetries).toBe(3);
   });
 
   it("rewrites removed local transcription models in every persisted settings scope", async () => {
@@ -312,8 +312,8 @@ describe("SettingsRepository", () => {
           resolveMainMergeConflicts: false,
           resolveAllCommentsBeforeFeatureMerge: true,
           resolveMergeConflicts: false,
-          waitForJulesCiAutofix: false,
-          julesCiAutofixMaxRetries: 3,
+          waitForProviderCiAutofix: false,
+          ciAutofixMaxRetries: 3,
           featurePrAutoMergeMode: "OFF",
           mainBranchAutoMergeMode: "OFF",
         },
@@ -1138,8 +1138,8 @@ describe("SettingsRepository", () => {
         resolveMainMergeConflicts: false,
         resolveAllCommentsBeforeFeatureMerge: false,
         resolveMergeConflicts: false,
-        waitForJulesCiAutofix: true,
-        julesCiAutofixMaxRetries: 2,
+        waitForProviderCiAutofix: true,
+        ciAutofixMaxRetries: 2,
         featurePrAutoMergeMode: "WHEN_GREEN",
         mainBranchAutoMergeMode: "OFF",
       },

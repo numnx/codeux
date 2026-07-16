@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { applyActionRequiredAutomation, isJulesManagedTask, resolveTaskSessionId } from "../../../src/sprint/action-required-automation.js";
+import { applyActionRequiredAutomation, isProviderManagedTask, resolveTaskSessionId } from "../../../src/sprint/action-required-automation.js";
 import type { Subtask } from "../../../src/contracts/app-types.js";
 
 const createTask = (overrides: Partial<Subtask> = {}): Subtask => ({
@@ -17,7 +17,7 @@ const createTask = (overrides: Partial<Subtask> = {}): Subtask => ({
 describe("action-required-automation", () => {
   it("detects jules-managed task and resolves session id", () => {
     const task = createTask();
-    expect(isJulesManagedTask(task)).toBe(true);
+    expect(isProviderManagedTask(task)).toBe(true);
     expect(resolveTaskSessionId(task)).toBe("abc123");
   });
 
@@ -36,7 +36,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: (state?: string) => state === "AWAITING_PLAN_APPROVAL" || state === "AWAITING_USER_FEEDBACK" || state === "PAUSED",
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: vi.fn(),
     });
@@ -62,7 +62,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: (state?: string) => state === "AWAITING_PLAN_APPROVAL" || state === "AWAITING_USER_FEEDBACK" || state === "PAUSED",
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: approve,
       sendSessionMessage: vi.fn(),
       onTaskEvent,
@@ -93,7 +93,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => false,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: vi.fn(),
     });
@@ -116,7 +116,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => false,
+      isProviderApiConfigured: () => false,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: vi.fn(),
     });
@@ -140,7 +140,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: vi.fn(),
     });
@@ -164,7 +164,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: vi.fn(),
     });
@@ -188,7 +188,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: vi.fn(),
     });
@@ -212,7 +212,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: vi.fn(),
     });
@@ -244,7 +244,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
     });
@@ -278,7 +278,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
     });
@@ -303,7 +303,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
     });
@@ -329,7 +329,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: approve,
       sendSessionMessage: vi.fn(),
     });
@@ -358,7 +358,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
       generateWorkerClarificationReply: generateWorkerReply,
@@ -398,7 +398,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
       generateWorkerClarificationReply: generateWorkerReply,
@@ -443,7 +443,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
       lastAutomatedInterventionKeys,
@@ -480,7 +480,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
       lastAutomatedInterventionKeys,
@@ -546,7 +546,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
       onTaskEvent,
@@ -586,7 +586,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 5,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
       lastAutomatedInterventionKeys,
@@ -656,7 +656,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 5,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
       lastAutomatedInterventionKeys,
@@ -698,7 +698,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
       lastAutomatedInterventionKeys,
@@ -717,7 +717,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
       lastAutomatedInterventionKeys,
@@ -761,7 +761,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
       lastAutomatedInterventionKeys,
@@ -811,7 +811,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
       lastAutomatedInterventionKeys,
@@ -843,7 +843,7 @@ describe("action-required-automation", () => {
         clarificationCooldownSeconds: 300,
       },
       isActionRequiredState: () => true,
-      isJulesApiConfigured: () => true,
+      isProviderApiConfigured: () => true,
       approveSessionPlan: vi.fn(),
       sendSessionMessage: sendMessage,
       lastAutomatedInterventionKeys,

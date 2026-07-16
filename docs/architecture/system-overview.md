@@ -18,7 +18,8 @@ Code UX is a container-first multi-provider runtime with an integrated dashboard
 - Responsibilities:
   - Load `.env` and startup config.
   - Construct and run `CodeUxServer`.
-- Worker entrypoint: `src/worker/index.ts` (worker-host mode)
+- Worker entrypoint: `src/worker/index.ts` (runs in `worker-host` mode)
+  - Responsibilities: Spawns a headless local Code UX execution instance on the worker machine to execute claimed task dispatches, cancel local processes, and generate replies using local provider and environment contexts.
 - Electron shell: `src/electron/main.ts` (desktop shell)
 
 - Runtime composition file: `src/server/code-ux-server.ts`
@@ -27,9 +28,11 @@ Code UX is a container-first multi-provider runtime with an integrated dashboard
   - Register MCP request handlers via `src/server/mcp-request-router.ts`.
   - Start dashboard HTTP server (defaults to port 4444).
   - Start MCP stdio transport only for an attached MCP pipe/socket or explicit `CODE_UX_ENABLE_MCP_STDIO=1`; daemon stdin such as `/dev/null` keeps stdio disabled.
+  - Streamable HTTP gateway: Initialized via `bootMcpHttpTransport` (defined in `src/app/lifecycle/mcp-lifecycle-service.ts`) during server composition. Binds `StreamableHTTPServerTransport` (defaulting to port `dashboardPort + 1` at `/mcp`) to serve as the control plane. This gateway handles worker registration, heartbeat tracking, and dispatch polling over HTTP, keeping it decoupled from the local stdio transport.
   - Report `/ready` only after settings, dashboard/MCP binding, and startup recovery have completed; `/health` remains the liveness probe.
   - Serve cached dashboard live activity and git status via `src/server/activity-cache-service.ts`.
-- Dashboard dependency composition lives in `src/app/dependency-factory/dashboard-factory.ts`. When two dashboard services must be constructed before both concrete instances exist, the factory uses `LateBoundDependency<T>` from `src/shared/late-bound-dependency.ts` and links it synchronously before returning dependencies. Consumers resolve these holders at action time so missing links fail with an explicit late-bound dependency error instead of placeholder objects or private-field mutation.
+  - Dashboard API route registration: `src/server/dashboard-route-registration.ts`.
+- Dashboard dependency composition lives in `src/app/dependency-factory.ts` and `src/app/dependency-factory/`. When two dashboard services must be constructed before both concrete instances exist, the factory uses `LateBoundDependency<T>` from `src/shared/late-bound-dependency.ts` and links it synchronously before returning dependencies. Consumers resolve these holders at action time so missing links fail with an explicit late-bound dependency error instead of placeholder objects or private-field mutation.
 
 ### 2. MCP tool handlers
 - `src/mcp/core-tool-handler.ts`

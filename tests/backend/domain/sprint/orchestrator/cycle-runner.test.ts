@@ -64,7 +64,7 @@ function buildDeps(): SprintOrchestratorDependencies {
     startTask: vi.fn(),
     updateLastStatus: vi.fn(),
     getDashboardSettings: () => DEFAULT_DASHBOARD_SETTINGS,
-    isJulesApiConfigured: () => true,
+    isProviderApiConfigured: () => true,
     approveSessionPlan: vi.fn().mockResolvedValue({}),
     sendSessionMessage: vi.fn().mockResolvedValue({}),
     providerConcurrencyService: {
@@ -1579,8 +1579,8 @@ describe("CycleRunner attention sync", () => {
         enabled: true,
         enableLivePrMonitoring: true,
         resolveAllCommentsBeforeFeatureMerge: true,
-        waitForJulesCiAutofix: true,
-        julesCiAutofixMaxRetries: 3,
+        waitForProviderCiAutofix: true,
+        ciAutofixMaxRetries: 3,
         featurePrAutoMergeMode: "WHEN_GREEN",
       } as any,
       githubMode: "REMOTE",
@@ -2387,7 +2387,7 @@ describe("CycleRunner attention sync", () => {
       ciIntelligence: {
         ...DEFAULT_DASHBOARD_SETTINGS.ciIntelligence,
         enabled: true,
-        waitForJulesCiAutofix: false,
+        waitForProviderCiAutofix: false,
         featurePrAutoMergeMode: "WHEN_GREEN",
       },
       githubMode: "REMOTE",

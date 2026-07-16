@@ -176,7 +176,7 @@ export function buildLocalHostExecutionSettingsOverride(): ProjectSettingsOverri
       resolveMainMergeFailedChecks: false,
       resolveAllCommentsBeforeFeatureMerge: false,
       resolveMergeConflicts: false,
-      waitForJulesCiAutofix: false,
+      waitForProviderCiAutofix: false,
       featurePrAutoMergeMode: 'OFF',
       mainBranchAutoMergeMode: 'OFF',
     },

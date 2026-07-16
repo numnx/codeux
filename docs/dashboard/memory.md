@@ -33,10 +33,10 @@ When an agent searches for relevant memories, it submits a query. Sprint OS foll
 
 Before computing similarity scores, candidate memories are loaded from the repository based on hard criteria to prevent over-fetching:
 
-- **Project ID**: The base boundary for all knowledge. Cross-project reads are explicitly prevented.
+- **Project ID**: The base boundary for all memory. Cross-project reads are explicitly prevented.
 - **Scope**: Memories can be filtered by their scope bounds (e.g., `project`, `sprint`, or `agent`).
-- **Sprint ID**: Optionally filters to knowledge explicitly bound to a given sprint.
-- **Agent Preset ID**: Optionally filters to knowledge specific to an agent persona.
+- **Sprint ID**: Optionally filters to memories explicitly bound to a given sprint.
+- **Agent Preset ID**: Optionally filters to memories specific to an agent persona.
 - **Dimension Matching**: Ensures only embeddings created with the currently loaded Embedding Model's dimension size are selected for comparison. This prevents errors when the default embedding model is swapped.
 - **Maximum Candidates**: To protect local runtimes from unbounded scans, a defensive maximum limit of 10,000 candidate records is applied during loading.
 
@@ -82,7 +82,7 @@ The Memory Map control surface is driven by the currently selected project and l
 
 ## Runtime Memory Injection
 
-All planning, worker, QA, CI/merge repair, and direct provider prompt paths use the same bounded memory-context builder. It loads a defensive recent candidate window, applies agent tier/category/strength policy, combines semantic similarity with lexical overlap, strength, and recency, removes duplicate knowledge across tiers, and emits at most eight items per tier by default. Callers provide a strict token budget (normally 1,600–1,800 estimated tokens); semantic-search failure degrades to deterministic lexical ranking instead of dropping memory context or blocking execution.
+All planning, worker, QA, CI/merge repair, and direct provider prompt paths use the same bounded memory-context builder. It loads a defensive recent candidate window, applies agent tier/category/strength policy, combines semantic similarity with lexical overlap, strength, and recency, removes duplicate memories across tiers, and emits at most eight items per tier by default. Callers provide a strict token budget (normally 1,600–1,800 estimated tokens); semantic-search failure degrades to deterministic lexical ranking instead of dropping memory context or blocking execution.
 
 Skill retrieval uses a related hybrid strategy but keeps its own index. Each skill stores one compact descriptor embedding plus up to 64 heading-aware body chunks. Search aggregates the strongest chunk per skill, blends it with lexical name/description/tag/body overlap, filters to the requested project storage or authenticated agent attachments, and hydrates only the final bounded result set. Without a loaded embedding model, lexical ranking remains operational.
 
@@ -112,7 +112,7 @@ Skill search uses the same local embedding infrastructure as memory search but r
 
 ## Long-Term Claims and Evidence
 
-Sprint-scoped memories are treated as observations. Durable project knowledge is stored as canonical claims:
+Sprint-scoped memories are treated as observations. Durable project memory is stored as canonical claims:
 
 - `memory_claims` stores the distilled long-term claim, category, confidence, durability, status, tags, applicable paths, and source metadata.
 - `memory_claim_evidence` links the claim to the sprint memories that support it.
@@ -158,14 +158,14 @@ When a sprint completes, Code UX can run memory remediation according to `memory
 
 The remediation guardrail job type is `remediation`, so runaway review loops are capped by the same guardrail system as planning, CI fix, and merge-conflict repair.
 
-Promotion analysis treats short-term sprint memories as evidence, not as durable knowledge by default:
+Promotion analysis treats short-term sprint memories as evidence, not as durable claims by default:
 - sprint memories below strength `0.45` are ignored
 - semantically similar memories from the same sprint are clustered into one promotion candidate with one selectable `id` plus `evidenceCount`; full source evidence IDs stay internal for claim provenance
 - recurrence across previous sprints and agreement across agents can raise the candidate score
 - near-duplicates of existing project-scope memories are skipped
 - risk flags such as `test_fixture`, `task_local`, `file_specific`, `implementation_trivia`, `speculative`, and `ci_failure` reduce the score before the promotion threshold is applied
 - the default promotion threshold is `0.5`; AI remediation uses a lower review floor of `0.45` so the model has a useful candidate set to curate without automatically promoting every reviewed memory
-- AI remediation receives the cluster claim, score, reason, risk flags, evidence count, and cross-sprint count so repeated smoke-test or fixture mechanics are visible as risky evidence rather than durable project knowledge
+- AI remediation receives the cluster claim, score, reason, risk flags, evidence count, and cross-sprint count so repeated smoke-test or fixture mechanics are visible as risky evidence rather than durable project claims
 - selected candidates become long-term claims with evidence links; raw sprint notes are not copied verbatim unless the claim itself is already the durable statement
 
 CI-failure learnings are treated specially:
@@ -186,7 +186,7 @@ The Memory settings panel also manages one project-scoped scheduler entry for lo
 
 ## Project Manager Direct Memory
 
-The dashboard's default Project Manager has `add_long_term_memory`, a narrow direct-write MCP lane for explicit remember/learn requests and stable knowledge it judges valuable. A successful call creates a canonical long-term claim plus its searchable project-memory mirror; chat can render a `codeux:memory` confirmation widget with the exact statement, category, claim id, and mirror-memory id returned by the tool.
+The dashboard's default Project Manager has `add_long_term_memory`, a narrow direct-write MCP lane for explicit remember/learn requests and stable context it judges valuable. A successful call creates a canonical long-term claim plus its searchable project-memory mirror; chat can render a `codeux:memory` confirmation widget with the exact statement, category, claim id, and mirror-memory id returned by the tool.
 
 This does not replace the two-tier capture flow. Short-term sprint observations remain evidence, and remediation/promotion still curate that evidence into durable claims. The direct lane is for stable preferences, decisions, architecture, patterns, codebase conventions, context, and learnings that should guide future work.
 

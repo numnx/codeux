@@ -77,6 +77,8 @@ Then sprint scope is resolved from:
 
 ## Task Loading
 
+The SQLite database is the active, implemented database backend (persisted at `~/.code-ux/app.db`) with Write-Ahead Logging (WAL) enabled to allow safe concurrent execution. (Note: PostgreSQL support is a future roadmap plan rather than implemented storage).
+
 The orchestration loop now reads tasks from:
 
 - `tasks`
@@ -90,6 +92,8 @@ This is a migration seam, not a compatibility workspace:
 - no task markdown is materialized
 - no task markdown is read during execution
 - markdown remains import/export only
+
+**Database-versus-Mirror Authority:** The SQLite database is the active runtime source of truth. The `.code-ux/sprints/` markdown files are strictly import/export round-trip mirrors and are never materialized or read during orchestrator execution.
 
 ## Dispatch Flow
 

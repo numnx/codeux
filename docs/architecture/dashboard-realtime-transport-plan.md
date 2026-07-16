@@ -360,7 +360,7 @@ Goal:
 Deliverables:
 
 - `dashboard_realtime_events` schema
-- websocket server wiring in `src/server/dashboard-server.ts`
+- websocket server wiring in `src/server/dashboard-server.ts` (via `src/server/dashboard-realtime-websocket-server.ts`)
 - internal publisher service
 - replay from `lastSequence`
 - `snapshot_required` event on unrecoverable gap

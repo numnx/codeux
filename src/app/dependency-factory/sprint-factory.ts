@@ -122,7 +122,7 @@ export function createSprintDependencies(
         requestedSourceId: args.sourceId,
       }),
     getDashboardSettings: resolveDashboardSettings,
-    isJulesApiConfigured: () => context.isJulesApiConfigured(),
+    isProviderApiConfigured: () => context.isProviderApiConfigured(),
     cliWorkflowService,
     logger: logger.child({ component: "task-service" }),
   });
@@ -293,7 +293,7 @@ export function createSprintDependencies(
       context.runtimeContext.lastStatus = status;
     },
     getDashboardSettings: resolveDashboardSettings,
-    isJulesApiConfigured: () => context.isJulesApiConfigured(),
+    isProviderApiConfigured: () => context.isProviderApiConfigured(),
     approveSessionPlan: (sessionId) => julesApi.approveSessionPlan(sessionId),
     sendSessionMessage: (sessionId, prompt) => julesApi.sendSessionMessage(sessionId, prompt),
     generateWorkerClarificationReply: (args) => workerInboxReplyService.generateClarificationReply(args),

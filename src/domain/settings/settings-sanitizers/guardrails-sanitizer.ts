@@ -33,7 +33,7 @@ const clampCap = (value: unknown, fallback: number): number =>
  *
  * Back-compat: when the guardrails block (or an individual job entry) is absent — i.e. an
  * upgrade from a config predating guardrails — the absorbed legacy caps are migrated:
- * `ci_fix` seeds from `ciIntelligence.julesCiAutofixMaxRetries`, and `clarification_reply`
+ * `ci_fix` seeds from `ciIntelligence.ciAutofixMaxRetries`, and `clarification_reply`
  * seeds from the historical hardcoded limit of 3.
  */
 export const sanitizeGuardrails = (
@@ -48,7 +48,7 @@ export const sanitizeGuardrails = (
 
   // Legacy migration sources (only used when the corresponding job entry is missing).
   const legacyCiFixCap = readInteger(
-    input?.ciIntelligence?.julesCiAutofixMaxRetries,
+    input?.ciIntelligence?.ciAutofixMaxRetries,
     DEFAULT_GUARDRAILS.jobs.ci_fix.cap,
   );
 

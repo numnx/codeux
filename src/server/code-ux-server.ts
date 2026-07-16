@@ -759,7 +759,7 @@ export class CodeUxServer {
       getEffectiveGithubToken: () => this.getEffectiveGithubToken(),
       getEffectiveGitlabToken: () => this.getEffectiveGitlabToken(),
       getDashboardPort: () => this.getDashboardPort(),
-      isJulesApiConfigured: () => this.isJulesApiConfigured(),
+      isProviderApiConfigured: () => this.isProviderApiConfigured(),
       getMissingJulesApiKeyInstruction: () => this.getMissingJulesApiKeyInstruction(),
       isActionRequiredState: (state) => this.isActionRequiredState(state),
       resolveSessionName: (session) => this.resolveSessionName(session),
@@ -878,7 +878,7 @@ export class CodeUxServer {
     this.julesApi.setApiKey(this.getEffectiveJulesApiKey());
   }
 
-  private isJulesApiConfigured(): boolean {
+  private isProviderApiConfigured(): boolean {
     return this.julesApi.hasApiKey();
   }
 
@@ -1074,7 +1074,7 @@ export class CodeUxServer {
   private async listSessionsForSync(): Promise<{ sessions?: JulesSession[] }> {
     const tracked = this.sessionTracking.listSessions(300).sessions;
     let julesSessions: JulesSession[] = [];
-    if (this.isJulesApiConfigured()) {
+    if (this.isProviderApiConfigured()) {
       try {
         // Shared, coalesced, TTL-cached snapshot: every sprint watch loop reads
         // from one fetch per window instead of each calling listSessions per
@@ -1102,7 +1102,7 @@ export class CodeUxServer {
     if (this.isTrackedCliSession(sessionName)) {
       return this.sessionTracking.fetchRecentActivities(sessionName, pageSize);
     }
-    if (!this.isJulesApiConfigured()) {
+    if (!this.isProviderApiConfigured()) {
       return [];
     }
     return this.julesApi.fetchRecentActivities(sessionName, pageSize);

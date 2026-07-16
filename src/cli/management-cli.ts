@@ -124,7 +124,7 @@ function createCliServerContext(projectRoot: string, appConfig: AppConfig, runti
     getEffectiveGithubToken: () => process.env.GITHUB_TOKEN?.trim() || process.env.GH_TOKEN?.trim() || undefined,
     getEffectiveGitlabToken: () => process.env.GITLAB_TOKEN?.trim() || process.env.GLAB_TOKEN?.trim() || undefined,
     getDashboardPort: () => appConfig.dashboardPort,
-    isJulesApiConfigured: () => Boolean(appConfig.apiKey || process.env.JULES_API_KEY || process.env.JULES_KEY),
+    isProviderApiConfigured: () => Boolean(appConfig.apiKey || process.env.JULES_API_KEY || process.env.JULES_KEY),
     getMissingJulesApiKeyInstruction: () => "Set JULES_API_KEY in your environment or dashboard settings.",
     isActionRequiredState: () => false,
     resolveSessionName: () => undefined,
