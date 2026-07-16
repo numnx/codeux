@@ -56,7 +56,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Dashboard Onboarding](/docs/user-installation)
-- [Quickstart](/docs/user-quickstart)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Dashboard Onboarding](../../dashboard/onboarding.md)
+- [Quickstart](../../getting-started/quickstart.md)

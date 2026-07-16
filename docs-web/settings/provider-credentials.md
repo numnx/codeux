@@ -15,6 +15,11 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 Each instance owns API key/auth path/login/config-file mode plus routing-visible identity and availability.
 
+Code UX enforces strict mutual exclusion for credentials:
+- **API Key mode**: Only environment variables implemented by the specific CLI adapter are exported (e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`). Local copy and dashboard auth mounts are disabled.
+- **Local Auth / Dashboard Auth / Provider Key mode**: API keys are cleared. Any custom endpoint metadata is ignored. The selected credentials mount path or generated provider configuration is supplied directly to the instance.
+- **Hosted provider mode**: The hosted API key is entirely separate and never mounted as a file or leaked into CLI worker environments.
+
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
 | Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
@@ -52,9 +57,9 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Provider Routing](/docs/user-providers-and-models)
-- [Qwen Code Integration](/docs/user-providers-and-models)
-- [OpenCode Integration](/docs/user-providers-and-models)
-- [Security Hardening](/docs/user-troubleshooting)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Provider Routing](../provider-routing.md)
+- [Qwen Code Integration](../qwen-code-integration.md)
+- [OpenCode Integration](../opencode-integration.md)
+- [Security Hardening](../../operations/security-hardening.md)

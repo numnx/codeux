@@ -58,7 +58,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [MCP Tools and Contracts](/docs/developer-mcp-tools)
-- [MCP Runtime and Dispatch](/docs/user-mcp-clients)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [MCP Tools and Contracts](../../mcp/tools-and-contracts.md)
+- [MCP Runtime and Dispatch](../../mcp/runtime-and-dispatch.md)

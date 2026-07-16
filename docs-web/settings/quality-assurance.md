@@ -35,8 +35,6 @@ A practical review flow is:
 
 Disabling QA removes an important last check before merge automation continues.
 
-Disabling task-completion QA while leaving sprint-completion QA enabled moves task-local defect discovery to the integrated sprint review. That review can split several distinct blockers into separate tracked follow-up tasks, so this configuration can make the sprint task list grow sharply near completion.
-
 Before applying changes, check:
 
 - Whether the value affects provider credentials, Docker runtime behavior, Git automation, memory retention, or destructive cleanup.
@@ -51,15 +49,10 @@ If the saved setting does not appear to take effect:
 - Check for a project or sprint override that takes precedence over the system value.
 - Refresh the affected dashboard page if the setting controls a rendered surface.
 - Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
-- If a task exhausts QA and enters `QA_REVIEW_FAILED`, resolve or dismiss its QA handoff after reviewing or correcting the work. Code UX clears that task's QA history and retry guardrail, returns a still-parked task to code-complete review state, and lets the active sprint run one fresh QA cycle. Restarting alone intentionally preserves the QA hold.
-- A fix continuation created by the review that reaches the configured cap gets one final verification review. A CLI continuation with no patch and no commits ahead is treated as `follow_up_no_progress` and applies the exhaustion policy immediately; repeated continuations cannot extend the budget indefinitely.
-- Recovered failed, cancelled, or errored QA attempts retry only within the bounded infrastructure grace. All terminal attempts count toward the hard ceiling, so repeated container loss eventually opens the configured handoff.
-- Sprint QA review limits count review cycles, not the number of findings in each earlier cycle. The final configured cycle is verification-only: if it does not pass, Code UX opens one sprint-scoped human handoff and does not create another automatic follow-up batch. Completed follow-up work cannot bypass that exhausted-budget handoff merely because it changed the task snapshot.
-- After a person reviews a blocked sprint result, **Mark QA Pass** in the Sprints page action menu creates a durable manual passing verdict and resolves only the sprint-level QA handoff. The control is disabled while an automated sprint review is running; it does not approve task-level QA failures or unrelated attention.
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Quality Assurance Agent](/docs/user-automation-and-ci)
-- [Provider Routing](/docs/user-providers-and-models)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Quality Assurance Agent](../../architecture/quality-assurance-agent.md)
+- [Provider Routing](../provider-routing.md)

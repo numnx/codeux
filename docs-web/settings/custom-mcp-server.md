@@ -52,7 +52,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [External MCP Worker Client](/docs/user-mcp-clients)
-- [Security Hardening](/docs/user-troubleshooting)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [External MCP Worker Client](../../architecture/external-mcp-worker-client.md)
+- [Security Hardening](../../operations/security-hardening.md)

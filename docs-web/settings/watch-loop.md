@@ -52,7 +52,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Atomic Sprint Loop](/docs/user-sprint-orchestration)
-- [Operations Runbook](/docs/user-troubleshooting)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Atomic Sprint Loop](../../sprint-loop/atomic-loop.md)
+- [Operations Runbook](../../operations/runbook.md)

@@ -57,7 +57,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Dashboard Accessibility Patterns](/docs/user-dashboard-overview)
-- [Mobile Responsiveness](/docs/user-dashboard-overview)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Dashboard Accessibility Patterns](../../dashboard/dashboard-guide.md#accessibility-patterns)
+- [Mobile Responsiveness](../../dashboard/mobile-responsiveness.md)

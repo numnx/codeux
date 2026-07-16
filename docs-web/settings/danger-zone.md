@@ -52,7 +52,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Operations Runbook](/docs/user-troubleshooting)
-- [Configuration and Storage](/docs/developer-settings-reference)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Operations Runbook](../../operations/runbook.md)
+- [Configuration and Storage](../configuration-and-storage.md)

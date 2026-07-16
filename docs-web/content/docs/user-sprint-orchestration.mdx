@@ -111,7 +111,7 @@ Per-provider concurrency is controlled by `provider.maxConcurrentTasks`:
 | OpenCode | `0` (adaptive) |
 
 For local providers, `0` derives a safe ceiling from CPU and memory and pauses background expansion
-under pressure. Positive values remain hard ceilings. The hosted provider does not consume local
+under pressure. Positive values remain hard ceilings. The Jules does not consume local
 Docker capacity.
 
 For CLI/Docker providers, Code UX counts both running provider invocations and running task runs when enforcing provider capacity. A task run can reserve orchestration capacity before its provider invocation row starts, so this prevents wide DAGs from creating hidden running backlogs while provider calls appear idle.
