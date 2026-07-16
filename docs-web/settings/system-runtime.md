@@ -13,7 +13,7 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 ## Controls And Runtime Effect
 
-Dashboard port controls the HTTP listener; console and debug-file levels control log verbosity.
+Dashboard port controls the HTTP listener; console and debug-file levels control log verbosity. Runtime configurations are saved directly to `settings.db`. Changes to log controls apply live during resolution, while dashboard port changes require a runtime restart to bind a new listener.
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |

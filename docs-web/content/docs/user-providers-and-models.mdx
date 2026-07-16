@@ -131,7 +131,7 @@ CLI providers expose provider-specific **thinking** or **reasoning** selections.
 | Provider | Thinking selections |
 | --- | --- |
 | Gemini | `minimal`, `low`, `medium`, `high` |
-| Codex | `low`, `medium`, `high`, `xhigh` |
+| Codex | `low`, `medium`, `high`, `xhigh` (model-dependent: supported by `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`; ignored by `gpt-5.5` which has no reasoning budget) |
 | Claude Code | `low`, `medium`, `high`, `xhigh`, `max` |
 | Qwen Code | `low`, `medium`, `high`, `xhigh`, `max` |
 | OpenCode | `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` |
@@ -147,13 +147,11 @@ In **Settings → AI providers** each provider has a `weight` (0–100). Weights
 
 - `MANUAL` — every routing ID points to a specific provider config.
 - `WEIGHTED` — random sampling proportional to weights.
-- `ORCHESTRATOR` — let an orchestrator agent decide per invocation (advanced).
 
-Default weights: Jules = 60, Gemini = 20, Codex = 20.
 
 ## Invocation routing
 
-Different *kinds* of work route to different providers. The seven invocation IDs:
+Different *kinds* of work route to different providers. The eight invocation IDs:
 
 | ID | Used for |
 | --- | --- |
@@ -164,6 +162,7 @@ Different *kinds* of work route to different providers. The seven invocation IDs
 | `qa_review` | Quality assurance pass on completed work. |
 | `ci_fix` | Fixing a failing CI check. |
 | `merge_conflict` | Resolving Git merge conflicts on a worker branch. |
+| `remediation` | Memory curation and long-term remediation. |
 
 For each ID, you can pick:
 
@@ -190,6 +189,7 @@ A common high-quality setup:
 | `qa_review` | Claude Code | `opus` | Thorough review. |
 | `ci_fix` | Codex | `gpt-5.5` | Iterative debugging. |
 | `merge_conflict` | Codex | `gpt-5.5` | Mechanical merging. |
+| `remediation` | Memory curation and long-term remediation. |
 
 ## Choosing a virtual worker provider
 

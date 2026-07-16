@@ -55,8 +55,7 @@ If the saved setting does not appear to take effect:
 - Check for a project or sprint override that takes precedence over the system value.
 - Refresh the affected dashboard page if the setting controls a rendered surface.
 - Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
-
-If QA follow-up fails due to branch resolution issues (e.g. unavailable remotes or protected branches blocking fast-forward), ensure the worker branch is still available on origin. If it was deleted, you may need to recreate the branch from the current task HEAD before follow-up can proceed.
+- If QA follow-up fails due to branch resolution issues (e.g. unavailable remotes or protected branches blocking fast-forward), ensure the worker branch is still available on origin. If it was deleted, you may need to recreate the branch from the current task HEAD before follow-up can proceed.
 
 ## Related Documentation
 

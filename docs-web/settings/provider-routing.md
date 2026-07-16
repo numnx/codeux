@@ -78,7 +78,7 @@ Thinking/reasoning settings are provider-keyed rather than global. Base provider
 | Provider | Settings values |
 | --- | --- |
 | Gemini | `minimal`, `low`, `medium`, `high` |
-| Codex | `low`, `medium`, `high`, `xhigh` |
+| Codex | `low`, `medium`, `high`, `xhigh` (model-dependent: supported by `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`; ignored by `gpt-5.5` which has no reasoning budget) |
 | Claude Code | `low`, `medium`, `high`, `xhigh`, `max` |
 | Qwen Code | `low`, `medium`, `high`, `xhigh`, `max` |
 | OpenCode | `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` |
