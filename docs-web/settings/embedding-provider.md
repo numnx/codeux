@@ -25,9 +25,9 @@ Backend, external URL, model id, and API key control semantic memory embedding.
 
 Use in-app models for local-first operation; use external APIs only when you need a managed embedding model.
 
-Built-in embedding downloads require **Accept & Download** for the displayed upstream license. Catalog entries must provide a stable acceptance identifier, HTTPS terms link, commercial-use approval, provenance notice, and source. The backend validates the identifier before downloading from Hugging Face.
+Built-in embedding downloads are available from Settings -> AI Models only after the operator reviews and accepts the displayed upstream license. Each catalog entry must have an approved commercial-use license, source link, stable acceptance identifier, and notice. The server checks that identifier independently before contacting Hugging Face.
 
-Custom Hugging Face entries require an upstream license name and URL plus an operator confirmation that commercial use is permitted. This declaration is not a Code UX legal review. Older custom definitions without license metadata remain unverified and unavailable for new downloads until re-added with complete terms.
+Custom Hugging Face entries require a license name, HTTPS terms URL, and an explicit confirmation that commercial use is permitted. This is an operator declaration rather than a Code UX legal review. Existing custom definitions without this metadata are retained as unverified and cannot be downloaded until they are re-added with complete terms.
 
 A practical review flow is:
 
@@ -41,6 +41,8 @@ External APIs send memory text to the configured endpoint and require careful ke
 
 Before applying changes, check:
 
+- Whether the configured embedding service is available and properly initialized. No-model conditions surface as an error instead of a silent success.
+- Documents remain in a pending or error state until embeddings exist, and `KnowledgeService` skips unindexed documents in manifests and search.
 - Whether the value affects provider credentials, Docker runtime behavior, Git automation, memory retention, or destructive cleanup.
 - Whether a project override is masking the system value you expected to change.
 - Whether a running sprint needs to be paused, restarted, or allowed to finish before the new value can be observed.
@@ -59,4 +61,4 @@ If the saved setting does not appear to take effect:
 - [Settings overview](/docs/settings-overview)
 - [Dashboard Settings](/docs/user-dashboard-settings)
 - [Memory Architecture and Search](/docs/user-dashboard-memory)
-- [Security Hardening](/docs/user-troubleshooting)
+- [Security Hardening](/docs/operations-security-hardening)
