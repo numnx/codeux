@@ -32,7 +32,7 @@ The project-scope memory is a compatibility and retrieval layer. The claim row i
 
 ## Direct MCP Management
 
-Project-manager agents can maintain durable claims through `manage_memory` without waiting for sprint remediation. The canonical MCP action schema is documented in [MCP Tools and Contracts](../mcp/tools-and-contracts.md#manage_memory-claim-actions).
+Project-manager agents can maintain durable claims through `manage_memory` without waiting for sprint remediation, modifying canonical DB rows and project-scope mirror memories without requiring arbitrary filesystem access. The canonical MCP action schema is documented in [MCP Tools and Contracts](../mcp/tools-and-contracts.md#manage_memory-claim-actions).
 
 Dashboard Project Manager replies also receive a dedicated `add_long_term_memory` MCP lane. It accepts one durable statement and writes through the same canonical claim + project-memory mirror path as `manage_memory.create_claim`, with `learning`, `0.9` confidence, and `0.9` durability defaults. This narrower tool is always enabled for the assigned dashboard reply agent even when that preset has an explicitly narrowed Code UX tool policy. Its response includes a `memory` rich-widget descriptor so the reply can visibly confirm exactly what was stored.
 
@@ -77,6 +77,10 @@ The service searches embedded project-scope claim mirror memories, then hydrates
 Deterministic and AI post-sprint remediation both consume scored promotion candidates. AI mode receives a broader review set with compact candidate IDs, score, reason, risk flags, `evidenceCount`, and cross-sprint count. It does not receive every source memory ID in the prompt. Selected IDs are allow-listed against those candidates before any write occurs.
 
 Long-term cleanup still operates on project-scope memories for duplicate and CI-failure cleanup. Claims are retained as durable knowledge records and can continue receiving evidence across future sprints.
+
+## Restart Behavior
+
+If Code UX is restarted during an active remediation or memory auto-promotion cycle, the atomic `run_id` tracking guarantees idempotency. Disrupted promotions are detected by `RuntimeStartupRecoveryService` and the cycle is re-queued or dropped based on the active sprint recovery policy (`continue` or `pause`), ensuring duplicate claims are not created for the same source memories.
 
 ## Design Constraints
 
