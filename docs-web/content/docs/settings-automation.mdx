@@ -21,6 +21,8 @@ Automation level sets the broad approval posture; auto-approve plans and auto-re
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
 
+When concurrency is allowed, multiple tasks may run simultaneously in separate worktrees or containers. A shared host repository may experience temporary dirty states during orchestrator synchronization or concurrent operations that touch the shared Git index. High automation and high concurrency require robust CI validation and clean merge isolation.
+
 ## Recommended Configuration
 
 Use Semi-auto for normal work, Full only for trusted projects, and Always ask for sensitive repositories.
@@ -50,9 +52,11 @@ If the saved setting does not appear to take effect:
 - Refresh the affected dashboard page if the setting controls a rendered surface.
 - Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
 
+If the orchestrator stops unexpectedly with dirty-workspace complaints, ensure there isn't a stale uncommitted file blocking the next dispatch, and consider reducing concurrency if host-index contention is suspected.
+
 ## Related Documentation
 
 - [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Operations Runbook](/docs/user-troubleshooting)
-- [Security Hardening](/docs/user-troubleshooting)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Operations Runbook](/docs/operations-runbook)
+- [Security Hardening](/docs/operations-security-hardening)

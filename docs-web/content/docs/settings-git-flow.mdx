@@ -21,6 +21,27 @@ Git mode, default branch, prefixes, sprint key, branch template, PR toggles, lin
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
 
+### Default Branch Resolution
+
+`git.defaultBranch` resolves with the following precedence:
+1. Sprint setting override (Dashboard)
+2. Project setting override (Dashboard)
+3. System setting default (Dashboard)
+4. Hardcoded default (`main`)
+
+The legacy project metadata `defaultBranch` column is retained for project records created before the scoped settings model and for display/initialization context, but sprint orchestration and final merge targets do not let that metadata override resolved scoped settings. A project inheriting a system default of `dev` must merge sprint completion PRs into `dev`, even if the older project row still says `main`.
+
+When Code UX has to create a missing feature branch, it prefers `origin/<defaultBranch>` over the local `<defaultBranch>` ref when the remote-tracking base branch exists. If direct remote inspection is unavailable, branch preflight can use an existing `refs/remotes/origin/<branch>` ref as remote-branch evidence.
+
+### Remote vs. Local Mode
+
+In **Remote git mode**, Code UX refreshes `origin` before sprint branch preflight and before each task start so branch resolution is based on current remote state instead of stale local refs.
+In **Local git mode**, sprint branch allocation and preflight inspect and create only `refs/heads/*`. They do not fetch, inspect, fast-forward from, or push to `origin`, even when the local repository still has an origin remote configured.
+
+### Worktree Cleanup
+
+Code UX manages host-backed git worktrees for tasks using `cliWorkflow.cleanupWorktreeOnSuccess` and `cliWorkflow.cleanupWorktreeOnFailure`. If these are enabled, Code UX performs best-effort cleanup of the worktree when a task finishes. Retained failed worktrees can be used for manual inspection.
+
 ## Recommended Configuration
 
 Use Remote mode for PR/CI automation and Local mode for repositories where Code UX must not touch remotes.
@@ -50,9 +71,11 @@ If the saved setting does not appear to take effect:
 - Refresh the affected dashboard page if the setting controls a rendered surface.
 - Restart the local runtime only when the setting explicitly controls startup, listener, or process-level behavior.
 
+If task dispatches complain about dirty workspaces, check if a previous task failure bypassed worktree cleanup (due to `cleanupWorktreeOnFailure` being false) and the workspace is still dirty.
+
 ## Related Documentation
 
 - [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Operations Runbook](/docs/user-troubleshooting)
-- [Instruction Template System](/docs/developer-configuration)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Operations Runbook](/docs/operations-runbook)
+- [Instruction Template System](../../instructions/markdown-template-system.md)

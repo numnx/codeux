@@ -21,6 +21,10 @@ Quota reset waits, fixed retry delays, retry counts, and no-timer quota retry ca
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
 
+### Retry Behavior and Job Caps
+
+When rate limits or empty provider outputs occur, Code UX retries the attempt. The total count of provider attempts for a job (e.g., planning) is bounded by its specific guardrail cap (like `guardrails.jobs.planning.cap`). Distinct from this guardrail, JSON parse failures within a session are capped separately by `maxPlanningJsonRetries` (default `3`).
+
 ## Recommended Configuration
 
 Retry on concrete quota reset timers and keep fixed retries modest.
@@ -52,7 +56,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Operations Runbook](/docs/user-troubleshooting)
-- [Provider Routing](/docs/user-providers-and-models)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Operations Runbook](../../operations/runbook.md)
+- [Provider Routing](../provider-routing.md)
