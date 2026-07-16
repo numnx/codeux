@@ -2,7 +2,7 @@
 
 Code UX exposes **one MCP tool per management domain** — `manage_projects`, `manage_sprints`,
 `manage_tasks`, `manage_quicksprints`, `manage_scheduler`, `manage_agents`, `manage_node_flows`, `manage_memory`,
-`manage_settings`, `manage_preview`, `manage_custom_dashboards`, `manage_chat_providers`, and `manage_telemetry` — each with a set of
+`manage_settings`, `manage_preview`, `manage_custom_dashboards`, `manage_chat_providers`, and `manage_telemetry` (plus the deprecated `manage_code_ux`) — each with a set of
 **actions**. This page is the complete matrix. (See [MCP tools](/docs/developer-mcp-tools) for the tool list and
 schemas.)
 
@@ -185,7 +185,7 @@ Attempt projections expose numbered status history, failure classifications, ret
 | `delete` | ✅ | `entryId` | Delete a scheduler entry. |
 | `run_due` | – | optional `now` ISO date override | Evaluate due entries immediately, mostly for operational verification. |
 
-`create` accepts nested targets (`sprintTarget`, `quicksprintTarget`, `chatTarget`, `nodeFlowTarget`) or the flattened fields used by the `schedule_*` aliases. `schedule_sprint`, `schedule_quicksprint`, `schedule_chat`, and `schedule_node_flow` infer the target type. Scheduling supports an absolute time (`scheduledFor`) or an `after_sprint_end` anchor via `scheduleMode` or `anchorMode`, with `sourceSprintId` / `anchorSourceSprintId` and optional `offsetMinutes` / `anchorOffsetMinutes`.
+`create` accepts nested targets (`sprintTarget`, `quicksprintTarget`, `chatTarget`, `nodeFlowTarget`) or the flattened fields used by the `schedule_*` aliases. `schedule_sprint`, `schedule_quicksprint`, `schedule_chat`, and `schedule_node_flow` infer the target type. Scheduling supports an absolute time (`scheduledFor`), an `after_sprint_end` anchor, or an `after_task_end` anchor via a nested `scheduleAnchor` payload, or via flattened aliases like `scheduleMode` / `anchorMode`, with `sourceSprintId` / `anchorSourceSprintId`, `sourceTaskId` / `anchorSourceTaskId`, and optional `offsetMinutes` / `anchorOffsetMinutes`.
 
 Memory remediation schedules use `targetType: "memory_remediation"` but have their own dedicated `/api/projects/:projectId/scheduler/memory-remediation` HTTP routes separate from the normal scheduler entries.
 
