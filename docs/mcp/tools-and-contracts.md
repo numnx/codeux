@@ -2,97 +2,126 @@
 
 This guide defines the MCP tool surface, behavior expectations, and key operational rules.
 
-## Tool Handler Split
+## Authoritative Tool Inventory
 
-### Management tools
-Implemented in:
-- `src/mcp/management-tool-handler.ts`
+Code UX exposes one authoritative inventory for its MCP tool surface. Every tool uses the existing `project_manager` gateway runtime role and is enabled by default unless stated otherwise. All inputs are validated against their declared JSON Schema before dispatch.
 
-These cover:
-- `manage_projects`
-- `manage_sprints`
-- `manage_tasks`
-- `manage_quicksprints`
-- `manage_scheduler`
-- `scheduler_code_ux`
-- `manage_agents`
-- `manage_node_flows`
-- `manage_memory`
-- `add_long_term_memory`
-- `manage_skills`
-- `search_knowledge`
-- `search_skills`
-- `manage_settings`
-- `manage_preview`
-- `manage_custom_dashboards`
-- `manage_chat_providers`
-- `manage_telemetry`
-- `register_worker_endpoint`
-- `pull_task_dispatch`
-- `update_task_dispatch`
+### Clarification
 
-The same management domains are also exposed through the direct `codeux` CLI management surface. See [CLI Commands Reference](../reference/cli-commands.md) for the command syntax, aliases, interactive prompting behavior, and approval handling.
+Clarification tools use the existing `project_manager` MCP gateway but add an audience boundary. They do not grant coding agents project-manager tools.
+- **`request_clarification`**: (Audience: `worker`) Raise an idempotent, project-owned Markdown question from an eligible coding agent.
+  - Required: `projectId`, `questionMarkdown` (max 16k chars), `deduplicationKey` (max 512 chars).
+  - Optional context: `taskId`, `sprintId`, `sprintRunId`, `dispatchId`, `taskRunId`, `sessionId`. An assignment-only coding agent must address its assigned task.
+  - Response: `{ "clarification": ... }` with status `pending`.
+- **`reply_to_clarification`**: (Audience: `project_manager`) Answer a pending clarification as the eligible project-manager agent or an unscoped project-manager client.
+  - Required: `projectId`, `clarificationId`, `answerMarkdown` (max 32k chars).
+  - Response: Includes `clarification` (status `replied`), `continuation`, `deliveryMode`, and `alreadySettled`.
 
-### Core tools
-Implemented in:
-- `src/mcp/core-tool-handler.ts`
+### Grouped `manage_*` tools
 
-These cover:
-- `get_session`
-- listen-mode connection registration and inbox/reply flow
+The dedicated management tools share action handlers and use an `action` enum.
 
-### Agent tools
-Implemented in:
-- `src/mcp/agent-tool-handler.ts`
+- **`manage_projects`**: List, get, create, update, select, set up, and delete projects. Destructive actions require approval.
+  - Actions: `list`, `get`, `create`, `update`, `select`, `setup`, `delete`.
+  - Required Identifiers: `projectId` (for get, update, select, setup, delete). `name` (for create).
+  - Aliases: `name` vs `title`.
+  - Destructive: `delete` (requires `approval: { confirmed: true }`).
+- **`manage_sprints`**: Manage Code UX sprints.
+  - Actions: `list`, `get`, `create`, `followup`, `update`, `delete`, `start`, `pause`, `cancel`, `force_cancel`, `inspect_run`, `import_issues`, `plan`.
+  - Required Identifiers: `projectId` (list, create, followup, start, inspect_run), `sprintId` (get, update, delete, start, inspect_run), `sprintRunId` (pause, cancel, force_cancel).
+  - Aliases: `name` vs `title`, `goal` vs `goalMarkdown`.
+  - Destructive: `delete`, `force_cancel`.
+- **`manage_tasks`**: Manage Code UX tasks.
+  - Actions: `list`, `get`, `create`, `update`, `delete`, `start`, `stop`, `force_stop`, `pause`, `inspect_run`.
+  - Required Identifiers: `projectId` (list, create), `taskId` (get, update, delete, start, stop, force_stop, pause, inspect_run).
+  - Aliases: `name` vs `title`.
+  - Destructive: `delete`, `force_stop`.
+- **`manage_quicksprints`**: Manage quicksprint templates and execute them.
+  - Actions: `list_templates`, `get_template`, `create_template`, `update_template`, `delete_template`, `execute`, `start`.
+  - Required Identifiers: `projectId` (all), `templateId` (get, update, delete, execute, start).
+  - Destructive: `delete_template`.
+- **`manage_scheduler`**: Manage scheduler entries (sprints, quicksprints, messages, node flows).
+  - Actions: `list`, `create`, `schedule_sprint`, `schedule_quicksprint`, `schedule_chat`, `schedule_node_flow`, `update`, `delete`, `run_due`.
+  - Required Identifiers: `projectId` (list, create/schedule), `entryId` (update, delete).
+  - Aliases: `scheduleMode` vs `anchorMode`, `sourceSprintId` vs `anchorSourceSprintId`.
+  - Destructive: `delete`.
+- **`manage_agents`**: Manage agent presets.
+  - Actions: `list`, `get`, `sync`, `create`, `update`, `delete`.
+  - Required Identifiers: `projectId` (all), `presetId` (get, update, delete).
+  - Destructive: `delete`.
+- **`manage_node_flows`**: Govern draft automation graphs, credentials, publication, versions, and runs.
+  - Actions: `catalog`, `get_node_definition`, `create_draft`, `patch_draft`, `validate_draft`, `create_custom_node`, `update_custom_node`, `validate_custom_node`, `request_credential`, `inspect_bindings`, `dry_run`, `publish`, `compare_versions`, `rollback`, `run`, `cancel`, `retry`, `inspect_run`, `list_runs`, `list`, `get`, `create`, `update`, `delete`, `validate`, `get_run`, `attach_to_agent`, `detach_from_agent`, `attach`, `detach`.
+  - Required Identifiers: `projectId` (list, create, run, validate), `flowId` (get, update, delete, run, list_runs, attach, detach), `runId` (get_run).
+  - Destructive: `delete`, `publish`, `rollback`.
+- **`manage_memory`**: Inspect, search, promote, and re-embed short/long-term memory.
+  - Actions: `search`, `list`, `get`, `create`, `update`, `delete`, `promote`, `start_reembed`, `get_map`, `count`, `model_status`, `create_claim`, `list_claims`, `get_claim`, `update_claim`, `add_claim_evidence`, `deprecate_claim`.
+  - Required Identifiers: `projectId` (most), `memoryId` (get, update, delete), `claimId` (get, update, deprecate).
+  - Destructive: `delete`, `deprecate_claim`.
+- **`manage_skills`**: Manage persistent skill storages, skill markdown, and agent storage attachments.
+  - Actions: `authoring_prompt`, `list_storages`, `get_storage`, `create_storage`, `update_storage`, `delete_storage`, `reset_storage`, `list_agent_storages`, `attach_storage`, `detach_storage`, `list_skills`, `get_skill`, `create_skill`, `update_skill`, `delete_skill`, `import_markdown`, `export_markdown`.
+  - Required Identifiers: `projectId` (all), `storageId` (storage mutations), `skillId` (skill mutations).
+  - Destructive: `delete_storage`, `reset_storage`, `delete_skill`.
+- **`manage_settings`**: Get/resolve/patch/replace/reset system, project, and sprint settings.
+  - Actions: `get_system`, `get_project_override`, `resolve_project_effective`, `get_sprint_override`, `resolve_sprint_effective`, `replace_system_settings`, `patch_system_setting`, `replace_project_settings`, `patch_project_setting`, `reset_project_settings`, `replace_sprint_settings`, `patch_sprint_setting`, `reset_sprint_settings`, `export_settings_bundle`, `apply_settings_bundle`.
+  - Destructive: All mutating settings actions require a stateful human-confirmation gate (one-use approval handshake).
+- **`manage_preview`**: Manage sprint preview containers.
+  - Actions: `list_sessions`, `start_session`, `rebuild_session`, `stop_session`, `remove_session`, `get_script`, `get_logs`, `get_url`, `update_script`.
+  - Required Identifiers: `projectId`, `sessionId`, `sprintId`.
+  - Destructive: `remove_session`.
+- **`manage_custom_dashboards`**: Manage project custom dashboard drafts, revisions, and publication.
+  - Actions: `list`, `get`, `create`, `update`, `create_revision`, `validate_revision`, `validation_status`, `validation_logs`, `publish_revision`, `archive`, `data_catalog`, `list_credential_slots`, `bind_credential`, `unbind_credential`.
+  - Required Identifiers: `projectId`, `dashboardId`, `revisionId`.
+  - Destructive: `archive`, `bind_credential`, `unbind_credential`.
+- **`manage_chat_providers`**: Manage external chat provider setup definitions, connections, bindings, and deliveries.
+  - Actions: `list_provider_definitions`, `list_connections`, `get_connection`, `create_connection`, `update_connection`, `delete_connection`, `list_channel_bindings`, `create_channel_binding`, `update_channel_binding`, `delete_channel_binding`, `list_outbound_deliveries`, `retry_delivery`, `cancel_delivery`.
+  - Required Identifiers: `providerConnectionId` (or `connectionId`), `channelBindingId` (or `bindingId`).
+  - Destructive: `delete_connection`, `delete_channel_binding`.
+- **`manage_telemetry`**: Read execution snapshots, invocations, sprint runs, and dispatches.
+  - Actions: `get_project_execution_snapshot`, `get_project_stats_snapshot`, `list_sprint_runs`, `list_task_dispatches`, `list_execution_invocations`, `list_execution_invocation_messages`.
+  - Required Identifiers: `projectId`, `sprintId`, `taskId`, `invocationId`.
 
-These cover:
-- `generate_dashboard_reply`
+### Knowledge & Skills Search
+- **`search_knowledge`**: Semantic search over subscribed knowledge base. Requires `query`.
+- **`search_skills`**: Semantic retrieval over persistent project skills. Requires `projectId`, `query`. Optional `agentPresetId` or `storageId`.
 
-### Management
-- `manage_projects`
-- `manage_sprints`
-- `manage_tasks`
-- `manage_quicksprints`
-- `manage_scheduler`
-- `scheduler_code_ux`
-- `manage_agents`
-- `manage_node_flows`
-- `manage_memory`
-- `add_long_term_memory`
-- `manage_skills`
-- `search_knowledge`
-- `search_skills`
-- `manage_settings`
-- `manage_preview`
-- `manage_custom_dashboards`
-- `manage_chat_providers`
-- `manage_telemetry`
+### Agent/Scheduler Wakeups
+- **`scheduler_code_ux`**: Restricted agent-owned wakeups.
+  - Actions: `list`, `schedule_wakeup`, `cancel`.
+  - Constraints: Only entry creators can list/cancel their own entries. Does not expose due-entry execution or recurrence.
 
-### Worker control plane
-- `register_worker_endpoint`
-- `pull_task_dispatch`
-- `update_task_dispatch`
+### Memory Lanes
+- **`add_long_term_memory`**: Store one canonical durable project memory and return rich confirmation-widget data. Requires `projectId`, `memory`.
+- **`run_attached_flow`**: Run one published flow attached to the authenticated agent without exposing its graph or credentials. Requires `projectId`, `flowId`.
 
-These tools are exposed by the main `project_manager` MCP runtime, including server mode. `register_worker_endpoint` records the full eligible `projectIds` set and stores `activeProjectIds` only as the current focus subset. `pull_task_dispatch` returns a dispatch only with a lease token; workers must not start local execution without that token. `update_task_dispatch` renews running leases, records terminal state, and may return `controlAction: "cancel"` when the dashboard has requested cancellation.
+### Worker Control-Plane Tools
+- **`register_worker_endpoint`**: Registers/refreshes worker eligible project scope. Requires `connectionKey`, `displayName`, `transport`.
+- **`pull_task_dispatch`**: Claim next eligible worker task. Requires `connectionKey`. Returns lease token.
+- **`update_task_dispatch`**: Refresh worker heartbeat/state. Requires `connectionKey`, `dispatchId`, `leaseToken`, `state`.
 
-## Registered Tools
+### Listener / Core / Dashboard Tools
+- **`get_session`**: Returns compact session summary.
+- **Listen mode**: `listen`, `start_listen`, `pull_inbox`, `post_listen_reply`. `listen` is the primary contract, returning one event/timeout at a time.
+- **`generate_dashboard_reply`**: Generates a reply-only markdown response for a dashboard inbox message.
 
-Defined in `src/contracts/mcp-tool-definitions.ts`.
+### Response and Error Envelopes
 
-Typed tool argument contracts and registry dispatch are defined in `src/api/mcp/tool-registry.ts`.
+Successful responses return:
+```json
+{
+  "content": [ { "type": "text", "text": "..." } ]
+}
+```
 
-- `get_session`
-### Listen mode
-- `listen`
-- `start_listen`
-- `pull_inbox`
-- `post_listen_reply`
+Management tool validation failures and service errors return a serialized JSON string in the text content and set `isError: true`:
+```json
+{
+  "status": "error",
+  "errorType": "validation",
+  "issues": ["..."],
+  "isError": true
+}
+```
 
-### Agent execution
-- `generate_dashboard_reply`
-
-### Output minimization
-- `get_session` returns a compact session summary (state, provider, PR links, last activity summary) instead of full raw payload.
 
 ## Per-Agent Tool Access
 
@@ -361,44 +390,6 @@ For the `setup` action, clients may also send the normalized setup request shape
     "ci": true,
     "techstack": true,
     "docs": true
-  }
-}
-```
-
-The deprecated `manage_code_ux` envelope delegates `domain: "projects"` setup calls to the same handler, so it accepts the same nested `setup.options` shape:
-
-```json
-{
-  "domain": "projects",
-  "action": "setup",
-  "payload": {
-    "projectId": "project-id",
-    "setup": {
-      "enabled": true,
-      "options": {
-        "agents": true,
-        "quicksprints": true,
-        "previewScript": true,
-        "ci": true,
-        "techstack": true,
-        "docs": true
-      }
-    }
-  }
-}
-```
-
-It also accepts the normalized setup request shape:
-
-```json
-{
-  "domain": "projects",
-  "action": "setup",
-  "payload": {
-    "projectId": "project-id",
-    "options": {
-      "docs": true
-    }
   }
 }
 ```
@@ -1346,7 +1337,7 @@ Settings patch and replacement calls still require the stateful human-confirmati
 - `generate_dashboard_reply` also accepts `mode = compact_thread`, which treats the supplied markdown as a prepared compaction prompt and records the run as a `chat_compaction` invocation.
 - `post_listen_reply` accepts optional `metadata`, which Code UX uses for hidden control-plane replies such as connected-worker thread compaction.
 
-## Removed Legacy Surface
+## Removed and Deprecated Legacy Surface
 
 These legacy MCP tools are no longer registered:
 
@@ -1364,6 +1355,10 @@ These legacy MCP tools are no longer registered:
 - `task_agent`
 
 Code UX now keeps orchestration inside its own DB-backed dispatch layer. External MCP clients interact through listener, inbox, dispatch, and control-plane tools instead of direct Jules session management.
+
+The following tools are deprecated:
+
+- `manage_code_ux` is deprecated. Clients should use `manage_projects` with `action: "setup"` instead, which accepts the same `setup.options` fields natively.
 
 ## Stability Expectations
 
