@@ -6,6 +6,7 @@ import { useInteractionTokens } from "../../lib/motion/tokens.js";
 import { useOptionalDashboardI18n } from "../../i18n/context.js";
 import { taskMessages } from "../../i18n/messages/tasks.js";
 import type { DashboardTranslate } from "../../i18n/context.js";
+import type { DashboardLocale } from "../../i18n/locales.js";
 
 function getDependencyStatusCopy(dep: DependencyIndicator): string {
   return getDependencyPresentation(dep.status, isDependencyKnown(dep)).stateLabel ?? "Unknown";
@@ -60,7 +61,7 @@ function getDependencyToneClass(dep: DependencyIndicator): string {
 
 function getDependencyStatusText(
   status: DependencyIndicator["status"],
-  locale: "en" | "de",
+  locale: DashboardLocale,
   translate: DashboardTranslate,
 ): string {
   if (locale === "en") {

@@ -1,4 +1,4 @@
-export const DASHBOARD_LOCALES = ["en", "de"] as const;
+export const DASHBOARD_LOCALES = ["en", "de", "es"] as const;
 
 export type DashboardLocale = (typeof DASHBOARD_LOCALES)[number];
 
@@ -25,6 +25,7 @@ export type DashboardMessageBundle<
 > = Readonly<{
   en: English;
   de: LocalizedMessageCatalog<English>;
+  es?: LocalizedMessageCatalog<English>;
 }>;
 
 export type DashboardTextMessageKey<Bundle extends DashboardMessageBundle> = {
@@ -46,9 +47,11 @@ export const resolveDashboardLocale = (value: unknown): DashboardLocale => (
 export const defineDashboardMessages = <
   const English extends DashboardMessageCatalog,
   const German extends LocalizedMessageCatalog<English>,
+  const Spanish extends LocalizedMessageCatalog<English> = LocalizedMessageCatalog<English>,
 >(messages: Readonly<{
   en: English;
   de: German & Record<Exclude<keyof German, keyof English>, never>;
+  es?: Spanish & Record<Exclude<keyof Spanish, keyof English>, never>;
 }>): DashboardMessageBundle<English> => messages;
 
 export const interpolateDashboardMessage = (
@@ -70,8 +73,10 @@ const getLocalizedMessage = <Bundle extends DashboardMessageBundle>(
   locale: DashboardLocale,
   key: keyof Bundle["en"],
 ): DashboardMessage => {
-  const localizedCatalog = bundle[locale] as Partial<Record<keyof Bundle["en"], DashboardMessage>>;
-  return localizedCatalog[key] ?? bundle.en[key];
+  const localizedCatalog = bundle[locale] as
+    | Partial<Record<keyof Bundle["en"], DashboardMessage>>
+    | undefined;
+  return localizedCatalog?.[key] ?? bundle.en[key];
 };
 
 export const translateDashboardMessage = <
