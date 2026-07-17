@@ -28,7 +28,19 @@ This project now uses a shared structured logger and request correlation context
 - `src/shared/logging/correlation-id.ts`
   - Correlation ID context backed by `AsyncLocalStorage`.
   - Exposes helpers to generate/resolve/get IDs and run code in a correlation scope.
-  - Provides Express middleware that reads/sets `x-correlation-id`.
+  - Provides Express middleware that reads `x-correlation-id` and `x-request-id` headers and sets `x-correlation-id` on the response.
+
+### Structural Record Fields
+
+The logger output relies on stable properties so operators can search and aggregate logs effectively:
+- Identifiers: Includes `id`, `projectId`, `sessionId`, `correlationId`, and other domain-specific IDs.
+- Structural metadata: Includes `logPurpose`, `level`, `timestamp`, `errorName`, `durationMs`, `statusCode`, and bounds constraints like `byteSize`.
+- Redaction: The logger automatically drops private tokens, passwords, database URLs, and API keys.
+
+### Server Probe Payloads
+
+- `/health`: Liveness probe. Returns 200 `{"status":"UP"}` when the dashboard/MCP listeners are bound and accepting traffic. Otherwise returns 503 `{"status":"DOWN"}` with a `components` breakdown.
+- `/ready`: Operational readiness probe. Returns 200 `{"status":"READY"}` when internal dependency services, credential keys, runners, and audit modules are ready. Otherwise returns 503 `{"status":"NOT_READY"}` with a `components` breakdown showing which dependency is missing.
 
 ### Purpose Label Contract
 
@@ -56,8 +68,8 @@ Callers should pass `logPurpose` when the purpose is known. An explicit `logPurp
 
 1. `src/server/dashboard-server.ts` installs `correlationIdMiddleware()` from `src/shared/logging/correlation-id.ts` before route handlers.
 2. Incoming `x-correlation-id` (or fallback `x-request-id`) is parsed, validated, and reused when present; otherwise a new UUID is generated.
-3. The resolved ID is bound to the async execution context via `AsyncLocalStorage`.
-4. The response header `x-correlation-id` is always set to the resolved ID.
+3. The resolved ID is bound to the async execution context via `AsyncLocalStorage`. WebSocket upgrades and MCP HTTP operations also join this context.
+4. The response header `x-correlation-id` is always set to the resolved ID to propagate the trace back to the caller.
 5. Request-completion logs are emitted through the shared logger and automatically include the active correlation ID from the context.
 6. Malformed dashboard JSON request bodies are rejected by the shared pre-route middleware with `400` and `{ "error": "Invalid JSON request body." }`. The response and structured logs do not include the raw body.
 7. Dashboard HTTP request logs are purpose-classified as `request`/`HTTP` and only print to the server console when Console Visibility is `full`.
