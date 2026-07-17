@@ -29,12 +29,11 @@ This keeps `/health`, `/ready`, the dashboard, and MCP transports responsive bef
 
 ## Runtime Modes
 
-Code UX exposes these MCP runtime roles:
+Code UX exposes one MCP runtime role on the main server:
 
 - `project_manager`: The default human-facing and remote-client surface.
-- `worker-host`: A headless execution role used by the local worker client.
 
-The legacy `worker_gateway` runtime role has been removed. `codeux-worker` is a shipped worker process entrypoint, not a separate MCP runtime role advertised by the main server.
+The legacy `worker_gateway` runtime role has been removed. `codeux-worker` is a shipped worker process entrypoint, not a separate MCP runtime role advertised by the main server. (The local worker execution plane internally uses a separate `worker-host` role over stdio, but that role is never advertised by the main public gateway).
 
 ## Worker Enrollment And Dispatch
 
@@ -207,16 +206,19 @@ Stdio remains the default MCP transport.
 
 ### HTTP
 
-The main Code UX server can also expose an authenticated MCP HTTP endpoint.
+The main Code UX server exposes an authenticated MCP HTTP endpoint by default.
 
 That endpoint:
 
-- is configured through `MCP_HTTP_*` / `MCP_HTTPS_*` env vars or `--mcp-http*` / `--mcp-https*` flags
-- exposes the same project-manager tool surface as stdio
-- uses the project-manager tool surface for worker control-plane calls instead of a separate worker-control-plane runtime role
+- is enabled by default during normal dashboard startup, or can be explicitly controlled through `MCP_HTTP_*` / `--mcp-http*` (or the legacy aliases `MCP_HTTPS_*` / `--mcp-https*`)
+- exposes the same `project_manager` tool surface as stdio
+- uses the `project_manager` tool surface for worker control-plane calls instead of a separate worker-control-plane runtime role
 - uses a generated user bearer token from `~/.code-ux/security.json` when no explicit token is supplied
-- requires an explicit bearer token in server mode and rejects the generated user token fallback
+- requires an explicit bearer token in server mode (and for non-loopback connections) and rejects the generated user token fallback
 - is HTTP at the Node listener; deploy TLS with a trusted reverse proxy/certificate when remote HTTPS is required
+- is served at the `/mcp` path by default
+- limits active sessions (default 100) and timeouts (default 1 hour idle), protecting against runaway clients
+- exposes `/health` for liveness and `/ready` for runtime readiness checks, making it probeable even when the dashboard is disabled
 
 ## Dashboard Settings Path
 

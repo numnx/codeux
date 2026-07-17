@@ -68,43 +68,49 @@ Behavior:
 
 ## MCP Tool Surface
 
-New tools:
+> **Update:** The early listen loop tools (`listen`, `start_listen`, `pull_inbox`, and `post_listen_reply`) have been completely deprecated and removed from the active MCP tool registry. The worker gateway now handles worker polling and execution solely through `register_worker_endpoint`, `pull_task_dispatch`, and `update_task_dispatch`.
+>
+> The sections below remain for historical context on how connection bindings and listener primitives originally evolved.
+
+Legacy tools:
 - `listen`
 - `start_listen`
 - `pull_inbox`
 - `post_listen_reply`
 
-Current primary loop:
-1. Connected MCP calls `listen`
-2. Server registers or refreshes the connection and binds it to a project
-3. The `listen` call blocks until one actionable item is available or timeout expires
-4. MCP handles the returned event
-5. MCP replies with `post_listen_reply` when the event is a dashboard message
-6. MCP re-enters the loop by calling `listen` again
+Historical primary loop:
+1. Connected MCP called `listen`
+2. Server registered or refreshed the connection and bound it to a project
+3. The `listen` call blocked until one actionable item was available or timeout expired
+4. MCP handled the returned event
+5. MCP replied with `post_listen_reply` when the event was a dashboard message
+6. MCP re-entered the loop by calling `listen` again
 
-Low-level compatibility loop:
-1. Connected MCP calls `start_listen`
-2. Server registers or refreshes the connection and binds it to a project
-3. MCP calls `pull_inbox` to fetch pending dashboard messages
-4. MCP processes one or more messages
-5. MCP calls `post_listen_reply` to write the response back into the dashboard thread
-6. MCP re-enters the loop by calling `pull_inbox` again
+Historical compatibility loop:
+1. Connected MCP called `start_listen`
+2. Server registered or refreshed the connection and bound it to a project
+3. MCP called `pull_inbox` to fetch pending dashboard messages
+4. MCP processed one or more messages
+5. MCP called `post_listen_reply` to write the response back into the dashboard thread
+6. MCP re-entered the loop by calling `pull_inbox` again
 
-The blocking long-poll `listen` contract is now the preferred listener UX for both stdio clients and workers. `start_listen` and `pull_inbox` remain as compatibility primitives while the rest of the system is migrated.
+In the modern architecture, workers do not use these primitives. Instead, they use a lease-backed loop:
+1. Worker enrolls via `register_worker_endpoint`.
+2. Worker polls `pull_task_dispatch` (which returns a `WorkerTaskDispatchClaim` containing a lease token).
+3. Worker executes the task and periodically calls `update_task_dispatch` to renew the heartbeat and report status.
+4. If a heartbeat is missed, the lease becomes stale and is automatically reclaimed by the server.
+5. `update_task_dispatch` returns a control action (`cancel` or `continue`) so the worker knows if it should abort execution.
+6. Worker reconnects use a stable connection key to resume their existing registered endpoint.
 
-Current compact listen payloads:
-- dashboard messages return only `message.id`, `message.threadId`, `message.projectId`, `message.bodyMarkdown`, plus continuation guidance
-- worker assignment changes return `assignment`, `project`, `workingDirectoryHint`, and `contextDigest`
-- worker attention items return `item`, `project`, `workingDirectoryHint`, and `contextDigest`
-- timeout results return continuation guidance only
-- `post_listen_reply` returns only `threadId` and `deliveryStatus`
-- `claim_attention_item` returns only `itemId`, `status`, `assignedWorkerEndpointId`, and `claimedAt`
-- `resolve_attention_item` returns only `itemId`, `status`, and `resolvedAt`
-- `report_attention_outcome` returns the resolved source item id/status plus any created handoff thread and human attention item ids
-
-`reply_to_message_id` should still be supplied when replying. `thread_id` alone is not always enough, because a thread can hold multiple delivered dashboard messages and the reply tool otherwise has to mark all pending/delivered dashboard messages on that thread as handled.
-
-Workers now use the same listen loop in addition to dispatch polling, so a single connected worker can both answer chat and pick up `mcp_worker` tasks.
+Historical compact listen payloads (for reference only):
+- dashboard messages returned only `message.id`, `message.threadId`, `message.projectId`, `message.bodyMarkdown`, plus continuation guidance
+- worker assignment changes returned `assignment`, `project`, `workingDirectoryHint`, and `contextDigest`
+- worker attention items returned `item`, `project`, `workingDirectoryHint`, and `contextDigest`
+- timeout results returned continuation guidance only
+- `post_listen_reply` returned only `threadId` and `deliveryStatus`
+- `claim_attention_item` returned only `itemId`, `status`, `assignedWorkerEndpointId`, and `claimedAt`
+- `resolve_attention_item` returned only `itemId`, `status`, and `resolvedAt`
+- `report_attention_outcome` returned the resolved source item id/status plus any created handoff thread and human attention item ids
 
 The in-repo worker runtime now also uses the supervision part of that loop actively:
 

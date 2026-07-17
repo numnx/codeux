@@ -139,7 +139,7 @@ per-action payloads, see [Developer → Management actions](../developer/managem
 
 ## Remote MCP HTTP transport
 
-If you want external worker hosts to connect to Code UX over the network, use the authenticated MCP Streamable HTTP transport:
+If you want external worker hosts to connect to Code UX over the network, use the authenticated MCP Streamable HTTP transport. This endpoint is enabled by default in normal Code UX startup, but can be customized with `MCP_HTTP_*` config values:
 
 ```bash
 export MCP_HTTP_AUTH_TOKEN="$(openssl rand -base64 48 | tr -d '\n')"
@@ -151,6 +151,8 @@ codeux \
   --mcp-http-path /mcp
 ```
 
+*(Note: Legacy `MCP_HTTPS_*` and `--mcp-https-*` variables are still accepted for backward compatibility, but canonical configuration now uses `mcp-http` prefixes).*
+
 Then point your MCP client at:
 
 ```
@@ -161,9 +163,11 @@ http://<host>:4445/mcp
 
 A `GET /health` endpoint returns `{ "status": "UP" }` and is the recommended liveness check. A `GET /ready` endpoint reports runtime readiness from the same listener, so `--server-mode` processes can be probed without a dashboard server.
 
+The listener defaults to a maximum of 100 active Streamable HTTP sessions and an idle timeout of 1 hour to protect against runaway clients. These limits can be configured with `MCP_HTTP_MAX_SESSIONS` and `MCP_HTTP_SESSION_TIMEOUT_MS`.
+
 External workers are enrolled as normal worker endpoints in the Code UX database. Reconnecting with the same connection key updates the existing endpoint rather than creating a new registered worker. Eligible live workers claim queued dispatches through the same `worker_endpoints`, `project_worker_assignments`, `task_dispatches`, and `execution_leases` tables used by local virtual workers, so active leases prevent duplicate task pickup and stale heartbeats prevent new claims.
 
-> **Security:** Normal Code UX startup always has a bearer token for the MCP HTTP gateway, either explicit or generated in `~/.code-ux/security.json`. Server mode (`--server-mode` or `CODE_UX_SERVER_MODE=true`) requires an explicit bearer token with at least 32 bearer-safe characters and does not use the generated fallback. Always use HTTPS in production via a reverse proxy or another trusted TLS termination layer.
+> **Security:** Normal Code UX startup always has a bearer token for the MCP HTTP gateway, either an explicit token or a generated fallback in `~/.code-ux/security.json`. However, if the gateway is exposed on any host other than a loopback interface, or if Code UX is running in `--server-mode` (`CODE_UX_SERVER_MODE=true`), an explicit bearer token with at least 32 bearer-safe characters is **required**, and the generated fallback token is rejected. Always use HTTPS in production via a reverse proxy or another trusted TLS termination layer.
 
 For the wire protocol, see [Architecture → MCP server](../architecture/mcp-server.md).
 

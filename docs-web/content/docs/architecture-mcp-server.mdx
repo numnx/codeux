@@ -67,7 +67,7 @@ Source: `src/app/lifecycle/mcp-lifecycle-service.ts:108-240`.
 
 #### Session limits
 
-The listener defaults to 100 active Streamable HTTP sessions and a one-hour idle timeout. Operators can raise the cap with `MCP_HTTP_MAX_SESSIONS` / `MCP_HTTPS_MAX_SESSIONS` or the matching CLI flags for large worker clusters. These are transport protections for runaway clients and stale workers, not a license limit on registered workers.
+The listener defaults to 100 active Streamable HTTP sessions and a one-hour idle timeout. Operators can customize the cap and timeout with `MCP_HTTP_MAX_SESSIONS` (or legacy `MCP_HTTPS_MAX_SESSIONS`) and `MCP_HTTP_SESSION_TIMEOUT_MS` (or legacy `MCP_HTTPS_SESSION_TIMEOUT_MS`) or the matching CLI flags for large worker clusters. These are transport protections for runaway clients and stale workers, not a license limit on registered workers.
 
 #### Session model
 
@@ -222,7 +222,11 @@ Connections are pruned during the runtime cleanup loop. The dashboard's
 
 ## Runtime role
 
-`--runtime-role` (or default `project_manager`) determines which tools are advertised. The main server uses `project_manager`. External workers connect to that server over Streamable HTTP for the control plane and start a local `worker-host` runtime over stdio for execution tools such as worker dispatch execution and local cancellation.
+Code UX currently exposes only one MCP runtime role on the main server: `project_manager`.
+
+This default role determines which tools are advertised over the main server's stdio and Streamable HTTP transports. External workers connect to that main server using Streamable HTTP to interact with the control plane (e.g., polling dispatch work and reporting status).
+
+When an external worker executes a task locally on its host machine, it starts its own headless local Code UX instance using an internal, unadvertised `worker-host` role. The worker process connects to this local execution plane over stdio to call execution tools like worker dispatch execution and local cancellation.
 
 Worker endpoint registration and project assignment are database-backed. Registered workers are unlimited; active HTTP sessions are bounded by the session cap. Dispatch claims update `task_dispatches` and create `execution_leases` in the same safety path, and a worker must not execute a claimed dispatch unless the server returns a lease token.
 
