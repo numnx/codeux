@@ -1,49 +1,62 @@
 # Speech Output Architecture
 
-Speech output turns project-manager replies into audio through `POST /api/speech/synthesis`. Code UX supports local ONNX synthesis and OpenAI-compatible TTS APIs, and 3D Chat provides playback plus a voice on/off control.
+Speech output turns project-manager replies into audio through `POST /api/speech/synthesis`. The runtime supports local ONNX synthesis and OpenAI-compatible TTS APIs, while the 3D Chat surface owns playback and the user-facing voice toggle.
 
-## Configure and activate
+## Settings And Activation
 
-Open **Settings -> AI Models**. The compact Local AI Runtime summary keeps provider and model choices out of the main page flow. **Configure speech** opens provider, language, voice, speed, and optional API fields; **Manage local models** opens the searchable speech and memory catalog. Downloads are shared across projects; speech activation follows the current System or Project scope and is persisted with **Save Changes**.
+Text-to-speech configuration lives under `speech.synthesis` in normal system/project settings. It stores the enabled state, `local_onnx` or `external_api` provider mode, local model id, voice, speed, and external endpoint credentials. Settings -> AI Models is the owner of the catalog and configuration UI. Local is the default; API fields are rendered only when API is selected.
 
-Local is the default for TTS and API fields stay hidden until API is selected. Activating a downloaded TTS model selects its default voice, switches to Local, and enables synthesis. Provider selection is explicit, so Local never sends reply text to an external API.
+Model files are installed globally under `~/.code-ux/models/speech/<sanitized-model-id>`, but activation follows the current settings scope. Activating an installed TTS model selects its default voice, sets provider mode to `local_onnx`, and enables synthesis. The normal **Save Changes** action persists that draft.
 
-## Local model families
+Model and voice are resolved as one compatible local selection. Because project and sprint scopes can override individual speech fields, an older child-scope voice may outlive a system-level model change. Effective settings replace that stale voice with the selected model's default, and the synthesis service repeats the compatibility check before inference so a valid installed model cannot be silenced by an obsolete scoped voice id.
 
-| Family | Included choices | Notes |
+## Built-In Local Models
+
+| Family | Default bundle | Runtime behavior |
 | --- | --- | --- |
-| Kokoro | Kokoro 82M v1.0 Q8 | Apache-2.0 multi-voice English output, five lightweight voices, pinned CC BY training-data attribution, and an integrity-pinned phonemizer, roughly 98 MB. |
-| Piper | LJSpeech Medium, Cori Medium, MLS German Medium | American and British voices trained from scratch with public-domain data, plus a German checkpoint trained from scratch on CC BY 4.0 Multilingual LibriSpeech. German MLS includes its multilingual phonemizer and is roughly 102 MB. |
+| Kokoro | `kokoro-82m-v1.0-q8` | Apache-2.0 quantized ONNX model, tokenizer, five lightweight English voice embeddings, pinned upstream CC BY training-data attribution, and an integrity-pinned phonemizer runtime. The adapter sends IPA token ids, the selected 256-value style vector, and speed to ONNX Runtime and returns 24 kHz mono WAV. |
+| Piper | `piper-en-us-ljspeech-medium`, `piper-en-gb-cori-medium`, `piper-de-de-mls-medium` | English ONNX bundles trained from scratch with public-domain LJSpeech or LibriVox data, plus the German MLS medium checkpoint trained from scratch on CC BY 4.0 Multilingual LibriSpeech. The adapter maps the selected catalog voice to the checkpoint speaker id and returns mono WAV at the configured sample rate. German MLS exposes one curated default from its 236 speakers to keep first-time setup simple. |
 
-Models run through the packaged `onnxruntime-node` dependency. Phonemizers run as separate processes and supply the IPA expected by Kokoro and Piper. English bundles use an Apache-2.0 wrapper with an embedded GPL-3.0-or-later eSpeak NG engine. German MLS downloads the full `@echogarden/espeak-ng-emscripten@0.3.5` runtime and language data under GPL-3.0-only because the compact English artifact cannot produce German phonemes. Inside the child process, Code UX verifies the executable runtime and German data sidecar against the catalog SHA-256 values immediately before loading code. A modified cache fails closed. There is no raw spelling fallback: a missing or modified runtime, unsupported language, or empty phoneme result stops synthesis instead of producing unintelligible speech.
+Both adapters phonemize text in a separate Node process. English bundles use the integrity-pinned `phonemizer@1.2.1` wrapper under Apache-2.0 with its embedded GPL-3.0-or-later eSpeak NG engine. German MLS instead downloads the integrity-pinned `@echogarden/espeak-ng-emscripten@0.3.5` JavaScript runtime and its full multilingual data sidecar under GPL-3.0-only. This separate runtime is required because the compact English artifact does not produce German phonemes. Inside the child process, Code UX hashes the executable runtime and, for German, its data sidecar against the catalog SHA-256 values immediately before `require` or dynamic import. A modified cache therefore fails closed before executable code is loaded. The German adapter removes eSpeak trace separators before applying Piper's own configured padding ids. Kokoro applies English-specific normalization and IPA compatibility fixes before tokenization. Synthesis fails closed with a repair message when the required runtime is absent, modified, rejects the language, or returns no supported tokens; it never feeds raw spelling into a phoneme-trained model.
 
-## License acceptance
+## License Acceptance And Provenance
 
-Every downloadable speech model shows its upstream terms, provenance, commercial-use status, and download size. **Accept & Download** sends the current stable license identifier to the server, which rejects missing or outdated acceptance. Artifacts download directly from upstream into the user cache and are not bundled with Code UX.
+Every built-in downloadable speech entry declares a stable aggregate license identifier, an HTTPS terms link, commercial-use eligibility, source provenance, and a notice. Catalog initialization rejects incomplete metadata or licenses that do not permit commercial use. The dashboard shows these details and requires **Accept & Download** for the current identifier; the server independently rejects a missing or stale acceptance. Permissive model weights do not hide executable-runtime, training-data, or voice-data terms: Kokoro stores its pinned upstream model card and identifies Koniwa CC BY 3.0 plus SIWIS CC BY 4.0 attribution. English Kokoro/Piper entries include the Apache phonemizer and GPL eSpeak notices. German MLS installs the immutable Piper voice-repository metadata, its model card, the CC BY 4.0 legal text, and the GPL-3.0-only multilingual-runtime notices.
 
-The catalog excludes non-commercial and research-only models. Piper LJSpeech and Cori replace Lessac and Alba because they were trained from scratch using public-domain data. German MLS is admitted because its pinned upstream model card records from-scratch training on CC BY 4.0 Multilingual LibriSpeech and the Piper Voices repository metadata is MIT. Attribution names Multilingual LibriSpeech authors Vineel Pratap, Qiantong Xu, Anuroop Sriram, Gabriel Synnaeve, and Ronan Collobert and links [OpenSLR SLR94](https://www.openslr.org/94/). The bundle installs the model card, CC BY legal text, and eSpeak runtime notice. Its GPL source is pinned to the immutable [`espeak-ng-emscripten` package commit](https://github.com/echogarden-project/espeak-ng-emscripten/tree/ea36b43595facf07f1c5dc487b9f0de3340c1b5e) and [eSpeak NG fork commit](https://github.com/echogarden-project/espeak-ng/tree/b723b62cb78f7e861a1bb4408b00d49db84afeac). Kokoro installs its pinned upstream model card and surfaces its Koniwa CC BY 3.0 and SIWIS CC BY 4.0 attribution requirements. Executable runtime downloads are SHA-256 verified, and license/model-card notices are stored beside their artifacts. GPL source and redistribution obligations still apply when an operator redistributes a downloaded eSpeak runtime.
+Downloads go directly to the user cache from their upstream repositories. Code UX does not bundle or sublicense weights, voices, or phonemizer runtimes. License and model-card notices included in a manifest are saved beside the artifacts. Piper Lessac and derivatives based on Lessac are intentionally absent because their source-data terms are research-only; LJSpeech and Cori replace the former Lessac and Alba defaults. German MLS is included because its immutable upstream model card records from-scratch training and CC BY 4.0 Multilingual LibriSpeech data; the Piper Voices repository metadata is MIT. Attribution is preserved for Multilingual LibriSpeech authors Vineel Pratap, Qiantong Xu, Anuroop Sriram, Gabriel Synnaeve, and Ronan Collobert, with [OpenSLR SLR94](https://www.openslr.org/94/) as the source. The GPL runtime is traceable to the immutable [`espeak-ng-emscripten` package source](https://github.com/echogarden-project/espeak-ng-emscripten/tree/ea36b43595facf07f1c5dc487b9f0de3340c1b5e) and its immutable [eSpeak NG fork source](https://github.com/echogarden-project/espeak-ng/tree/b723b62cb78f7e861a1bb4408b00d49db84afeac). The model, configuration, notices, JavaScript runtime, and language-data sidecar are all SHA-256 pinned.
 
-## API TTS
+Downloaded executable runtime files are pinned by SHA-256. Existing non-empty model files are reused, so upgrading an older Kokoro cache downloads only newly required artifacts. A hash mismatch removes the partial file and leaves the bundle unavailable.
 
-The external variant uses an OpenAI-compatible `/audio/speech` endpoint. Configure the base URL, API key, model, voice, and output format under Text to speech. Code UX sends `model`, `input`, `voice`, `response_format`, and `speed`, and never caches the returned audio.
+## External API
 
-Local model and voice settings resolve as a compatible pair across system, project, and sprint scopes. If an older child-scope voice override does not exist on a newly selected inherited model, Code UX uses that model's default voice and verifies the pair again before inference.
+The external provider sends an authenticated JSON request to an OpenAI-compatible `/audio/speech` endpoint with `model`, `input`, `voice`, `response_format`, and `speed`. The response body is passed through as audio. API keys and provider error text are redacted before errors reach the dashboard.
 
-## 3D Chat voice
+Provider selection is explicit: local mode never sends text to an external provider, and API mode never attempts local synthesis. Text is bounded to 8,000 characters per request, requests have a timeout, and generated audio is returned with `Cache-Control: no-store`.
 
-When TTS is active, the volume icon in the avatar nameplate control dock starts enabled. New project-manager replies are synthesized and played once; refreshing, opening existing history, or changing threads does not replay them. Before synthesis, Code UX silently removes dashboard-only rich-widget fences and fenced code while preserving the surrounding visible prose, so widget payloads and artificial omission notices are never spoken. Click the icon to mute or unmute. The adjacent microphone dictates into the 3D Chat draft. Both controls remain outside the composer. Muting stops current playback and is remembered per project in that browser without disabling the saved TTS runtime for other clients. Synthesis or browser playback failures appear as an accessible inline voice error instead of being silently ignored.
+## 3D Chat Playback
 
-Assistant prose messages include a small accessible replay control in 3D Chat, Threads, and invocation transcripts. Replay is explicit in Threads and Invocations: transcript loading and live updates never start speech. For long replies, the first complete sentence is synthesized immediately and begins playing as soon as it is ready. While it plays, Code UX prefetches at most two later chunks, retains results by index, and plays only the next contiguous chunk. Later sentences are grouped when they fit, and oversized or unpunctuated passages use bounded word-aware splits. Every request stays within the 8,000-character synthesis limit without reordering or omitting spoken content.
+3D Chat establishes the loaded thread as a silent history baseline, then watches for a newly appended project-manager message. When voice is enabled, it removes Markdown-only decoration, dashboard-only `codeux:*` rich-widget fences, and ordinary fenced code before requesting audio for the active project scope. Those non-spoken blocks are removed silently: neither their payloads nor an artificial "output omitted" notice reaches the speech provider. Human-facing prose around the blocks remains in reading order. Each new reply plays once; refreshing, opening 3D Chat, or changing threads never speaks loaded history.
 
-Stopping, muting, starting another replay, changing thread or Chat mode, or leaving the surface aborts pending synthesis and releases active audio resources. Late results cannot restart a cancelled run. A synthesis or browser playback failure stops the ordered run and appears in the surface's accessible voice or transcript status without hiding the written reply.
+Assistant prose messages expose a small accessible replay control in 3D Chat, Threads, and invocation transcripts. Replay is always explicit outside 3D Chat, so thread and invocation loads or live updates never start speech. Long replies are normalized and chunked deterministically: the first complete sentence is synthesized immediately and starts playing as soon as it is ready. While that audio plays, the browser prefetches at most two later chunks, stores them by index, and only plays the next contiguous result. Later sentences are grouped when they fit, and oversized or unpunctuated passages fall back to bounded word-aware splits. Every request stays within the backend's 8,000-character request bound without reordering or omitting spoken content.
 
-## Local files and endpoints
+Each playback run owns one abort controller, active audio element, and object URL. Stopping, muting, replaying another message, changing thread or Chat mode, and unmounting abort pending synthesis and release browser audio resources. A stale or failed synthesis result cannot restart playback. Synthesis and browser playback failures stop the whole ordered run; 3D Chat reports them beside its voice controls, while Threads and Invocations report replay failures in their existing accessible status surfaces without hiding the transcript.
 
-Local weights live under `~/.code-ux/models/speech/<sanitized-model-id>`.
+The avatar nameplate includes a compact microphone button and volume icon, outside the composer. Dictation uses the same caret-aware insertion behavior as Threads mode. Voice defaults on when saved TTS settings are active. Muting stops playback immediately and stores a per-project browser preference; it does not disable the saved TTS model for other clients. If no TTS model/API is active, the volume icon is disabled and its accessible help points the operator to Settings -> AI Models.
 
-- `GET /api/speech/models` lists installation status.
-- `POST /api/speech/models/:modelId/download` accepts the current terms and installs a bundle.
-- `DELETE /api/speech/models/:modelId` removes a bundle.
-- `POST /api/speech/synthesis` returns synthesized audio.
+Synthesis and browser playback failures appear beside the 3D Chat voice controls in an accessible status message. The transcript remains usable, but provider, model, or browser autoplay problems are no longer silently discarded.
 
-See also [Speech Input Architecture](./speech-input.md) and [Dashboard Settings](../user/dashboard/settings.md).
+## Model Management API
+
+- `GET /api/speech/models` lists STT and TTS entries with installation and progress state.
+- `POST /api/speech/models/:modelId/download` validates `acceptedLicenseId` and starts a background bundle download.
+- `POST /api/speech/models/:modelId/cancel` cancels an in-flight download.
+- `DELETE /api/speech/models/:modelId` removes the local bundle.
+- `POST /api/speech/synthesis` resolves scoped settings and returns audio bytes.
+
+Downloads use fixed upstream repositories and file manifests. Partial files use a `.part` suffix and are removed after failure. Local weights stay outside npm/Electron packages so application upgrades do not duplicate or replace user model caches.
+
+## Related Documentation
+
+- [Speech Input Architecture](./speech-input.md)
+- [Settings Reference](../settings/index.md)
+- [System Overview](./system-overview.md)

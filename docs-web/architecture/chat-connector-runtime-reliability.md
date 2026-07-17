@@ -1,43 +1,49 @@
-# Chat connector runtime reliability
+# Chat Connector Runtime Reliability
 
-External connector callbacks and replies cross process, network, and provider boundaries. Code UX separates durable state changes from model, fetch, command, and reconnect work. Provider-specific policy comes from the connector registry; shared services own persistence, leases, cancellation, scheduling, and redacted observability.
+External connector callbacks and replies cross process, network, and provider boundaries. The connector runtime separates durable state changes from slow model, fetch, command, and reconnect work. Provider-specific policy comes from the typed connector registry; shared services own persistence, leases, cancellation, scheduling, and redacted observability.
 
-## Durable ingress
+## Ingress acceptance
 
-The ingress service authenticates through the mode-aware profile, normalizes provider data, resolves conversation identity, selects a binding, and atomically inserts an inbound delivery. Concurrent callbacks for the same provider message share one delivery, and only the insertion winner can create a conversation message.
+`ChatProviderIngressService.acceptInbound()` resolves the mode-aware provider profile, normalizes the callback, resolves provider conversation identity, selects an enabled binding, and atomically inserts the inbound delivery. The insert is the idempotency boundary: concurrent callbacks for the same provider connection and external message id receive one delivery, and only the insertion winner can invoke dashboard chat.
 
-For profile-declared immediate modes, Code UX persists accepted work before returning the profile acknowledgement. Chat processing runs afterward. A later model failure is recorded on the accepted delivery and does not ask the provider to retry indefinitely. Unbound and ambiguous callbacks remain durable without guessing a project.
+Profiles define authentication, handshake, ignore/classification behavior, acknowledgement response, immediate modes, and callback deadline. Immediate routes authenticate and persist first, send the profile acknowledgement, and then call `processAccepted()` outside the HTTP request. Accepted work contains the selected binding, project, plain message body, provider conversation/thread keys, and internal thread routing needed for restart recovery. Chat failures after acknowledgement transition the delivery to `failed`; they do not turn an accepted callback into an HTTP retry loop.
 
-Provider conversation and thread keys, the binding's selected agent preset, and its `suppressRichWidgets` setting travel in chat metadata. These overrides apply only to external connector turns; dashboard-originated turns retain normal routing and rich widgets.
+Unbound channels remain durable `failed` ingress records with `unbound_channel` state. Ambiguous shared channels remain `pending` with candidate binding/project ids and `disambiguation_needed` state. Neither path guesses a project.
 
-## Leased outbound delivery
+## External chat turns
 
-Every outbound attempt claims a SQLite lease. Retry workers are single-flight in one process and competing runtimes cannot claim the same active lease. Expired `sending` leases are recovered after restart.
+Ingress message metadata carries the provider connection, binding, conversation and thread keys, inbound delivery id, selected agent preset, and the binding's `suppressRichWidgets` value. `ChatThreadRuntimeService` applies those overrides only to the current external turn. A later dashboard-originated turn uses dashboard routing and rich-widget behavior normally.
 
-Retryable failures use capped exponential backoff with bounded jitter, while provider `Retry-After` metadata replaces the calculated next-attempt delay. Profile-declared ambiguous transport outcomes are terminal because the provider may already have accepted the send. Manual cancellation writes terminal state before aborting the adapter.
+## Outbound leases and retries
 
-Manual retry is an approved delivery-control operation. MCP approval is one-use and bound to the exact redacted payload; public results omit the stored provider payload.
+Every send, including the first attempt, claims its delivery through a compare-and-set lease. Pollers are single-flight within a process, while SQLite leases prevent another process from sending the same row. Expired `sending` leases are claimable after restart.
 
-## Verification and health
+Retryable failures use capped exponential backoff with bounded jitter. Provider `Retry-After` metadata replaces the calculated delay for the durable `next_attempt_at` schedule. A transport failure in a profile-declared ambiguous mode is terminal because the provider may already have accepted the message. Manual cancellation writes terminal `cancelled` state before aborting the active adapter, so completion cannot revive the delivery.
 
-The verification service resolves credentials ephemerally, runs profile validation, and performs a bounded live check only for modes that advertise it. Persisted outcomes contain sanitized status, timestamp, capabilities, provider error code, retryability, diagnostics, and setup guidance—never credentials, authorization headers, signed URLs, payload text, or response bodies.
+Manual retry is an explicit delivery-control operation, not a status edit. REST requires a confirmed approval payload and MCP uses a one-use, exact-redacted-payload approval. The service returns the new sanitized delivery state and never returns the durable request payload.
 
-Connector health aggregates persisted counts and last outcomes without network calls. It remains separate from `/health` and `/ready`, so optional connector failures do not make the runtime unready.
+## Connection verification and health
 
-Secret replacement/clearing, bridge-mode changes, and setup replacement invalidate the previous verification outcome. Display-name, enabled, and lifecycle-status-only edits preserve it. Meta send testing remains explicit test-number opt-in; Telegram `getMe`, Slack `auth.test`, and Discord current-user checks require test credentials; Teams uses deterministic Emulator-shaped/mocked contract coverage; iMessage has no provider-native bot sandbox. A credential-gated skip is not a pass.
+`ChatProviderVerificationService` resolves credentials ephemerally, runs the selected profile's required-field validation, and performs a bounded live check only for modes that advertise it. Outcomes persist as `verified` or `failed` with timestamp, capabilities, stable provider error code, retryability, setup guidance, and sanitized diagnostics. Raw credentials, authorization headers, signed URLs, provider payload text, and response bodies are excluded.
 
-## Encrypted legacy migration
+The connector health endpoint aggregates only persisted state: configured, active, verified, and error counts plus last outcomes. It performs no network calls and is intentionally separate from `/health` and `/ready`, so an optional provider outage cannot make the Code UX runtime unready.
 
-New and rotated connector secrets are sealed envelopes. Startup migration waits for secure key readiness, seals each legacy row, and compare-and-set commits before clearing the plaintext source. A partial/blocked run keeps the source intact and can resume. Recovery restores the matching key provider and repeats until no pending rows remain; rollback restores a matched database/key backup and never recreates plaintext.
+## Provider sessions
 
-## Resumable sessions and lifecycle
+`ChatProviderSessionRuntimeService` interprets each profile's `session.required` and `session.scope` declarations. A runtime driver is optional; connectors without a managed session driver do not affect dashboard readiness. With a driver, durable session rows use compare-and-set transitions across `pending`, `connecting`, `connected`, `retry_wait`, `resumable`, and terminal states.
 
-The session runtime consumes each profile's required/session-scope declarations. Managed drivers are optional, so unavailable or disabled connectors never block dashboard readiness. Durable sessions resume after restart with bounded reconnect attempts and one timer/controller per session. The production factory shares the same registry-backed secret, verification, ingress, outbound, and session service instances across REST routes, dashboard chat management, standalone MCP management, and lifecycle hooks.
+Reconnect attempts are capped and jittered, with at most one timer and active controller per bounded persisted session. Startup resumes nonterminal sessions. Shutdown clears reconnect timers, aborts active runs, persists shutdown-interrupted work as `resumable`, and waits for jobs to settle before storage is closed.
 
-Shutdown clears reconnect and retry timers, aborts ingress, fetch, command, and session work, releases owned leases safely, and settles connector jobs before the server/storage boundary closes. Structured logs include correlation, provider, connection, binding, delivery/session, attempt, latency, outcome, retry time, transition, and redacted error code—never payload or credential text by default.
+## Lifecycle and logging
 
-## Acceptance harness
+Dashboard startup launches ingress recovery, session recovery, and outbound stale-lease recovery independently. The production factory shares the same registry-backed secret, verification, ingress, outbound, and session service instances across REST routes, dashboard chat management, standalone MCP management, and lifecycle hooks. Connector failures are logged without blocking the dashboard server or global readiness. Repeated starts are idempotent.
 
-The deterministic fan-in suite drives WhatsApp, Telegram, Slack, Microsoft Teams, Discord, and iMessage through connection verification, approved local-project binding, authenticated ingress, chat reply, mocked delivery, restart recovery, and matching redacted REST/MCP inspection. Provider-shaped fixtures are synthetic, and the dashboard acceptance flow uses the real settings APIs while mocking only the provider delivery boundary.
+Shutdown order is ingress processing, outbound delivery, provider sessions, then the dashboard server handle. Structured connector logs carry correlation id, provider kind, connection, binding, delivery/session id, attempt, latency, outcome or session transition, retry time, and a redacted provider error code. Callback text, reply text, raw payloads, and credentials are not log metadata by default.
 
-An optional live evidence lane is disabled unless `CODEUX_CHAT_CONNECTOR_LIVE_TESTS=1`. Missing credentials are explicit skips. It permits only fixed HTTPS checks for Meta phone-number lookup, Telegram `getMe`, Slack `auth.test`, and Discord current-user lookup; Teams and iMessage live calls are rejected. WhatsApp test-number sending also requires `CODEUX_CHAT_CONNECTOR_WHATSAPP_TEST_SEND=1`, a Meta test phone-number id, and a synthetic test recipient. Meta lookup and send paths reject fixture-like access tokens before constructing a provider request. Redirects, non-allowlisted hosts, and production-looking fixture labels fail closed, and the harness records only sanitized endpoint classes and outcomes.
+## Verification targets
+
+Connector runtime tests cover concurrent duplicate acceptance, post-ack chat failure, ambiguous routing, lease contention, `Retry-After`, terminal cancellation, stale-send recovery, repeated start/stop, restart session resume, and shutdown timer cleanup. No database transaction spans model execution, fetch, command execution, or reconnect waits.
+
+The fan-in acceptance harness lives in `tests/backend/integration/chat-connectors-e2e.test.ts`, with provider-shaped synthetic payloads in `tests/fixtures/chat-connectors/`. It drives all six profiles through connection verification, approved local-project binding, authenticated ingress, chat reply, mocked delivery, restart recovery, and matching redacted REST/MCP inspection. The dashboard counterpart in `tests/e2e/settings/chat-connectors.spec.ts` exercises the real settings workflow and mocks only the provider delivery boundary.
+
+`tests/backend/integration/chat-connectors-live.test.ts` is an optional evidence lane. It is disabled unless `CODEUX_CHAT_CONNECTOR_LIVE_TESTS=1` and reports missing credentials as explicit skips. The lane only permits fixed HTTPS endpoints for Meta phone-number lookup, Telegram `getMe`, Slack `auth.test`, and Discord current-user lookup; Teams and iMessage live requests are rejected. A Meta test-number send additionally requires `CODEUX_CHAT_CONNECTOR_WHATSAPP_TEST_SEND=1`, the test phone-number id, and a synthetic test recipient. Meta lookup and send paths reject fixture-like access tokens before constructing a provider request. Redirects, non-allowlisted hosts, and production-looking fixture labels fail closed, and results record only the provider, evidence source, endpoint class, and sanitized outcome.

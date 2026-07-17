@@ -1,45 +1,203 @@
-# Code UX Documentation
+# Code UX Documentation Index
 
-> **Code UX** is a local-first, container-first multi-provider runtime. It turns a goal into a
-> managed sprint — planned, routed to the right agent, executed in isolated Docker workspaces,
-> reviewed through Git and CI, and tracked in a live local dashboard — across hosted providers (like Code UX)
-> and local CLI/Docker providers (like Gemini, Codex, Claude Code, Qwen Code, OpenCode, and Antigravity).
+This documentation is the canonical project reference for the MCP server, sprint orchestration engine, instruction template system, and dashboard.
 
-This site is the public publication and reference mirror for installing, operating, integrating, and extending Code UX. Canonical docs live in `docs/`.
+Use this page as the main entrypoint.
 
----
+## Recommended Reading Paths
 
-## Choose your path
+### Path 1: User
+1. [Atomic Sprint Loop](./sprint-loop/atomic-loop.md)
+2. [Glossary](./reference/glossary.md)
+3. [Markdown Template System](./instructions/markdown-template-system.md)
+4. [Quickstart](./getting-started/quickstart.md)
 
-| If you are… | Start here |
-| --- | --- |
-| **A user** running sprints from the dashboard or an MCP client | [User Guide →](/docs/user-overview) |
-| **An operator** tuning runtime, provider, Git, memory, and dashboard behavior | [Settings →](/docs/settings-overview) |
-| **A developer** integrating with the MCP server, HTTP API, or realtime protocol | [Developer Reference →](/docs/developer-overview) |
-| **An architect or contributor** working on the engine itself | [Architecture →](/docs/architecture-overview) |
+### Path 2: Operator
+1. [Agent Routing](/docs/settings-agent-routing)
+2. [Automation Credential Security](/docs/operations-credential-security)
+3. [Automation](/docs/settings-automation)
+4. [Background](/docs/settings-background)
+5. [Base Provider Configuration](/docs/settings-base-provider-configuration)
+6. [Built-in MCP (Code UX)](/docs/settings-built-in-mcp)
+7. [CLI Commands Reference](./reference/cli-commands.md)
+8. [CLI Management Surface](./operations/management-cli.md)
+9. [Chat Connector Profiles](/docs/settings-chat-connectors-overview)
+10. [Chat Provider Integrations](/docs/settings-chat-provider-integrations)
+11. [Configuration and Storage](/docs/settings-configuration-and-storage)
+12. [Custom MCP Server](/docs/settings-custom-mcp-server)
+13. [Danger Zone](/docs/settings-danger-zone)
+14. [Database Settings](/docs/settings-database-settings)
+15. [Default Routing Anchors](/docs/settings-default-routing-anchors)
+16. [Discord Chat Connector](/docs/settings-chat-connectors-discord)
+17. [Display Settings](/docs/settings-display-settings)
+18. [Docker Runtime](/docs/settings-docker-runtime)
+19. [Electron Desktop App](./deployment/electron-desktop.md)
+20. [Embedding Provider](/docs/settings-embedding-provider)
+21. [Git Flow](/docs/settings-git-flow)
+22. [Git Host Configuration](/docs/settings-git-host-configuration)
+23. [Google Drive Project Mount](/docs/settings-google-drive-mount)
+24. [Guardrails](/docs/settings-guardrails)
+25. [Guidance](/docs/settings-guidance)
+26. [Importer Configuration](/docs/settings-importer-configuration)
+27. [Integrations](/docs/settings-integrations)
+28. [Jira Configuration](/docs/settings-jira-configuration)
+29. [Jules Automation](/docs/settings-jules-automation)
+30. [Limits](/docs/settings-limits)
+31. [Logging and Correlation IDs](./operations/logging-and-correlation.md)
+32. [Long-Term Remediation Schedule](/docs/settings-long-term-remediation-schedule)
+33. [MCP Servers](/docs/settings-mcp-servers)
+34. [MCP Tool Category](/docs/settings-mcp-tool-category)
+35. [Memory System](/docs/settings-memory-system)
+36. [Merge Gates & Autofix](/docs/settings-merge-gates-autofix)
+37. [Microsoft Teams Chat Connector](/docs/settings-chat-connectors-microsoft-teams)
+38. [Model Pricing](/docs/settings-model-pricing)
+39. [Onboarding](/docs/settings-onboarding)
+40. [OpenCode Integration](/docs/settings-opencode-integration)
+41. [Operations Runbook](/docs/operations-runbook)
+42. [Project Context](/docs/settings-project-context)
+43. [Project Markdown Mirror](/docs/settings-project-markdown-mirror)
+44. [Project Memory](/docs/settings-project-memory)
+45. [Provider Credentials](/docs/settings-provider-credentials)
+46. [Provider Integration](/docs/settings-provider-integration)
+47. [Provider Routing](/docs/settings-provider-routing)
+48. [Quality Assurance](/docs/settings-quality-assurance)
+49. [Qwen Code Integration](/docs/settings-qwen-code-integration)
+50. [Rate Limit](/docs/settings-rate-limit)
+51. [Restart Behavior](/docs/settings-restart-behavior)
+52. [Route Mapping](/docs/settings-route-mapping)
+53. [Runtime Limits](/docs/settings-runtime-limits)
+54. [Secure Headless Server Mode](/docs/operations-server-mode)
+55. [Security Hardening](/docs/operations-security-hardening)
+56. [Settings](/docs/settings-overview)
+57. [Slack Chat Connector](/docs/settings-chat-connectors-slack)
+58. [System Database](/docs/settings-system-database)
+59. [System Memory](/docs/settings-system-memory)
+60. [System Runtime](/docs/settings-system-runtime)
+61. [Techstacks](/docs/settings-techstacks)
+62. [Telegram Chat Connector](/docs/settings-chat-connectors-telegram)
+63. [Watch Loop](/docs/settings-watch-loop)
+64. [WhatsApp Chat Connector](/docs/settings-chat-connectors-whatsapp)
+65. [Worker Learnings Instruction](/docs/settings-worker-learnings-instruction)
+66. [Workspace Hygiene](/docs/settings-workspace-hygiene)
+67. [Workspace Visibility](/docs/settings-workspace-visibility)
+68. [iMessage Chat Connector](/docs/settings-chat-connectors-imessage)
 
----
+### Path 3: Integrator
+1. [MCP Runtime and Dispatch](./mcp/runtime-and-dispatch.md)
+2. [MCP Tools and Contracts](./mcp/tools-and-contracts.md)
 
-## At a glance
+### Path 4: Architecture
+1. [ADR: Senior-Level Codebase Refactor Target Architecture](./architecture/refactor-target-architecture.md)
+2. [ADR: Sprint 2 Gap Closure and Migration Contract](./architecture/sprint-2-gap-closure.md)
+3. [ADR: Sprint 4 Project Management Foundation and Tool Surface Migration](./architecture/sprint-4-project-management-foundation.md)
+4. [Agent Knowledge Base](./architecture/agent-knowledge-base.md)
+5. [Agent Preset Foundation](./architecture/agent-preset-foundation.md)
+6. [Agent Routing](./architecture/agent-routing.md)
+7. [Agent Sync And Planning Agent](./architecture/agent-sync-and-planning-agent.md)
+8. [Card CI Status Projection](/docs/architecture-card-ci-status-projection)
+9. [Chat Connector Runtime Reliability](/docs/architecture-chat-connector-runtime-reliability)
+10. [Chat Thread Runtime](./architecture/chat-thread-runtime.md)
+11. [Code Quality And Performance Contracts](./architecture/code-quality-performance-contracts.md)
+12. [Code UX Phase 1 Implementation Plan](./architecture/code-ux-phase-1-implementation-plan.md)
+13. [Connection And Listener Foundation Reset](./architecture/connection-and-listener-foundation-reset.md)
+14. [Custom Dashboard Foundation](/docs/architecture-custom-dashboard-foundation)
+15. [Custom Node Architecture and Security](/docs/architecture-custom-nodes)
+16. [DB-Native Orchestration Foundation](./architecture/db-native-orchestration-foundation.md)
+17. [DB-Native Orchestrator Integration](./architecture/db-native-orchestrator-integration.md)
+18. [Dashboard Realtime Foundation](./architecture/dashboard-realtime-foundation.md)
+19. [Dashboard Realtime Transport Plan](./architecture/dashboard-realtime-transport-plan.md)
+20. [Dashboard Resource Layer](./architecture/dashboard-resource-layer.md)
+21. [Execution Dashboard Controls](./architecture/execution-dashboard-controls.md)
+22. [Execution Dashboard Projection](./architecture/execution-dashboard-projection.md)
+23. [Execution Invocation Tracking](/docs/architecture-execution-invocation-tracking)
+24. [Execution Runtime Event Timeline](./architecture/execution-runtime-event-timeline.md)
+25. [Execution Schema Foundation](./architecture/execution-schema-foundation.md)
+26. [External Chat Providers](/docs/architecture-external-chat-providers)
+27. [External MCP Worker Client](./architecture/external-mcp-worker-client.md)
+28. [Git Stats Analytics](./architecture/git-stats-analytics.md)
+29. [High-Concurrency Docker Orchestration](/docs/architecture-high-concurrency-orchestration)
+30. [Live Connections Runtime Surface](./architecture/live-connections-runtime-surface.md)
+31. [Live Runtime Contract](./architecture/live-runtime-contract.md)
+32. [MCP Connections And Listen Mode](./architecture/mcp-connections-and-listen-mode.md)
+33. [MCP Worker Dispatch Executor](./architecture/mcp-worker-dispatch-executor.md)
+34. [Managed Container Runtime](/docs/architecture-managed-container-runtime)
+35. [Memory Claims and Evidence](./architecture/memory-claims.md)
+36. [Multi-Project Agentic Refactor Plan](./architecture/multi-project-agentic-refactor-plan.md)
+37. [Node Flow Built-ins and External-Effect Security](/docs/architecture-node-flow-builtins-and-security)
+38. [Node Flow Durable Execution](/docs/architecture-node-flow-durable-execution)
+39. [Node Flow Foundation](/docs/architecture-node-flow-foundation)
+40. [Node Flows](/docs/architecture-node-flows)
+41. [Postgres Migration Plan](./architecture/postgres-migration-plan.md)
+42. [Project Attention Foundation](./architecture/project-attention-foundation.md)
+43. [Project Management Implementation](./architecture/project-management-implementation.md)
+44. [Project Runtime Integration](./architecture/project-runtime-integration.md)
+45. [Project Worker Assignment Foundation](./architecture/project-worker-assignment-foundation.md)
+46. [Quality Assurance Agent](/docs/architecture-quality-assurance-agent)
+47. [Quality Guardrails](./architecture/quality-guardrails.md)
+48. [Repository Map](./architecture/repository-map.md)
+49. [Speech Input Architecture](/docs/architecture-speech-input)
+50. [Speech Output Architecture](/docs/architecture-speech-output)
+51. [Sprint Preview Browser](./architecture/sprint-preview-browser.md)
+52. [Sprint Rollbacks](/docs/architecture-sprint-rollbacks)
+53. [Streamable HTTP Worker Gateway](./architecture/streamable-http-worker-gateway.md)
+54. [System Overview](/docs/architecture-system-overview)
+55. [Unified Runtime Event Stream](./architecture/unified-runtime-event-stream.md)
+56. [Usage Telemetry And Stats](./architecture/usage-telemetry-and-stats.md)
+57. [Virtual Workers](/docs/architecture-virtual-workers)
+58. [Worker Clarification Contract](/docs/architecture-worker-clarification-contract)
+59. [Worker Endpoint Foundation](./architecture/worker-endpoint-foundation.md)
 
-- **Multi-provider routing** — route work across seven providers per invocation type (planning, coding, QA, CI repair, merge-conflict), with weights, concurrency, and model defaults.
-- **Container-first execution** — provider CLIs run in short-lived, isolated Docker workspaces by default; host execution is available when speed matters more than isolation.
-- **Sprint orchestration** — dependency-aware DAG scheduling, parallel task dispatch, a continuous watch loop, and emergency-stop safety.
-- **Git, CI & issue imports** — branch prep, PR/MR discovery, CI polling and merge gates, automated CI repair, and issue import from GitHub, GitLab, and Jira.
-- **Scoped memory** — short-term sprint memory and long-term project memory keep prompts focused and token-efficient.
-- **Live dashboard** — a real-time Preact UI at `http://localhost:4444` for projects, sprints, tasks, live sessions, agents, chat, memory, stats, and browser previews.
-- **MCP server** — Code UX also speaks Model Context Protocol over stdio and authenticated Streamable HTTP, so MCP clients can drive the runtime directly.
+### Path 5: Dashboard
+1. [Browser Preview](./dashboard/browser-preview.md)
+2. [Browser Workbench Design System](./dashboard/design-system-browser.md)
+3. [Chat Design System](./dashboard/design-system-chat.md)
+4. [Code UX Dashboard: Agents Design System](./dashboard/design-system-agents.md)
+5. [Code UX Projects Design System](./dashboard/design-system-projects.md)
+6. [Code UX Sprints Design System](./dashboard/design-system-sprints.md)
+7. [Custom Dashboards](./dashboard/custom-dashboards.md)
+8. [Dashboard Accessibility Quality Audit](./dashboard/accessibility-quality-audit.md)
+9. [Dashboard Design System: Settings Workspace](./dashboard/design-system-settings.md)
+10. [Dashboard Design System: Shared Primitives](./dashboard/design-system-shared-primitives.md)
+11. [Dashboard Design System: Stats & Analytics](./dashboard/design-system-stats.md)
+12. [Dashboard Feature Flags](./dashboard/feature-flags.md)
+13. [Dashboard Guide](./dashboard/dashboard-guide.md)
+14. [Dashboard Internationalization](./dashboard/internationalization.md)
+15. [Dashboard Onboarding](./dashboard/onboarding.md)
+16. [Design System: Feedback & Overlays](./dashboard/design-system-feedback-overlays.md)
+17. [Design System: Shell Navigation](./dashboard/design-system-shell-navigation.md)
+18. [Interaction Patterns](./dashboard/interaction-patterns.md)
+19. [Live Runtime Visual System](./dashboard/design-system-live-runtime.md)
+20. [Memory Architecture and Search](./dashboard/memory.md)
+21. [Memory Workspace Design System](./dashboard/design-system-memory.md)
+22. [Mobile Responsiveness & Overlay Surfaces](./dashboard/mobile-responsiveness.md)
+23. [Node Flows Dashboard](./dashboard/node-flows.md)
+24. [Nodes Automation Workspace](./dashboard/nodes-canvas.md)
+25. [Nodes](./dashboard/nodes.md)
+26. [Overview Dashboard Design System](./dashboard/design-system-overview.md)
+27. [Project Initialization](./dashboard/project-initialization.md)
+28. [Quicksprint Templates](./dashboard/quicksprint-templates.md)
+29. [Scheduler](./dashboard/scheduler.md)
+30. [Secondary Pages Design System](./dashboard/design-system-secondary-pages.md)
+31. [Sprint Imports](./dashboard/sprint-imports.md)
+32. [Styleguides and Tech Stacks](./dashboard/styleguides-and-tech-stacks.md)
+33. [Tasks Page Design System](./dashboard/design-system-tasks.md)
 
----
+### Path 6: Developer
+1. [Documentation Standards](./development/documentation-standards.md)
+2. [Mockup Sprint Pentest Scenarios](./development/mockup-sprint-pentest-scenarios.md)
+3. [Mockup Sprint Pentest](./development/mockup-sprint-pentest.md)
+4. [OpenRouter Sprint Validation](./development/openrouter-sprint-validation.md)
+5. [Rapid Orchestration Debugging Suite](./development/rapid-orchestration-debugging.md)
+6. [Testing and Quality](./development/testing-and-quality.md)
 
-## Conventions
+## Documentation Scope
 
-- **Code paths** are repository-relative (e.g. `src/server/code-ux-server.ts`) so you can jump to the source.
-- **Defaults** appear inline in tables, alongside the configuration key where applicable.
-- **CLI examples** assume the `codeux` binary (or `npx @codeuxai/codeux`) is on your `PATH`.
+These docs cover:
+- Runtime architecture and control flow.
+- Tool behavior and expected argument contracts.
+- Dashboard behavior and settings semantics.
+- Markdown instruction templates and placeholders.
+- Configuration precedence and storage persistence.
+- Operational and development workflows.
 
----
-
-## Versioning and license
-
-Code UX is released under the [MIT License](https://github.com/codeux-ai/codeux/blob/main/LICENSE).
+These docs do not replace the source code. They are designed to make the source easier to navigate and safer to change.
