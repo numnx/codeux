@@ -17,6 +17,58 @@ Use `--server-mode` for secure headless MCP HTTP deployments. It disables dashbo
 
 For full server-mode flags, health checks, token rotation, settings synchronization, and cluster worker troubleshooting, see [Secure Headless Server Mode](../operations/server-mode.md).
 
+## Global CLI Options and Help
+
+The following options and environment variables are supported when booting the Code UX server:
+
+```
+Options:
+  --api-key VALUE   Set the Jules API key (overrides env and settings)
+  --runtime-role VALUE
+                    Runtime role: project_manager (default) or worker-host
+  --headless        Start MCP-only without binding the dashboard
+  --server-mode     Start authenticated MCP HTTP server mode without binding the dashboard
+  --mcp-https      Enable the MCP Streamable HTTP gateway (enabled by default; legacy flag name)
+  --no-mcp-https    Disable the MCP Streamable HTTP gateway
+  --mcp-https-port N Port for the MCP Streamable HTTP gateway
+  --mcp-https-host H Host/interface for the MCP Streamable HTTP gateway
+  --mcp-https-path P Path for the MCP Streamable HTTP gateway (default: /mcp)
+  --mcp-https-auth-token VALUE
+                    Bearer token for MCP HTTP requests
+  --mcp-https-max-sessions N
+                    Maximum active MCP HTTP sessions (default: 100)
+  --mcp-https-session-timeout-ms N
+                    Idle MCP HTTP session timeout in milliseconds (default: 3600000)
+  --help, -h        Show this help message
+
+Environment Variables:
+  JULES_API_KEY      Jules API key
+  DASHBOARD_PORT     Port for the dashboard (default: 4444)
+  CODE_UX_SERVER_MODE
+                     Require authenticated MCP HTTP server mode and disable the dashboard
+  MCP_HTTPS_ENABLED  Enable the MCP HTTP gateway (default: true)
+  MCP_HTTPS_PORT     Port for the MCP HTTP gateway
+  MCP_HTTPS_HOST     Host/interface for the MCP HTTP gateway
+  MCP_HTTPS_PATH     Path for the MCP HTTP gateway
+  MCP_HTTPS_AUTH_TOKEN
+                     Bearer token for MCP HTTP requests
+  MCP_HTTPS_MAX_SESSIONS
+                     Maximum active MCP HTTP sessions (default: 100)
+  MCP_HTTPS_SESSION_TIMEOUT_MS
+                     Idle MCP HTTP session timeout in milliseconds (default: 3600000)
+```
+
+**Note on canonical vs legacy flag names:** The CLI parser fully supports canonical flags like `--mcp-http-port` and environment variables like `MCP_HTTP_PORT`, while preserving backward compatibility with the legacy `--mcp-https-*` names. The help output currently displays the legacy names, but both forms work interchangeably.
+
+## Configuration Precedence
+
+When initializing the runtime, Code UX resolves configuration using the following precedence (from highest to lowest):
+
+- **Jules API Key**: CLI Flag (`--api-key`) > Env Var (`JULES_API_KEY` / `JULES_KEY`) > Persisted Settings (`.code-ux/settings.json`).
+- **Dashboard Port**: Env Var (`DASHBOARD_PORT`) > Config File (`config.json`) > Default (`4444`).
+- **MCP HTTP Port**: CLI Flag (`--mcp-https-port` / `--mcp-http-port`) > Env Var (`MCP_HTTPS_PORT` / `MCP_HTTP_PORT`) > Config File (`config.json`) > Default (`dashboardPort + 1`). (An explicit disable via `--no-mcp` or `MCP_HTTPS_ENABLED=false` blocks the port unless `--server-mode` is active).
+- **MCP HTTP Auth Token**: CLI Flag (`--mcp-https-auth-token` / `--mcp-http-auth-token`) > Env Var (`MCP_HTTPS_AUTH_TOKEN` / `MCP_HTTP_AUTH_TOKEN`) > Generated File (`~/.code-ux/security.json`). Note that `--server-mode` requires an explicit >=32 character token and disables the generated file fallback.
+
 ## Command Forms
 
 There are two supported entry points:
@@ -80,6 +132,8 @@ These aliases are accepted and normalized before dispatch:
 - `replace-sprint-settings` -> `replace_sprint_settings`
 - `patch-sprint-setting` -> `patch_sprint_setting`
 - `reset-sprint-settings` -> `reset_sprint_settings`
+- `export-settings-bundle` -> `export_settings_bundle`
+- `apply-settings-bundle` -> `apply_settings_bundle`
 - `start-session` -> `start_session`
 - `rebuild-session` -> `rebuild_session`
 - `stop-session` -> `stop_session`
