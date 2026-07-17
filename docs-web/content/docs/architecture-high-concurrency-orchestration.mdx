@@ -4,7 +4,7 @@ Code UX keeps local provider and CI work parallel while reserving host capacity 
 the dashboard, and interactive replies.
 
 - A positive `maxConcurrentTasks` is a hard cap.
-- Local-provider `0` uses adaptive CPU and memory admission; Jules `0` remains unlimited hosted work.
+- Local-provider `0` uses adaptive CPU and memory admission (enforced heuristically against available host memory even in `HOST` mode, while Docker mode relies on container bounds); Jules `0` remains unlimited hosted work.
 - Healthy adaptive limits of three or more reserve one slot for interactive replies. Compact one-
   and two-slot hosts keep their complete budget available to background work so a four-core machine
   can still run two independent coding tasks concurrently.
@@ -23,8 +23,8 @@ the dashboard, and interactive replies.
   warning details plus an overflow count.
 - Every retention table advances through 500-row cursor batches only while provider work is idle.
 - Passive idle-time WAL checkpoints and a 256-page incremental-vacuum cap avoid full-file barriers.
-- Runtime and startup asset cleanup are single-flight; stale-path filesystem work is asynchronous,
-  while Docker inspection/removal uses bounded parallel batches.
+- Runtime and startup asset cleanup are single-flight; stale-path filesystem work is asynchronous (e.g. 15-minute pruning cutoff for temporary workspaces and cancel dispatches),
+  while Docker inspection/removal uses bounded parallel batches. In `HOST` execution mode, workspace artifacts are host paths and are not reclaimed via Docker pruning. Concurrency capacity is tracked globally in the database under `provider_invocations`, meaning `HOST` and `DOCKER` modes share the same capacity pool. However, stale reconciliation differs: `DOCKER` mode reconciles against the Docker container inventory, while `HOST` and Jules rely on database session state and lease timeouts.
 - Managed Docker containers and volumes carry a state-home-derived runtime-owner label. Cleanup,
   shutdown, preview/file-browser reconciliation, and warm-helper names are owner-scoped, so local
   stress tests can share the daemon with a live runtime. A stopped helper is retried by generation
@@ -66,12 +66,12 @@ the dashboard, and interactive replies.
   SHA. Each serial publication retains compare-and-swap protection; only a concurrent target change
   triggers a ref refresh and retry.
 - Startup removes stale owner-scoped provider containers in every Docker state before recovery,
-  including never-started `created` generations. Shutdown also inspects every state and treats
+  including never-started `created` generations. Continuation workspaces reconstruct the same commit and re-apply worker diffs rather than starting fresh. Shutdown also inspects every state and treats
   concurrent disappearance as successful idempotent cleanup. It signals active dispatches before
   draining helper leases, then removes the remaining owner-scoped containers in bounded batches so
   restart latency does not wait for uncancelled workspace commands or one oversized Docker call.
   Initial background-loop callbacks use the server's tracked startup timers; shutdown cancels them
-  before SQLite closes, and periodic callbacks reject new repository work after closing begins.
+  before SQLite closes, and periodic callbacks reject new repository work after closing begins. Active recovery sessions and live snapshots are preserved and re-linked upon continuation.
   The local mockup-sprint pentest waits for terminal owner-scoped workspace cleanup and removes only
   its isolated runtime's remaining volumes before exit, preventing repeated 400-task runs from
   degrading later Docker operations.

@@ -62,6 +62,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Operations Runbook](../../operations/runbook.md)
-- [Logging and Correlation IDs](../../operations/logging-and-correlation.md)
+- [Dashboard Settings](../user/dashboard/settings.md)
+- [Operations Runbook](../operations/runbook.md)
+- [Logging and Correlation IDs](https://github.com/codeux-ai/codeux/blob/dev/docs/operations/logging-and-correlation.md)
