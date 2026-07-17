@@ -24,20 +24,19 @@ The worker gateway solves that by exposing an authenticated MCP HTTP endpoint on
 
 ## Runtime Roles
 
-Code UX uses two MCP runtime roles internally:
+Code UX exposes one main MCP runtime role internally:
 
 - `project_manager`
-- `worker-host`
 
 ### `project_manager`
 
 The normal main Code UX server process.
 
-It exposes the human-facing MCP tool surface over stdio.
+It exposes the human-facing and worker control-plane MCP tool surface over stdio and Streamable HTTP.
 
-### `worker-host`
+### Local Execution Plane (`worker-host`)
 
-A headless local Code UX runtime started by the worker process on the worker machine.
+A headless local Code UX runtime started by the worker process on the worker machine. (This is *not* a runtime role exposed or advertised by the main server).
 
 It exposes only the worker-local execution tools needed to:
 
@@ -176,9 +175,11 @@ Those flags configure the worker machine's local execution process, not the remo
 
 ## Cluster Operation
 
-External worker endpoints are registered in `worker_endpoints` with heartbeat-derived status. Project eligibility lives in both the connection binding table and `project_worker_assignments`: `projectIds` is the full eligible set, while `activeProjectIds` is only the current polling/focus subset on the connection. A project can have one primary worker and any number of overflow workers. There is no product cap on registered workers; the Streamable HTTP active-session cap is a transport protection default that operators can raise for large clusters.
+External worker endpoints are registered in `worker_endpoints` with heartbeat-derived status via the `register_worker_endpoint` tool. Project eligibility lives in both the connection binding table and `project_worker_assignments`: `projectIds` is the full eligible set, while `activeProjectIds` is only the current polling/focus subset on the connection. A project can have one primary worker and any number of overflow workers. There is no product cap on registered workers; the Streamable HTTP active-session cap is a transport protection default that operators can raise for large clusters.
 
-Task pickup is protected by both `task_dispatches` and `execution_leases`. A claim must return a lease token before the worker starts local execution. Worker heartbeats renew the lease while work runs, and stale or offline endpoints are excluded from new claims. If a primary worker goes stale, eligible overflow workers can claim new work for the project.
+Task pickup is lease-backed and protected by both `task_dispatches` and `execution_leases`. A worker repeatedly calls `pull_task_dispatch` to claim the next eligible dispatch. A claim must return a lease token before the worker starts local execution. During execution, the worker periodically calls `update_task_dispatch` to report status, renew the lease heartbeat, and receive control actions. If the control action returned is `cancel`, the worker must abort local execution. Stale or offline endpoints (from missed heartbeats) are excluded from new claims, and their abandoned leases are automatically reclaimed. If a primary worker goes stale, eligible overflow workers can claim new work for the project.
+
+The dedicated worker process is shipped as `codeux-worker`. It automatically coordinates this dual-connection architecture: attaching to the remote server via Streamable HTTP for the control plane (registration, pull, update), while spinning up the local execution plane over stdio for dispatch execution.
 
 ## Security Model
 
