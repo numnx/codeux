@@ -51,6 +51,9 @@ curl -s http://127.0.0.1:4444/ready
 **Retry/Idempotency Expectations:** Dashboard components will automatically reconnect WebSockets and resume polling once the server restarts.
 **Cleanup Behavior:** WebSocket disconnects are logged; stale clients will refresh their UI state natively.
 **Escalation Evidence:** Include the `/ready` probe output, `HTTP` error logs, and browser console trace.
+- To validate this surface after cache or timeout changes, run `pnpm run test:backend -- tests/backend/server/activity-cache-service.test.ts`, then `pnpm run test:backend:coverage` to confirm `src/server/activity-cache-service.ts` remains above its 80% line threshold.
+- If the dashboard still degrades under load, inspect `runtime.debugLogFileLevel`; file logging defaults to `error` and uses async streams, but sustained log volume is still a useful signal that a hot loop is too noisy.
+
 
 ### 2. Planning
 **Observable Symptoms:** Planning retry message appears constantly, or subtask files are reported as missing (planning preflight blocker).
@@ -194,20 +197,68 @@ grep -i "unauthorized" ~/.code-ux/debug.log
 **Recovery Actions:**
 1. Immediately kill the Code UX server process.
 2. Ensure `HOST` environment binds strictly to `127.0.0.1`.
-3. Rotate any leaked API keys or `MCP_HTTP_AUTH_TOKEN`.
+3. Rotate any leaked API keys or `MCP_HTTP_AUTH_TOKEN`. Explicit deployments can still use `--mcp-http-auth-token` or the legacy `--mcp-https-auth-token` flag.
 **Retry/Idempotency Expectations:** Validating origin headers and restricting paths is structurally enforced on every request.
 **Cleanup Behavior:** All invalid paths or hostile origins result in immediate drops (403/404) and are logged.
 **Escalation Evidence:** Masked `ExecutionInvocations` logs and the external IPs that attempted the connection.
 
 ---
 
+
+## Logging and Observability
+- Provider usage rows are the source of truth for runtime diagnostics.
+- Structured invocation logs are metadata-only. They may include identifiers, lifecycle fields, counters, `failureCount`, `errorName`, and `correlationId`, but must not include raw transcripts, API keys, provider environment values, raw usage JSON, or full prompts.
+- New runtime logs should set a structured `logPurpose` label so request (`HTTP`), invocation (`INVK`), realtime (`LIVE`), security (`SEC`), orchestration (`ORCH`), storage (`DATA`), and lifecycle (`LIFE`) traffic stays separable in console and debug-file output.
+- Realtime event logs are operational metadata, not payload dumps.
+
 ## Subprocess Execution Limits
+
 Subprocess execution restricts accumulated `stdout` (default 5MB) and `stderr` (default 4KB) memory growth by slicing long outputs and prepending `"..."`. Streaming callbacks process the full line output regardless of this cap. These bounds can be overridden via `maxStdoutChars` and `maxStderrChars`.
 
+## Useful Commands
+
+```bash
+pnpm test
+pnpm run build
+curl http://localhost:4444/api/status
+curl http://localhost:4444/api/git-status
+```
+
+## CI And E2E Operations
+
+GitHub validation is split by signal:
+- `Code UX CI Pipeline` is the canonical automatic lane. It runs on pushes to every branch, pull requests targeting `dev` or `main`, and manual dispatches. Feature-branch and `dev` pushes run the core numbered jobs, including all three orchestration DAG rows; `main` pushes, `main` pull requests, and manual dispatches additionally run full Playwright and release-candidate matrices.
+- Static, build, and security are the prerequisite stage. The build job uploads `codeux-build-linux` for all downstream jobs.
+- Backend coverage, dashboard tests, npm install smoke, and the cross-OS orchestration DAG matrix reuse that build artifact and run in parallel after the prerequisite stage. Release-candidate packaging starts after package smoke and can run beside the main-only E2E matrix. Each release-candidate row installs its completed native package and requires packaged backend and renderer readiness plus a clean exit before artifact upload. Matrix bounds are `08 Orchestration` at three shards, `09 E2E` at ten shards, and `10 Release Candidate` at three shards; GitHub's runner quota queues any excess work across the parallel lanes.
+- `Playwright Diagnostics`, `Release Candidate Diagnostics`, and `Mockup Sprint Diagnostics` are manual-only workflows for focused reruns. They no longer run automatically on every PR.
+- Superseded runs for the same branch or pull request are cancelled by workflow concurrency groups.
+- Security validation is intentionally separated from build and Playwright lanes. The `04 Security / dependency audit` job runs the standard `pnpm run audit`, which is `pnpm audit --audit-level=high`; high-severity dependency findings fail that job without preventing typecheck, tests, build, or Playwright artifacts from reporting their own status. The repository pins pnpm 11.13.1 so the native audit command uses npm's supported bulk-advisory API.
+
+Local equivalents:
+- `pnpm run lint` mirrors the TypeScript validation portion of `Typecheck & Lint`.
+- `pnpm run test:backend:coverage` mirrors the backend coverage job.
+- `pnpm run test:dashboard` mirrors the dashboard Vitest job.
+- `pnpm run audit` mirrors the independent security audit job.
+- `pnpm run build` validates the compiled server and dashboard bundle.
+- `pnpm run build` followed by `pnpm run test:e2e` runs the browser E2E suite locally against the compiled app after dependencies and Playwright browsers are installed. The wrapper delegates to `pnpm exec playwright test` after choosing isolated local ports.
+- `node scripts/verify-release-install.mjs` mirrors the release install smoke check before Electron packaging. CI sets `CODE_UX_SKIP_RELEASE_INSTALL_BUILD=1` only after downloading `codeux-build-linux`, which makes the verifier reuse `dist/` and `dashboard/dist/` instead of rebuilding. The clean install skips only the upstream optional ONNX CUDA/TensorRT download and then imports the bundled CPU runtime, so NuGet availability cannot mask package correctness.
+
+Dependency and cache behavior:
+- CI restores `node_modules` only as a speed hint and still runs `pnpm install --frozen-lockfile --ignore-scripts` in every job.
+- Vitest, Vite, TypeScript, Playwright browser, Electron binary, Electron Builder, and release-candidate caches are keyed to the runner OS, Node 22, pnpm 11.13.1, and dependency/config files that affect the cached output.
+- Playwright restores the browser cache before running `pnpm exec playwright install chromium`; Linux runners also run `pnpm exec playwright install-deps chromium` so cached browser binaries cannot hide missing OS dependencies.
+- The build artifact, not repeated source builds, feeds package smoke, orchestration, Playwright, and release-candidate jobs.
+- `tests/backend/ci/workflow-health.test.ts` audits these workflow invariants so accidental drift in package manager version, Node version, install mode, artifact reuse, audit separation, concurrency cancellation, Playwright artifacts, manual diagnostics, or release-lane separation fails a focused backend test.
+
+Artifacts:
+- On Playwright failure, download the matching `playwright-<runner>-<purpose>` artifact from the workflow run. Manual diagnostics use `playwright-diagnostic-<runner>-<purpose>`. These artifacts contain `test-results/` traces/screenshots/videos when produced and `playwright-report/` for the HTML report. On orchestration failure, download the matching `orchestration-dag-<runner>-<runtime>` artifact; Linux uses the Docker runtime, while macOS and Windows use the Electron runtime.
+- The artifact retention window is seven days. If no files were produced, artifact upload is allowed to continue without masking the original test failure.
+
 ## Escalation Notes
+
 When reporting issues include:
 - Action used (`plan`, `status`, `orchestrate`)
-- Sprint number and feature branch (use placeholders like `feature-[REDACTED]`)
+- Sprint number and feature branch
 - Relevant dashboard warnings
 - Latest protocol instructions
 - Any recent settings changes
