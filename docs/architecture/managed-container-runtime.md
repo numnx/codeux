@@ -9,9 +9,9 @@ The runtime is published from `containers/runtime/Dockerfile` to `ghcr.io/codeux
 - `1-base` is based on the current multi-architecture `node:24-trixie-slim` manifest pinned by digest and includes the shared development toolchain: JavaScript package managers, Python, Git/GitHub CLI, compilers, keyring support, preview utilities, and common Unix diagnostics. Runtime tool versions are explicit (`npm` 12.0.1, pnpm 11.13.1, Yarn 1.22.22, Bun 1.3.14, and `serve` 14.2.6) so rebuilding a channel does not silently select a different package-manager binary.
 - `1-browser` extends the base target with pinned open-source Playwright, Playwright MCP, and Linux browser dependencies. It intentionally contains no browser binary.
 
-The publish workflow builds both targets, smoke-tests their tool inventory, emits SBOM and provenance attestations, and signs each published digest with Sigstore. Channel tags are discovery pointers only. `ManagedRuntimeService` pulls the channel, resolves the local `RepoDigest`, verifies Node 24 in a network-isolated smoke container, and stores only immutable digests as the active runtime.
+The publish workflow builds both base and browser targets, smoke-tests their tool inventory, emits SBOM and provenance attestations, and signs each published digest with Sigstore. These act as the managed image channels. Channel tags are discovery pointers only. `ManagedRuntimeService` pulls the channel, resolves the local `RepoDigest`, verifies Node 24 in a network-isolated smoke container, and stores only these immutable digests as the active runtime. This immutable digest verification prevents tag mutability attacks. Verified images are additionally checked against `ai.codeux.runtime-abi` and `ai.codeux.role` labels before execution.
 
-At application startup, managed-mode installations check both image targets for updates in the background when the persisted update watermark is older than six hours. A restart inside that freshness window reuses the immutable digests without issuing registry pulls. Running containers are not replaced. A new digest becomes active only after pull and verification; the previous digest is retained for rollback. Registry or Docker failures leave the last verified digest active and are exposed through runtime status instead of blocking dashboard readiness.
+At application startup, managed-mode installations check both base and browser image targets for updates in the background when the persisted update watermark is older than six hours. A restart inside that freshness window reuses the immutable digests without issuing registry pulls. Running containers are not replaced. A new digest becomes active only after pull and verification; the previous digest is retained for rollback. Registry or Docker failures leave the last verified digest active and are exposed through runtime status instead of blocking dashboard readiness.
 
 State is stored atomically under `~/.code-ux/runtime/managed-runtime.json`. Set `CODE_UX_MANAGED_RUNTIME_REPOSITORY`, `CODE_UX_MANAGED_RUNTIME_CHANNEL`, `CODE_UX_MANAGED_BASE_IMAGE`, or `CODE_UX_MANAGED_BROWSER_IMAGE` only for controlled development or registry mirrors.
 
@@ -25,7 +25,7 @@ The GHCR image does not redistribute Chrome, Chromium, Widevine, or other browse
 
 ## Provider Tool Volumes
 
-Provider binaries are installed on the user's Docker host rather than baked into the runtime image. `ProviderToolManager` owns the supported source catalog; API callers cannot provide package names, versions, URLs, or shell commands.
+Provider binaries are installed on the user's Docker host rather than baked into the runtime image (handling provider-tool preparation out-of-band). `ProviderToolManager` owns the supported source catalog; API callers cannot provide package names, versions, URLs, or shell commands.
 
 | Provider | Stable source | Executable |
 | --- | --- | --- |
@@ -62,7 +62,12 @@ The active provider-volume index lives at `~/.code-ux/runtime/provider-tools.jso
 
 ## Settings And Compatibility
 
-`cliWorkflow.containerImageMode` selects the runtime path:
+`cliWorkflow.executionMode` selects the primary isolation boundary:
+
+- `DOCKER` is the strict default. It launches providers in isolated, single-flight containers using volume mounts for workspace, configuration, credentials, and telemetry. If a configured credential mount is missing, `DOCKER` mode safely falls back to injecting credentials as environment variables. It protects the host from arbitrary execution. Fresh workspaces receive a clean container and volume. Continuation workspaces recover the same snapshot, materialized via an alpine Git helper before the provider container starts.
+- `HOST` is a direct fallback mode that executes the provider binary on the local OS. It skips Docker, image digests, and volume mounts. It uses native host paths for the workspace, writes logs to host temp directories, reads credentials directly from host locations (e.g. `~/.gemini`), and shares the host environment. Read-only QA snapshots in `HOST` mode operate on detached worktrees in `/tmp` to avoid path length limits. `containerImageMode` and runtime setup scripts are ignored in this mode.
+
+When `executionMode` is `DOCKER`, `cliWorkflow.containerImageMode` selects the runtime image path:
 
 - `managed` is the default. `containerImage` is ignored, the managed base/browser image is selected by role, and an empty setup-script setting performs no derived image build.
 - `custom` uses `containerImage`. Explicit setup scripts may still be cached as content-addressed extension images, and provider volumes receive a custom-image compatibility key.
@@ -77,8 +82,8 @@ Managed provider invocations use the browser target plus the verified browser vo
 
 Provider states are `not_installed`, `waiting_for_docker`, `checking_update`, `queued`, `downloading`, `installing`, `verifying`, `ready`, and `failed`. Responses contain bounded progress text and versions, never raw installer URLs, credentials, or arbitrary output.
 
-When update discovery fails and a verified compatible volume exists, the old volume remains usable and status reports the update error. Without any verified compatible provider or browser volume, only the invocation needing that asset fails with a retryable preparation error. There is no per-workspace fallback installation in managed mode.
+When update discovery fails and a verified compatible volume exists, the old volume remains usable and status reports the update error (this retry behavior ensures transient failures do not break working tools). Without any verified compatible provider or browser volume, only the invocation needing that asset fails with a retryable preparation error. There is no per-workspace fallback installation in managed mode.
 
 ## Gemini Deprecation
 
-Gemini CLI remains executable and receives the same startup update checks while it is activated. The dashboard marks it Deprecated, excludes it from new Easy recommendations, and offers Antigravity as the supported replacement. Existing Gemini defaults are preserved and no credentials or routing configuration are migrated automatically.
+Gemini CLI is deprecated in the dashboard but remains fully supported by the backend pipeline. It remains executable, continues to process its invocation transcripts, and receives the same startup update checks while activated. The dashboard marks it Deprecated, excludes it from new Easy recommendations, and offers Antigravity as the supported replacement. Existing Gemini defaults are preserved and no credentials or routing configuration are migrated automatically.
