@@ -3,22 +3,32 @@
 ## Code UX
 The container-first, local-first agentic coding runtime that coordinates the CLI, MCP server, sprint orchestrator, dashboard, and Electron shell around project work.
 
-## Hosted Code UX provider
-The hosted remote provider accessed through the Code UX API. Code UX treats it as one provider among several and can route sprint work to it when settings select Code UX.
+## Jules
+The hosted remote provider accessed through the Jules API. Code UX treats it as one provider among several and can route sprint work to it when settings select Jules.
 
 ## Local CLI providers
 Provider runtimes that execute through local CLI workflows, often inside Docker or host-backed worktrees, such as Gemini, Codex, Claude Code, Qwen Code, OpenCode, and Antigravity.
 
-## MCP tools
-The Model Context Protocol tool surface exposed by Code UX, including management, runtime, and dispatch contracts.
+## MCP transports
+The communication mechanisms used by Code UX to expose Model Context Protocol surfaces, including `StdioServerTransport` for local human-driven clients and `StreamableHTTPServerTransport` for remote worker registrations and dispatch polling.
 
+## Worker endpoints
+The Streamable HTTP surfaces that receive worker connections, manage heartbeats, and handle dispatch polling.
 
+## Sprints
+Managed units of work within Code UX that are planned, routed, executed in isolated Docker workspaces, reviewed, and tracked.
+
+## Tasks
+Individual executable steps within a Sprint.
 
 ## .code-ux
-The canonical active project artifact directory for sprints, agents, instruction templates, logs, and runtime files.
+The canonical active project artifact directory for sprints, agents, instruction templates, logs, and runtime files. This has completely replaced the legacy `.jules-subagents` compatibility path.
 
 ## Provider instances
 Persisted provider configurations and the runtime sessions or dispatches created from them during execution.
+
+## Skills
+Executable capabilities available to the agents during task execution.
 
 
 
@@ -53,8 +63,8 @@ A markdown-defined unit of work in a sprint with fields like `depends_on`, `is_i
 ## Watch Loop
 Continuous orchestration mode that runs periodic cycles until exit criteria are reached.
 
-## Quicksprint
-Reusable Markdown template resolved from project, home, bundled `.code-ux/quicksprints/templates`, or TS fallback, converted into a sprint goal and sent through normal sprint planning.
+## Quicksprints
+Reusable Markdown templates resolved from project, home, bundled `.code-ux/quicksprints/templates`, or TS fallback, converted into a sprint goal and sent through normal sprint planning.
 
 ## Scheduler
 Project-scoped automation persisted in `scheduler_entries`; can run sprints, quicksprints, or chat messages once or on recurrence.
@@ -65,7 +75,7 @@ Runtime-learned short-term sprint and long-term project learnings, embedded and 
 ## Knowledge
 Project-scoped document library ingested/uploaded/imported separately from memory, embedded locally, and attached to agent presets via subscriptions; agents use `search_knowledge` for exact passages.
 
-## Preview container
+## Previews
 Sprint-scoped Docker preview session for one `(projectId, sprintId)`, persisted in `sprint_preview_sessions`, served through the in-app browser on a preview origin, using `.code-ux/browser/start-preview.sh` or generated fallback startup.
 
 ## `manage_code_ux` (Deprecated)
