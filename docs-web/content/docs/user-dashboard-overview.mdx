@@ -5,6 +5,8 @@ The Code UX dashboard is a real-time Preact application served at `http://localh
 This page mirrors the canonical dashboard guide and the active v2 page files, where v2 is the active UI backed directly by `dashboard/src/v2/*Page.tsx`. Each subsection links to a dedicated page.
 
 ## Layout
+Project and sprint selection are global header concerns. Navigating to `/live` or `/tasks` with `projectId` and `sprintId` sets the active project once, but subsequent selector changes remain authoritative. Easy, Standard, and Expert modes filter active navigation. In Live views, hidden lower details disable their Git-status data channel and skip Expert-only task-card projections instead of computing unseen operational data. The dashboard is a view-only layer presenting SQLite-persisted backend state and does not reconcile competing states.
+
 
 The dashboard uses a **dock-based navigation** by default:
 
@@ -53,8 +55,10 @@ Open **Settings → Appearance → Display Settings → Language** to switch das
 | `/config?category=guidance#guidance` | [Styleguides and Tech Stacks](/docs/user-dashboard-styleguides-and-tech-stacks) | Tech-stack guidance, styleguide catalogs, and custom worker instructions |
 
 ## Notifications and human intervention
+Read and dismissed state is stored in the browser for that notification version, and becomes actionable again if the source is updated later.
 
-The top-nav notification center is global: it combines human intervention, task and sprint execution failures, automatic stops, and system errors from every project. It also includes global startup readiness and active scheduler notices for the selected project. Startup notices identify missing required dependencies and provider misconfiguration; when no usable provider authentication is detected, **Open onboarding** remains available.
+
+The top-nav notification center projects the newest 20 records from `GET /api/notifications?limit=20` to show issues across projects. It also includes global startup readiness and active scheduler notices for the selected project. Startup notices identify missing required dependencies and provider misconfiguration; when no usable provider authentication is detected, **Open onboarding** remains available.
 
 Execution notifications include the project, sprint, and task when those levels exist. Select **Details** to review:
 
@@ -92,20 +96,22 @@ The wide seven-day analytics snapshot refreshes every 30 seconds on Overview rat
 Creation dialogs, onboarding, the guided tour, and animated backgrounds load outside the first-content path. This keeps the shell interactive while those optional experiences prepare in the background.
 
 ## Real-time data
+The transport detects sequence gaps via `lastSequence`, uses ready/heartbeat events, and applies reconnect backoff. The UI displays stale status banners and falls back to background polling (e.g., 30s for the live snapshot and 10s for Git status) when disconnected. WebSocket event delivery is not durable beyond the server's in-memory replay storage buffer.
+
 
 The dashboard maintains a live connection to the server using a custom WebSocket protocol via `GET /api/realtime` (e.g., `ws://localhost:4444/api/realtime` for local HTTP dashboards, and `wss://<host>/api/realtime` for HTTPS deployments). On the server side, `DashboardRealtimeService` in `src/services/dashboard-realtime-service.ts` coordinates events, and the websocket upgrade/transport is handled in `src/server/dashboard-realtime-websocket-server.ts`. The connection:
 
 - Subscribes to *scopes* (e.g. `project:<id>`, `execution`, `git-status`).
 - Receives push events for sprint/task transitions, attention items, memory updates, Git status changes.
 - Tracks a `lastSequence` for resumable reconnection.
-- Falls back to polling if the WebSocket cannot be established.
+- Falls back to resource-specific REST snapshots if the WebSocket cannot be established or drops events.
 
-Per-resource polling intervals (used as backup or for snapshot endpoints):
+REST resource snapshot caching and cadence:
 
 | Resource | Cadence |
 | --- | --- |
 | `/api/git-status` | 10 s cache TTL |
-| `/api/live` snapshot | 30 s background refresh |
+| `/api/live` snapshot | heavy payload bypassing live updates unless forced by `snapshot_required` |
 
 ## Accessibility
 

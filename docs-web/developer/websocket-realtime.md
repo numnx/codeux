@@ -60,6 +60,8 @@ the thread receives one event, not duplicate project/thread copies. Replay and s
 the same alias rule.
 
 ## Reconnection
+There is no WebSocket authentication. The connection uses ready/heartbeat events to confirm state. Sequence gaps outside the replay buffer trigger `snapshot_required` (due to `non_replayable_event_missed` or `replay_window_exceeded`), forcing a full resync. Reconnects use exponential backoff, and stale indicators are shown when clients fall back to bounded REST polling.
+
 
 Recommended client behaviour:
 
@@ -86,7 +88,7 @@ Realtime events signal freshness; the database-backed REST projections remain au
 
 Clients should preserve these read-model boundaries: do not infer provider usage from an early workflow execution row, and do not construct invocation records locally when the server projection can be refetched.
 
-## Fallback to polling
+## REST Resource Snapshots and Fallback
 
 If the WebSocket connection cannot be established, consumers continue using their resource-specific REST snapshots. Common examples are `GET /api/live?projectId=:id`, `GET /api/projects/:id/execution`, `GET /api/git-status`, and the project conversation list/message endpoints. The WebSocket transports invalidations and deltas; REST remains the source for initial and recovery snapshots.
 
