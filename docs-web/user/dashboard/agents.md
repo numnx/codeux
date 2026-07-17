@@ -74,7 +74,7 @@ To explicitly push sqlite presets back to project files, use **Push to files** i
 
 To push one sqlite preset to its project file, open the detail panel and click **Push to file**. This is useful when a single database-backed agent should become or refresh a repository-reviewed markdown file without exporting the whole roster.
 
-Older API clients may still call the legacy `sync-markdown` endpoint as a backward-compatible alias for pull, but the current dashboard action is **Pull from files**.
+Older API clients may still call the legacy `sync-markdown` endpoint as a backward-compatible alias for pull, but the current dashboard action is exclusively **Pull from files**.
 
 This makes agent presets first-class repository content — you can check them in, code-review them, and share them across teammates.
 
@@ -152,7 +152,7 @@ Persistent skills remain separate from memory templates, knowledge document subs
 
 ## MCP access
 
-Agent MCP access is default-deny. If a preset has no saved MCP access record, Code UX built-in tools display as disabled and the agent does not inherit broad project-manager tool access. Custom MCP server links, such as Playwright, are controlled separately and can remain linked without enabling Code UX built-in tools.
+Agent MCP access is default-deny. If a preset has no saved MCP access record, Code UX built-in tools display as disabled and the agent does not inherit broad project-manager tool access. Custom MCP server links, such as Playwright, are controlled separately and can remain linked without enabling Code UX built-in tools. When MCP access is missing for an agent-scoped run, the run falls back to default-deny agent access (Code UX disabled, no custom servers linked). Unknown agents fail closed and do not inherit broad access, and unconfigured built-in tools remain disabled.
 
 Clarification grants are route- and audience-scoped exceptions to that broad default. An eligible task-coding run may receive only `request_clarification` even when general Code UX access is off, and an eligible Project manager reply run may receive only `reply_to_clarification`. System tool toggles and explicit per-agent disables still apply. Unknown presets, wrong project/task scope, and wrong-audience calls fail closed rather than inheriting access.
 

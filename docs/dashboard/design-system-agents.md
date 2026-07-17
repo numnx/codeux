@@ -16,7 +16,7 @@ The Agents management surface leans into a premium "Workshop" feel. We use a lot
 ## Interaction & State (Hover & Focus)
 - **Hover on Interactive Cards:** Shift cards up (`hover:-translate-y-0.5`), intensify shadows (`hover:shadow-[0_8px_24px_...]`), and tint background (`hover:bg-white/80`).
 - **Focus Rings:** Ensure all buttons have explicit `focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-500/30`.
-- **Header Actions:** Keep agent-management actions compact, pill-shaped, and visually consistent; secondary actions such as sync and push should share the same muted glass button treatment so the header reads as one control cluster.
+- **Header Actions:** Keep agent-management actions compact, pill-shaped, and visually consistent; secondary actions such as "Pull from files" and "Push to files" should share the same muted glass button treatment so the header reads as one control cluster. Do not use generic "sync" labels.
 
 ## Avatar Scene Motion
 - The 3D agent avatar uses standard Three.js materials, studio lights, pointer-aware head movement, and runtime tool props. Do not add flashlight beams, target glows, low-battery flicker overlays, or shell/screen emissive boosts that recolor the avatar.

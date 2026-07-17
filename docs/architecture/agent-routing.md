@@ -69,6 +69,8 @@ Task coding resolves agent instructions in this order:
 
 Jules and CLI task execution both use the resolved agent instructions. CLI memory tagging also uses the resolved coding agent so learnings are associated with the specialist that actually ran the task.
 
+When resolving provider routing, route assignments explicitly consume their respective presets (e.g., `planning.agentPresetId` targets Planning presets, and `clarification_reply` and `request_clarification` specify audience-scoped routing tied strictly to `project_manager` or `worker` roles which fail closed on unhandled or unauthorized audiences). Additionally, if an explicitly designated provider instance (such as a manual provider or one chosen by an agent via `strategy === "AGENT"`) is not configured or is missing, Code UX throws a `ProviderRoutingError` and fails closed immediately instead of silently falling back to a default model.
+
 Virtual CI-fix and merge-conflict workers use their dedicated manual agent route and fall back to `Worker` when unset.
 
 ## Dashboard

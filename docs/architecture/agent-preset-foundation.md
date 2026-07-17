@@ -33,6 +33,14 @@ Foundation fields:
 - `base_instruction_state_json` stores per-role bundled-instruction baselines, customization state, and the last applied content-hash revision for Planning agent and Project manager updates
 - `created_at`
 - `updated_at`
+- `source_path`
+- `source_scope`
+- `source_updated_at`
+- `source_imported_at`
+- `avatar_config_json`
+- `memory_template_override_enabled`
+- `memory_template_markdown`
+- `mcp_access_json`
 
 Persistent agent skill storage is modeled separately from memories, knowledge documents, project workspaces, and model attachments:
 
@@ -97,6 +105,8 @@ Base-agent updates are limited to `planning_agent` and `project_manager`. The no
 
 Applying a notice uses the existing `planning` virtual-provider route and structured invocation pipeline, recorded as execution invocation type `agent_base_update`. The provider receives the previous bundled/base instructions, current bundled instructions, and the selected preset instructions, but is restricted to returning one JSON property: `instructionMarkdown`. Although the prompt requests raw JSON only, the server parser tolerates supported presentation noise such as surrounding text, markdown fences, and the shared extractor's provider envelopes. After extraction, the payload must still be a non-array object with exactly one non-empty string property named `instructionMarkdown`. Extraction, payload-shape, and line-preservation errors continue through the structured corrective retry path in the same provider session. The merge prompt permits only compatibility-critical additions, such as changed MCP or JSON-schema rules, and forbids workspace writes or metadata changes. Code UX verifies the original preset remains line-for-line and in order before applying only instruction markdown through `AgentPresetSyncService`; avatar, labels, routing, provider/model, memory, MCP access, persistent skills, and source metadata remain unchanged. All parsing and preservation checks complete before persistence, and the selected preset ID is checked again immediately before application to prevent a concurrent route change from redirecting the result. Malformed or destructive output, a missing or stale notice, an unsupported provider, a provider failure, or a concurrent route change leaves both the preset instructions and stored bundled revision unchanged. The revision advances only after provider execution, parsing, safety validation, and application succeed.
 
+The dashboard push/pull semantics for markdown files use dedicated project-scoped endpoints. The legacy concept of "syncing" has been split for clarity: "Pull" discovers `.code-ux/agents/*.md` and imports new presets or updates `out_of_sync` records into SQLite on demand. "Push" exports SQLite-backed presets to project-local `.code-ux/agents/*.md` files, ignoring default/home boundaries.
+
 These endpoints are project-scoped and intentionally separate from:
 
 - live MCP connection APIs
@@ -122,7 +132,7 @@ The dashboard editor now initializes that config from the preset, exposes it thr
 
 Agent labels are still stored in the data model for markdown sync and built-in preset conventions, but the dashboard no longer exposes custom label editing. The Agents page displays computed route-assignment tags from effective project settings instead, including tags for built-in fallback selections on Planning agent, Worker, Project manager, and Quality assurance agent.
 
-Agent MCP access is default-deny for built-in Code UX tools. Absent, malformed, or previously unconfigured agent access resolves with `codeUxEnabled: false`, so provider runs do not inherit management tools from the system-level MCP settings merely because they are agent-scoped.
+Agent MCP access is default-deny for built-in Code UX tools. Absent, malformed, or previously unconfigured agent access resolves with `codeUxEnabled: false`, so provider runs do not inherit management tools from the system-level MCP settings merely because they are agent-scoped. When MCP access is missing for an agent-scoped run, the run falls back to default-deny agent access (Code UX disabled, no custom servers linked). Unknown agents fail closed and do not inherit broad access. Unconfigured built-in tools remain disabled.
 
 Built-in Worker and Project manager presets seed `mcp_access_json` with the default `playwright` custom MCP server linked, but `code_ux` remains disabled in that seeded access. Planning and QA presets do not receive that link by default. Existing agents with a user-edited MCP access payload keep their selections; only newly imported/generated defaults or previously unconfigured built-in Worker/Project manager records receive the seeded custom-server-only link.
 
