@@ -184,7 +184,7 @@ The full automatic Playwright matrix also lives in `.github/workflows/ci.yml`. I
 
 The automatic E2E stage has one shared job template. `09 E2E / <os> full` fans out across Linux, macOS, and Windows, and each OS runs all purpose projects (`navigation`, `settings`, `projects`, `tasks`, `agents`, and `config`) with `max-parallel: 10`. Every shard downloads `codeux-build-linux`, installs Chromium with browser binaries cached under `.cache/ms-playwright`, installs Linux Chromium system dependencies only on Linux runners with `pnpm exec playwright install-deps chromium`, runs `pnpm exec playwright test --project=<purpose>` directly, and uploads `test-results/` plus `playwright-report/` for seven days. Artifact names use `playwright-<runner>-<purpose>` for every OS.
 
-The manual `.github/workflows/playwright.yml` workflow is now `Playwright Diagnostics`. It remains available for full OS/project reruns and uploads `playwright-diagnostic-<runner>-<purpose>` artifacts, but it does not run automatically on pull requests.
+The manual `.github/workflows/playwright.yml` workflow is now `Playwright Diagnostics`. It remains available for full OS/project reruns and uploads `playwright-diagnostic-<runner>-<purpose>` artifacts, but it does not run automatically on pull requests. The diagnostic build stage has a 12-minute timeout, and the test stage has a 15-minute timeout per runner.
 
 This lane is credential-free. It validates the compiled dashboard and server, including deterministic fake-CLI orchestration coverage, without provider keys, real provider CLIs, Docker provider startup, remote Git infrastructure, or real project state.
 
@@ -229,7 +229,7 @@ The lane is intentionally numbered and staged:
 
 The main ruleset still contains nine historical context names from earlier CI numbering and matrix configuration. The workflow emits explicit compatibility aggregate jobs for those names only after their current backend, dashboard, audit, package, orchestration, 18-shard E2E, or release-candidate dependency has passed. These jobs do not replace or bypass validation; they bridge branch-protection naming until a repository administrator removes the obsolete contexts from ruleset `Protect main`.
 
-The former standalone `Playwright Tests`, `Release Checks`, and `Mockup Sprint Orchestration` workflows are now manual diagnostics only: `Playwright Diagnostics`, `Release Candidate Diagnostics`, and `Mockup Sprint Diagnostics`. They remain useful for focused reruns, but the automatic PR signal comes from the numbered `Code UX CI Pipeline`. Desktop diagnostic jobs call Electron Builder directly with an explicit target and `--publish never`; do not forward publishing flags through the compound `electron:dist:*` scripts because CI auto-detection can otherwise trigger an unintended publish attempt.
+The former standalone `Playwright Tests`, `Release Checks`, and `Mockup Sprint Orchestration` workflows are now manual diagnostics only: `Playwright Diagnostics`, `Release Candidate Diagnostics`, and `Mockup Sprint Diagnostics`. They remain useful for focused reruns, but the automatic PR signal comes from the numbered `Code UX CI Pipeline`. Mockup Sprint Diagnostics runs a 25-minute `ci-dag` timeout for Docker and Electron native platforms. Desktop diagnostic jobs call Electron Builder directly with an explicit target and `--publish never`; do not forward publishing flags through the compound `electron:dist:*` scripts because CI auto-detection can otherwise trigger an unintended publish attempt.
 
 ### Main Release Version Gate
 
@@ -249,7 +249,11 @@ Build first before Playwright because `playwright.config.ts` starts `node dist/i
 
 The optional credentialed sprint validation workflow is `.github/workflows/openrouter-sprint-e2e.yml`. It runs on `push` to `main` and `workflow_dispatch` on `ubuntu-latest`, installs with pnpm 11.13.1 on Node 22, builds the compiled runtime, and invokes `node scripts/e2e/run-openrouter-sprint-validation.mjs`.
 
-This lane only performs real provider-backed sprint validation when the repository secret `OPENROUTER_API_KEY` is configured. If the secret is absent, the runner prints `Skipping OpenRouter sprint validation: OPENROUTER_API_KEY is not set.` and exits with status 0; the workflow is then a successful skip, not a provider validation pass. The workflow sets `CODEUX_E2E_OPENROUTER_MODEL` from the optional repository variable of the same name, defaulting to `openai/gpt-5-mini`.
+This lane only performs real provider-backed sprint validation when the repository secret `OPENROUTER_API_KEY` is configured. If the secret is absent, the runner prints `Skipping OpenRouter sprint validation: OPENROUTER_API_KEY is not set.` and exits with status 0; the workflow is then a successful skip, not a provider validation pass. The workflow sets `CODEUX_E2E_OPENROUTER_MODEL` from the optional repository variable of the same name, defaulting to `openai/gpt-5-mini`. It typically runs in under 10 minutes and inherits default GitHub Actions timeouts.
+
+### Managed Runtime Image Policy
+
+The `Managed Runtime Image` lane (`.github/workflows/runtime-image.yml`) triggers on pull requests or pushes to `dev` affecting `containers/runtime/**` or the workflow itself, a weekly cron schedule (`23 3 * * 1`), or manual dispatches. It builds `base` and `browser` targets for `linux/amd64` and `linux/arm64`. Smoke tests verify Node v24+, Playwright, and essential tools inside isolated network containers, while Trivy scans the final image, failing on any `HIGH` or `CRITICAL` vulnerability.
 
 The runner uses the existing `codex` provider configured with OpenRouter-compatible settings, isolated app home directories, and temporary local git repositories. It executes three scenarios by default:
 
