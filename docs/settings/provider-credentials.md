@@ -1,6 +1,6 @@
 # Provider Credentials
 
-Manages named provider instances, authentication mode, local auth copy, dashboard login, provider config files, and base model defaults.
+Manages named provider instances, authentication mode, local auth copy, dashboard login, provider config files, and base model defaults. Providers include Jules, Gemini, Antigravity, Codex, Claude Code, Qwen Code, and OpenCode.
 
 > Settings area: `provider-credentials`
 > Dashboard documentation route: `/docs/settings-provider-credentials`
@@ -14,6 +14,14 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 ## Controls And Runtime Effect
 
 Each instance owns API key/auth path/login/config-file mode plus routing-visible identity and availability.
+The `authType` property is set individually per provider instance:
+- `apiKey`: Allows you to override the API key used. Mutual exclusion is enforced; mounting local auth is disabled when this is active. Jules only supports this mode. Saved API keys are redacted upon persistence for security.
+- `localAuth`: Mounts a custom local directory into the container (e.g., `~/.gemini`). It clears the `apiKey` field and ignores custom model and base URL fields. Not supported by Jules.
+- `dashboardAuth`: Launches an interactive terminal inside the container to perform a dashboard login, saving credentials to the host. Like `localAuth`, this clears the `apiKey` and custom model settings. Not supported by Jules.
+
+Custom endpoint configurations are supported for some providers:
+- **Qwen Code**: Can use `MODEL_PROVIDER` for OpenAI-compatible and other protocol endpoints, or `ALIBABA_CODING_PLAN`. If local or dashboard auth is used, it forces `qwenAuthMode` to `LOCAL_AUTH` and clears all custom endpoint fields.
+- **OpenCode**: Can use `CUSTOM_PROVIDER` for OpenAI-compatible endpoints or `ENV_KEY` for standard built-in providers. If local or dashboard auth is used, it forces `openCodeAuthMode` to `LOCAL_AUTH` and clears custom endpoint fields.
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
@@ -53,8 +61,8 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Provider Routing](../provider-routing.md)
-- [Qwen Code Integration](../qwen-code-integration.md)
-- [OpenCode Integration](../opencode-integration.md)
+- [Dashboard Settings](..//docs/dashboard-design-system-settings)
+- [Provider Routing](/docs/settings-provider-routing)
+- [Qwen Code Integration](/docs/settings-qwen-code-integration)
+- [OpenCode Integration](/docs/settings-opencode-integration)
 - [Security Hardening](../../operations/security-hardening.md)

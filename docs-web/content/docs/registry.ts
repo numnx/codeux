@@ -109,6 +109,9 @@ export type DocsSlug =
   | 'operations-security-hardening'
   | 'operations-server-mode'
   | 'settings-google-drive-mount'
+  | 'settings-opencode-integration'
+  | 'settings-provider-routing'
+  | 'settings-qwen-code-integration'
   | 'user-dashboard-custom-dashboards'
   | 'architecture-card-ci-status-projection'
   | 'architecture-chat-connector-runtime-reliability'
@@ -434,7 +437,7 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/settings-base-provider-configuration',
     section: 'User Guide',
     title: "Base Provider Configuration",
-    description: "Defines each named provider instance's default eligibility, model, thinking depth, weight, and concurrency.",
+    description: "Defines each named provider instance's default eligibility, model, thinking depth, weight, and concurrency. Providers include Jules, Gemini, Antigravity, Codex, Claude Code, Qwen Code, and OpenCode.",
   },
   'settings-route-mapping': {
     id: 'settings-route-mapping',
@@ -616,14 +619,14 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/settings-provider-integration',
     section: 'User Guide',
     title: "Provider Integration",
-    description: "Explains that provider credentials are system-owned while project scopes still control routing and auth-copy behavior.",
+    description: "Explains that provider credentials are system-owned while project scopes still control routing and auth-copy behavior. Code UX is a container-first CLI provider host supporting Jules, Gemini, Antigravity, Codex, Claud...",
   },
   'settings-provider-credentials': {
     id: 'settings-provider-credentials',
     path: '/docs/settings-provider-credentials',
     section: 'User Guide',
     title: "Provider Credentials",
-    description: "Manages named provider instances, authentication mode, local auth copy, dashboard login, provider config files, and base model defaults.",
+    description: "Manages named provider instances, authentication mode, local auth copy, dashboard login, provider config files, and base model defaults. Providers include Jules, Gemini, Antigravity, Codex, Claude Code, Qwen Code, and...",
   },
   'settings-mcp-servers': {
     id: 'settings-mcp-servers',
@@ -883,6 +886,27 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     section: 'User Guide',
     title: "Google Drive Project Mount",
     description: "The Google Drive project mount makes an existing local Google Drive sync or mount directory available to Docker-backed provider runs. Code UX does not connect to the Google Drive API, manage Google credentials, or syn...",
+  },
+  'settings-opencode-integration': {
+    id: 'settings-opencode-integration',
+    path: '/docs/settings-opencode-integration',
+    section: 'User Guide',
+    title: "OpenCode Integration",
+    description: "Code UX supports OpenCode as a first-class virtual CLI provider alongside Gemini, Codex, Claude Code, Qwen Code, and Antigravity.",
+  },
+  'settings-provider-routing': {
+    id: 'settings-provider-routing',
+    path: '/docs/settings-provider-routing',
+    section: 'User Guide',
+    title: "Provider Routing",
+    description: "This page describes how Code UX resolves provider, model, and provider pool selection for each invocation type. It supports routing across Jules, Gemini, Antigravity, Codex, Claude Code, Qwen Code, and OpenCode. Code...",
+  },
+  'settings-qwen-code-integration': {
+    id: 'settings-qwen-code-integration',
+    path: '/docs/settings-qwen-code-integration',
+    section: 'User Guide',
+    title: "Qwen Code Integration",
+    description: "Code UX supports Qwen Code as a first-class virtual CLI provider alongside Gemini, Codex, Claude Code, OpenCode, and Antigravity.",
   },
   'user-dashboard-custom-dashboards': {
     id: 'user-dashboard-custom-dashboards',
@@ -1154,6 +1178,9 @@ export const orderedDocs: DocsRegistryEntry[] = [
   docsRegistry['operations-security-hardening'],
   docsRegistry['operations-server-mode'],
   docsRegistry['settings-google-drive-mount'],
+  docsRegistry['settings-opencode-integration'],
+  docsRegistry['settings-provider-routing'],
+  docsRegistry['settings-qwen-code-integration'],
   docsRegistry['user-dashboard-custom-dashboards'],
   docsRegistry['architecture-card-ci-status-projection'],
   docsRegistry['architecture-chat-connector-runtime-reliability'],
