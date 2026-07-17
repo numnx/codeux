@@ -564,7 +564,7 @@ Legacy runtime:
   - Providers surfaces reliability, telemetry confidence, failure pressure, provider coverage, duration coverage, source mix, and audit notes from the existing stats snapshot.
   - Ledgers uses tabbed Task Telemetry, Sprint Telemetry, and Git Telemetry with search, sort, progressive rendering, token-flow bars, and dedicated Git churn visuals.
   - System splits operational debugging into sprint state, health snapshot, external API activity, error categories, filters, pagination, invocation rows, and expandable transcript detail.
-- The Stats page uses the same project realtime invalidation channels as the rest of the v2 dashboard, then falls back to polling so usage graphs and tables stay current during active sprint execution
+- The Stats page uses the same project realtime invalidation channels as the rest of the v2 dashboard, then falls back to REST resource snapshots so usage graphs and tables stay current during active sprint execution
 - Overview widgets and headline stat cards now read project/task data from the same project-management API surface, and task streams are filtered to the currently selected active sprint only (a frontend-only view change with no API contract change)
 - Agents page features an immersive, showcase-first layout that defaults to presenting the selected agent's 3D animated avatar, details, and route-assignment tags, rather than a raw edit form.
 - Agents page route-assignment tags include every configured QA reviewer in each trigger roster: task completion reviewers show `QA Task`, sprint completion reviewers show `QA Sprint`, and completed-task-without-PR reviewers show `QA No PR`; legacy single-agent QA settings still render the same badges.
@@ -633,7 +633,7 @@ Sprints, Tasks, and Live use the unified interactive workflow badge for persiste
 - The QA details surface opens on pointer hover, keyboard focus, or activation and is rendered at the viewport level so card, ledger, and Live overflow cannot clip it. Its named region can show outcome, summary, findings, fix instructions, target task key, reviewer, finish time, and generated follow-up task specifications. Pointer/focus movement between trigger and card preserves the surface; outside pointer/touch dismisses it, and `Escape` closes it and restores trigger focus.
 - Generated follow-up specifications start collapsed. Each keyboard- and touch-operable **Follow-up task N** disclosure exposes `aria-expanded`/`aria-controls`; expansion reveals title, description, priority, dependency keys, and the complete Markdown prompt in a bounded scrolling region. The card clamps to the viewport, uses a single column when constrained and an optional summary/findings split on wider screens, and removes pulse, spin, chevron rotation, and transitions under reduced motion without hiding state or content.
 - CI is presented as **Pull request**, **Checks**, and **Merge** steps. Each step and the aggregate use the first-class states `pending`, `in_progress`, `successful`, and `failed`, with severity ordered failed, in progress, pending, successful. The UI presents `in_progress` as running and `successful` with a green check. Only actual failed checks, merge conflicts, and failed merge attempts use the red-X state. Review blockers remain pending with passed checks and **Waiting for review**; merge conflicts fail Merge rather than masquerading as failed checks; QA provider failure remains a separate QA signal.
-- Task feature-PR observations are durable `ci_gate_status` task-run events; final feature-to-default-branch observations are `main_merge_gate_status` sprint-run events. The projection selects the newest event per task/main-merge entity by `createdAt` and event ID, combines open/claimed CI-repair attention, and aggregates entity states for sprint cards. Persisted task merge metadata is fallback evidence, not a per-card polling loop.
+- Task feature-PR observations are durable `ci_gate_status` task-run events; final feature-to-default-branch observations are `main_merge_gate_status` sprint-run events. The projection selects the newest event per task/main-merge entity by `createdAt` and event ID, combines open/claimed CI-repair attention, and aggregates entity states for sprint cards. Persisted task merge metadata is fallback evidence, not a per-card independent recovery timer.
 - Initial project/Live snapshots rehydrate persisted QA runs, gate events, and active attention after process restarts or browser reconnects, then realtime invalidation continues from that snapshot. A newer recognized settled gate event replaces older failure/waiting evidence for the same entity, and resolved or dismissed attention stops forcing failure.
 
 ### File Browser view
@@ -812,7 +812,7 @@ Realtime consumers currently include:
 
 Chat-specific behavior:
 
-- The Chat header no longer exposes a manual refresh button; thread and invocation data stay current through realtime sync, route-driven hydration, and bounded fallback polling.
+- The Chat header no longer exposes a manual refresh button; thread and invocation data stay current through realtime sync, route-driven hydration, and REST resource snapshots.
 
 Live view behavior:
 

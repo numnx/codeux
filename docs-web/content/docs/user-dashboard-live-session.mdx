@@ -72,7 +72,7 @@ The four first-class workflow states are `pending`, `in_progress`, `successful`,
 
 The red X identifies an actual provider/runtime or workflow failure, or explicit active **Human needed** intervention. A requested-change verdict is blue, not red. A review blocker is not a CI failure: CI remains passed and Merge reads **Waiting for review**. A merge conflict belongs to Merge and remains distinct from **CI failed**.
 
-The badge does not poll per card. Task feature-PR gates are persisted as `ci_gate_status` task-run events, and Live narrows them to the selected sprint and latest dispatch's sprint run before choosing the newest matching event by creation time and event ID. Unresolved CI repair attention is combined while `open` or `claimed`; persisted task merge metadata is durable fallback evidence.
+The badge does not use independent recovery timers per card. Task feature-PR gates are persisted as `ci_gate_status` task-run events, and Live narrows them to the selected sprint and latest dispatch's sprint run before choosing the newest matching event by creation time and event ID. Unresolved CI repair attention is combined while `open` or `claimed`; persisted task merge metadata is durable fallback evidence.
 
 Because the evidence is persisted and rehydrated into the initial Live snapshot, server restarts and browser reconnects reconstruct the same state before realtime updates continue; cards do not need independent recovery timers. A newer recognized settled gate event supersedes an older failed or waiting event for the same task and sprint run, and resolved or dismissed attention no longer forces failure.
 
@@ -81,6 +81,8 @@ Because the evidence is persisted and rehydrated into the initial Live snapshot,
 If the project has no active sprint run, the page shows the **Idle Runtime State** panel: a friendly explanation that nothing is running, with a link back to the sprint board.
 
 ## Attention items
+Actions map to exact routes (`POST /api/projects/:projectId/attention-items/:attentionItemId/claim` and `/resolve`) via `use-live-session-actions`.
+
 
 When the engine cannot proceed without input, an attention item is created. It appears as a row in the **Attention ledger** sidebar panel with:
 
@@ -98,6 +100,8 @@ When a sprint is selected in the dashboard top bar, the attention ledger follows
 The Overview telemetry panel uses the same selected-project live snapshot for its compact read-only attention queue, so Overview and Live agree on which sprint's blockers are visible.
 
 ## Pause / Cancel from the live view
+Actions map to exact routes (`POST /api/sprint-runs/:sprintRunId/pause`, `POST /api/sprint-runs/:sprintRunId/cancel`, `POST /api/sprint-runs/:sprintRunId/force-cancel`, `POST /api/task-dispatches/:dispatchId/cancel`, `POST /api/task-dispatches/:dispatchId/force-cancel`, `POST /api/task-dispatches/:dispatchId/retry`, `POST /api/execution/invocations/:invocationId/cancel`, and `POST /api/tasks/:taskId/rerun`) via `use-live-session-actions`: `cancelSprintRun`, `forceCancelSprintRun`, `pauseSprintRun`, `cancelTaskDispatch`, `forceCancelTaskDispatch`, `retryTaskDispatch`, and `rerunTask`.
+
 
 Two large buttons in the page header:
 
