@@ -84,7 +84,7 @@ Standalone MCP calls have no originating dashboard thread, so they receive neith
 ## Recurrence
 
 An entry can run once at a specific time or repeat on a **recurrence rule** (for example daily or
-weekly). The page previews the next occurrences so you can confirm the cadence before saving.
+weekly). You can also configure an end mode for recurrences, specifying whether the entry repeats forever, ends after a specific number of occurrences, or ends on a specific date. The page previews the next occurrences so you can confirm the cadence before saving.
 
 For node-flow schedules, recurrence uses the same model as other targets. Due runs call the node-flow
 runtime with `triggerType = "scheduler"` and trigger metadata containing the scheduler entry id,
@@ -100,8 +100,8 @@ From the page you can:
 
 - **Create** an entry — pick a target, set the time, and choose a recurrence rule.
 - **Edit** a dashboard-created entry's target, time, or recurrence.
-- **Pause / resume** an entry without deleting it.
-- **Delete** an entry.
+- **Pause / resume** an entry without deleting it. Pausing changes the entry's status to `paused`, temporarily halting its scheduled runs. Resuming it computes the next scheduled run so that missed runs are skipped.
+- **Delete** an entry. When managing entries programmatically via MCP, deletion requires explicit user confirmation. Alternatively, an agent can `cancel` a wakeup it originally created without two-step confirmation, which moves the entry to a `cancelled` status rather than deleting it outright. Additionally, a `run_due` MCP command is available to force evaluation and immediate execution of any due entries.
 
 Scheduler changes broadcast over the dashboard's realtime channel, so the calendar stays in sync
 across open clients. Scheduled runs appear in the [Live Session](./live-session.md) and
