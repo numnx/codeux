@@ -15,11 +15,17 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 Git mode, default branch, prefixes, sprint key, branch template, PR toggles, linked issue closure, and branch deletion define the workflow.
 
-| Control Surface | Runtime Effect | Review Before Saving |
-| --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+| Runtime Context | Default Branch Precedence Order |
+| --- | --- |
+| Worker Dispatch & Planning | `project.defaultBranch` &rarr; `settings.git.defaultBranch` &rarr; `"main"` |
+| Branch Preview & Rollback | `settings.git.defaultBranch` &rarr; `project.defaultBranch` &rarr; `"main"` |
+
+## GitHub/GitLab Modes (LOCAL vs REMOTE)
+
+The chosen Git mode fundamentally changes how Code UX interacts with your repositories:
+
+- **LOCAL mode**: Remote repository interactions and pull request creation are skipped. The `git_manager_remote` agent skill is explicitly disabled, meaning workers will only commit to local branches and rely on local Git flow.
+- **REMOTE mode**: Enables remote fetching, pushing, and PR automation. Agents will interact with the configured remote repository (e.g. creating PRs) using the provided authentication tokens.
 
 ## Recommended Configuration
 

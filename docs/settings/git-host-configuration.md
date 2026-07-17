@@ -15,11 +15,9 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 Tokens, GitHub auth mounting, auth paths, local git config copy, and container git identity control remote repository access.
 
-| Control Surface | Runtime Effect | Review Before Saving |
-| --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+Code UX uses GitHub/GitLab tokens to power `REMOTE` mode pull request automation and API capabilities. In `LOCAL` mode, these tokens are not used for remote PR creation.
+
+Docker container git-auth mounts (like GitHub auth mounting or local config copy) control whether the internal agent runtime is permitted to fetch or push directly to remote repository origins.
 
 ## Recommended Configuration
 

@@ -15,11 +15,7 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 Cards show connection state, auth hints, active/configured importer status, and management entry points; host hints can import detected local settings. Automation Credentials is the first catalog entry and reports secure-storage unavailable, ready but unconfigured, or configured state for the selected project. Its **Manage** action uses the same detail and back-navigation behavior as every other integration.
 
-| Control Surface | Runtime Effect | Review Before Saving |
-| --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+Git host and issue tracker settings explicitly map to runtime capabilities. For example, selecting `LOCAL` vs `REMOTE` Git mode dynamically enables the `git_manager_local` or `git_manager_remote` agent skill respectively, which dictates if workers can interact directly with origin pull requests.
 
 ## Automation Credential Management
 
