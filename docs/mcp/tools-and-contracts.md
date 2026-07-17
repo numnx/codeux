@@ -760,6 +760,8 @@ Available claim actions:
 - `add_claim_evidence`: requires `projectId`, `claimId`, and `memoryId`; accepts `supportType` (`supports`, `contradicts`, or `supersedes`) and `weight`.
 - `deprecate_claim`: requires `projectId`, `claimId`, and explicit `approval.confirmed: true`. The first unconfirmed call returns the standard `approvalRequired` envelope and does not mutate state.
 
+Other `manage_memory` actions include `search`, `list`, `get`, `create`, `update`, `delete` (requires approval confirmation), `promote`, `start_reembed`, `get_map`, `count`, and `model_status`. Memory search includes project-scoped deduplication/idempotency behavior using similar internal guarantees to ensure overlapping requests don't duplicate state.
+
 Claim reads and writes remain project-scoped. A claim ID or evidence memory outside the provided project is rejected instead of being linked across project boundaries.
 
 ### `add_long_term_memory` Project Manager lane
@@ -1181,6 +1183,7 @@ For scheduler calls:
 - `manage_scheduler` supports `list`, `create`, `schedule_sprint`, `schedule_quicksprint`, `schedule_chat`, `schedule_node_flow`, `update`, `delete`, and `run_due`.
 - Generic `create` requires `targetType: "sprint" | "quicksprint" | "chat" | "node_flow"`.
 - The `schedule_*` aliases infer the target type and accept flattened target fields.
+- Both `create` and `schedule_*` actions support an absolute time via `scheduledFor` or an anchor completion event via `scheduleMode` (also aliased as `anchorMode`). Supported anchors are `after_sprint_end` (using `sourceSprintId` or `anchorSourceSprintId`) and `after_task_end` (using `sourceTaskId` or `anchorSourceTaskId`), both with optional `offsetMinutes` (aliased as `anchorOffsetMinutes`).
 - Recurrence `frequency` accepts `minutely`, `hourly`, `daily`, `weekly`, and `monthly`; the dashboard renders `minutely` as `Minutes` and the matching recurrence summaries use labels such as `Every minute` and `Every 15 minutes`.
 - Minute recurrence uses the same UTC scheduler math as longer intervals, so the normalized rule advances `nextRunAt` and expands occurrences exactly like other frequencies once the minute literal has been parsed.
 - Scheduled quicksprints use the same `taskCount` number or numeric-string normalization as direct quicksprints.
@@ -1319,7 +1322,7 @@ Cancellation does not send again and therefore does not require the retry approv
 Validation rejects unsupported provider/mode combinations, missing required IDs, non-object setup/secrets, and `limit` outside 1-500. Credential mutation/verification can be disabled for remote MCP clients. Binding and delivery operations authorize the project stored on the binding; an unauthorized principal receives a generic project-authorization failure rather than foreign delivery data. Provider 429/temporary failures return `retryable: true` with a sanitized retry schedule, while invalid authentication/permissions are terminal until configuration changes.
 
 For settings patch calls, `value` may be any JSON value, including strings, booleans, numbers, `null`, arrays, or objects.
-Settings patch and replacement calls still require the stateful human-confirmation gate described above.
+Settings patch, replacement, and reset actions all require the standard one-use stateful human-confirmation gate to prevent unauthorized execution environment modification.
 
 ## Important Runtime Behaviors
 
