@@ -1,6 +1,6 @@
 # Provider Integration
 
-Explains that provider credentials are system-owned while project scopes still control routing and auth-copy behavior.
+Explains that provider credentials are system-owned while project scopes still control routing and auth-copy behavior. Code UX is a container-first CLI provider host supporting Jules, Gemini, Antigravity, Codex, Claude Code, Qwen Code, and OpenCode.
 
 > Settings area: `provider-integration`
 > Dashboard documentation route: `/docs/settings-provider-integration`
@@ -13,7 +13,7 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 ## Controls And Runtime Effect
 
-The notices clarify where provider instances live and which settings remain project-scoped.
+The notices clarify where provider instances live and which settings remain project-scoped. Code UX acts as a unified orchestrator for containerized CLI providers (or local CLI tools in HOST mode) and the hosted Jules provider, removing legacy distinctions between Jules and other providers in the CLI workflow boundary.
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
@@ -56,7 +56,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Provider Routing](/docs/user-providers-and-models)
-- [Configuration and Storage](/docs/developer-settings-reference)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Provider Routing](../provider-routing.md)
+- [Configuration and Storage](../configuration-and-storage.md)

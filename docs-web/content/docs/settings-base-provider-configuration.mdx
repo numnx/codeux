@@ -1,6 +1,6 @@
 # Base Provider Configuration
 
-Defines each named provider instance's default eligibility, model, thinking depth, weight, and concurrency.
+Defines each named provider instance's default eligibility, model, thinking depth, weight, and concurrency. Providers include Jules, Gemini, Antigravity, Codex, Claude Code, Qwen Code, and OpenCode.
 
 > Settings area: `base-provider-configuration`
 > Dashboard documentation route: `/docs/settings-base-provider-configuration`
@@ -14,6 +14,10 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 ## Controls And Runtime Effect
 
 Provider cards set default route participation, model, thinking mode, weighted routing weight, and max concurrent tasks.
+
+- Model and thinking mode are configurable per instance (e.g., specific models from a provider's catalog or custom endpoints for Qwen Code and OpenCode).
+- The hosted Jules provider does not support model selection or thinking mode options.
+- The `maxConcurrentTasks` value controls how many tasks the instance can run at once before deferring them.
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
@@ -53,7 +57,7 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Provider Routing](/docs/user-providers-and-models)
-- [Qwen Code Integration](/docs/user-providers-and-models)
-- [OpenCode Integration](/docs/user-providers-and-models)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Provider Routing](../provider-routing.md)
+- [Qwen Code Integration](../qwen-code-integration.md)
+- [OpenCode Integration](../opencode-integration.md)
