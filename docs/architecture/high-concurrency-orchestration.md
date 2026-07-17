@@ -18,7 +18,7 @@ The automatic local ceiling is the smaller of:
 
 - half of the available logical CPUs; and
 - the memory budget after reserving the greater of 4 GiB or 15% of host memory, using 2.5 GiB as the
-  planning estimate for one active provider/CI container.
+  planning estimate for one active provider/CI container (this limit applies even in `HOST` mode, which charges memory heuristically rather than enforcing a hard Docker boundary).
 
 When the healthy automatic or configured limit is at least three, one slot is held back from
 ordinary background work for `worker_reply`, `dashboard_reply`, or `clarification_reply`. Compact
@@ -38,7 +38,7 @@ slot work-conserving unless a reliable critically-low-memory signal requires a f
 work is never killed; admission resumes as pressure falls.
 
 The policy does not call Docker. A rejected bounded claim may invoke stale-runtime reconciliation,
-but a claim with available capacity reaches the atomic SQLite boundary first.
+but a claim with available capacity reaches the atomic SQLite boundary first. Concurrency capacity is tracked globally in the database under `provider_invocations` (via `tryCreateProviderInvocationUsage`), meaning `HOST` and `DOCKER` modes share the same capacity pool. However, stale reconciliation differs: `DOCKER` mode reconciles against the Docker container inventory, while `HOST` and Jules rely on database session state and lease timeouts.
 Provider-cap deferrals are limited to one structured diagnostic per sprint run and provider every
 ten seconds, even when the blocked queue changes. The throttle state lives on the long-lived cycle
 runner and is bounded, so per-cycle child loggers and wide ready queues cannot create a log-write
@@ -240,20 +240,21 @@ Periodic runtime cleanup is single-flight. If a 15-second interval fires while t
 still pruning runtime paths, it joins that sweep instead of starting another database scan or
 filesystem traversal. Runtime directory listing, age checks, and recursive removal use asynchronous
 filesystem operations with an eight-operation bound, so stale-path cleanup does not synchronously
-block container launch, telemetry, or dashboard work on the Node.js event loop.
+block container launch, telemetry, or dashboard work on the Node.js event loop. Stale cancellation dispatches and temporary provider workspaces are pruned after a strict 15-minute cutoff.
 
 Startup Docker asset cleanup is also single-flight. Helper containers and owner-scoped provider
 containers are removed before recovery and workspace-volume pruning. Provider cleanup includes
 running, exited, dead, and never-started `created` generations because a local Docker client cannot
 be reattached after process loss and `docker run --rm` cannot remove a container that never started.
 Shutdown likewise lists all states and force-removes owner-scoped containers; concurrent
-disappearance is an idempotent success. After that prerequisite, workspace, provider-tool, and
-browser-volume pipelines run independently. Docker inspection and removal use batches of at most 50
+disappearance is an idempotent success. In `HOST` execution mode, workspace artifacts are host paths and are not reclaimed via Docker pruning.
+
+After the container prerequisite, workspace, provider-tool, and browser-volume pipelines run independently. Fresh workspaces run entirely isolated. Continuation workspaces reconstruct the same commit and re-apply worker diffs. Docker inspection and removal use batches of at most 50
 with at most four cleanup commands active at once; a failed batch falls back to bounded per-item
 work instead of a serial control-plane loop.
 
 Tracked-session snapshots, the ten-minute new-workspace grace period, active managed-volume state,
-the newest-two cache generations, and the 30-day managed-volume retention window are unchanged.
+the newest-two cache generations, and the 30-day managed-volume retention window are unchanged. Active recovery sessions and live snapshots are preserved and re-linked upon continuation.
 
 The local mockup-sprint pentest runner keeps its isolated server alive after terminal sprint state
 until every workspace/runtime volume labeled for that test project and sprint has been removed.
