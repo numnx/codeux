@@ -10,6 +10,21 @@ The browser preview provides an integrated environment for interacting with runn
 - `startupCommand` is blank by default, so command detection remains active. A saved container override takes precedence over the scoped settings default, which takes precedence over the detected command.
 - `allowDockerAccess` is false by default because Docker daemon access is equivalent to host-level control.
 
+## Runtime and Routing Mechanics
+
+- **Session Identity & Source:** Preview sessions are scoped 1:1 to a project+sprint pair. Launching a preview exports the sprint's branch snapshot rather than mounting the active project directory, ensuring isolation from background worker changes.
+- **Startup Configuration:** Code UX runs a default script path (`npm run dev`, `python manage.py runserver`, etc.) via auto-detection unless overridden. The preview can also use per-session startup commands that take precedence over the detected script.
+- **Environment Overrides:** Container cards expose an environment modal for per-session overrides (e.g., `CODE_UX_ALLOW_PUBLIC_DASHBOARD=1`). Runtime-owned variables (`PORT`, `HOST`, `HOME`, `DASHBOARD_PORT`, `SPRINT_PREVIEW_*`, `CODE_UX_GIT_USER_*`) are reserved and cannot be overridden.
+- **Auto-Start:** Previews are not auto-started by default; manual launch is required unless explicitly configured otherwise via settings.
+- **Logs Streaming & Retention:** Container logs stream in a side panel. These logs are retained and visible even if the container is subsequently stopped or crashes.
+- **Port Mappings:** A preview session can expose multiple container ports. The first defined container-to-host port mapping acts as the primary port (default tab). Additional exposed ports are rendered as secondary port mappings (separate tabs).
+- **URL Selection & Origins:** The browser pane uses a dedicated preview host origin (`http://preview-<sessionId>.<dashboard-host>` or `http://preview-<sessionId>.localhost`). Secondary port tabs route through this single URL by preserving a separate path per selected port.
+- **Cookies & WebSockets:** Cookies, local storage, and service workers remain isolated per preview session. The preview host origin supports path proxy compatibility and successfully proxies WebSocket upgrades.
+- **Rebuilds, Stops, & Removes:**
+  - Stop halts the container but keeps the session row (logs, script, config).
+  - Rebuild is a destructive trigger that stops the container, exports the latest worktree snapshot, and starts fresh.
+  - Remove is fully destructive; it stops the container, prunes it, and deletes the session row entirely.
+
 ## Startup Reliability
 
 - Startup container cleanup is a barrier for preview launch and reconciliation. A manual or automatic launch waits for cleanup instead of racing a stale-container removal.
@@ -18,6 +33,7 @@ The browser preview provides an integrated environment for interacting with runn
 - A session left in `starting` before Docker created its container is treated as an orphaned start and retried; reconciliation does not interrupt an in-process start.
 - A preview that was observed healthy, or belongs to an active auto-start sprint, gets one automatic recovery attempt per unexpectedly exited container. This includes manually launched previews after their sprint finishes; a persistent application or startup failure remains visible instead of entering an infinite rebuild loop.
 - Exit code 137 is reported as container termination rather than attaching an unrelated warning from otherwise healthy application logs.
+- Validation failures for commands or missing routed host ports persist visibly on the session card and disabled launch/navigation controls.
 
 ## Interaction Contracts
 
@@ -77,12 +93,12 @@ The browser preview provides an integrated environment for interacting with runn
 
 ## Proxy Credential Boundaries
 
-The browser preview has two proxy paths with different credential rules:
+The browser preview has two proxy paths with different credential rules defining strict trust boundaries:
 
-- Dashboard API proxy requests under `/api/browser/sessions/:sessionId/proxy*` originate from the dashboard runtime. Before forwarding to the selected preview port, the proxy strips dashboard cookies, bearer authorization, `set-cookie`, hop-by-hop headers, `proxy-*`, `x-code-ux-*`, `host`, `content-length`, and compression negotiation headers. It also normalizes `Origin`, `Referer`, and `Sec-Fetch-Site` so the preview app sees the selected local upstream origin, such as `http://127.0.0.1:<hostPort>`.
-- Preview-host iframe and external-tab requests on `preview-<session>.localhost` are the preview app's own origin. Those requests may forward the preview app's own `Authorization` and `Cookie` headers so stateful login/session flows continue to work. Transport, proxy-control, Code UX control, and client-supplied forwarding headers are stripped. The proxy then presents one coherent local upstream boundary (`Host`, `X-Forwarded-Host`, `Origin`, `Referer`, protocol, and port all agree on `localhost:<mapped-port>`) while the network connection remains pinned to the recorded loopback port. This supports applications that reject untrusted or contradictory host headers.
+- Dashboard API proxy requests under `/api/browser/sessions/:sessionId/proxy*` originate from the dashboard runtime. Before forwarding to the selected preview port, the proxy strictly filters out dashboard cookies, bearer authorization, `set-cookie`, hop-by-hop headers, `proxy-*`, `x-code-ux-*`, `host`, `content-length`, and compression negotiation headers. It also normalizes `Origin`, `Referer`, and `Sec-Fetch-Site` so the preview app sees the selected local upstream origin, such as `http://127.0.0.1:<hostPort>`.
+- Preview-host iframe and external-tab requests on `preview-<session>.localhost` are the preview app's own origin. Those requests may forward the preview app's own `Authorization` and `Cookie` headers so stateful login/session flows continue to work. Transport, proxy-control, Code UX control, and client-supplied forwarding headers are stripped. The proxy then presents one coherent local upstream boundary (`Host`, `X-Forwarded-Host`, `Origin`, `Referer`, protocol, and port all agree on `localhost:<mapped-port>`) while the network connection remains pinned to the loopback publication (recorded loopback port). This supports applications that reject untrusted or contradictory host headers.
 
-Both paths only route to loopback host ports recorded on the active preview session. The dashboard API proxy also removes `Set-Cookie`, CSP, CSP report-only, and `X-Frame-Options` response headers before writing the response on the dashboard origin. Preview-host HTML keeps iframe compatibility by stripping upstream document CSP and frame-blocking headers while allowing preview-origin app cookies to reach that preview host.
+Both paths enforce bounded proxy I/O and only route to loopback host ports (`127.0.0.1`) recorded on the active preview session. The dashboard API proxy also removes `Set-Cookie`, CSP, CSP report-only, and `X-Frame-Options` response headers before writing the response on the dashboard origin. Preview-host HTML keeps iframe compatibility by stripping upstream document CSP and frame-blocking headers while allowing preview-origin app cookies to reach that preview host.
 
 ## Optional Docker Access
 
@@ -90,7 +106,14 @@ Settings can explicitly enable Docker access for preview containers. The Browser
 
 When enabled, Code UX mounts the local Unix Docker daemon socket, adds the socket group to the preview user, mounts a compatible host Docker CLI and Compose v2 plugin on Linux when available, and runs both `docker version` and `docker compose version` before starting the application. Missing socket, CLI, Compose plugin, or daemon access fails startup with a focused error instead of letting the application command fail with an ambiguous unknown-command message.
 
-This option is disabled by default and must only be enabled for trusted repositories and commands. Control of the Docker daemon is effectively control of the host. Docker-managed child containers do not automatically inherit the preview workspace or network namespace; Docker-based startup commands can use `SPRINT_PREVIEW_DOCKER_VOLUME`, `SPRINT_PREVIEW_CONTAINER_NAME`, and `SPRINT_PREVIEW_RUNTIME_ROOT` to declare an external named volume and `network_mode: container:<name>` when that topology is required.
+This option is disabled by default and must only be enabled for trusted repositories and commands. We strongly recommend against mounting the Docker socket by default unless explicitly needed. Control of the Docker daemon is effectively control of the host. Docker-managed child containers do not automatically inherit the preview workspace or network namespace; Docker-based startup commands can use `SPRINT_PREVIEW_DOCKER_VOLUME`, `SPRINT_PREVIEW_CONTAINER_NAME`, and `SPRINT_PREVIEW_RUNTIME_ROOT` to declare an external named volume and `network_mode: container:<name>` when that topology is required.
+
+## Separation of Concerns: Container Types
+
+Code UX manages different container types that should not be confused with Browser Previews:
+- **Preview Containers:** Scoped per sprint to run the sprint's exported branch snapshot. Exposes the app via an embedded iframe or localhost URL. Uses `node:24-bookworm` or a project override.
+- **Provider Execution Containers:** Managed provider coding environments where worker agents run tasks. These containers mount the verified Playwright browser volume at `/ms-playwright` and execute worker commands directly on the project repository.
+- **Custom-Dashboard Validation Sessions:** These exist to validate UI layouts and logic for custom dashboard features, totally distinct from sprint previews.
 
 ## File Browser Comparison
 
