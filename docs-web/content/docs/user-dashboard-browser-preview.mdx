@@ -10,8 +10,8 @@ This is invaluable for visually verifying changes a sprint has made (UI work, AP
 | --- | --- |
 | **Preview session** | A live Docker container running the sprint's working tree, plus a browser pane that connects to a chosen port inside it. |
 | **Preview script** | A shell script associated with the sprint that the container runs at startup (`npm run dev`, `python manage.py runserver`, etc.). |
-| **Startup command** | Optional Settings default or selected-container override; it takes precedence over command detection. |
-| **Port mapping** | The container's internal port → host port mapping that the browser pane uses. A single preview container can expose multiple port mappings, rendered as distinct tabs in the browser chrome. |
+| **Startup command** | Optional Settings default or selected-container override; it takes precedence over command detection. Validation failures related to commands will disable launch buttons and show an explicit error on the session card. |
+| **Port mapping** | The container's internal port → host port mapping that the browser pane uses. A single preview container can expose multiple port mappings, rendered as distinct tabs in the browser chrome. The first configured mapping acts as the primary port. |
 
 ## Starting a preview
 
@@ -41,7 +41,7 @@ The right sidebar provides a selected-container startup command override. Previe
 
 Docker daemon access is disabled by default. Open **Docker Access** in the Browser page right sidebar to set the project-wide default or choose an inherited/enabled/disabled policy for the selected preview container. The Settings toggle remains the same project-wide control. Changes apply after a rebuild.
 
-When enabled, Code UX mounts and preflights the local Unix socket, a compatible Docker CLI, and the Compose v2 plugin so startup commands such as `docker compose up` work inside the preview. Docker daemon access grants effective host-level control and must only be used with trusted repositories.
+When enabled, Code UX mounts and preflights the local Unix socket, a compatible Docker CLI, and the Compose v2 plugin so startup commands such as `docker compose up` work inside the preview. We explicitly do not recommend mounting the Docker socket by default; Docker daemon access grants effective host-level control and must only be used with explicitly trusted repositories.
 
 Startup cleanup completes before previews launch, previously active sessions are restored, and single-flight reconciliation plus serialized port allocation prevent overlapping launches from claiming the same host port. Previously healthy previews receive one bounded recovery attempt after an unexpected exit, including manually launched sessions whose sprint has finished.
 If a process interruption leaves a session marked as starting before Docker creates its container, reconciliation resets that orphaned state and retries it without disturbing starts that are still active.

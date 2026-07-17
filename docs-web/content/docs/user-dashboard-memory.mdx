@@ -1,13 +1,15 @@
 # Memory
 
-The **Memory** page (`/memory`) manages Code UX's two-tier semantic memory system. Embedding and speech models are installed from **Settings -> AI Models**.
+The **Memory** page (`/memory`) manages Code UX's two-tier semantic memory system. This system represents what the runtime *learns* automatically from work, separate from the [Knowledge Base](/docs/user-dashboard-knowledge) (reference documents you add) and Persistent Skills (reusable agent instructions).
+
+Embedding and speech models are installed from **Settings -> AI Models**.
 
 ## The two tiers
 
 | Tier | Scope | Lifetime |
 | --- | --- | --- |
-| **Short-term** | One sprint | Created during a sprint run. Promoted to long-term on completion (if eligible) or pruned. |
-| **Long-term** | One project | Stable knowledge — architectural decisions, codebase landmarks, recurring constraints. |
+| **Short-term** (Evidence) | One sprint | Observations captured during a sprint run. Promoted to long-term claims on completion (if eligible) or pruned. |
+| **Long-term** (Claims) | One project | Stable knowledge — architectural decisions, codebase landmarks, recurring constraints. |
 
 Both tiers are vector-indexed using a locally-running embedding model (ONNX Runtime). No memory ever leaves your machine.
 
@@ -96,7 +98,7 @@ The dashboard exposes a **Promote** flow:
 2. **Review** — A modal presents a ranked list with an explanation per item.
 3. **Execute** — Approved items are copied to the long-term scope (originals remain available until pruned).
 
-Auto-promotion also runs as the final step of a sprint when the sprint settles successfully.
+Auto-promotion also runs as the final step of a sprint when the sprint settles successfully. (See [Memory Architecture](https://github.com/codeux-ai/codeux/blob/dev/docs/architecture/memory-claims.md) and [Dashboard Memory](https://github.com/codeux-ai/codeux/blob/dev/docs/dashboard/memory.md) for deeper details on automated remediation schedules and AI deduplication mode).
 
 ## The graph view
 
@@ -146,7 +148,7 @@ Switching the active model leaves existing memories embedded with the previous m
 
 ## Persistent skills
 
-Persistent skills are reusable agent instructions, not sprint learnings. They are stored in project-owned skill storages, attached to agent presets, and kept out of the project workspace and `.code-ux/` sprint files.
+Persistent skills are reusable agent instructions, not sprint learnings (memories) or reference documents (knowledge). They are stored in project-owned skill storages, attached to agent presets, and kept out of the project workspace and `.code-ux/` sprint files.
 
 Open the **Skills** tier to visualize the bounded skill catalog as a read-only graph. You can search it and filter to an agent's attached storages; memory creation, embedding-model controls, and deletion controls are intentionally unavailable in this tier. Runtime skill repositories are versioned internally and mounted read-only, while skill changes go through the management tools.
 
@@ -158,4 +160,12 @@ The footer shows aggregate memory statistics: total counts per scope/category, a
 
 ## Programmatic access
 
-The Memory MCP tool (`manage_memory`) exposes search, list, get, create, update, delete, promote, start_reembed, get_map, count, and model_status actions, as well as durable claim actions. The dedicated `add_long_term_memory` tool writes one canonical durable memory and returns confirmation-widget data. Destructive actions require approval confirmation. See [Management actions → memory](/docs/developer-management-actions#memory).
+The Memory MCP tool (`manage_memory`) exposes search, list, get, create, update, delete, promote, start_reembed, get_map, count, and model_status actions, as well as durable claim actions. The dedicated `add_long_term_memory` tool writes one canonical durable memory claim and returns confirmation-widget data. Destructive actions require approval confirmation. See [Management actions → memory](/docs/developer-management-actions#memory). Skill management uses a separate `manage_skills` MCP tool to enforce the boundary between memory and persistent agent instructions.
+
+### MCP Mechanics and Failure States
+
+- **Skill Boundaries**: Skills enforce a `MAX_SKILL_BODY_CHUNKS` limit (capped at 64 chunks per skill). Skill searches operate on a candidate limit of up to 10,000 records.
+
+- **Concise Search Responses**: MCP actions like `search_skills` and `list_skills` return formatting-trimmed summaries capped at 240 characters (`summarizeMarkdown`) instead of the full body. This prevents large markdown documents from cluttering context windows.
+- **Full-Content Retrieval**: Agents must explicitly invoke `get_skill` with `includeContent: true` to fetch the complete markdown text.
+- **Failure States & Approval Gates**: Programmatic errors (such as "Skill not found") return standard error envelopes. Destructive actions (like `delete_storage` or `delete_skill`) enforce a confirmation gate by returning `{ approvalRequired: true }` unless explicitly called with `approval.confirmed: true`.

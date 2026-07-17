@@ -59,6 +59,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](./index.md)
-- [Dashboard Settings](../../dashboard/design-system-settings.md)
-- [Browser Preview](../../dashboard/browser-preview.md)
-- [Sprint Preview Browser](../../architecture/sprint-preview-browser.md)
+- [Dashboard Settings](../user/dashboard/settings.md)
+- [Browser Preview](../user/dashboard/browser-preview.md)
+- [Sprint Preview Browser](../user/dashboard/browser-preview.md)

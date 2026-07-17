@@ -59,13 +59,14 @@ The form collects:
 
 | Field | Required | Description |
 | --- | --- | --- |
-| Name | Yes | Human-readable label. |
-| Source type | Yes | Import a local directory, import a Git URL, or initialize a new project. |
-| Directory path | No for local imports and new local apps | Existing or target checkout path. Blank new local paths are resolved by the backend under the user's home directory. |
-| Repository URL | Yes for Git URL imports | Remote repository to clone and track. |
-| Git URL slug | Yes for new remote apps | Repository slug for backend remote initialization. It auto-fills from the project name until edited. |
-| Init mode | Yes for new projects | `Local Repo` creates a local repository; `Remote Repo` initializes a remote repository and clone. |
-| Setup scope | Optional for imports | Runs the Project Setup Agent for imported local or Git projects. Setup can generate agents, quicksprints, preview startup, CI, a detected techstack, and opt-in docs embedding from repository evidence. New app initialization hides setup scope controls. |
+| Name | Yes | Human-readable label mapped to `name`. |
+| Source type | Yes | Import a local directory, import a Git URL, or initialize a new project, mapped to `sourceType` (`local` or `git`). |
+| Directory path | No for local imports and new local apps | Existing or target checkout path mapped to `sourceRef`. Blank new local paths are resolved by the backend under the user's home directory. |
+| Repository URL | Yes for Git URL imports | Remote repository to clone and track mapped to `sourceRef`. |
+| Git URL slug | Yes for new remote apps | Repository slug for backend remote initialization mapped to `sourceRef`. It auto-fills from the project name until edited. |
+| Clone Directory | No | Target directory for the clone mapped to `cloneDir`. If empty, the backend uses a default under the home directory. |
+| Init mode | Yes for new projects | `Local Repo` creates a local repository (`new-local`); `Remote Repo` initializes a remote repository and clone (`new-remote`). Default is `existing`. |
+| Setup scope | Optional for imports | Runs the Project Setup Agent for imported local or Git projects, mapped to `setup` payload. Setup can generate agents, quicksprints, preview startup, CI, a detected techstack, and opt-in docs embedding from repository evidence. New app initialization hides setup scope controls. |
 
 On save, Code UX:
 
@@ -77,6 +78,8 @@ On save, Code UX:
 For imported projects, setup techstack detection inspects dependency manifests, especially `package.json`, plus lockfiles and framework config files. When the detection is valid, Code UX adds the stack to the system catalog if needed and writes the project selection to `techstack.selectedTechstackId`. Invalid or empty detections are ignored without blocking other selected setup artifacts, so imported projects are not classified until evidence or an operator assigns them.
 
 Docs setup is opt-in from the dashboard setup scope or setup request payloads. When `docs` is true, Code UX discovers repository documentation and embeds it through the Knowledge docs library, returning embedded document IDs plus per-file errors without failing the rest of setup for a single document failure.
+
+Project setup operations are idempotent. Setup failures are reported in diagnostics as partial failures (e.g., individual file ingestion failures for Docs) while allowing generated artifacts, like agents or configuration scripts in `.code-ux/`, to be written safely without marking the entire setup task as failed.
 
 ## Selecting the active project
 

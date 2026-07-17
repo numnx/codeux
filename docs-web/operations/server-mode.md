@@ -258,8 +258,8 @@ Existing HTTP sessions authenticated with the previous token should be treated a
 
 ## Related Docs
 
-- [MCP Runtime and Dispatch](../mcp/runtime-and-dispatch.md)
-- [Streamable HTTP Worker Gateway](../architecture/streamable-http-worker-gateway.md)
+- [MCP Runtime and Dispatch](https://github.com/codeux-ai/codeux/blob/dev/docs/mcp/runtime-and-dispatch.md)
+- [Streamable HTTP Worker Gateway](https://github.com/codeux-ai/codeux/blob/dev/docs/architecture/streamable-http-worker-gateway.md)
 - [Security Hardening](./security-hardening.md)
 - [Automation Credential Security](./credential-security.md)
-- [CLI Commands Reference](../reference/cli-commands.md)
+- [CLI Commands Reference](https://github.com/codeux-ai/codeux/blob/dev/docs/reference/cli-commands.md)

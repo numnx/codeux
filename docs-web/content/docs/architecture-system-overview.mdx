@@ -53,7 +53,7 @@ Code UX is a container-first multi-provider runtime with an integrated dashboard
 - API host: `src/server/dashboard-server.ts`
 - Frontend app: `dashboard/src/v2/*`
 - Settings view-models: `dashboard/src/v2/lib/settings-view-models.ts` is a compatibility barrel over focused helpers in `dashboard/src/v2/lib/settings/`. Provider instance/auth helpers, model option catalogs, model pricing refs, project override/source helpers, display metadata, and branch naming helpers are kept in separate typed modules so dashboard components can share behavior without changing settings API contracts or saved settings shapes.
-- Custom dashboard management uses `src/server/custom-dashboard-routes.ts`, `src/repositories/custom-dashboard-repository.ts`, and `src/services/custom-dashboard-validation-service.ts` to store drafts/revisions, validate generated bundles in detached Docker sessions, and publish only revisions with passed validation reports. See [Custom Dashboards](../dashboard/custom-dashboards.md) and [Custom Dashboard Foundation](/docs/architecture-custom-dashboard-foundation).
+- Custom dashboard management uses `src/server/custom-dashboard-routes.ts`, `src/repositories/custom-dashboard-repository.ts`, and `src/services/custom-dashboard-validation-service.ts` to store drafts/revisions, validate generated bundles in detached Docker sessions, and publish only revisions with passed validation reports. See [Custom Dashboards](/docs/user-dashboard-custom-dashboards) and [Custom Dashboard Foundation](/docs/architecture-custom-dashboard-foundation).
 
 ### 6. Data and settings repositories
 - Persistence uses SQLite via `node:sqlite`.
@@ -150,7 +150,7 @@ Priority order:
 - Planning preflight can block status/orchestrate until subtask files exist.
 - CI Intelligence settings add protocol-level merge guidance for comments/check gates.
 - `pnpm run ci` starts with the local quality guardrail script, which blocks stale artifacts, unsafe dependency placeholders, realtime snapshot persistence regressions, duplicate optimistic task insertion, and substantial duplicate implementation blocks before broader validation runs.
-- Hot realtime, execution projection, provider telemetry, session sync, and dashboard rendering paths must follow the [Code Quality And Performance Contracts](./code-quality-performance-contracts.md), including bounded snapshot slices and owner-specific verification commands.
+- Hot realtime, execution projection, provider telemetry, session sync, and dashboard rendering paths must follow the [Code Quality And Performance Contracts](https://github.com/codeux-ai/codeux/blob/dev/docs/architecture/code-quality-performance-contracts.md), including bounded snapshot slices and owner-specific verification commands.
 
 ## Extensibility Model
 

@@ -32,3 +32,18 @@ Unless explicitly marked `experimental` or `deprecated`, every contract document
 
 - The `preview` management domain (interface may evolve as Docker tooling matures).
 - The `WORKER` invocation routing profile.
+
+## Documentation and Testing Structure
+
+### Documentation Files
+
+- **Authored Documentation:** The `.md` files in `docs/` and `docs-web/` are the authoritative editable source files.
+- **Generated Documentation:** The `.mdx` files under `docs-web/content/docs/` are automatically generated and should not be edited directly. Use `node scripts/sync-docs-web.mjs` to synchronize authored files to their generated output.
+
+### Tests
+
+Tests are grouped by focus:
+- `tests/backend/`: Focused backend test suites.
+- `tests/dashboard/`: Dashboard component and integration tests.
+- `tests/e2e/`: End-to-end tests covering system workflows.
+- `tests/smoketest/`: Smoke tests and basic workflow validation.

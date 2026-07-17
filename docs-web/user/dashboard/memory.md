@@ -98,7 +98,7 @@ The dashboard exposes a **Promote** flow:
 2. **Review** — A modal presents a ranked list with an explanation per item.
 3. **Execute** — Approved items are copied to the long-term scope (originals remain available until pruned).
 
-Auto-promotion also runs as the final step of a sprint when the sprint settles successfully. (See [Memory Architecture](../../../docs/architecture/memory-claims.md) and [Dashboard Memory](../../../docs/dashboard/memory.md) for deeper details on automated remediation schedules and AI deduplication mode).
+Auto-promotion also runs as the final step of a sprint when the sprint settles successfully. (See [Memory Architecture](https://github.com/codeux-ai/codeux/blob/dev/docs/architecture/memory-claims.md) and [Dashboard Memory](https://github.com/codeux-ai/codeux/blob/dev/docs/dashboard/memory.md) for deeper details on automated remediation schedules and AI deduplication mode).
 
 ## The graph view
 

@@ -311,7 +311,7 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/user-dashboard-memory',
     section: 'User Guide',
     title: "Memory",
-    description: "The Memory page (/memory) manages Code UX's two-tier semantic memory system. Embedding and speech models are installed from Settings -&gt; AI Models.",
+    description: "The Memory page (/memory) manages Code UX's two-tier semantic memory system. This system represents what the runtime learns automatically from work, separate from the Knowledge Base (reference documents you add) and P...",
   },
   'user-dashboard-knowledge': {
     id: 'user-dashboard-knowledge',
