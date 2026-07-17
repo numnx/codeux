@@ -27,6 +27,14 @@ Roles are `credential_admin`, `automation_author`, `automation_publisher`, `auto
 
 The `credential_admin` role can read `/api/admin/readiness`, `/api/admin/audit/export`, and `/api/admin/metrics/slo` even when remote credential management is disabled. The feature flag gates credential creation, binding, testing, rotation, replacement, revocation, promotion, restriction, and credential-health routes; it does not disable operational readiness, audit, or SLO inspection.
 
+### Audit Export
+
+The `/api/admin/audit/export` endpoint allows operators with the `credential_admin` role to export the durable audit log for automation and credential workflows. It returns structural records but does not include actual auth tokens, secrets, or private content.
+
+### SLO Metrics
+
+The `/api/admin/metrics/slo` endpoint provides measurements for automation workflows, such as management request counts, p95 latency, run attempts, and outbox delivery error rates. This endpoint only exposes internal, measured SLOs; Code UX does not claim or configure any external alerting integration.
+
 TLS is assumed at the reverse proxy. Authenticated remote requests must arrive with HTTPS or a trusted `X-Forwarded-Proto: https`; `CODE_UX_ALLOW_INSECURE_HTTP=true` is limited to isolated test networks. Same-origin browser checks, no-store headers, host validation, and a 600-request/minute administrative API limiter remain active. Webhook and provider-ingress endpoints retain their dedicated authentication schemes.
 
 Example identity generation (the JSON stores only the digest):
@@ -45,6 +53,13 @@ Use server mode when:
 - operators can treat the bearer token as a secret with full runtime authority
 
 Do not expose the MCP HTTP listener directly to the public internet. The Node listener is HTTP; terminate HTTPS with a trusted reverse proxy, tunnel, service mesh, or load balancer when traffic leaves the host.
+
+## Server Probes
+
+The dashboard API exposes two endpoints for monitoring the server:
+
+- `/health` (Liveness): Returns `200 OK` with `{"status":"UP"}` when the dashboard/MCP listeners are bound and accepting traffic. If the listeners are down or failing, it returns a degraded `503 Service Unavailable` with `{"status":"DOWN"}` and a breakdown of the failing components.
+- `/ready` (Operational Readiness): Returns `200 OK` with `{"status":"READY"}` when internal dependency services, the runtime configuration, and components like credential keys are ready to serve. If it is still starting up or a dependency is unavailable, it returns a degraded `503 Service Unavailable` with `{"status":"NOT_READY"}` and a breakdown of which component is missing.
 
 ## Startup
 
@@ -99,9 +114,9 @@ curl --fail http://127.0.0.1:4445/health
 curl --fail http://127.0.0.1:4445/ready
 ```
 
-Use `/health` for process liveness. It only proves that the listener is up.
+Use `/health` for process liveness. It only proves that the listener is up. A healthy probe returns `200 OK` with `{"status":"UP"}`. A failing probe returns `503 Service Unavailable` with `{"status":"DOWN"}` and a breakdown of components.
 
-Use `/ready` for runtime readiness. It reports whether the Code UX runtime finished the required startup path and can accept work. During startup, maintenance such as Docker cleanup, preview reconciliation, branch reaping, and recovery work can continue after the listener binds, so `/health` can pass before `/ready`.
+Use `/ready` for runtime/operational readiness. It reports whether the Code UX runtime finished the required startup path and can accept work. During startup, maintenance such as Docker cleanup, preview reconciliation, branch reaping, and recovery work can continue after the listener binds, so `/health` can pass before `/ready`. A ready probe returns `200 OK` with `{"status":"READY"}`. If `/ready` fails (e.g., during startup or if a dependency drops), it returns `503 Service Unavailable` with `{"status":"NOT_READY"}` and a `components` map showing which dependency is missing.
 
 Do not include `Authorization` headers in probe logs. The probe endpoints do not require bearer credentials.
 
@@ -230,7 +245,7 @@ Existing HTTP sessions authenticated with the previous token should be treated a
 | --- | --- | --- |
 | Startup fails with a server-mode token error | `--server-mode` or `CODE_UX_SERVER_MODE=true` is set without an explicit valid bearer token. | Set `MCP_HTTP_AUTH_TOKEN` or `MCP_HTTPS_AUTH_TOKEN`, or pass the matching CLI flag. Use at least 32 bearer-safe characters. |
 | Startup fails when binding `0.0.0.0`, `::`, or a LAN address | MCP HTTP is reachable beyond loopback without an active token. | Configure an explicit bearer token and put TLS/auth network controls in front of the HTTP listener. |
-| Dashboard URL is unavailable | Expected in server mode. | Use MCP HTTP clients and `/health` or `/ready`. Start a separate dashboard-mode process only when an operator UI is required. |
+| Dashboard URL is unavailable | Expected in server mode. | Use MCP HTTP clients and `/health` (liveness probe indicating listeners are bound) or `/ready` (operational readiness indicating components like credential keys are ready). Start a separate dashboard-mode process only when an operator UI is required. |
 | HTTP returns `401 Unauthorized` | Missing `Authorization: Bearer <token>`, wrong token, duplicate authorization headers, or a client still using the old token after rotation. | Reinstall or update the client secret, reconnect, and avoid printing headers in diagnostics. |
 | HTTP returns `400` on a new MCP session | The first request was not JSON-RPC `initialize`, or `mcp-session-id` / `x-code-ux-agent` was malformed. | Let the MCP SDK initialize the session, or clear stale session state and reconnect. |
 | Session cap errors appear | Too many active Streamable HTTP sessions, usually from leaked clients or a cluster larger than the default cap. | Stop stale clients, shorten `MCP_HTTP_SESSION_TIMEOUT_MS`, or raise `MCP_HTTP_MAX_SESSIONS` within server capacity. |
@@ -243,7 +258,8 @@ Existing HTTP sessions authenticated with the previous token should be treated a
 
 ## Related Docs
 
-- [MCP Tools](../developer/mcp-tools.md)
+- [MCP Runtime and Dispatch](../mcp/runtime-and-dispatch.md)
+- [Streamable HTTP Worker Gateway](../architecture/streamable-http-worker-gateway.md)
 - [Security Hardening](./security-hardening.md)
 - [Automation Credential Security](./credential-security.md)
-- [Runtime Configuration](../developer/configuration.md)
+- [CLI Commands Reference](../reference/cli-commands.md)
