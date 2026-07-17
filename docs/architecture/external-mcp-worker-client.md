@@ -82,7 +82,7 @@ Environment fallbacks:
 - `CODE_UX_WORKER_AUTH_TOKEN`
 - `MCP_HTTP_SERVER_URL`
 - `MCP_HTTP_AUTH_TOKEN`
-- `MCP_HTTPS_AUTH_TOKEN`
+- `MCP_HTTPS_AUTH_TOKEN (legacy aliases still supported)`
 
 The worker never logs bearer token values and does not send local provider credentials to the control plane.
 

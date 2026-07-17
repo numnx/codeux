@@ -129,12 +129,12 @@ Legacy-compatible names are still accepted:
 Behavior:
 
 - enabled by default
-- can be disabled with `--no-mcp-https` or `MCP_HTTPS_ENABLED=false`
+- can be disabled with `--no-mcp-http` or `MCP_HTTP_ENABLED=false` (legacy HTTPS aliases still accepted)
 - defaults to `dashboardPort + 1` when no explicit MCP HTTP port is configured
 - auto-generates a user-scoped bearer token in `~/.code-ux/security.json` on first startup when no explicit token is configured
 - requires bearer authentication for normal Code UX startup, including Docker Desktop/WSL defaults that bind the gateway to `0.0.0.0` for container reachability
 - requires an explicit bearer token in server mode and does not use the generated user token fallback
-- keeps explicit `--mcp-https-auth-token` and `MCP_HTTPS_AUTH_TOKEN` values as the highest-precedence token sources
+- keeps explicit `--mcp-http-auth-token` and `MCP_HTTP_AUTH_TOKEN` values as the highest-precedence token sources
 - exposes an HTTP listener; HTTPS/TLS requires a reverse proxy or future native certificate configuration
 
 Default path:

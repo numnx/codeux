@@ -51,7 +51,7 @@ By default (disable with `--no-mcp-http`, `--no-mcp-https`, `MCP_HTTP_ENABLED=fa
 
 Bearer token via `Authorization: Bearer <token>` header.
 
-Server mode requires an explicit bearer token from CLI or environment even when binding to loopback. It also disables dashboard routes and websockets while preserving `/health` and `/ready` on the MCP HTTP listener.
+Server mode requires an explicit bearer token from CLI or environment even when binding to loopback. It also disables dashboard routes and websockets while preserving `/health` (proves the listener is alive) and `/ready` (evaluates actual system readiness including database, dashboard binding, MCP service, and startup recovery) on the MCP HTTP listener.
 
 | Host class | Token required? |
 | --- | --- |
