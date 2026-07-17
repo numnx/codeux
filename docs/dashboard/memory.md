@@ -1,5 +1,10 @@
 # Memory Architecture and Search
 
+Code UX differentiates context into three distinct contracts:
+1. **Memory (Evidence and Claims)**: What the runtime *learns* automatically from work. Short-term sprint memories serve as evidence, which are promoted to long-term durable claims via remediation.
+2. **Knowledge Base**: Curated reference documents added by users, chunked, and embedded.
+3. **Persistent Skills**: Reusable agent instructions stored in project-owned skill storages and attached to agents.
+
 Code UX uses semantic embeddings to retrieve relevant project context ("memories") during tasks. This guide outlines memory search, embedding provider selection, and remediation.
 
 ## Dashboard localization boundary
@@ -29,6 +34,13 @@ Custom in-app models appear beside built-ins in `GET /api/embedding-models`. `PO
 
 When an agent searches for relevant memories, it submits a query. Sprint OS follows a robust multi-step retrieval process using `MemoryService.search`.
 
+
+### Memory Content-Size Boundaries
+- `maxSprintMemories`: Default is 200 (max short-term memories captured per sprint).
+- `maxProjectMemories`: Default is 1000 (max long-term memories at project scope).
+- `remediationMaxPromotions`: Default is 12 (max memories promoted to claims per remediation run).
+- `mapMaxEdgesPerNode`: Default is 3 (max visual edges per memory node).
+
 ### 1. Filtering
 
 Before computing similarity scores, candidate memories are loaded from the repository based on hard criteria to prevent over-fetching:
@@ -45,11 +57,22 @@ Before computing similarity scores, candidate memories are loaded from the repos
 Once candidates are loaded, the following steps are executed:
 
 1. **Cosine Similarity**: The cosine similarity is computed between the query's vector and each candidate memory's vector. Candidates that fall below the caller-specified `minSimilarity` threshold (default is `0.3`) are pruned.
-2. **Bounded Top-K Selection**: Instead of sorting all qualifying candidates at the end, a bounded selection of size `limit` (default `20`) is maintained and incrementally sorted in descending order. When candidates have equal similarity scores, they are ordered deterministically by ID.
+2. **Bounded Top-K Selection**: Instead of sorting all qualifying candidates at the end, a bounded selection of size `limit` (default `20`) is maintained and incrementally sorted in descending order. When candidates have equal similarity scores, they are ordered deterministically alphabetically by memory ID. `searchClaims` queries project-scope memories with a limit of `max(limit, 50)` before deduplicating against identical normalized claims.
 
 ### 3. Hydration
 
 To preserve memory efficiency, the core scoring and sorting operate strictly on dense vectors. The full textual payloads and metadata of the top-ranking results are subsequently hydrated using a single batch repository fetch (`MemoryRepository.getMemories(topIds)`). The service then restores the scored order, returning a list of `MemorySearchResult` objects ready to feed the agent context windows.
+
+## Remediation Schedules
+
+Long-term memory remediation runs via the Code UX Scheduler (target type: `memory_remediation`) at scheduled frequencies, or manually via `PUT /api/projects/:projectId/scheduler/memory-remediation`.
+
+- **Deterministic Mode**: Deletes duplicates automatically by normalising content (lowercase and whitespace-collapsed) and keeping only the record with the highest `strength` (with newest `updatedAt` as a tie-breaker). It also automatically purges CI failure memories (e.g., categories containing CI errors or `ci_failure_learning` origin).
+- **AI Mode**: Evaluates cleanup candidates by calling the LLM to return a structured JSON list of specific memory IDs to promote or delete. Checked against the `long-term-memory-remediation` guardrail.
+
+## Restart-Safe Re-embedding
+
+Memory re-embedding tracks progress safely across restarts. The backend iterates through all memories tracking which have `embeddingModelId` matching the currently active model. If interrupted, the re-embedding process resumes from where it left off on the next request, rather than starting over, preventing duplicate work and ensuring atomicity.
 
 ## Graph Visualization
 
@@ -72,7 +95,7 @@ The memory map uses a pointer-centered camera so users can inspect dense graphs 
 ## Memory Map Controls
 
 The Memory Map control surface is driven by the currently selected project and loaded memory context:
-- **Tier tabs**: Short Term, Long Term, and Skills are tab-style controls with visible counts. Short Term reads sprint-scoped memory; Long Term reads project-scoped memory; Skills reads bounded descriptors from project skill storages.
+- **Tier tabs**: Short Term, Long Term, and Skills are tab-style controls with visible counts. Short Term reads sprint-scoped memory (evidence); Long Term reads project-scoped claims; Skills reads bounded descriptors from project skill storages.
 - **Sprint and agent filters**: Short Term shows the sprint selector, and every tier supports agent filtering where applicable. Skills filters to storages attached to the selected agent. When a source list is empty, the filter row shows reason copy instead of rendering a focusable empty selector.
 - **Actions**: Add Memory opens the manual memory dialog for the active tier scope. Danger Delete toggles the Lobotomize delete mode; when armed, graph-node and inspector deletes are immediate while sidebar cards still require their card-level arm step. Embedding and speech models are managed under Settings -> AI Models.
 - **Canvas navigation**: wheel zoom, drag pan, node click selection, Zoom in, Zoom out, and Reset view all operate on the graph camera. Reset returns to overview and clears the selected memory.
@@ -189,6 +212,16 @@ The Memory settings panel also manages one project-scoped scheduler entry for lo
 The dashboard's default Project Manager has `add_long_term_memory`, a narrow direct-write MCP lane for explicit remember/learn requests and stable knowledge it judges valuable. A successful call creates a canonical long-term claim plus its searchable project-memory mirror; chat can render a `codeux:memory` confirmation widget with the exact statement, category, claim id, and mirror-memory id returned by the tool.
 
 This does not replace the two-tier capture flow. Short-term sprint observations remain evidence, and remediation/promotion still curate that evidence into durable claims. The direct lane is for stable preferences, decisions, architecture, patterns, codebase conventions, context, and learnings that should guide future work.
+
+Programmatic memory management is exposed via the `manage_memory` MCP tool, which provides search, list, get, create, update, delete, promote, and claim actions. Skill management uses a separate `manage_skills` MCP tool to enforce the boundary between memory and persistent agent instructions.
+
+### MCP Mechanics and Failure States
+
+- **Skill Boundaries**: Skills enforce a `MAX_SKILL_BODY_CHUNKS` limit (capped at 64 chunks per skill). Skill searches operate on a candidate limit of up to 10,000 records.
+
+- **Concise Search Responses**: MCP actions like `search_skills` and `list_skills` return formatting-trimmed summaries capped at 240 characters (`summarizeMarkdown`) instead of the full body. This prevents large markdown documents from cluttering context windows.
+- **Full-Content Retrieval**: Agents must explicitly invoke `get_skill` with `includeContent: true` to fetch the complete markdown text.
+- **Failure States & Approval Gates**: Programmatic errors (such as "Skill not found") return standard error envelopes. Destructive actions (like `delete_storage` or `delete_skill`) enforce a confirmation gate by returning `{ approvalRequired: true }` unless explicitly called with `approval.confirmed: true`.
 
 ## UI Updates and Accessibility
 - The shared model catalog now lives under Settings -> AI Models. It combines the existing embedding/custom Hugging Face browser with actionable STT and TTS downloads, scoped activation, local/API provider settings, and TTS voice selection.
