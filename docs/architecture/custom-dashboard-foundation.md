@@ -85,7 +85,7 @@ Project Manager and dashboard chat prompts steer user-created dashboard requests
 
 After a revision is created, agents should start validation and wait for a passed validation status before publishing. Failed validation is repaired by creating a new revision from the validation report/logs rather than overriding the active published dashboard.
 
-Validation proxy requests reuse the preview proxy boundary: request bodies are capped at 5 MB, dashboard credentials and hop-by-hop/proxy/control headers are stripped before upstream forwarding, `Origin`/`Referer`/`Sec-Fetch-Site` are normalized to the loopback upstream, and upstream `Set-Cookie`, CSP, CSP report-only, and `X-Frame-Options` response headers are removed before returning to the dashboard origin.
+Validation proxy requests reuse the preview proxy boundary: request bodies are capped at 5 MB, dashboard credentials and hop-by-hop/proxy/control headers are stripped before upstream forwarding, `Origin`/`Referer`/`Sec-Fetch-Site` are normalized to the loopback upstream, and upstream `Set-Cookie`, CSP, CSP report-only, and `X-Frame-Options` response headers are removed before returning to the dashboard origin. Published dashboards have public runtime limits that cap requests and execution.
 
 ## Frontend Workspace
 

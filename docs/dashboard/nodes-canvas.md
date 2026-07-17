@@ -6,7 +6,7 @@ The selected project's library is loaded from the backend. Creating and saving d
 
 ## Legacy canvas import
 
-On the first load for a selected project, the dashboard checks the former `codeux:nodes-canvas:v1` key. When present, it translates legacy `trigger`, `agent`, and `task` kinds to `input`, `set_fields`, and `provider_prompt`, retains `condition` and `output`, remaps legacy ports, and preserves labels, positions, and non-secret canvas configuration. It then creates an **Imported Nodes Canvas** backend draft, records a project-specific migration marker, and removes the legacy graph value. A failed import leaves the value available for retry and shows a warning without preventing existing backend flows from loading.
+On the first load for a selected project, the dashboard checks the former `codeux:nodes-canvas:v1` key. When present, it treats it as a non-executable legacy migration source, and translates non-executable legacy `trigger`, `agent`, and `task` kinds to `input`, `set_fields`, and `provider_prompt`, retains `condition` and `output`, remaps legacy ports, and preserves labels, positions, and non-secret canvas configuration. It then creates an **Imported Nodes Canvas** backend draft, records a project-specific migration marker, and removes the legacy graph value. A failed import leaves the value available for retry and shows a warning without preventing existing backend flows from loading.
 
 ## Governed editing
 
@@ -26,7 +26,7 @@ Validation and dry run report structural issues, requested capabilities, credent
 
 The governed built-ins currently registered with runtime handlers are `input`, `set_fields`, `template`, `provider_prompt`, `http_request`, `condition`, `switch`, `foreach`, `merge`, `delay`, `approval`, `email_draft`, `email_send`, `execute_subflow`, `webhook_trigger`, and `output`.
 
-Validated custom definitions may also execute after their versioned manifest and immutable artifact are registered and the custom-node runtime is configured. A palette mockup, legacy `trigger`/`agent`/`task` canvas kind, unknown type, or definition marked non-executable is a planning or unavailable definition, not an executable handler.
+Validated custom definitions may also execute after their versioned manifest and immutable artifact are registered and the custom-node runtime is configured. A palette mockup, non-executable legacy `trigger`, `agent`, and `task` kinds, unknown type, or definition marked non-executable is a planning or unavailable definition, not an executable handler.
 
 ## Operations
 

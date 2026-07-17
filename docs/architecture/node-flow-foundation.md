@@ -121,7 +121,7 @@ The governed built-ins with registered runtime handlers are:
 - control and transformation: `condition`, `switch`, `foreach`, `merge`, `delay`, and `execute_subflow`
 - governed effects and triggers: `approval`, `email_draft`, `email_send`, and `webhook_trigger`
 
-Validated custom definitions become executable only after their versioned manifest and immutable artifact are registered and the custom-node runtime is configured. Raw legacy browser `trigger`/`agent`/`task` kinds are translated by the one-time import bridge and are not runtime handlers. Other unknown types, design mockups, and manifests marked non-executable remain planned or unavailable.
+Validated custom definitions become executable only after their versioned manifest and immutable artifact are registered and the custom-node runtime is configured. Raw legacy browser `trigger`, `agent`, and `task` are non-executable legacy graph kinds translated by the one-time import bridge and are not runtime handlers. Other unknown types, design mockups, and manifests marked non-executable remain planned or unavailable.
 
 Validation resolves definitions and checks configuration, handles, policies, graph limits, and cycles with field-level issues. Graph JSON rejects secret-shaped fields and generated/custom source fields. Persisted Graph v1 rows keep their original immutable snapshot and append deterministic Graph v2 as a new current version.
 
