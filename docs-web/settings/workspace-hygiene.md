@@ -17,9 +17,13 @@ Success and failure cleanup toggles decide whether Code UX removes temporary exe
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
+| Cleanup On Success | Defaults to `true`. Removes the temporary workspace volume/directory after a successful provider invocation. | Disable only if you need to inspect the final artifacts of a successful run. |
+| Cleanup On Failure | Defaults to `false`. Retains the temporary workspace if the provider invocation fails or crashes. | Enable this to automatically reclaim disk space if you do not debug failures. |
 | Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+
+Note: System runtime cleanup operations enforce a 15-minute deferral timeout (`STALE_RUNTIME_HOME_MS`) before pruning temporary paths to prevent destructive cleanup of active provider workspaces.
 
 ## Recommended Configuration
 
@@ -52,7 +56,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Operations Runbook](/docs/user-troubleshooting)
-- [Security Hardening](/docs/user-troubleshooting)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Operations Runbook](../../operations/runbook.md)
+- [Security Hardening](../../operations/security-hardening.md)

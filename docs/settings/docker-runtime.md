@@ -25,6 +25,10 @@ Within one runtime process, independent workspace-manager instances share a runt
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
+| Container Image | Defaults to `node:24-trixie-slim`. Managed images are resolved via system, project, or sprint overrides. | Ensure the image contains the toolchain your repository requires. |
+| Memory Limit | Defaults to `6144` MB. Caps the maximum memory a provider container can consume. | Overly tight memory limits can fail provider invocations. |
+| Setup Image Caching | Defaults to `true`. Warm invocations reuse the verified image without another Docker image inspection or build-context rewrite. | Only disable when explicitly debugging setup script caching issues. |
+| Playwright Browser Preinstall | Defaults to `true`. Ensures browsers are available for UI testing. | Disable only if your project does not use Playwright and you want slightly faster cold-starts. |
 | Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |

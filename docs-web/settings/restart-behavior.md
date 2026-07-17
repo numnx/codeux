@@ -19,9 +19,13 @@ The invocation policy applies to every provider-backed orchestration stage, not 
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
+| Restart Sprint Policy | Accepts `continue`, `pause`, or `cancel`. Defaults to `continue`. Determines whether an active sprint automatically resumes its watch loop after Code UX starts up. | Use `pause` if you want to manually inspect the sprint state before allowing it to proceed after a host restart. |
+| Restart Invocation Policy | Accepts `continue`, `restart`, or `cancel`. Defaults to `continue`. Determines whether an interrupted provider workflow (coding, planning, QA) resumes its session, starts over, or cancels. | `restart` abandons the preserved workspace and starts the task/sub-action over; `continue` reuses the preserved workspace cache and session. |
 | Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+
+Note: Startup recovery runs a stale-state reconciliation process. If `restartSprintPolicy` or `restartInvocationPolicy` dictates that work shouldn't automatically resume, the pending dispatches, in-flight QA reviews, or watch loops are safely terminated and their corresponding provider invocations are closed before new workflows can be scheduled.
 
 ### Continue-policy recovery contract
 
@@ -80,7 +84,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Operations Runbook](/docs/user-troubleshooting)
-- [Atomic Sprint Loop](/docs/user-sprint-orchestration)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Operations Runbook](../../operations/runbook.md)
+- [Atomic Sprint Loop](../../sprint-loop/atomic-loop.md)

@@ -17,6 +17,12 @@ Preview enablement, in-app browser visibility, auto-start, rebuild triggers, and
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
+| Preview Enabled | Defaults to `true`. Determines if Code UX can launch browser previews for the scope. | Disable for pure backend APIs or CLI projects. |
+| Show In-App Browser | Defaults to `true`. Determines if the preview renders inside the dashboard iframe. | Disable if your app uses frame-busting headers. |
+| Auto-Start on Running Sprint | Defaults to `false`. Automatically boots a preview when a sprint begins. | Enable only if previews start quickly without blocking dev resources. |
+| Rebuild on Task Completion | Defaults to `false`. Recreates the preview container after every task. | Can be noisy for slow projects or heavy Docker images. |
+| Rebuild on Sprint Completion | Defaults to `false`. Recreates the preview container after the sprint ends. | Useful to get a clean final snapshot of sprint changes. |
+| Auto-Stop on Terminal Sprint | Defaults to `false`. Stops the preview container when a sprint concludes. | Enable to conserve local resources when previews are no longer needed. |
 | Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
