@@ -37,11 +37,17 @@ Downloads are never automatic. **Download recommended** names the model and lang
 
 ## How Settings Scope Works
 
+Code UX resolves effective settings through a strict cascade: `System -> Project -> Sprint`.
+
 | Scope | Use it for | Watch for |
 | --- | --- | --- |
 | System | Defaults shared by every project, provider credentials, global runtime behavior, and reusable catalogs. | A system change can affect future work across projects. |
 | Project | Repository-specific routing, preview behavior, memory, integrations, and workflow policy. | Project overrides can mask system defaults. |
 | Sprint | Narrow execution overrides where supported by the runtime. | Use sparingly so sprint behavior stays explainable. |
+
+The dashboard displays source badges (e.g., *System*, *Project Override*, *Mixed*) for each field so you can see exactly where a value comes from. When a project or sprint clears an override, its value falls back to the broader scope.
+
+Most settings merge intelligently. For example, a project can override the `weight` or `model` of an inherited provider without discarding the provider's API key (which is a system-only secret that inherits safely). However, some collections—like the set of provider instances assigned to an invocation route pool—are replaced entirely.
 
 ## System General Legal Actions
 
