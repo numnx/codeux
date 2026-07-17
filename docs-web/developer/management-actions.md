@@ -6,17 +6,21 @@ Code UX exposes **one MCP tool per management domain** — `manage_projects`, `m
 **actions**. This page is the complete matrix. (See [MCP tools](/docs/developer-mcp-tools) for the tool list and
 schemas.)
 
+The CLI maps directly to a subset of these tools (`projects`, `sprints`, `tasks`, `quicksprints`, `scheduler`, `settings`, `agents`, `memory`, `preview`, `telemetry`). MCP-only dedicated tools (such as `manage_node_flows` or `manage_custom_dashboards`) require the generic `--payload-json` passthrough when invoked from the CLI.
+
 A dedicated-tool call takes the `action` plus action-specific fields:
 
 ```jsonc
 {
   "action": "<name>",
   /* action-specific fields, e.g. "projectId", "sprintId", ... */
-  "approval": { "confirmed": true }   // required for destructive actions on the second call
+  "approval": { "confirmed": true }   // required for destructive/secret-bearing actions on the second call
 }
 ```
 
-**Approval handshake:** Destructive actions return `{ approvalRequired: true, approvalMessage: "..." }` on first call. Re-call with `approval: { confirmed: true }` (or `--payload-json '{"approval":{"confirmed":true}}'` in the CLI) to proceed.
+**Approval handshake:** Destructive and secret-bearing operations return `{ approvalRequired: true, approvalMessage: "..." }` on their first call. The confirmation contract differs by environment:
+- **MCP / Dashboard (Stateful):** The first call queues an approval tracked by a stable correlation ID. The exact same action and identical payload must be submitted with `approval: { confirmed: true }` within a 15-minute window for a one-use replay.
+- **CLI (Stateless):** The CLI uses a stateless approval gate. To proceed, the operator must re-run the exact same command with the exact same payload while appending `--payload-json '{"approval":{"confirmed":true}}'`.
 
 ---
 
@@ -208,6 +212,8 @@ Memory remediation schedules use `targetType: "memory_remediation"` but have the
 | `replace_sprint_settings` | ✅ | `projectId`, `sprintId`, `settings` | Replace sprint settings. |
 | `patch_sprint_setting` | ✅ | `projectId`, `sprintId`, `path`, `value` | Patch a sprint setting. |
 | `reset_sprint_settings` | ✅ | `projectId`, `sprintId` | Reset sprint to defaults. |
+| `export_settings_bundle` | – | – | Export a settings synchronization bundle. |
+| `apply_settings_bundle` | ✅ | `bundle` | Apply a settings synchronization bundle (requires approval confirmation). |
 
 All mutating settings actions (replace, patch, reset) require human confirmation. Get/resolve actions are read-only. Mutating settings actions first return an approval-required response; only the exact same action and payload may execute once with `approval.confirmed: true` within 15 minutes. The approval is one-use and cannot approve a different settings payload.
 
