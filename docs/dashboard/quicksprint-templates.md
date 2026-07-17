@@ -103,11 +103,39 @@ The REST API and MCP `manage_quicksprints` tool expose these actions:
 - `get_template`: Retrieve a specific template.
 - `create_template`: Create a custom template with `name`, `description`, `icon`, `category`, and `agentInstructionMarkdown`. Optional fields include `categoryColor`, and `defaultTaskCount`.
 - `update_template`: Update custom template fields.
-- `delete_template`: Remove a custom template or hide a built-in template for a project. Requires explicit approval via MCP.
-- `execute`: Plans a quicksprint. Payload supports `taskCount`, `noTaskLimit`, `submitMode`, `routeOverride`, and `modelOverride`. Defaults to `submitMode: "plan_only"`.
+- `delete_template`: Remove a custom template or hide a built-in template for a project. In the dashboard, this uses a confirmation dialog. Via MCP, removing a custom template requires explicit human approval (`approval.confirmed: true`), which removes the project file. Deleting a built-in template writes a local hidden marker (`hidden: true` tombstone metadata) to hide it.
+- `execute`: Plans a quicksprint. Payload supports `taskCount` (defaults to 5), `noTaskLimit` (lets the planner choose the subtasks count instead of enforcing `taskCount`), `submitMode`, `routeOverride`, `modelOverride`, `agentPresetId`, `additionalPrompt`, and `planningOverrides`. Defaults to `submitMode: "plan_only"`.
 - `start`: Alias for execution defaulting to `submitMode: "plan_and_start"`.
 
-`QuicksprintService.launchDetachedQuicksprint` is the internal primitive for chat quickactions that need a sprint record immediately while planning continues in the background. It creates the sprint synchronously, starts the same planning flow with the same prompt composition and override resolution as `execute`, and returns a planning request descriptor with `projectId`, `sprintId`, `templateId`, `submitMode`, `clientRequestId`, planner options for request tracking, and the detached planning promise. Chat create-app quickactions attach to that promise so the backend can update the app progress widget and append any queued thread follow-ups to the sprint goal after planning resolves, without frontend polling. The existing REST `/api/projects/:projectId/quicksprints/execute` route and MCP `execute` / `start` actions remain awaited: they return only after planning completes or fails.
+`QuicksprintService.launchDetachedQuicksprint` is the internal primitive for chat quickactions that need a sprint record immediately while planning continues in the background. It creates the sprint synchronously, starts the same planning flow with the same prompt composition and override resolution as `execute`, and returns a planning request descriptor with `projectId`, `sprintId`, `templateId`, `submitMode`, `clientRequestId`, planner options for request tracking, and the detached planning promise. Chat create-app quickactions attach to that promise so the backend can update the app progress widget and append any queued thread follow-ups to the sprint goal after planning resolves, without frontend polling. The existing REST `/api/projects/:projectId/quicksprints/execute` route and MCP `execute` / `start` actions remain awaited: they return the new sprint record without promising immediate task execution before planning completes. Planning failures return an error and leave the queue intact for recovery.
+
+### Execution Examples
+
+**REST API `execute` (Plan Only)**
+```json
+{
+  "templateId": "qs-example",
+  "taskCount": 5,
+  "submitMode": "plan_only",
+  "routeOverride": "fast-route",
+  "modelOverride": "claude-3-5-sonnet",
+  "agentPresetId": "senior-agent",
+  "additionalPrompt": "Focus on edge cases."
+}
+```
+
+**MCP `start` (Plan & Start)**
+```json
+{
+  "projectId": "proj-123",
+  "templateId": "qs-example",
+  "noTaskLimit": true,
+  "submitMode": "plan_and_start",
+  "planningOverrides": {
+    "virtualModel": "claude-3-5-sonnet"
+  }
+}
+```
 
 Current built-in purpose sets:
 - `Fullstack JS App`
