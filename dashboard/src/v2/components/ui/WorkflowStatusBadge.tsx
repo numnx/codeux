@@ -27,7 +27,7 @@ import {
 } from "../../lib/workflow-status-presentation.js";
 import { calculatePosition, type Position } from "../../lib/positioning/index.js";
 import "./workflow-status-badge.css";
-import { useDashboardI18n } from "../../i18n/index.js";
+import { useDashboardI18n, type DashboardLocale } from "../../i18n/index.js";
 import { taskMessages } from "../../i18n/messages/tasks.js";
 
 export interface WorkflowStatusBadgeProps {
@@ -129,7 +129,7 @@ const REVIEW_META = {
   },
 } as const;
 
-function formatReviewDate(value: string, locale: "en" | "de"): string {
+function formatReviewDate(value: string, locale: DashboardLocale): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat(locale, {

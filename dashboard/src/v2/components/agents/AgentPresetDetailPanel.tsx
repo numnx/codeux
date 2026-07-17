@@ -26,7 +26,7 @@ import { MARKDOWN_PROSE_CLASS } from "../ui/MarkdownEditorField.js";
 import { estimateTokens, formatTokenCount } from "../../lib/token-estimate.js";
 import { renderMarkdown } from "../../../lib/markdown.js";
 import { PersistentSkillStorageChip } from "./PersistentSkillStorageChip.js";
-import { useDashboardI18n } from "../../i18n/index.js";
+import { useDashboardI18n, type DashboardLocale } from "../../i18n/index.js";
 import { agentsMessages } from "../../i18n/messages/agents.js";
 import type { DashboardTextMessageKey } from "../../i18n/index.js";
 
@@ -42,7 +42,7 @@ export interface AgentUsageSummary {
   totalCostCents: number;
 }
 
-function formatCost(cents: number, locale: "en" | "de"): string {
+function formatCost(cents: number, locale: DashboardLocale): string {
   if (cents <= 0) return new Intl.NumberFormat(locale, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(0);
   const dollars = cents / 100;
   if (dollars < 0.01) return `<${new Intl.NumberFormat(locale, { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(0.01)}`;
@@ -54,7 +54,7 @@ function formatCost(cents: number, locale: "en" | "de"): string {
   }).format(dollars);
 }
 
-function formatSuccessRate(summary: AgentUsageSummary | null | undefined, locale: "en" | "de", noRuns: string, running: string): string {
+function formatSuccessRate(summary: AgentUsageSummary | null | undefined, locale: DashboardLocale, noRuns: string, running: string): string {
   if (!summary) return noRuns;
   const finished = summary.completedCount + summary.failedCount;
   if (finished === 0) return summary.runningCount > 0 ? running : noRuns;

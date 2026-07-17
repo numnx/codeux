@@ -1,6 +1,6 @@
 # Dashboard Internationalization
 
-The v2 dashboard supports English (`en`) and German (`de`) interface copy. English is the default when no valid saved preference exists. Code UX does not automatically select a language from browser preferences, synchronize the choice to the backend, or expose additional dashboard locales.
+The v2 dashboard exposes English (`en`) and German (`de`) interface copy. English is the default when no valid saved preference exists. The typed runtime also recognizes Spanish (`es`) so feature catalogs can add it incrementally during the current rollout; catalogs without Spanish safely use their English copy. Code UX does not automatically select a language from browser preferences or synchronize the choice to the backend.
 
 ## User workflow
 
@@ -13,7 +13,7 @@ The preference is stored in the current browser profile under `codeux.dashboard.
 - clearing the preference resets open tabs to English; and
 - a missing, invalid, unavailable, or throwing storage implementation safely falls back to English. If storage is unavailable, an in-session change still applies but cannot persist across a restart.
 
-Each locale change also updates the root HTML `lang` attribute to `en` or `de`. This keeps browser and assistive-technology language metadata aligned with the visible dashboard chrome.
+Each locale change also updates the root HTML `lang` attribute to `en`, `de`, or `es`. This keeps browser and assistive-technology language metadata aligned with the visible dashboard chrome.
 
 ## Localization boundary
 
@@ -37,7 +37,7 @@ The dependency-free runtime lives in `dashboard/src/v2/i18n/`:
 | `storage.ts` | Safe browser-local persistence under the versioned locale key |
 | `formatters.ts` | Locale-bound native `Intl` formatters |
 | `context.tsx` | Root provider, hooks, immediate switching, HTML `lang`, and cross-tab updates |
-| `messages/` | Feature-owned English and German catalogs |
+| `messages/` | Feature-owned English and German catalogs, with optional Spanish catalogs during the staged rollout |
 
 `initializeDashboardLocale` restores the preference and synchronizes the document language before the application root renders. `DashboardI18nProvider` then owns the active locale. Its `setLocale` method updates context, the document language, browser storage, and the dashboard locale-change event in one operation.
 
@@ -49,7 +49,7 @@ Pure presentation helpers accept an explicit locale and normally default to Engl
 
 ## Typed messages, interpolation, and plurals
 
-`defineDashboardMessages` preserves message keys and requires the English and German catalogs in a bundle to have matching keys at compile time.
+`defineDashboardMessages` preserves message keys and requires the English and German catalogs in a bundle to have matching keys at compile time. A Spanish catalog is optional; when present, it has the same key and message-shape checks as German. An absent Spanish catalog falls back to English at runtime.
 
 ```ts
 const messages = defineDashboardMessages({
@@ -76,7 +76,7 @@ Plural selection uses the raw numeric count with `Intl.PluralRules` for the acti
 
 ## Adding a feature catalog
 
-1. Create a focused module under `dashboard/src/v2/i18n/messages/` and define matching English and German keys with `defineDashboardMessages`.
+1. Create a focused module under `dashboard/src/v2/i18n/messages/` and define matching English and German keys with `defineDashboardMessages`; add matching Spanish keys when that feature is ready.
 2. Import the catalog only from its owning shell, route, or feature. Do not add route copy to the eager root catalog.
 3. Translate dashboard-authored presentation only, and use the shared formatters for locale-sensitive values.
 4. Add the catalog to both the required manifest and imported bundle map in `tests/dashboard/v2/i18n-catalog-parity.test.ts`.
@@ -84,7 +84,7 @@ Plural selection uses the raw numeric count with `Intl.PluralRules` for the acti
 
 ## Adding a locale
 
-Adding a locale is an explicit product and code change; it is not automatic browser-language detection. A complete locale addition must:
+Adding a locale is an explicit product and code change; it is not automatic browser-language detection. Spanish is currently the staged exception: its runtime support is enabled while feature catalogs are translated incrementally, and it has no production language selector yet. A complete selectable locale addition must:
 
 1. extend the closed locale contract and default-resolution logic in `locales.ts` and `storage.ts`;
 2. add a complete catalog with matching keys, placeholders, and supported plural forms to every registered feature bundle;
@@ -92,7 +92,7 @@ Adding a locale is an explicit product and code change; it is not automatic brow
 4. verify the shared `Intl` formatters and HTML `lang` value for the locale; and
 5. extend foundation, catalog-parity, runtime-boundary, feature, and end-to-end tests.
 
-Do not ship a partially translated locale or silently fall back route-by-route. English fallback exists as a runtime recovery path, not as a substitute for catalog completeness.
+Before adding a language choice, complete all registered catalogs and feature coverage. English fallback remains the safe runtime recovery path for absent catalogs or entries.
 
 ## Test and static-copy expectations
 
@@ -101,7 +101,7 @@ The main guardrails are:
 - `tests/dashboard/v2/i18n-foundation.test.tsx` for defaults, persistence, live switching, storage recovery, cross-tab behavior, interpolation, plurals, formatters, and HTML `lang`;
 - `tests/dashboard/v2/i18n-catalog-parity.test.ts` for the required feature manifest, imported bundle parity, keys, shapes, placeholders, plural categories, non-empty copy, and accidental HTML;
 - `tests/dashboard/v2/i18n-runtime-boundary.test.tsx` for localized framing around unchanged provider, documentation, and user-authored content;
-- focused feature and accessibility suites for rendered English and German behavior; and
+- focused feature and accessibility suites for rendered English, German, and any available Spanish behavior; and
 - `tests/e2e/navigation/dashboard-i18n.spec.ts` for the Language selector, persistence, production-route fan-in, responsive and keyboard behavior, and verbatim fixture content.
 
 `pnpm run check:dashboard-i18n` is the static-copy guardrail. It scans production dashboard TypeScript and TSX for user-facing literals outside feature catalogs. `scripts/dashboard-i18n-allowlist.json` allows only reviewed exact-path, exact-line, exact-copy exceptions with a rationale, such as protocol values, code examples, license text, or content intentionally rendered verbatim. Dashboard-authored copy belongs in a typed catalog and cannot be deferred through the allowlist.

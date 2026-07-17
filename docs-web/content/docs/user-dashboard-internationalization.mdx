@@ -1,6 +1,6 @@
 # Dashboard Language and Internationalization
 
-The Code UX dashboard supports English and German interface copy. English is the default when no valid saved preference exists. Code UX does not detect a language from your browser, synchronize the choice to the backend, or currently offer other dashboard locales.
+The Code UX dashboard currently exposes English and German interface copy. English is the default when no valid saved preference exists. Its typed runtime also recognizes Spanish for the staged catalog rollout, so untranslated dashboard areas safely show English until their Spanish copy is available. Code UX does not detect a language from your browser or synchronize the choice to the backend.
 
 ## Change the dashboard language
 
@@ -19,7 +19,7 @@ Code UX updates the page's HTML `lang` value when the language changes so browse
 
 ## What changes
 
-Dashboard-owned interface copy changes between English and German, including navigation, buttons, form labels, validation, status framing, accessibility text, and the chrome around the internal Docs viewer. Numbers, dates, times, relative times, lists, percentages, sizes, and plural forms use locale-aware browser formatting where those values are presented by the dashboard.
+Dashboard-owned interface copy changes between English and German, including navigation, buttons, form labels, validation, status framing, accessibility text, and the chrome around the internal Docs viewer. Spanish-ready catalogs use Spanish copy and native Spanish number, date, time, relative-time, list, and plural formatting; catalogs still awaiting Spanish copy use English. Numbers, dates, times, relative times, lists, percentages, sizes, and plural forms use locale-aware browser formatting where those values are presented by the dashboard.
 
 This coverage includes Custom Dashboards, Nodes, task and workflow views, Settings integrations and chat connectors, and Stats cost panels. Technical and authored values inside those surfaces still follow the unchanged-content boundary below.
 
@@ -33,13 +33,13 @@ The internal Docs viewer localizes its own controls, navigation, search, paginat
 
 ## Implementation model for contributors
 
-The dependency-free runtime under `dashboard/src/v2/i18n/` uses a closed locale type, safe browser-local persistence, a root Preact provider, and native `Intl` formatters. Typed, feature-owned message bundles require matching English and German keys. Dedicated route components declared with Preact `lazy(() => import(...))` load their catalogs on demand with their route chunks.
+The dependency-free runtime under `dashboard/src/v2/i18n/` uses a closed locale type, safe browser-local persistence, a root Preact provider, and native `Intl` formatters. Typed, feature-owned message bundles require matching English and German keys; Spanish catalogs are optional but must match those English keys and message shapes when supplied. Dedicated route components declared with Preact `lazy(() => import(...))` load their catalogs on demand with their route chunks.
 
 Overview (`DashboardV2`), Live (`LiveSessionPage`), and onboarding (`OnboardingExperience`) are explicit exceptions: `main.tsx` imports those surfaces eagerly, so their `overview`, `live`, and `onboarding` catalogs are part of the eager application graph. Some heavier child components inside those surfaces remain lazy-loaded. Catalog ownership therefore does not by itself determine whether a bundle is eager or on-demand.
 
 Interpolation replaces named `{variable}` tokens as literal text; it does not evaluate values or insert HTML. Plural messages require an `other` form and select a form from the raw count with `Intl.PluralRules`; the displayed count uses locale-aware number formatting.
 
-When adding a feature catalog, keep it with the owning feature, register it in the catalog-parity manifest and imports, and test both localized chrome and unchanged external content. When adding a locale, extend the closed locale and storage contracts, every registered bundle, the Appearance selector, formatter and HTML-language coverage, and the foundation, parity, boundary, feature, and end-to-end tests. Do not ship a partially translated locale or treat English fallback as catalog completeness.
+When adding a feature catalog, keep it with the owning feature, register it in the catalog-parity manifest and imports, and test both localized chrome and unchanged external content. Spanish can be added to individual catalogs during the staged rollout; absent Spanish catalogs safely fall back to English. Before exposing Spanish in the Appearance selector, complete every registered catalog and its foundation, parity, boundary, feature, and end-to-end coverage.
 
 `pnpm run check:dashboard-i18n` is the static-copy guardrail. It flags dashboard-authored literals outside typed catalogs. Exact allowlist entries are reserved for reviewed protocol values, examples, licenses, and content intentionally shown verbatim.
 

@@ -231,7 +231,7 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/user-dashboard-internationalization',
     section: 'User Guide',
     title: "Dashboard Language and Internationalization",
-    description: "The Code UX dashboard supports English and German interface copy. English is the default when no valid saved preference exists. Code UX does not detect a language from your browser, synchronize the choice to the backe...",
+    description: "The Code UX dashboard currently exposes English and German interface copy. English is the default when no valid saved preference exists. Its typed runtime also recognizes Spanish for the staged catalog rollout, so unt...",
   },
   'user-dashboard-projects': {
     id: 'user-dashboard-projects',

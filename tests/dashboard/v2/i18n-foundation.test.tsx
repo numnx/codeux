@@ -34,6 +34,13 @@ const featureMessages = defineDashboardMessages({
       other: "{count} Einträge",
     },
   },
+  es: {
+    greeting: "¡Hola, {name}!",
+    itemCount: {
+      one: "{count} elemento",
+      other: "{count} elementos",
+    },
+  },
 });
 
 const I18nHarness = () => {
@@ -47,7 +54,14 @@ const I18nHarness = () => {
       <output aria-label="number">
         {i18n.formatNumber(1234.5, { minimumFractionDigits: 1 })}
       </output>
+      <output aria-label="feature greeting">
+        {i18n.translate(featureMessages, "greeting", { name: "Sam" })}
+      </output>
+      <output aria-label="feature items">
+        {i18n.translatePlural(featureMessages, "itemCount", 2)}
+      </output>
       <button type="button" onClick={() => i18n.setLocale("de")}>Deutsch</button>
+      <button type="button" onClick={() => i18n.setLocale("es")}>Español</button>
       <button type="button" onClick={() => i18n.setLocale("en")}>English</button>
     </div>
   );
@@ -106,6 +120,24 @@ describe("dashboard i18n foundation", () => {
     expect(screen.getByLabelText("skip-link").textContent).toBe("Zum Hauptinhalt springen");
   });
 
+  it("restores stored Spanish, falls back for untranslated bundles, and synchronizes the document", () => {
+    window.localStorage.setItem(DASHBOARD_LOCALE_STORAGE_KEY, "es");
+
+    expect(initializeDashboardLocale()).toBe("es");
+    expect(document.documentElement.lang).toBe("es");
+
+    render(
+      <DashboardI18nProvider initialLocale="es">
+        <I18nHarness />
+      </DashboardI18nProvider>,
+    );
+
+    expect(screen.getByLabelText("locale").textContent).toBe("es");
+    expect(screen.getByLabelText("skip-link").textContent).toBe("Skip to main content");
+    expect(screen.getByLabelText("feature greeting").textContent).toBe("¡Hola, Sam!");
+    expect(screen.getByLabelText("feature items").textContent).toBe("2 elementos");
+  });
+
   it("switches locale immediately and persists the selection", () => {
     render(
       <DashboardI18nProvider>
@@ -122,6 +154,17 @@ describe("dashboard i18n foundation", () => {
     );
     expect(window.localStorage.getItem(DASHBOARD_LOCALE_STORAGE_KEY)).toBe("de");
     expect(document.documentElement.lang).toBe("de");
+
+    fireEvent.click(screen.getByRole("button", { name: "Español" }));
+
+    expect(screen.getByLabelText("locale").textContent).toBe("es");
+    expect(screen.getByLabelText("skip-link").textContent).toBe("Skip to main content");
+    expect(screen.getByLabelText("feature greeting").textContent).toBe("¡Hola, Sam!");
+    expect(screen.getByLabelText("number").textContent).toBe(
+      new Intl.NumberFormat("es", { minimumFractionDigits: 1 }).format(1234.5),
+    );
+    expect(window.localStorage.getItem(DASHBOARD_LOCALE_STORAGE_KEY)).toBe("es");
+    expect(document.documentElement.lang).toBe("es");
   });
 
   it("updates reusable control defaults without remounting local application state", () => {
@@ -172,11 +215,11 @@ describe("dashboard i18n foundation", () => {
         <I18nHarness />
       </DashboardI18nProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Deutsch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Español" }));
 
-    expect(screen.getByLabelText("locale").textContent).toBe("de");
-    expect(document.documentElement.lang).toBe("de");
-    expect(throwingStorage.setItem).toHaveBeenCalledWith(DASHBOARD_LOCALE_STORAGE_KEY, "de");
+    expect(screen.getByLabelText("locale").textContent).toBe("es");
+    expect(document.documentElement.lang).toBe("es");
+    expect(throwingStorage.setItem).toHaveBeenCalledWith(DASHBOARD_LOCALE_STORAGE_KEY, "es");
   });
 
   it("synchronizes locale changes and invalid values from other tabs", () => {
@@ -189,11 +232,13 @@ describe("dashboard i18n foundation", () => {
     act(() => {
       window.dispatchEvent(new StorageEvent("storage", {
         key: DASHBOARD_LOCALE_STORAGE_KEY,
-        newValue: "de",
+        newValue: "es",
       }));
     });
-    expect(screen.getByLabelText("locale").textContent).toBe("de");
-    expect(document.documentElement.lang).toBe("de");
+    expect(screen.getByLabelText("locale").textContent).toBe("es");
+    expect(screen.getByLabelText("skip-link").textContent).toBe("Skip to main content");
+    expect(screen.getByLabelText("feature greeting").textContent).toBe("¡Hola, Sam!");
+    expect(document.documentElement.lang).toBe("es");
 
     act(() => {
       window.dispatchEvent(new StorageEvent("storage", {
@@ -209,6 +254,7 @@ describe("dashboard i18n foundation", () => {
     const runtimeIncompleteMessages = {
       en: { label: "English fallback" },
       de: {},
+      es: {},
     } as unknown as DashboardMessageBundle<{ readonly label: string }>;
 
     expect(interpolateDashboardMessage("{name}: {value}", {
@@ -219,7 +265,11 @@ describe("dashboard i18n foundation", () => {
     expect(translateDashboardMessage(featureMessages, "de", "greeting", {
       name: "Sam",
     })).toBe("Hallo, Sam!");
+    expect(translateDashboardMessage(featureMessages, "es", "greeting", {
+      name: "Sam",
+    })).toBe("¡Hola, Sam!");
     expect(translateDashboardMessage(runtimeIncompleteMessages, "de", "label")).toBe("English fallback");
+    expect(translateDashboardMessage(runtimeIncompleteMessages, "es", "label")).toBe("English fallback");
     expect(translateDashboardPlural(featureMessages, "en", "itemCount", 1)).toBe("1 item");
     expect(translateDashboardPlural(featureMessages, "en", "itemCount", 2)).toBe("2 items");
     expect(translateDashboardPlural(featureMessages, "de", "itemCount", 2)).toBe("2 Einträge");
@@ -230,6 +280,11 @@ describe("dashboard i18n foundation", () => {
     expect(translateDashboardPlural(featureMessages, "de", "itemCount", 1234, {
       count: new Intl.NumberFormat("de").format(1234),
     })).toBe("1.234 Einträge");
+    expect(translateDashboardPlural(featureMessages, "es", "itemCount", 1)).toBe("1 elemento");
+    expect(translateDashboardPlural(featureMessages, "es", "itemCount", 2)).toBe("2 elementos");
+    expect(translateDashboardPlural(featureMessages, "es", "itemCount", 12_345)).toBe(
+      `${new Intl.NumberFormat("es").format(12_345)} elementos`,
+    );
   });
 
   it("formats numbers, dates, times, relative times, and lists with the selected locale", () => {
@@ -259,6 +314,21 @@ describe("dashboard i18n foundation", () => {
     );
     expect(formatters.formatList(["Planen", "Bauen", "Prüfen"])).toBe(
       new Intl.ListFormat("de").format(["Planen", "Bauen", "Prüfen"]),
+    );
+
+    const spanishFormatters = createDashboardFormatters("es");
+    expect(spanishFormatters.formatNumber(1234.5)).toBe(new Intl.NumberFormat("es").format(1234.5));
+    expect(spanishFormatters.formatDate(instant, dateOptions)).toBe(
+      new Intl.DateTimeFormat("es", dateOptions).format(instant),
+    );
+    expect(spanishFormatters.formatTime(instant, timeOptions)).toBe(
+      new Intl.DateTimeFormat("es", timeOptions).format(instant),
+    );
+    expect(spanishFormatters.formatRelativeTime(-2, "day")).toBe(
+      new Intl.RelativeTimeFormat("es").format(-2, "day"),
+    );
+    expect(spanishFormatters.formatList(["Planificar", "Crear", "Revisar"])).toBe(
+      new Intl.ListFormat("es").format(["Planificar", "Crear", "Revisar"]),
     );
   });
 
