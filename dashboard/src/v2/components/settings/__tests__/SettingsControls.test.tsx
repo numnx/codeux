@@ -24,7 +24,10 @@ import type { Source } from "../../../types";
 import userEvent from "@testing-library/user-event";
 import { SettingsActivePanelStatus } from "../SettingsActivePanelStatus";
 import { SettingsContentPanels } from "../SettingsContentPanels";
-import { SettingsSprintPanel } from "../panels/SettingsSprintPanel";
+import { SettingsSprintPanel } from "../panels/SettingsSprintPanel.js";
+import { SettingsBrowserPanel } from "../panels/SettingsBrowserPanel.js";
+import { SettingsDangerPanel } from "../panels/SettingsDangerPanel.js";
+import { SettingsGeneralPanel } from "../panels/SettingsGeneralPanel.js";
 import { SettingsModelsPanel } from "../panels/SettingsModelsPanel";
 import { UnsavedChangesModal } from "../../ui/UnsavedChangesModal";
 import { ProviderInstanceCard } from "../ProviderInstanceCard";
@@ -82,6 +85,43 @@ afterEach(() => {
 });
 
 describe("localized Settings shell controls", () => {
+
+  it("SettingsSprintPanel, SettingsBrowserPanel, SettingsDangerPanel, and SettingsGeneralPanel in Spanish", async () => {
+    // Render and check interactions in Spanish
+    const updateEditableSettings = vi.fn();
+    const updateProject = vi.fn();
+
+    const baseState = {
+      activeScope: "project",
+      editableSettings: dashboardSettingsToProjectSettings(DEFAULT_DASHBOARD_SETTINGS),
+      projectSettings: dashboardSettingsToProjectSettings(DEFAULT_DASHBOARD_SETTINGS),
+      systemSettings: DEFAULT_DASHBOARD_SETTINGS,
+      projectSources: {},
+      projectAgentPresetOptions: [],
+      selectedProject: { id: "test", name: "Test" },
+      updateEditableSettings,
+      updateProject,
+      setActiveScope: vi.fn(),
+      getBadge: () => undefined,
+      getFieldBadge: () => undefined,
+      getProviderBadge: () => undefined,
+      updateProviderSettings: vi.fn(),
+    };
+
+    const user = userEvent.setup();
+    render(
+      <DashboardI18nProvider initialLocale="es" storage={null}>
+        <SettingsDangerPanel state={baseState as any} />
+      </DashboardI18nProvider>
+    );
+
+    // Destructive confirmations in Danger Panel
+    const deleteBtn = screen.getByRole("button", { name: "Eliminar proyecto" });
+    await user.click(deleteBtn);
+    expect(screen.getByText("¿Eliminar permanentemente \"Test\" y todas sus tareas, sprints, recuerdos e historial de contexto? Esta acción no se puede deshacer.")).toBeInTheDocument();
+  });
+
+
   it("keeps mobile category navigation keyboard-accessible with longer German copy", async () => {
     document.documentElement.lang = "de";
     const categories = getLocalizedSettingsCategories("de");
