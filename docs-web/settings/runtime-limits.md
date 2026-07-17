@@ -17,11 +17,14 @@ Container cap, host port start/end, internal app port, startup path/command, and
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
+| Container Concurrency | Defaults to `5`. Caps the number of active preview containers allowed to run concurrently. | Set lower if you are running out of local host memory. |
+| Host Port Range | Defaults to `5555` through `6666`. Determines the local host ports Code UX maps to active preview containers. | Ensure these ports do not collide with other local services. |
+| App Port | Defaults to `3000`. The internal port your application binds to within the container. | Set this to match your project's dev server port. |
 | Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
-| Default startup command | Replaces auto-detected preview startup for this scope. A Browser sidebar container override takes precedence. | Keep the preview host/port variables in commands that start a listener. |
-| Allow Docker access | Mounts and validates the local Unix Docker daemon socket. | Enable only for trusted repositories; daemon access is host-level control. |
+| Default startup command | Replaces auto-detected preview startup for this scope. A Browser sidebar container override takes precedence. | Keep `HOST=0.0.0.0` and the Code UX preview port variables in commands that start a listener. |
+| Allow Docker access | Defaults to `false`. Mounts the local Unix Docker socket and validates Docker CLI/daemon access before app startup. | Treat this as host-level control and enable it only for trusted repositories to prevent control escalation. |
 
 ## Recommended Configuration
 
@@ -35,7 +38,7 @@ A practical review flow is:
 
 ## Risks And Gotchas
 
-Port collisions or wrong startup scripts prevent previews from becoming reachable.
+Port collisions, wrong startup commands, missing Docker tooling, or daemon permissions prevent previews from becoming reachable.
 
 Before applying changes, check:
 
@@ -54,7 +57,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Browser Preview](/docs/user-dashboard-browser-preview)
-- [Security Hardening](/docs/user-troubleshooting)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Browser Preview](../../dashboard/browser-preview.md)
+- [Security Hardening](../../operations/security-hardening.md)

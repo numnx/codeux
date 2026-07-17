@@ -13,13 +13,22 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 ## Controls And Runtime Effect
 
-Dashboard port controls the HTTP listener; console and debug-file levels control log verbosity.
+Dashboard port controls the HTTP listener; console and debug-file levels control log verbosity; and database settings control cleanup and vacuum behavior.
 
 | Control Surface | Runtime Effect | Review Before Saving |
 | --- | --- | --- |
+| Dashboard Port | Defaults to `4444`. Requires a restart because it controls the HTTP listener bound at startup. | Confirm you can reconnect clients on the new port. |
+| Console Log Level | Defaults to `info`. Changes apply dynamically on the next logging call via logger dynamic getter resolution. | Raise verbosity only while debugging. |
+| Debug Log File Level | Defaults to `error`. Changes apply dynamically on the next logging call. | High verbosity can write large local files. |
+| Console Log Mode | Defaults to `standard`. Changes apply dynamically on the next logging call. | Use `full` to include request logs and expanded traces. |
+| DB Pruning Enabled | Defaults to `true`. Controls whether old records are purged during maintenance. | Check if you need to retain historical records. |
+| DB Retention Days | Defaults to `14` days (bounds `1` to `3650`). | A lower value saves disk space but truncates history. |
+| DB Auto Vacuum On Startup | Defaults to `false`. Controls whether the database runs a full vacuum during boot. | Enabling this can slow down startup. |
 | Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+
+Note: Database cleanup defers write-heavy maintenance while provider work is active to avoid disrupting ongoing invocations.
 
 ## Recommended Configuration
 
@@ -53,6 +62,6 @@ If the saved setting does not appear to take effect:
 ## Related Documentation
 
 - [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Operations Runbook](/docs/user-troubleshooting)
-- [Logging and Correlation IDs](/docs/user-troubleshooting)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Operations Runbook](/docs/operations-runbook)
+- [Logging and Correlation IDs](../../operations/logging-and-correlation.md)

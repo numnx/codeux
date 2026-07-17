@@ -378,7 +378,7 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/settings-docker-runtime',
     section: 'User Guide',
     title: "Docker Runtime",
-    description: "Code UX defaults to a managed, auto-updating Linux runtime instead of building an agent image on each user's machine.",
+    description: "Defines the default container environment used by Docker-backed provider CLIs.",
   },
   'settings-system-runtime': {
     id: 'settings-system-runtime',
