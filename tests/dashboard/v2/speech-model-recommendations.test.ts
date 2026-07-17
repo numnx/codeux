@@ -53,6 +53,23 @@ describe("speech model recommendations", () => {
     ]);
   });
 
+  it("builds sorted language list for Spanish locale", () => {
+    const options = getSynthesisLanguageOptions([
+      model({ id: "german", language: "German", languages: [{ code: "de-DE", label: "German (Germany)" }] }),
+      model({ id: "english" }),
+      model({ id: "spanish", language: "Spanish", languages: [{ code: "es-ES", label: "Spanish (Spain)" }] }),
+    ], "es");
+
+    // English, German, Spanish sorted by their labels in Spanish (usually "English", "German", "Spanish" depends on locale but here the labels are just the English strings "English (US)", "German (Germany)", "Spanish (Spain)"
+    // Wait, the label sorting uses localeCompare. Let's see what the actual labels are.
+    // The test just sorts the labels string. "English", "German", "Spanish"
+    expect(options).toEqual([
+      { code: "en-US", label: "English (US)" },
+      { code: "de-DE", label: "German (Germany)" },
+      { code: "es-ES", label: "Spanish (Spain)" },
+    ]);
+  });
+
   it("prefers explicit catalog recommendations and a voice for the chosen language", () => {
     const fallback = model({ id: "fallback", languages: [{ code: "de-DE", label: "German (Germany)" }] });
     const recommended = model({
