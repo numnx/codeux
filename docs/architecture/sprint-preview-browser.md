@@ -36,10 +36,16 @@ Key rules:
 - host ports bind to `127.0.0.1` only
 - preview startup injects `HOST`, `PORT`, `DASHBOARD_HOST`, `DASHBOARD_PORT`, and `SPRINT_PREVIEW_WORKSPACE` so containerized apps can bind to the published preview port and boot from the exported snapshot directory. The primary compatibility variables still point at the first mapping, and `SPRINT_PREVIEW_CONTAINER_PORTS`, `SPRINT_PREVIEW_HOST_PORTS`, and `SPRINT_PREVIEW_PORT_MAPPINGS` expose the full routing list.
 - Browser Preview settings and the Browser page right sidebar can define default preview environment variables for every container in the project scope, and each preview container card can open a modal for per-session overrides. These user variables are written through the preview Docker env-file path alongside provider env, while runtime-owned names such as `HOST`, `PORT`, `HOME`, `DASHBOARD_PORT`, `SPRINT_PREVIEW_*`, and `CODE_UX_GIT_USER_*` remain reserved.
-- Docker host access follows the same scoped model: `sprintPreview.allowDockerAccess` is the project/sprint default and each persisted session may inherit it or explicitly enable/disable access. On Linux, enabled sessions mount the host Docker CLI and Compose v2 plugin beside the Unix socket, then preflight both the daemon and `docker compose` before running the preview command.
+- Docker host access follows the same scoped model: `sprintPreview.allowDockerAccess` is the project/sprint default and each persisted session may inherit it or explicitly enable/disable access. On Linux, enabled sessions mount the host Docker CLI and Compose v2 plugin beside the Unix socket, then preflight both the daemon and `docker compose` before running the preview command. We strongly advise against mounting the Docker socket by default; it is an opt-in control requiring explicit trust from the user.
 - preview startup is serialized per `(projectId, sprintId)` so manual starts, rebuilds, and auto-start reconciliation cannot spawn duplicate session containers
 - if the previewed app still binds a loopback-only internal port, the generated preview bootstrap keeps a dedicated in-container bridge open on the published preview proxy port and forwards requests to the live app listener
 - containers are labeled with sprint-preview metadata so runtime reconciliation can rediscover them
+
+## Distinction from Other Containers
+Code UX operates multiple distinct execution contexts that must not be conflated with Browser Previews:
+- **Preview Containers:** Isolate sprint UI/API verification on an exported branch snapshot. Expose loopback ports bound to `127.0.0.1`.
+- **Provider Execution Containers:** Managed provider coding environments (worker containers) running task operations against the host's actual codebase. These containers mount the verified Playwright browser volume at `/ms-playwright` and execute worker commands directly on the project repository.
+- **Custom-Dashboard Validation Sessions:** Specialized isolated sessions for iterating on internal `custom_dashboards` node topologies, totally separate from sprint previews.
 
 Preview session state is persisted in sqlite instead of staying process-local.
 
@@ -181,7 +187,7 @@ The dashboard now exposes:
 - session cards in that rail are limited to persisted preview containers (`running`, `starting`, `stopped`, or `error`) rather than every sprint in the project
 - the rail ends with a placeholder-style `Launch Container` card that lets the operator choose any sprint from a selector and start a preview container without changing the current sprint scope elsewhere in the dashboard
 - in-app navigation no longer rebinds the iframe `src` for every route change; Browser chrome updates use the preview bridge so client-side routers can transition in place
-- when the selected preview session is stopped, still warming up, or unreachable, the embedded browser continues to point at the preview origin and the server returns a same-origin standby page with `Start Container` / `Rebuild Container` actions until the container becomes reachable again
+- when the selected preview session is stopped, still warming up, or unreachable, the embedded browser continues to point at the preview origin and the server returns a same-origin standby page with `Start Container` / `Rebuild Container` actions until the container becomes reachable again. Validation failures for commands or port mappings also render persistent states here and on session cards.
 - Browser page startup now keeps non-critical side-panel requests off the initial critical path by loading preview-script contents only when the editor opens and deferring the first log fetch until after the primary browser surface has rendered
 - a dedicated `Browser Preview` settings category in the left settings rail for preview enablement, visibility, rebuild policy, Git sync, and container-cap controls
 - project-level `Sprint Browser` settings in the project settings editor for port range, startup script path, and automation overrides
