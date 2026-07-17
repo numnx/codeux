@@ -33,7 +33,8 @@ Controlled by `dashboardSettings.sprintLoopSteps`:
 - `sessionSync`
 - `statusDerivation`
 - `startReadyTasks`
-- `protocol`
+- `mergeProtocol`
+- `actionRequiredProtocol`
 - `statusTable`
 - `watchLoop`
 
@@ -61,9 +62,11 @@ flowchart TD
   M --> N[status-derivation-step]
   N --> O{startReadyTasks}
   O --> P[start-ready-tasks-step]
-  P --> Q{protocol}
-  Q --> R[protocol-step]
-  R --> S{statusTable}
+  P --> Q1{mergeProtocol}
+  Q1 --> R1[merge-protocol-step]
+  R1 --> Q2{actionRequiredProtocol}
+  Q2 --> R2[action-required-protocol-step]
+  R2 --> S{statusTable}
   S --> T[status-table-step]
   T --> U{wait && watchLoop}
   U -->|true| V[watch loop cycles]
@@ -119,8 +122,11 @@ For `status` and `orchestrate`, each cycle follows the strict execution order de
 1. **Load subtasks**: Reads subtask markdown files via `SprintExecutionStateService` and reconciles them with the current DB task and task_run execution state.
 2. **Snapshot entry states**: Captures task statuses at the start of the cycle.
 3. **Sync sessions**: Synchronizes hosted provider sessions and local/CLI/worker dispatch state through execution records and provider invocations. Sync source is provider-agnostic.
-4. **Derive effective task status**: Applies pre-CI status normalization rules. For example, a `COMPLETED` task with unmerged PR evidence is moved back to `CODING_COMPLETED`, and settled merge evidence officially marks a task as `COMPLETED`. Intervention and merge indicators are also refreshed.
-5. **Start ready tasks** (`orchestrate` only):
+4. **Capture local git evidence**: Collects pushed task and settled task ids for tasks with local cli git settlement.
+5. **Derive effective task status**: Applies pre-CI status normalization rules. For example, a `COMPLETED` task with unmerged PR evidence is moved back to `CODING_COMPLETED`, and settled merge evidence officially marks a task as `COMPLETED`. Intervention and merge indicators are also refreshed.
+6. **Capture task completions**: Appends completion memory entries for newly completed tasks since the start of the cycle.
+7. **QA Review**: Evaluates completed coding work. QA is a formal part of the completion evaluation, executing QA verification tasks against changes rather than acting as a vague final-only review. This handles retry/review behavior, stale QA invocation reconciliation, QA follow-up reruns, and transitions tasks back to in-progress when QA discovers issues.
+8. **Start ready tasks** (`orchestrate` only):
    - Filters `PENDING` tasks, skips quota cooldowns, applies coding guardrails, and respects provider concurrency deferrals.
    - Evaluates the readiness gate: a task must be `PENDING`, dependencies completed and merged, provider concurrency available, and emergency stop inactive.
    - Provider concurrency admission uses global provider load from both running provider invocations and running task runs. This matters for CLI/Docker providers because a task run can reserve orchestration capacity before its provider invocation row starts.
@@ -128,16 +134,16 @@ For `status` and `orchestrate`, each cycle follows the strict execution order de
    - Task dispatch creates DB task dispatch and task-run records, selects the provider based on settings (uses hosted provider for `jules` and CLI/Docker or host workflows for local providers).
    - Capacity deferral is never a task failure. If a lower provider stage reports the cap after dispatch rows were created, the dispatch returns to `queued`, the task run returns to `PENDING`, and the project task returns to `pending` for a later cycle.
    - Marks tasks `RUNNING`, records session id/name/provider, and resets consecutive failure count on success. Triggers emergency stop after repeated real dispatch failures.
-6. **Apply protocol step**:
+9. **Apply protocol steps** (`merge-protocol-step` and `action-required-protocol-step`):
    - Provider-agnostic handling of plan approval, clarification replies (via Project manager preset), and paused sessions, utilizing cooldown/dedupe rules and escalating attention items when necessary.
    - Gathers CI data for feature branches.
    - Ensures PRs are tracked accurately.
-   - Evaluates completed coding work (`CODING_COMPLETED`). QA is a formal part of the merge gate, evaluating the work rather than acting as a vague final-only review. This handles retry/review behavior, stale QA invocation reconciliation, QA follow-up reruns, and transitions tasks back to in-progress when PR/CI/QA is not merge-ready.
    - Evaluates completed coding work for PR/CI/merge readiness, review blockers, merge conflicts, missing PRs, and attention items. CLI-backed branch-only tasks wait for git finalization evidence (`cli_git_pushed` or `cli_git_no_changes`) before protocol can surface merge-required attention, so provider completion cannot race ahead of branch materialization. Does not automatically merge or apply fixes unless tied to configured auto-merge modes and intelligence settings.
    - Saves the result of the CI merge gates.
    - Re-evaluates state and starts ready tasks if merges unblocked dependencies.
+10. **Settle subtasks state**: Syncs database completion changes with subtask statuses and persists any changed subtasks to disk.
 
-7. **Build status table output**:
+11. **Build status table output**:
    - Compiles the final cycle report and separates action-required tasks into agent and human intervention categories.
 
 ## Watch Mode

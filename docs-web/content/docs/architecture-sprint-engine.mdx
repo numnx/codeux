@@ -15,7 +15,7 @@ This page documents the runner classes, the cycle pipeline, the watch loop state
 | `src/domain/sprint/orchestrator/watch-loop-state-machine.ts` | State decision (RUNNING / CHECKPOINT / FINISHED). |
 | `src/domain/sprint/orchestrator/cycle-state-coordinator.ts` | Coordinates task lifecycle and gate state changes. |
 | `src/sprint/steps/start-ready-tasks-step.ts` | Task-start step + emergency-stop logic. |
-| `src/domain/sprint/task-merge-state.ts` | Subtask state transition rules. |
+| `src/domain/sprint/task-pipeline-stage.ts` | Subtask state transition rules. |
 | `src/domain/sprint/ci/feature-pr-gate.ts` | Merge protocol / CI gate / QA review. |
 | `src/sprint/action-required-automation.ts` | Plan / clarification / paused auto-handling. |
 
@@ -63,7 +63,7 @@ PENDING ──start──► RUNNING ──finish──► CODING_COMPLETED ─�
                           └── QA reject ──► QA_REVIEW_FAILED
 ```
 
-Key transitions (in `task-merge-state.ts`):
+Key transitions (in `task-pipeline-stage.ts`):
 
 ```ts
 function evaluatePreCiGateTransition(task: TaskPreCiGateState): PreCiGateTransition {
