@@ -118,7 +118,7 @@ Disabled native buttons do not fire activation handlers. Disabled reasons theref
 
 ## Reduced Motion
 
-All interaction timings automatically respect the user's system preferences or dashboard settings for reduced motion (`prefers-reduced-motion: reduce` or the dashboard-managed `html[data-reduced-motion]` attribute).
+All interaction timings automatically respect the user's system preferences or dashboard settings for reduced motion (`prefers-reduced-motion: reduce` or the dashboard-managed `html[data-reduced-motion="true"]` attribute).
 
 **How it works:**
 - When a user prefers reduced motion, the aforementioned hooks (`useInteractionTokens`, `useGsapInteractionTokens`) automatically resolve all duration values to `0` or `"0ms"`.
