@@ -21,6 +21,10 @@ Project name is editable; project id, source type, and base directory explain ho
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
 
+The settings scope determines which fields are visible. Only System scope manages global process limits, API keys, and UI branding defaults. Switching to Project scope narrows the visible cards to project-level overrides (such as route pools, memory behavior, or specific importer overrides).
+
+A source badge (e.g., *System*, *Project Override*) appears next to fields to indicate where the effective value originates.
+
 ## Recommended Configuration
 
 Use a clear project name and keep the base directory aligned with the repository root workers should use.
@@ -52,7 +56,7 @@ If the saved setting does not appear to take effect:
 
 ## Related Documentation
 
-- [Settings overview](/docs/settings-overview)
-- [Dashboard Settings](/docs/user-dashboard-settings)
-- [Configuration and Storage](/docs/developer-settings-reference)
-- [Dashboard Guide](/docs/user-dashboard-overview)
+- [Settings overview](./index.md)
+- [Dashboard Settings](../../dashboard/design-system-settings.md)
+- [Configuration and Storage](../configuration-and-storage.md)
+- [Dashboard Guide](../../dashboard/dashboard-guide.md)

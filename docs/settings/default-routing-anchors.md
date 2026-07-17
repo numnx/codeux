@@ -21,6 +21,10 @@ Global and worker defaults choose named provider instances and base models; conc
 | Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
 | Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
 
+By default, an invocation route maps to either the **Global Anchor** (for general context work) or the **Worker Anchor** (for intense coding or tool dispatch). If an individual route is configured to "Inherit", it will use the chosen anchor's assigned provider instance, model, and weight.
+
+Routing choices are strictly sanitized and validated during resolution. For example, a project's provider concurrency is subject to `clampProviderConcurrencyToSystemCap`, which caps any override to the system-level limit. Similarly, MCP tool arrays and Custom MCP server configurations are deeply sanitized through `sanitizeMcpToolToggles` and `sanitizeCustomMcpServersWithDefaults`. You can also configure preset links for agent workflows via the Agent Routing section.
+
 ## Recommended Configuration
 
 Pick stable, authenticated instances for both anchors before fine-tuning route overrides.

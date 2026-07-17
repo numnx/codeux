@@ -26,6 +26,8 @@ The dashboard keeps the current category, focused settings card, and selected in
 
 Route provider pools resolve by provider instance id across `system -> project -> sprint`. A narrower scope can replace which provider ids participate, while each retained provider entry inherits `model`, `thinkingMode`, `enabled`, and `weight` independently. For example, a project-only thinking override keeps the system route model instead of falling back to that provider instance's base model.
 
+Changing fields creates an unsaved settings draft. If you navigate away without saving, a navigation guard prevents data loss. When you do click **Save Changes**, the new provider pool applies to the next scheduled task dispatch or planning iteration immediately, without requiring a process restart.
+
 ## Recommended Configuration
 
 Use inherited defaults first, then override high-risk routes such as planning, QA, CI repair, and remediation.
