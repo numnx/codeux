@@ -6,6 +6,7 @@ This map explains where major responsibilities live.
 
 ```text
 .
+├─ scripts/                    # Build, validation, and maintenance scripts
 ├─ src/                        # Backend MCP server and orchestration engine
 ├─ tests/                      # Dedicated backend + dashboard test suites
 ├─ dashboard/                  # Preact dashboard app
@@ -23,6 +24,9 @@ backup files appear there.
 
 - `index.ts`
   - Minimal bootstrap (`dotenv`, app config, server launch).
+- `app/`
+  - `dependency-factory.ts` and `dependency-factory/` for application dependency composition root and factories.
+  - `lifecycle/` for bootup lifecycle services (dashboard, settings, mcp).
 - `electron/`
   - `main.ts`
   - Desktop shell entrypoint and network policy, which hosts the Code UX UI without owning backend orchestration.
@@ -31,20 +35,23 @@ backup files appear there.
 - `config/`
   - `app-config.ts`, `external-settings.ts`
   - Startup/env config loading and external settings hints.
-- `api/mcp/`
-  - `tool-registry.ts`
-  - Typed MCP tool argument contracts and register/dispatch registry.
+- `mcp/`
+  - `management/`
+  - Every action in every management domain, such as `management-tool-handler.ts`.
 - `contracts/`
   - `app-types.ts`, `mcp-tool-definitions.ts`
   - Shared backend contracts and MCP tool definitions.
   - `chat-provider-types.ts`
   - External chat provider setup schemas, redacted credential/verification contracts, channel binding records, delivery leases, replay receipts, and resumable session types.
-- `domain/chat-connectors/`
-  - `registry.ts`, `types.ts`, and `providers/{whatsapp,imessage,telegram,slack,microsoft-teams,discord}.ts`
-  - Side-effect-free typed connector profiles: supported modes, provider/native trust boundaries, ingress authentication/normalization, identity, outbound mapping, verification, official references, and session requirements.
-- `integrations/`
-  - `jules-api-client.ts`
-  - Jules API HTTP client.
+- `domain/`
+  - `workers/`
+    - Worker control, virtual worker scheduling, project worker assignments, and project attention services.
+  - `chat-connectors/`
+    - Side-effect-free typed connector profiles: supported modes, provider/native trust boundaries, ingress authentication/normalization, identity, outbound mapping, verification, official references, and session requirements.
+  - `sprint/orchestrator/`
+    - Action runners, loop runners, and state machines.
+  - `sprint/ci/`
+    - CI merge gates, automerge policy, and failure summarization.
 - `server/`
   - `code-ux-server.ts`
   - Main runtime composition wiring backend services (dashboard API on default port 4444 and MCP server).
@@ -52,87 +59,56 @@ backup files appear there.
   - MCP list/call handler registration and dispatch routing.
   - `activity-cache-service.ts`
   - Live-activity + git-status caching for dashboard endpoints.
+  - Modular HTTP routes like `*-routes.ts` (e.g., `dashboard-route-registration.ts`, `sprint-routes.ts`, `task-routes.ts`, `file-browser-routes.ts`, `chat-provider-routes.ts`).
   - `dashboard-server.ts`
   - Express routes for dashboard APIs and static assets.
 - `repositories/`
-  - Persistence using SQLite via `node:sqlite`.
+  - Persistence using SQLite via `node:sqlite`. Split by bounded domain.
   - `execution-repository.ts`
-  - Delegates snapshot projection to `execution/project-execution-snapshot-query.ts` while keeping validation boundary. The snapshot query owns shared sprint-run/task ID deduplication before invoking bounded slice queries and usage/wall-time enrichment.
+  - Delegates snapshot projection to `execution/project-execution-snapshot-query.ts` while keeping validation boundary.
   - `execution/execution-invocations-query.ts`
-  - Focused query module separating invocation and message lists from write concerns. Its live snapshot slice merges bounded project-recent, selected-sprint, and expanded-run rows by invocation ID while preserving recency order.
+  - Focused query module separating invocation and message lists from write concerns.
   - `execution/execution-runtime-events-query.ts`
-  - Focused runtime-event live snapshot slice that merges bounded project-recent, selected-sprint, and expanded-run event rows by event ID without changing the dashboard response contract.
+  - Focused runtime-event live snapshot slice.
   - `execution/execution-stats-types.ts`
-  - Dedicated module for stats query types to decouple queries from the main execution repository.
+  - Dedicated module for stats query types.
   - `project-runtime/run-event-writes.ts`
-  - Focused write module for legacy runtime status-sync task runs and task-run events, including candidate run matching, status-sync event signatures, denormalized `task_run_events.project_id`, and source event key deduplication.
+  - Focused write module for legacy runtime status-sync task runs and task-run events.
   - `chat-provider-repository.ts`
-  - External chat connector connections, encrypted-envelope metadata, verification invalidation, channel bindings, inbound idempotency/replay receipts, outbound leases, and provider sessions.
-  - `settings-repository.ts`
-  - `settings-defaults.ts`
-  - `settings-sanitizer.ts`
-  - `settings-db-storage.ts`
-  - `guide-repository.ts`
-  - `subtask-repository.ts`
-  - `session-tracking-repository.ts`
-- `infrastructure/repositories/`
-  - `file-template-repository.ts`
-  - Shared file lookup implementation used by guide and instruction template repositories.
-- `infrastructure/providers/cli/`
-  - Docker and host CLI provider implementations for task execution.
-  - `invocation-workspace-preparer.ts`
-  - Shared Docker invocation workspace boundary for snapshot checkout construction, git policy normalization, fresh/continue lifecycle options, remote-only materialization in `REMOTE` git mode, and continuation workspace resolution.
-- `mcp/`
-  - `core-tool-handler.ts`
-  - `agent-tool-handler.ts`
+  - External chat connector connections, metadata, and provider sessions.
+  - `settings-repository.ts`, `guide-repository.ts`, `subtask-repository.ts`, `session-tracking-repository.ts`.
+- `infrastructure/`
+  - `repositories/`
+    - Shared file lookup implementation used by guide and instruction template repositories.
+  - `providers/cli/`
+    - Docker and host CLI provider implementations for task execution.
+    - `invocation-workspace-preparer.ts`
 - `services/`
-  - `task-service.ts`
-  - `git-status-service.ts`
-  - `sprint-issue-service.ts`
-  - `jira-api-client.ts`
-  - Linked issue search and prompt-context loading for GitHub, GitLab, and Jira using saved integration settings.
-  - `cli-workflow-service.ts`
-  - `cli-process-runner.ts`
-  - `cli-docker-utils.ts`
-  - `cli-workflow-text-utils.ts`
-  - `cli-workflow-utils.ts`
-  - `provider-routing.ts`
-  - `speech-model-catalog.ts`, `speech-model-manager.ts`
-  - Shared downloadable STT/TTS bundle definitions, cache layout, progress, and deletion.
-  - `speech-transcription-service.ts`, `speech-synthesis-service.ts`
-  - Scoped local ONNX and external API speech input/output runtimes.
-  - `chat-provider-secret-service.ts`, `chat-provider-verification-service.ts`
-  - Connector envelope creation/rotation, resumable legacy-secret sealing, bounded provider verification, sanitized outcomes, and persisted health summaries.
-  - `chat-provider-security.ts`, `chat-provider-ingress-service.ts`, `chat-provider-outbound-service.ts`
-  - Mode-aware ingress authentication/replay control, normalized project routing, atomic inbound delivery, leased outbound retry/cancellation, and restart recovery.
-  - `chat-provider-adapters.ts`, `chat-provider-session-runtime-service.ts`, `chat-providers/`
-  - HTTP/native/provider executors, bounded command/process handling, resumable sessions including Discord reconnect state, and provider-specific authentication clients.
+  - Backend services handling specific domains (e.g., `task-service.ts`, `git-status-service.ts`, `sprint-issue-service.ts`, `cli-workflow-service.ts`, `provider-routing.ts`).
 - `shared/logging/`
   - `logger.ts`
   - `correlation-id.ts`
 - `git/`
   - `sprint-branch-scheme.ts`
-- `sprint/sprint-orchestrator.ts`
-  - Main sprint orchestration coordinator.
-- `sprint/sprint-types.ts`
-  - Shared sprint orchestration argument/result contracts.
-- `domain/sprint/orchestrator/`
-  - Action runners, loop runners, and state machines.
-- `domain/sprint/ci/`
-  - CI merge gates, automerge policy, and failure summarization.
-- `sprint/steps/`
-  - Atomic step modules used by orchestrator.
+- `sprint/`
+  - Main sprint orchestration coordinator (`sprint-orchestrator.ts`), shared types (`sprint-types.ts`), and atomic step modules (`steps/`).
 - `instructions/`
   - Template loading, fallback, and placeholder rendering.
 
 ## Dashboard (`dashboard/src/v2/`)
 
-- `app.tsx`
-  - Main view orchestration and polling.
+- `DashboardV2.tsx`
+  - Main view orchestration and layout.
+- Pages (e.g., `BrowserPage.tsx`, `ChatPage.tsx`, `SettingsPage.tsx`, `TasksPage.tsx`)
+  - Top-level routing components for each section of the application.
 - `components/`
-  - UI pieces (`SettingsPage`, `TaskCard`, `ActivitySidebar`, etc.).
+  - Shared UI primitives, specific settings panels, task cards, and layout elements.
+- `hooks/`
+  - Reusable React hooks for state, derived data, and integrations.
 - `lib/`
-  - Frontend helpers (`settings`, `status`, `activity`, `markdown`).
+  - Frontend helpers, resource clients, and utility functions (`settings`, `status`, `activity`, `markdown`).
+- `i18n/`
+  - Localization content and translation utilities.
 - `types.ts`
   - Dashboard-side type contracts.
 
@@ -152,3 +128,7 @@ backup files appear there.
 - Topic folders (`mcp/`, `sprint-loop/`, `dashboard/`, etc.)
 - `yourdocs.md`
   - Atomic refactor notes and migration details.
+
+## Scripts (`scripts/`)
+
+- Major validation and build scripts (e.g., `check-quality-guardrails.mjs`, `build.mjs`, `dev.mjs`, `sync-docs-web.mjs`).
