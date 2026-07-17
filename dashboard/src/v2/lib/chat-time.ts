@@ -42,20 +42,20 @@ export const formatRelativeChatTime = (
 
   const timestamp = toChatTimestampMs(iso, Number.NaN);
   if (Number.isNaN(timestamp)) {
-    return locale === "de" ? "Gerade eben" : "Just now";
+    return translateChatMessage(locale, "justNow");
   }
 
   const diffMs = Math.max(0, nowMs - timestamp);
   const mins = Math.floor(diffMs / 60000);
   if (mins < 60) {
-    return locale === "de" ? `vor ${new Intl.NumberFormat(locale).format(mins)} Min.` : `${mins}m ago`;
+    return translateChatMessage(locale, "minutesAgo", { count: new Intl.NumberFormat(locale).format(mins) });
   }
 
   const hours = Math.floor(mins / 60);
   if (hours < 24) {
-    return locale === "de" ? `vor ${new Intl.NumberFormat(locale).format(hours)} Std.` : `${hours}h ago`;
+    return translateChatMessage(locale, "hoursAgo", { count: new Intl.NumberFormat(locale).format(hours) });
   }
 
   const days = Math.floor(hours / 24);
-  return locale === "de" ? `vor ${new Intl.NumberFormat(locale).format(days)} T.` : `${days}d ago`;
+  return translateChatMessage(locale, "daysAgo", { count: new Intl.NumberFormat(locale).format(days) });
 };
