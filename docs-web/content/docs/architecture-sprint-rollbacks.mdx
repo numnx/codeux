@@ -6,7 +6,7 @@ Code UX models a rollback as a new sprint, not as destructive history editing. T
 
 Before creation, Code UX checks the completed source sprint, Git mode, later sprint activity, and the source merge at the tip of the default branch.
 
-- **Automatic rollback** is offered only for a proven isolated latest merge with no later sprint work. Code UX reverts that merge in a detached worktree and enforces a hard no-dispatch boundary for its settled audit task. Remote mode pushes the dedicated rollback branch and completes it through a green pull request. Local mode keeps the branch local and merges it into the configured default branch without a pull request.
+- **Automatic rollback** is offered only for a proven isolated latest merge with no later sprint work. Code UX reverts that merge in a detached worktree and enforces a hard no-dispatch boundary for its settled audit task. Remote mode pushes the dedicated rollback branch and completes it through a green pull request. Local mode keeps the branch local and merges it into the configured default branch without a pull request, preserving any uncommitted workspace changes by moving them to a temporary `dirty-ref-<uuid>` branch and restoring them with `cherry-pick --no-commit`.
 - **Agent-assisted rollback** is used when later work may depend on the source, merge history is ambiguous, a deterministic revert conflicts, or you enter custom instructions.
 
 Entering instructions always selects the agent path. This is how you request a partial rollback such as “remove only feature XY but keep the migration.” The agent is told to inspect dependencies, preserve compatible work, and update tests. It pushes only in remote mode; local mode commits to the rollback branch without remote access.
