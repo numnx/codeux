@@ -27,7 +27,7 @@ The page header keeps project and sprint context beside the primary **New Task**
 - **Task board controls** keeps sprint scope, status, priority, and visible-card count together. It stacks on phones, wraps into two columns on tablets, and becomes one rail on wide screens. Long sprint names stay inside the selector instead of widening the page.
 - **Task board overview** shows the filtered total plus running, completed, and critical counts. When a sprint is selected, it also shows the sprint date, percentage complete, an accessible completed-task progress bar, and the queued/running/completed distribution.
 
-The controls keep the current sprint scope and filters visible while you work:
+The controls keep the current sprint scope and filters visible while you work. When creating or editing tasks, the board supports explicit properties constraints such as `taskKey`, `priority`, dependencies via `dependsOnTaskIds`, `isIndependent` flags, `executorType`, `agentPresetId`, and specific `model` selections. Individual task cards also feature controls allowing you to rerun (with options like clearing worktrees or resetting dependents), pause, stop, force-stop, or inspect-run to observe live execution:
 
 - **Sprint scope** narrows the board to all tasks or one sprint.
 - **Status and priority filters** refine the visible cards without losing the current board context.

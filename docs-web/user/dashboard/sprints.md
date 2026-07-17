@@ -100,13 +100,15 @@ From the Sprints page:
 Open a sprint and click **AI plan**. You provide:
 
 - **Sprint prompt** — A description of what you want done. The planner accepts long, prose-style input.
-- **Improvement option** *(optional)* — Click **Improve** to have the planner rewrite your prompt for clarity before planning.
+- **Improvement option** *(optional)* — Click **Improve** to have the planner rewrite your prompt for clarity before planning (`POST /api/projects/:projectId/planning/improve-sprint-prompt`).
 
-Click **Plan sprint**. The planner agent (typically a Gemini, Codex or Claude session — see [Provider routing](../providers-and-models.md)) returns a tree of subtasks with:
+Click **Plan sprint**. The frontend sends an async planning request via `POST /api/projects/:projectId/sprints/:sprintId/plan`. You can choose an `autoStart` option in the payload to automatically begin execution once planning is successful.
+The planner agent (typically a Gemini, Codex or Claude session — see [Provider routing](../providers-and-models.md)) returns a tree of subtasks with:
 
 - A title and prompt for each.
 - Inferred `depends_on` edges.
 - A best-effort `is_independent` flag.
+- Terminal planning guidance for the planner if further clarity is required.
 
 While planning is in flight, the dashboard shows a shared planning overlay for normal sprints and quicksprints. It includes ETA and elapsed timers, request-specific status copy, a vessel that travels across the course and respawns smoothly, and minimize, cancel, and new sprint/quicksprint recovery actions when they are available. The ETA is a visual planning estimate; it does not change how the backend planner runs.
 
@@ -117,7 +119,7 @@ You can:
 - **Edit** each subtask inline.
 - **Reorder / delete / add** subtasks.
 - **Re-plan** with a different prompt.
-- **Cancel** an in-flight planning request via the cancel button (this aborts the underlying provider session).
+- **Cancel** an in-flight planning request via the cancel button. The frontend invokes `POST /api/planning-requests/:clientRequestId/cancel` to abort the underlying provider session. Custom user-supplied titles applied via `PATCH /api/sprints/:sprintId` are preserved when replanning.
 
 The plan is persisted as markdown files at `<repo>/.code-ux/sprints/sprint-<n>/<task-id>.md`. See [Sprint format](../../developer/sprint-format.md).
 
