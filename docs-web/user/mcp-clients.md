@@ -106,6 +106,25 @@ Claude Code reads its MCP servers from `~/.claude/settings.json` or per-project.
 }
 ```
 
+
+## Remote HTTP Configuration Example
+
+If your MCP client supports HTTP transports, you can configure it to connect to the Code UX gateway:
+
+```json
+{
+  "mcpServers": {
+    "code-ux-remote": {
+      "url": "http://<host>:4445/mcp",
+      "headers": {
+        "Authorization": "Bearer [REDACTED]"
+      }
+    }
+  }
+}
+```
+
+
 ## What the client sees
 
 When Code UX boots in stdio mode it advertises itself with:
@@ -181,7 +200,7 @@ export MCP_HTTP_PATH=/mcp
 codeux
 ```
 
-Server mode guarantees that the dashboard UI, dashboard REST routes, dashboard websocket, terminal websocket, and static dashboard assets are not bound by that process. The MCP listener still serves `/health` and `/ready`, and startup rejects missing, short, or invalid explicit bearer tokens.
+Server mode guarantees that the dashboard UI, dashboard REST routes, dashboard websocket, terminal websocket, and static dashboard assets are not bound by that process. The MCP listener still serves `/health` (proves the listener is alive) and `/ready` (evaluates actual system readiness including database, dashboard binding, MCP service, and startup recovery), and startup rejects missing, short, or invalid explicit bearer tokens.
 
 To verify a connection without exposing the bearer token:
 
