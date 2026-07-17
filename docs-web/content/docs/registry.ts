@@ -860,8 +860,8 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     id: 'operations-runbook',
     path: '/docs/operations-runbook',
     section: 'User Guide',
-    title: "Authenticated Automation Runbook",
-    description: "Run recovery drills only against the approved local test project and mocked job/email providers.",
+    title: "Operations Runbook",
+    description: "This guide is a clean symptom-to-evidence-to-recovery guide for current multi-provider Code UX operations.",
   },
   'operations-security-hardening': {
     id: 'operations-security-hardening',
