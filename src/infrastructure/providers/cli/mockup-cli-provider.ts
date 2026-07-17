@@ -436,7 +436,10 @@ async function applyOperation(operation) {
 }
 
 function runValidation(command) {
-  const [resolvedCommand, ...resolvedArgs] = splitCommandLine(command);
+  let [resolvedCommand, ...resolvedArgs] = splitCommandLine(command);
+  if (resolvedCommand === "node" && process.env.CODEUX_E2E_NODE_EXECUTABLE) {
+    resolvedCommand = process.env.CODEUX_E2E_NODE_EXECUTABLE;
+  }
   if (!resolvedCommand) {
     return {
       command,
