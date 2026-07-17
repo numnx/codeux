@@ -108,6 +108,13 @@ export type DocsSlug =
   | 'operations-runbook'
   | 'operations-security-hardening'
   | 'operations-server-mode'
+  | 'settings-chat-connectors-discord'
+  | 'settings-chat-connectors-imessage'
+  | 'settings-chat-connectors-overview'
+  | 'settings-chat-connectors-microsoft-teams'
+  | 'settings-chat-connectors-slack'
+  | 'settings-chat-connectors-telegram'
+  | 'settings-chat-connectors-whatsapp'
   | 'settings-chat-provider-integrations'
   | 'settings-configuration-and-storage'
   | 'settings-google-drive-mount'
@@ -133,6 +140,7 @@ export type DocsSlug =
   | 'architecture-node-flow-durable-execution'
   | 'architecture-node-flow-foundation'
   | 'architecture-node-flows'
+  | 'architecture-quality-assurance-agent'
   | 'architecture-speech-input'
   | 'architecture-speech-output'
   | 'architecture-sprint-rollbacks'
@@ -151,8 +159,8 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     id: 'docs-overview',
     path: '/docs/docs-overview',
     section: 'Getting Started',
-    title: "Code UX Documentation",
-    description: "Code UX is a local-first, container-first multi-provider runtime. It turns a goal into a managed sprint — planned, routed to the right agent, executed in isolated Docker workspaces, reviewed through Git and CI, and tr...",
+    title: "Code UX Documentation Index",
+    description: "This documentation is the canonical project reference for the MCP server, sprint orchestration engine, instruction template system, and dashboard.",
   },
   'user-introduction': {
     id: 'user-introduction',
@@ -781,8 +789,8 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     id: 'architecture-system-overview',
     path: '/docs/architecture-system-overview',
     section: 'Architecture',
-    title: "System overview",
-    description: "Code UX is a single Node process that hosts multiple cooperating services. This page describes that process model, the major services, and how data flows through them.",
+    title: "System Overview",
+    description: "Code UX is a container-first multi-provider runtime with an integrated dashboard and a DB-backed sprint orchestration engine.",
   },
   'architecture-mcp-server': {
     id: 'architecture-mcp-server',
@@ -802,8 +810,8 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     id: 'architecture-virtual-workers',
     path: '/docs/architecture-virtual-workers',
     section: 'Architecture',
-    title: "Virtual workers",
-    description: "A virtual worker is an ephemeral, on-demand agent process that handles work outside the hosted Jules API — coding tasks, CI fixes, merge conflict resolution, and other attention items.",
+    title: "Virtual Workers",
+    description: "Implemented",
   },
   'architecture-ci-integration': {
     id: 'architecture-ci-integration',
@@ -830,15 +838,15 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     id: 'architecture-execution-invocation-tracking',
     path: '/docs/architecture-execution-invocation-tracking',
     section: 'Architecture',
-    title: "Execution invocation tracking",
-    description: "Code UX records provider work in execution_invocations and execution_invocation_messages so the dashboard can show prompt history, live agent transcripts, tool activity, token usage, and terminal status for each provi...",
+    title: "Execution Invocation Tracking",
+    description: "The ExecutionRepository manages execution_invocations and execution_invocation_messages, a first-class model for tracking context, prompt flows, tool calls, and LLM responses. This architecture provides robust observa...",
   },
   'architecture-external-chat-providers': {
     id: 'architecture-external-chat-providers',
     path: '/docs/architecture-external-chat-providers',
     section: 'Architecture',
     title: "External Chat Providers",
-    description: "Code UX connector profiles declare setup, provider-native or bridge transport, ingress authentication, identity, verification, and session requirements. Shared services own encrypted secrets, authorized project routin...",
+    description: "Code UX keeps external chat connectors separate from MCP listener connections and dashboard conversation transport. A connector profile declares setup, ingress authentication, normalization, identity, provider-native...",
   },
   'architecture-configuration-resolution': {
     id: 'architecture-configuration-resolution',
@@ -881,6 +889,55 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     section: 'User Guide',
     title: "Secure Headless Server Mode",
     description: "Server mode runs Code UX as an authenticated MCP HTTP control plane without binding the dashboard UI, dashboard REST routes, dashboard realtime websocket, terminal websocket, or static dashboard assets. Use it for hea...",
+  },
+  'settings-chat-connectors-discord': {
+    id: 'settings-chat-connectors-discord',
+    path: '/docs/settings-chat-connectors-discord',
+    section: 'User Guide',
+    title: "Discord Chat Connector",
+    description: "Discord supports the existing webhook bridge and a provider-native official_api mode. Existing webhook records keep their configured gateway behavior; switching to official_api is explicit. Registry presence advertise...",
+  },
+  'settings-chat-connectors-imessage': {
+    id: 'settings-chat-connectors-imessage',
+    path: '/docs/settings-chat-connectors-imessage',
+    section: 'User Guide',
+    title: "iMessage Chat Connector",
+    description: "Code UX supports iMessage only through operator-selected third-party bridge contracts. It does not connect directly to an Apple messaging endpoint, claim Apple endorsement, or read the local Messages database.",
+  },
+  'settings-chat-connectors-overview': {
+    id: 'settings-chat-connectors-overview',
+    path: '/docs/settings-chat-connectors-overview',
+    section: 'User Guide',
+    title: "Chat Connector Profiles",
+    description: "Each supported external chat connector has an independently editable runtime profile. A profile owns its setup schema, implemented transport modes, ingress authentication and normalization, conversation identity rules...",
+  },
+  'settings-chat-connectors-microsoft-teams': {
+    id: 'settings-chat-connectors-microsoft-teams',
+    path: '/docs/settings-chat-connectors-microsoft-teams',
+    section: 'User Guide',
+    title: "Microsoft Teams Chat Connector",
+    description: "Microsoft Teams supports three explicit modes:",
+  },
+  'settings-chat-connectors-slack': {
+    id: 'settings-chat-connectors-slack',
+    path: '/docs/settings-chat-connectors-slack',
+    section: 'User Guide',
+    title: "Slack Chat Connector",
+    description: "The Slack profile supports three distinct connection modes:",
+  },
+  'settings-chat-connectors-telegram': {
+    id: 'settings-chat-connectors-telegram',
+    path: '/docs/settings-chat-connectors-telegram',
+    section: 'User Guide',
+    title: "Telegram Chat Connector",
+    description: "Telegram supports three connection modes. official_api connects Code UX directly to Telegram's provider-controlled Bot API. managed_bridge and webhook retain the existing managed and custom bridge contracts.",
+  },
+  'settings-chat-connectors-whatsapp': {
+    id: 'settings-chat-connectors-whatsapp',
+    path: '/docs/settings-chat-connectors-whatsapp',
+    section: 'User Guide',
+    title: "WhatsApp Chat Connector",
+    description: "The WhatsApp profile supports the direct Meta Cloud API as official_api while retaining the existing managed_bridge and generic webhook records unchanged.",
   },
   'settings-chat-provider-integrations': {
     id: 'settings-chat-provider-integrations',
@@ -936,14 +993,14 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/architecture-card-ci-status-projection',
     section: 'Architecture',
     title: "Card CI Status Projection",
-    description: "Task, Sprint, and Live cards expose one compact persisted ciStatus: pending, running, failed, or null after settlement. The projection does not load the large remote Git status snapshot and does not poll GitHub or Git...",
+    description: "Task, Sprint, and Live cards expose the same compact persisted ciStatus value without loading the remote GitTrackingStatus snapshot. The optional value is pending, running, failed, or null after the relevant gate sett...",
   },
   'architecture-chat-connector-runtime-reliability': {
     id: 'architecture-chat-connector-runtime-reliability',
     path: '/docs/architecture-chat-connector-runtime-reliability',
     section: 'Architecture',
-    title: "Chat connector runtime reliability",
-    description: "External connector callbacks and replies cross process, network, and provider boundaries. Code UX separates durable state changes from model, fetch, command, and reconnect work. Provider-specific policy comes from the...",
+    title: "Chat Connector Runtime Reliability",
+    description: "External connector callbacks and replies cross process, network, and provider boundaries. The connector runtime separates durable state changes from slow model, fetch, command, and reconnect work. Provider-specific po...",
   },
   'architecture-chat-connectors-discord': {
     id: 'architecture-chat-connectors-discord',
@@ -1006,7 +1063,7 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/architecture-custom-nodes',
     section: 'Architecture',
     title: "Custom Node Architecture and Security",
-    description: "Custom nodes are project-owned TypeScript packages that pass explicit validation and publication gates before Code UX can execute them. Generated code is never imported or evaluated by the Code UX server.",
+    description: "Custom nodes are project-owned TypeScript packages that move through an explicit draft, validation, publication, and container-execution boundary. Generated code is never imported, evaluated, or executed in the Code U...",
   },
   'architecture-dashboard-internationalization': {
     id: 'architecture-dashboard-internationalization',
@@ -1020,14 +1077,14 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/architecture-high-concurrency-orchestration',
     section: 'Architecture',
     title: "High-Concurrency Docker Orchestration",
-    description: "Code UX keeps local provider and CI work parallel while reserving host capacity for Docker, SQLite, the dashboard, and interactive replies.",
+    description: "Code UX treats concurrency as a throughput problem, not a count of containers. The runtime keeps provider and CI work parallel while reserving enough host capacity for Docker, SQLite, the dashboard, and interactive re...",
   },
   'architecture-managed-container-runtime': {
     id: 'architecture-managed-container-runtime',
     path: '/docs/architecture-managed-container-runtime',
     section: 'Architecture',
     title: "Managed Container Runtime",
-    description: "The managed container runtime removes first-invocation Docker builds while keeping provider binaries local to each user's Docker host.",
+    description: "Code UX uses a shared, auto-updating Linux runtime for Docker-backed provider invocations, interactive login, sprint previews, and custom dashboard validation. The default path does not run a local Docker build and do...",
   },
   'architecture-node-flow-builtins-and-security': {
     id: 'architecture-node-flow-builtins-and-security',
@@ -1041,14 +1098,14 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     path: '/docs/architecture-node-flow-durable-execution',
     section: 'Architecture',
     title: "Node Flow Durable Execution",
-    description: "Node flows execute immutable published snapshots. A run explicitly pins a published version or follows the latest published version; later edits cannot change a pinned run.",
+    description: "Node-flow execution is publication based. Saving a flow appends an immutable version and publication containing the normalized graph and an immutable execution-policy snapshot. Manual, MCP, and scheduled callers selec...",
   },
   'architecture-node-flow-foundation': {
     id: 'architecture-node-flow-foundation',
     path: '/docs/architecture-node-flow-foundation',
     section: 'Architecture',
     title: "Node Flow Foundation",
-    description: "Code UX uses one project-owned Graph v2 contract across the dashboard, backend, MCP surface, scheduler, and runtime. Graphs carry schemaVersion: 2, stable versioned definition references, typed ports and flow schemas,...",
+    description: "Node flows are project-scoped, repeatable workflow graphs. The backend owns typed contracts, validation, persistence, dashboard HTTP routes, and a deterministic runtime for the safe initial node set.",
   },
   'architecture-node-flows': {
     id: 'architecture-node-flows',
@@ -1057,33 +1114,40 @@ export const docsRegistry: Record<DocsSlug, DocsRegistryEntry> = {
     title: "Node Flows",
     description: "Node flows are project-scoped, repeatable workflow graphs for turning an operator or agent-defined procedure into a saved Code UX workflow. They are not a generic n8n compatibility layer. A good flow uses Code UX conc...",
   },
+  'architecture-quality-assurance-agent': {
+    id: 'architecture-quality-assurance-agent',
+    path: '/docs/architecture-quality-assurance-agent',
+    section: 'Architecture',
+    title: "Quality Assurance Agent",
+    description: "Implemented",
+  },
   'architecture-speech-input': {
     id: 'architecture-speech-input',
     path: '/docs/architecture-speech-input',
     section: 'Architecture',
     title: "Speech Input Architecture",
-    description: "Speech input turns dashboard microphone or uploaded audio into prompt text through POST /api/speech/transcriptions. Install and activate local models, or configure the API variant, under Settings -&gt; AI Models.",
+    description: "Speech input turns dashboard microphone or uploaded audio into prompt text through POST /api/speech/transcriptions. Settings -&gt; AI Models owns speech-model installation, activation, and local/API configuration alon...",
   },
   'architecture-speech-output': {
     id: 'architecture-speech-output',
     path: '/docs/architecture-speech-output',
     section: 'Architecture',
     title: "Speech Output Architecture",
-    description: "Speech output turns project-manager replies into audio through POST /api/speech/synthesis. Code UX supports local ONNX synthesis and OpenAI-compatible TTS APIs, and 3D Chat provides playback plus a voice on/off control.",
+    description: "Speech output turns project-manager replies into audio through POST /api/speech/synthesis. The runtime supports local ONNX synthesis and OpenAI-compatible TTS APIs, while the 3D Chat surface owns playback and the user...",
   },
   'architecture-sprint-rollbacks': {
     id: 'architecture-sprint-rollbacks',
     path: '/docs/architecture-sprint-rollbacks',
     section: 'Architecture',
     title: "Sprint Rollbacks",
-    description: "Code UX models a rollback as a new sprint, not as destructive history editing. The original sprint remains auditable, while the rollback receives its own branch, tasks, execution history, and visual identity. Remote p...",
+    description: "Sprint rollback is a first-class orchestration mode that reverses an integrated sprint without rewriting the source sprint or Git history. Every request creates a dedicated rollback sprint and rollback branch. Remote...",
   },
   'architecture-worker-clarification-contract': {
     id: 'architecture-worker-clarification-contract',
     path: '/docs/architecture-worker-clarification-contract',
     section: 'Architecture',
-    title: "Worker clarification contract",
-    description: "Worker clarification requests use the existing project attention ledger as their durable store. They do not create a parallel table.",
+    title: "Worker Clarification Contract",
+    description: "Worker clarification requests are durable, project-owned questions raised by a coding agent while a task is in progress. The backend records the question and delivers an authorized project-manager answer back to the a...",
   },
 }
 
@@ -1193,6 +1257,13 @@ export const orderedDocs: DocsRegistryEntry[] = [
   docsRegistry['operations-runbook'],
   docsRegistry['operations-security-hardening'],
   docsRegistry['operations-server-mode'],
+  docsRegistry['settings-chat-connectors-discord'],
+  docsRegistry['settings-chat-connectors-imessage'],
+  docsRegistry['settings-chat-connectors-overview'],
+  docsRegistry['settings-chat-connectors-microsoft-teams'],
+  docsRegistry['settings-chat-connectors-slack'],
+  docsRegistry['settings-chat-connectors-telegram'],
+  docsRegistry['settings-chat-connectors-whatsapp'],
   docsRegistry['settings-chat-provider-integrations'],
   docsRegistry['settings-configuration-and-storage'],
   docsRegistry['settings-google-drive-mount'],
@@ -1218,6 +1289,7 @@ export const orderedDocs: DocsRegistryEntry[] = [
   docsRegistry['architecture-node-flow-durable-execution'],
   docsRegistry['architecture-node-flow-foundation'],
   docsRegistry['architecture-node-flows'],
+  docsRegistry['architecture-quality-assurance-agent'],
   docsRegistry['architecture-speech-input'],
   docsRegistry['architecture-speech-output'],
   docsRegistry['architecture-sprint-rollbacks'],

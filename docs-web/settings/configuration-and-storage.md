@@ -8,7 +8,7 @@ This guide explains runtime config sources, precedence, and persistence.
 
 1. CLI `--api-key`
 2. `JULES_API_KEY` or `JULES_KEY`
-3. `.code-ux/settings.json` key fields
+
 
 Additional startup config:
 - `JULES_API_BASE_URL` (default: `https://jules.googleapis.com/v1alpha`)
@@ -54,7 +54,7 @@ For `.code-ux/settings.json` (used primarily for credential hints during initial
 - project root
 - home directory
 
-Note: `.code-ux/settings.json` is not the primary configuration source; Code UX reads its execution settings from the SQLite `settings.db`.
+Note: Code UX reads its execution settings from the SQLite `settings.db`. Outdated file-backed or environment-first configuration approaches are no longer the primary source of truth.
 
 ## Scoped Settings Persistence
 
@@ -77,7 +77,7 @@ Storage:
   - persistent agent skill storage uses separate `skill_storages`, `skills`, `skill_embeddings`, and `agent_skill_storage_bindings` tables. These are distinct from project workspaces, `memories`, and `knowledge_documents`; agent presets attach to named storage records through normalized bindings rather than by storing workspace paths on the preset row.
 
 Runtime resolution:
-- effective runtime settings always resolve as `system -> project -> sprint`
+- effective runtime settings always resolve as `system -> project -> sprint`. System settings are the baseline truth in `settings.db`. Project settings overrides, including explicit `null` fields to mask system defaults, are applied on top. Sprint settings act as transient, sparse overrides on top of the resolved project settings.
 - project settings inherit live system defaults; they do not snapshot them
 - project saves are diffed against the current system defaults, not hardcoded app defaults
 - sprint settings are sparse temporary overrides on top of resolved project settings
@@ -641,7 +641,7 @@ Git manager skill toggles are mode-aware:
 ## Dashboard Port Resolution
 
 Runtime precedence for dashboard port is:
-1. Bound runtime port (actual listening port; may differ when fallback increments)
+1. Bound runtime port (actual listening port; may differ when fallback increments. Note that dashboard port changes require a runtime restart to take effect)
 2. Dashboard settings (`dashboardPort`) in sqlite settings
 3. `.code-ux/settings.json` (`dashboardPort`)
 4. `.env` (`DASHBOARD_PORT`)

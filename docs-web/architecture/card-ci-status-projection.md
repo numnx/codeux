@@ -1,43 +1,59 @@
 # Card CI Status Projection
 
-Task, Sprint, and Live cards expose one compact persisted `ciStatus`: `pending`, `running`, `failed`, or `null` after settlement. The projection does not load the large remote Git status snapshot and does not poll GitHub or GitLab.
+## Purpose and scope
 
-## Persisted evidence
+Task, Sprint, and Live cards expose the same compact persisted `ciStatus` value without loading the remote `GitTrackingStatus` snapshot. The optional value is `pending`, `running`, `failed`, or `null` after the relevant gate settles.
 
-Code UX batch-loads the latest `ci_gate_status` event per task within its sprint's latest run, the latest `main_merge_gate_status` event from that run, and active `open` or `claimed` CI repair attention. Ordering uses the event timestamp and event identity so restart-style reads are deterministic. Earlier sprint-run gates and run-linked attention stay in audit history but cannot become the current attempt's stage. Unlinked gate evidence remains compatible when recorded after the latest run began, and unlinked attention remains available for durable/manual handoffs.
+This projection is a read model only. It does not poll a Git host, change orchestration decisions, or persist a second CI state table.
 
-Only the compact status crosses the card contract. Failed logs, credentials, and arbitrary attention payload fields remain internal.
+## Source files
 
-## Resolution rules
+- `src/contracts/app-types.ts` and `src/contracts/project-management-types.ts` define `CardCiStatus` and the card response fields.
+- `src/domain/sprint/card-ci-status.ts` contains the pure task, main-merge, and sprint resolvers.
+- `src/repositories/project-management/card-ci-status-query.ts` batch-loads persisted gate and attention evidence.
+- `src/repositories/project-management-repository.ts` projects task and sprint card responses.
+- `src/repositories/project-runtime/runtime-status-projection.ts` projects the same state onto Live subtasks.
 
-| Evidence | Card status |
-| --- | --- |
-| Durable task `merge_indicator = CI` without usable newer detail | `pending` |
-| Latest task or main-merge gate is waiting on checks | `running` |
-| Failed checks, blocked task gate, or active CI repair attention | `failed` |
-| Review-only main-merge blocker without failed checks | `null` |
-| Gate settled or relevant attention resolved | `null` |
+## Data flow
 
-Sprint cards aggregate their task statuses and latest main-merge gate with failure-before-running-before-pending precedence. Task cards and Live subtasks call the same pure resolver, so all three surfaces interpret persisted state identically.
+The batched query selects the latest `ci_gate_status` event for each task within its sprint's latest run and the latest `main_merge_gate_status` event from that run. Selection is deterministic by event timestamp and event identity. Scoping task/main-merge gates and run-linked CI attention to the latest run prevents failed or pending evidence from a prior attempt from becoming the current run's stage. Unlinked evidence remains compatible when it was recorded after the latest run began, while unlinked attention remains available for durable/manual handoffs. The query returns only task/sprint failure membership; attention payloads and failed logs never cross the compact contract.
 
-Sprint lifecycle and QA follow the same attempt boundary. Cancellation-pending remains active and displays as running until shutdown reaches the terminal cancelled state, including in project activity and compact active-task reads. Active run states remain authoritative; after a run is terminal, a newer explicit sprint update such as manual completion or a later operator pause takes precedence. Task and sprint `latestReview` values come from the latest sprint run; an unlinked legacy or manual verdict is retained only when it was recorded after that run began. Recovery rows from the same reviewer and QA cycle collapse to the latest attempt before blocker precedence is applied across distinct reviewers, so a passing recovery replaces its own interrupted row without hiding another reviewer's blocker. A new sprint attempt does not inherit an older attempt's QA or merge stage.
+Task resolution follows these rules:
 
-Review gating remains separate from CI failure presentation. A main-merge `review_blocked` event becomes `failed` only when it also carries failed-check evidence or matching CI repair attention is active.
+1. A durable `merge_indicator = CI` without a newer usable gate detail is `pending`.
+2. A latest gate detail that is waiting on checks is `running`.
+3. Failed checks, a blocked task gate, or active task-scoped CI repair attention is `failed`.
+4. A settled task or a newer settled/non-CI gate detail returns `null`, even if older waiting or failure events remain in history.
 
-The dashboard combines that evidence with lifecycle and latest-review state in one durable six-stage delivery flow on Task, Live, Sprint gallery, Sprint ledger, and Overview cards: **Coding**, **Pull request**, **QA**, **CI**, **Merge**, and **Completion**. CI evidence enriches the middle stages but is optional, so a Sprints refresh without historical gate events cannot unmount or flash away the badge. A durably completed workflow settles missing historical PR, checks, and merge projections as successful rather than showing contradictory pending stages. A newer successful observation replaces stale failure, while active matching CI attention restores the failure state.
+Sprint resolution aggregates task results with its latest main-merge gate and active main-merge CI attention. Precedence is `failed`, then `running`, then `pending`.
 
-Active, task-matched human-only attention has presentation precedence over the ordinary lifecycle and gate summary: the trigger becomes red **Human needed** while its disclosure retains all six stages. Explicit attention-item evidence is required: status is `open` or `claimed`, owner is human/user, and worker assignment is explicitly empty. Cleared, machine-owned, worker-assigned, sibling-task, and sibling-sprint attention does not. Sprint-run summaries alone never qualify because they omit status and assignment and may come from generic pause/error events.
+Sprint lifecycle and QA are projected with the same run boundary. A `cancel_requested` run remains active and is exposed as sprint/project `running` until its dispatches stop and the run reaches `cancelled`; compact active-task reads retain its tasks during that shutdown window. Active run states remain authoritative. After a run becomes terminal, a newer explicit sprint-row update, such as manual completion after runtime cleanup or a later operator pause, takes precedence so historical run state cannot overwrite the operator's newer state. Task- and sprint-completion `latestReview` values are selected from the latest sprint run; legacy or manual rows without a run link remain eligible only when they were created after that latest run began. Within one QA cycle, recovery attempts from the same reviewer collapse to that reviewer's latest row before blocking-state precedence is applied across distinct reviewers. A passing recovery therefore replaces its own interrupted/cancelled row without hiding a different reviewer's requested changes or provider failure. Starting a later run clears prior-run QA and main-merge stages from the current card without deleting their audit history.
 
-The bright interactive badge opens one viewport-positioned interaction region on a lightly translucent, blurred outer surface. Its opaque Delivery flow card contains the circular rail; a floating responsive arrow points to the opaque QA review card when a review exists. Status circles share the vertical center of their stage entries, and each connector begins from that aligned marker. Requested changes use the blue pencil and **QA edits** treatment even when failed-check evidence also exists; red identifies actual provider/runtime/workflow failures and explicit **Human needed** intervention. Live replaces its separate task lifecycle and QA badges, while Task, Sprint, and Overview surfaces keep their surrounding lifecycle context and replace the standalone QA/CI disclosures. During active coding below 100%, the sprint badge stays on Coding and ignores child-task gate aggregation; at 100%, current-run sprint QA and explicit final CI/merge evidence become visible. Completion percentage alone never claims Merge, terminal lifecycle state wins over stale evidence, and active human-only intervention keeps presentation precedence. Each task badge continues showing its own PR, QA, CI, and Merge transitions.
+A review-only `review_blocked` main-merge event does not produce a failed CI status. Explicit failed-check evidence (`state = failed_checks` or `hasFailedChecks = true`) and active main-merge CI repair attention still produce `failed`.
 
-The deterministic dashboard integration suite replays these outcomes across all four card renderings, including keyboard-only QA details, collapsed follow-up specifications, Escape focus restoration, unrelated-event isolation, and unchanged snapshot replay. It mocks runtime boundaries and does not invoke Docker, provider CLIs, Git hosting, or a live database.
+The dashboard expands this compact persisted state with project-scoped execution evidence at each page boundary, then combines it with lifecycle and latest-review state in a durable six-stage delivery projection: Coding, Pull request, QA, CI, Merge, and Completion. Tasks and Live derive task-scoped pull-request, checks, and merge steps; the Sprint gallery and ledger share the sprint-scoped aggregation. CI evidence enriches the middle stages but is optional, so a refresh that omits historical gate events cannot unmount or flash away the workflow badge. A durably completed workflow settles missing historical PR, checks, and merge projections as successful instead of displaying contradictory pending stages. Every stage uses outcome text in addition to its icon and tone.
 
-## Compatibility and troubleshooting
+Active, task-matched human-only attention has presentation precedence over the ordinary lifecycle and gate summary: the trigger becomes red **Human needed** while its disclosure retains all six workflow stages. This predicate requires explicit attention-item evidence: status must be `open` or `claimed`, ownership must be `human`/`user`, and the worker-assignment field must be explicitly `null`. Resolved, dismissed, expired, worker-owned, system-owned, worker-assigned, sibling-task, and sibling-sprint attention never activates this override. Sprint-run intervention summaries do not qualify because they omit status and assignment and may be synthesized from lifecycle events such as manual pause or runtime error.
 
-`ciStatus` is optional and nullable. No schema migration or new setting is required; the projection uses existing task, event, sprint-run, QA-review, and attention tables. Malformed payload JSON is ignored safely. If a badge remains after CI settles, verify that the latest run has a newer settled gate event and that CI repair attention is no longer `open` or `claimed`.
+The shared `WorkflowStatusBadge` renders the six stages as a circular rail with motion-safe dotted connectors. Its viewport-positioned interaction region uses one lightly translucent, blurred outer surface around the opaque Delivery flow card, floating responsive arrow, and optional opaque QA review card. Each status circle is vertically centered against its stage entry, and the connector begins from that shared center geometry. Requested changes use the blue `QA edits` treatment even when failed-check evidence also exists; red is reserved for actual provider/runtime/workflow failures and explicit **Human needed** intervention. Live replaces its separate task lifecycle and QA badges with this projection, while Task, Sprint, and Overview surfaces retain their surrounding lifecycle context and replace standalone QA/CI disclosures. During active coding below 100%, a running sprint suppresses task-level gate aggregation so its badge remains on Coding instead of flipping as different child tasks enter PR, CI, or Merge. At 100%, current-run sprint QA and explicit final CI/merge evidence become visible; completion percentage alone never implies Merge. An active human-only intervention remains the higher-priority exception, and terminal lifecycle state wins over stale stage evidence.
 
-## Related pages
+Cross-surface integration coverage lives in `tests/dashboard/v2/qa-ci-card-status.integration.test.tsx`. Its deterministic fixture exercises pull-request creation, running checks, failure, recovery, active attention precedence, unrelated-event isolation, reconnect replay, and keyboard-only QA/CI disclosures across Task, Live, Sprint gallery, and Sprint ledger cards without Docker, provider CLIs, Git hosting, or a database.
 
-- [CI integration](./ci-integration.md)
-- [Sprint engine](./sprint-engine.md)
-- [Data model](./data-model.md)
+## Configuration and defaults
+
+There is no new setting and no database migration. The projection uses existing task rows, task-run events, sprint-run events, and project attention rows. Consumers that do not understand `ciStatus` remain compatible because the contract field is optional and nullable.
+
+## Failure cases and troubleshooting
+
+- Malformed event or attention JSON is ignored safely; a durable task `CI` indicator still produces `pending` when no usable detail exists.
+- A stale badge usually means the producer did not append a settled gate event or did not resolve active CI attention. Inspect the latest event ordered by `created_at DESC, id DESC` and the attention row status.
+- When a sprint has multiple attempts, inspect gate events and QA reviews on the latest sprint-run ID; earlier run evidence is intentionally historical and does not drive the current card.
+- Resolved, dismissed, or expired attention rows do not contribute failure state.
+- Project-management reads must not call GitHub, GitLab, `gh`, or the full Git status projection to repair missing evidence.
+
+## Related links
+
+- [Atomic Sprint Loop](../sprint-loop/atomic-loop.md)
+- [Project Management Implementation](./project-management-implementation.md)
+- [Project Runtime Integration](./project-runtime-integration.md)
+- [Project Attention Foundation](./project-attention-foundation.md)

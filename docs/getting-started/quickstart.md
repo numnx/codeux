@@ -101,7 +101,7 @@ JULES_API_KEY=YOUR_KEY
 
 ### Advanced Start Options
 
-For local headless runs, you can pass `--headless` or `--no-dashboard`. For authenticated MCP-only server processes, use `--server-mode` or `CODE_UX_SERVER_MODE=true` with an explicit MCP HTTP bearer token. MCP HTTP gateway flags (`--mcp-https`, `--mcp-https-port`, etc.; legacy names) remain supported. See the [Installation CLI Flags](../docs-web/user/installation.md#cli-flags) reference for the complete list.
+For local headless runs, you can pass `--headless` or `--no-dashboard`. For authenticated MCP-only server processes, use `--server-mode` or `CODE_UX_SERVER_MODE=true` with an explicit MCP HTTP bearer token. MCP HTTP gateway flags (`--mcp-https`, `--mcp-https-port`, etc.; legacy names) remain supported. See the [Installation CLI Flags](../reference/cli-commands.md) reference for the complete list.
 - Remote mode has no PR/CI data
   - Verify `gh` is installed and authenticated.
 

@@ -1,43 +1,66 @@
-# Worker clarification contract
+# Worker Clarification Contract
 
-Worker clarification requests use the existing project attention ledger as their durable store. They do not create a parallel table.
+## Purpose
 
-## Storage and ownership
+Worker clarification requests are durable, project-owned questions raised by a coding agent while a task is in progress. The backend records the question and delivers an authorized project-manager answer back to the affected provider session before closing the clarification.
 
-Each request is a `project_attention_items` record with `attention_type = worker_clarification` and `owner_type = human`. The attention item id is also the public clarification id. Existing attention columns retain project, sprint, task, sprint-run, and dispatch ownership, while the versioned JSON payload records the task run, provider session, requester agent, deduplication key, markdown question and answer, state, and timestamps.
+## Persistence
 
-Human ownership keeps pending questions out of virtual-worker repair automation.
+Each clarification is stored in `project_attention_items`:
 
-## Lifecycle and safety
+- `attention_type` is `worker_clarification`.
+- `owner_type` is always `human`, so virtual-worker repair automation does not claim or consume the item.
+- The attention item id is the public clarification id.
+- Project, sprint, task, sprint-run, and dispatch columns retain their existing ownership and query semantics.
+- `payload_json` contains the versioned `worker_clarification` payload, including the task-run and provider session references, requester agent, deduplication key, markdown question and answer, status, and lifecycle timestamps.
 
-Clarifications move from `pending` to exactly one terminal state:
+No clarification-specific SQLite table is used.
 
-- `replied` after one answer is accepted;
-- `expired` when its deadline elapses;
-- `cancelled` when it is withdrawn.
+## Lifecycle
 
-Replies close the active attention item only after provider delivery or workspace continuation succeeds. Repeated replies return the settled result without sending another message or starting another run. Expiry and cancellation are idempotent. Questions are limited to 16,000 characters and answers to 32,000 characters.
+The clarification status is one of:
 
-Every task, sprint, sprint run, dispatch, and task-run reference is checked against the declared project and against the other linked runtime records. Reads and mutations require the owning project id as well as the clarification id, and continuation verifies that the replying agent is an eligible project manager for that project.
+- `pending`: the human-owned attention item is open.
+- `replied`: the answer was accepted and the attention item was resolved.
+- `expired`: the request deadline elapsed and the attention item was expired.
+- `cancelled`: the request was withdrawn and the attention item was resolved.
 
-Runtime composition explicitly gives the server its continuation-enabled management handler. If continuation wiring is unavailable, the MCP reply fails closed instead of directly settling the clarification.
+Reply transitions use an atomic active-attention update after provider delivery or workspace continuation succeeds. A repeated reply returns the settled result without delivering a second message or creating a second run. Expiry and cancellation are idempotent and do not replace an earlier terminal state.
 
-## MCP audience boundary
+Question markdown is limited to 16,000 characters and answer markdown to 32,000 characters. Required identifiers and markdown are trimmed and must be non-empty.
 
-The project-manager MCP gateway carries two audience-scoped tools; no additional runtime role is created. Authenticated task agents can discover `request_clarification` only when they are assigned to a project task, selected as the manual coding agent, or included in the project's coding worker pool. Only the configured clarification-reply or dashboard-reply agent, the built-in Project manager fallback, or an unscoped project-manager client can discover `reply_to_clarification`.
+## Idempotency and Ownership
 
-Listing and invocation use the same checks. Unknown or ineligible agents, cross-project calls, and cross-audience calls return `MethodNotFound`. These narrow grants still honor system toggles and explicit agent disables and do not grant other management tools or custom MCP servers. Dashboard-reply and persistent-skill access continue to use their existing policies.
+The requester supplies a project-scoped deduplication key. Repeating the same normalized request returns the existing clarification id; reusing that key with different scope, requester, session, or question content is rejected.
 
-Task-coding runs add the narrow worker clarification gateway even when the selected coding agent has built-in Code UX disabled. Saved tool restrictions and linked custom-server filtering remain intact, and coding agents never receive `reply_to_clarification`. Fresh, resumed, and QA-requested coding prompts include the available project, task, and runtime identifiers and require one concise, evidence-based `request_clarification` question before ambiguity or a project-manager decision is reported as a terminal blocker.
+Before persistence, the service verifies every referenced task, sprint, sprint run, dispatch, and task run belongs to the declared project. It also verifies linked records agree with each other and derives omitted scope fields from the most specific runtime record. Reads and replies require both the project id and clarification id, preventing cross-project access through the public id. Reply continuation independently verifies that the replying agent is an eligible project manager for that project.
 
-## Idempotency and events
+Runtime dependency composition explicitly supplies the continuation-enabled management handler to `CodeUxServer`. The MCP reply path fails closed when that continuation service is unavailable; it never falls back to settling a task-backed clarification directly.
 
-A project-scoped deduplication key makes repeated identical submissions return the existing clarification. Reusing the key for different request content or runtime scope is rejected.
+## MCP Audience Boundary
 
-Task-run-backed clarifications emit idempotent lifecycle and delivery events with clarification, attention, project, task, sprint, dispatch, task-run, provider session, requester, and status metadata.
+The existing project-manager MCP gateway transports two audience-scoped tools without introducing a new runtime role. `request_clarification` is advertised only to an authenticated agent that is assigned to a task in the project, selected as the manual coding agent, or included in `orchestratorAgentPresetIds`. An assignment-only agent must address its assigned task when calling the tool. `reply_to_clarification` is advertised only to the configured clarification-reply or dashboard-reply agent, the built-in Project manager fallback, or an unscoped project-manager MCP client.
 
-Jules replies use the existing session-message API. Local CLI and virtual coding replies append a delimited manager-answer follow-up and resume the preserved workspace, worker branch, provider, model, task agent, and native session lineage through the task rerun path. Runtime state and attention are updated only after that continuation is accepted.
+The same resolver runs for `list_tools` and `call_tool`. Scoped calls must declare the agent's project; unknown agents, ineligible project roles, cross-project calls, and cross-audience calls fail as MCP `MethodNotFound`. Audience grants respect system tool toggles and explicit per-agent disables and do not enable unrelated management tools or custom MCP servers. Persistent-skill retrieval and dashboard-reply defaults remain independent grants.
 
-Session synchronization keeps an unanswered request blocked and visible even when the provider snapshot is stale. A matching continuation or reply restores running state once; repeated reconciliation is idempotent, stale-session requests are ignored, and cancelled or paused runs are not resurrected. Virtual workers treat the clarification type and payload as project-manager-owned, so they cannot auto-answer the question or claim duplicate work for the matching task or dispatch while it is pending. Unrelated task and dispatch scopes remain eligible.
+Task-coding provider invocations add the narrow worker clarification gateway even when the selected coding agent's saved policy has built-in Code UX disabled. Existing explicit tool restrictions and linked custom-server filtering remain intact, and coding agents never receive `reply_to_clarification`. Fresh, resumed, and QA-requested coding prompts identify the current project, task, and available runtime records and require the worker to submit one concise, evidence-based `request_clarification` question before reporting ambiguity or a project-manager decision as a terminal blocker.
 
-Taskless questions record the manager answer without creating a coding dispatch. A task-backed reply remains pending when its provider session or preserved CLI workspace is unavailable.
+## Runtime Events and Provider Continuation
+
+When a task run is present, lifecycle changes append idempotent task-run events such as `worker_clarification_requested`, `worker_clarification_continued`, `worker_clarification_replied`, `worker_clarification_expired`, and `worker_clarification_cancelled`. Event payloads include the clarification id, delivery mode, provider/session correlation, and complete runtime scope.
+
+For Jules, the manager answer is sent through the existing session-message API and the existing task run and dispatch return to running only after the API accepts it. For local CLI and virtual coding providers, the task rerun service appends a clearly delimited manager-answer follow-up and starts a continuation with the same provider, model, task agent, worker branch, workspace session, and native provider-session lineage. This path does not clear the worktree, cancel the prior dispatch, reset QA state, or resolve task attention before continuation is accepted.
+
+Session synchronization projects an active `worker_clarification_requested` event as blocked task and dispatch state even when the provider snapshot is stale. A matching continuation or reply event permits one running projection; source event keys make repeated reconciliation idempotent. Requests tied to a retired session are ignored, and paused or cancelled runs are never reactivated. Virtual-worker scheduling treats both the canonical attention type and its payload discriminator as project-manager-owned, so pending questions cannot enter automatic clarification replies or cause a duplicate claim for the matching task or dispatch. Other task and dispatch scopes remain eligible for scheduling.
+
+Taskless general questions record and settle the manager answer without creating a coding dispatch. Task-backed replies with no provider session or no preserved CLI workspace remain pending and return an error.
+
+## Implementation
+
+- `src/contracts/worker-clarification-types.ts`
+- `src/repositories/worker-clarification-repository.ts`
+- `src/services/worker-clarification-service.ts`
+- `src/services/worker-clarification-continuation-service.ts`
+- `src/services/task-rerun-service.ts`
+- `src/repositories/project-attention-repository.ts`
+- `src/repositories/execution-repository.ts`

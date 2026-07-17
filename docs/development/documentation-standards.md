@@ -36,9 +36,9 @@ When behavior changes:
 3. Add migration notes when behavior is not backward compatible.
 
 **Publication Workflow:**
-- `docs/` is the canonical source of truth, and `docs-web/` is the publication and reference mirror.
+- `docs/` is the canonical source of truth, and `docs-web/` is the sole publication and reference mirror.
 - Update canonical `docs/` first, then align the matching `docs-web/` page consistently whenever public-facing behavior changes or new subsystems are introduced.
-- A `docs-release/` directory should not be created or used.
+- A `docs-release/` directory must not be created or used.
 
 ## Source of Truth Hierarchy
 
