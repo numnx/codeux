@@ -15,11 +15,13 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 Site URL, account email, API token, project key, transition names, and move/close toggles drive Jira automation.
 
-| Control Surface | Runtime Effect | Review Before Saving |
-| --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+The configured **Jira Site URL**, **Account Email**, and **API Token** are used to authenticate and fetch issues via the Jira API. The **Project Key** scopes searches and imports by default when an explicit project prefix isn't provided.
+
+When searching or importing Jira issues, Code UX utilizes guided status filters and exact status names matching, which you can bypass entirely by supplying a custom JQL query.
+
+Code UX treats imported Jira issues strictly as linked read-only context during sprint planning and task execution. It **does not write or mutate** Jira issues automatically outside of explicitly configured **Import** or **Completion** transitions.
+
+When import or close transitions are enabled and triggered, any transition failures (e.g. due to missing transitions) are caught by the runtime. They are recorded as warnings or a `close_failed` state on the linked issue, but they do not fail or stop the overall Code UX sprint pipeline, allowing safe retries.
 
 ## Import Behavior
 

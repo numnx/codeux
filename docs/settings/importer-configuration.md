@@ -15,11 +15,26 @@ Use it when you are configuring a new project, auditing inherited settings, or d
 
 Enablement, API token, optional secret, base URL, default IDs, and search limit decide when each importer is active.
 
-| Control Surface | Runtime Effect | Review Before Saving |
-| --- | --- | --- |
-| Settings card fields | Updates the active Settings scope after you save the page. | Confirm whether you are editing System or Project scope. |
-| Inherited values | Values can flow from system defaults into project and sprint behavior. | Check the source badge before assuming a value is project-specific. |
-| Related runtime paths | The affected service reads the saved settings during planning, dispatch, dashboard rendering, or maintenance work. | Re-run the affected workflow after changing operational settings. |
+Code UX supports the following external importers for reading project context into the sprint:
+- GitHub
+- GitLab
+- Jira
+- Notion
+- Asana
+- Linear
+- Miro
+- Lucid
+- Figma
+- Mural
+
+The importer logic supports standard platform search queries and filters (such as mapping the unified `state` filter into `"open"` vs `"closed"` based queries). It also natively resolves various user-friendly search aliases back to the authoritative provider, such as:
+- "github issues" or "repository issues" (GitHub/GitLab)
+- "jira issues", "asana tasks", "linear issues" or "work items"
+- "notion pages" or "notion databases"
+- "miro boards" or "miro canvas items"
+- "lucidchart", "lucidspark", or "lucid documents"
+- "figma files" or "figjam boards"
+- "mural workspaces" or "mural canvases"
 
 ## Recommended Configuration
 
