@@ -9,7 +9,7 @@ Custom execution is available only when both gates pass:
 1. A source revision has completed validation, produced an immutable artifact, and been explicitly published.
 2. `CODE_UX_CUSTOM_NODES_ENABLED=true` (or an equivalent explicitly enabled runtime dependency) is active.
 
-An unpublished type/version is absent from the executable node-definition registry. A disabled feature gate rejects execution before credentials are resolved or Docker starts. There is no dashboard or public management route that bypasses these service gates.
+An unpublished type/version is absent from the executable node-definition registry. Unknown or mock node types are not executable. A disabled feature gate rejects execution before credentials are resolved or Docker starts. There is no dashboard or public management route that bypasses these service gates.
 
 ## Package contract
 

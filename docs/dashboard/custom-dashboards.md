@@ -43,7 +43,7 @@ Recommended sequence:
 6. Call `validate_revision`, then poll `validation_status` and read `validation_logs` when the session is not passed.
 7. Repair failures by updating the draft or binding metadata and creating a new revision.
 8. Call `publish_revision` only after validation passed. Include `validationSessionId` when publishing from the session just reviewed.
-9. Use `archive` only after human approval; the action follows the standard destructive-action approval flow.
+9. Use `archive` only after human approval; the action follows the standard destructive-action approval flow and stops validation sessions.
 
 ## Data-Source Node Graph
 
