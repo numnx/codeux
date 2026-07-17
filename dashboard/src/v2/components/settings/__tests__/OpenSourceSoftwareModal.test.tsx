@@ -48,6 +48,23 @@ async function openModal(): Promise<HTMLElement> {
 }
 
 describe("OpenSourceSoftwareModal", () => {
+
+  it("localizes Spanish catalog controls and usage areas while preserving metadata and focus restoration", async () => {
+    render(
+      <DashboardI18nProvider initialLocale="es">
+        <Harness />
+      </DashboardI18nProvider>
+    );
+    const trigger = screen.getByRole("button", { name: "Inspect open-source software" });
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    const dialog = await screen.findByRole("dialog", { name: "Software de código abierto" });
+    const search = within(dialog).getByRole("searchbox", { name: "Buscar catálogo de software" });
+    await waitFor(() => expect(search).toHaveFocus());
+  });
+
+
   beforeEach(() => {
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: query === "(prefers-reduced-motion: reduce)",
