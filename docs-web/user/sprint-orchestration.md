@@ -222,8 +222,8 @@ Every UI action has an MCP equivalent:
 
 | UI action | MCP call |
 | --- | --- |
-| Plan a sprint | `manage_sprints` (planning is internal during start) or use planning REST API |
-| Orchestrate | `manage_sprints` → `action: "start"` |
+| Plan a sprint | `manage_sprints` (planning is internal during start), use planning REST API, or use `manage_quicksprints` → `action: "execute"` (defaults to `submitMode: "plan_only"`) |
+| Orchestrate | `manage_sprints` → `action: "start"` or `manage_quicksprints` → `action: "start"` (defaults to `submitMode: "plan_and_start"`) |
 | Pause | `domain: "sprints", action: "pause"` |
 | Cancel | `domain: "sprints", action: "cancel"` (or `force_cancel`) |
 | Inspect run | `domain: "sprints", action: "inspect_run"` |
