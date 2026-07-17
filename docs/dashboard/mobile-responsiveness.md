@@ -34,7 +34,7 @@ When using shared overlay components (`Modal`, `Dialog`, `Drawer`, `Notification
 ## Responsive Data Display
 
 When using the `Table` component for responsive data displays:
-1. **Semantics:** Wrap the entire table in `<Table>`, and ensure `role="rowgroup"` is preserved on `<TableHeader>` and `<TableBody>` to prevent responsive `div` wrappers or `display: block` overrides from breaking native table semantics for assistive technology.
+1. **Semantics:** Wrap the entire table in `<Table>`, and ensure `role="rowgroup"` is preserved on `<TableHeader>` and `<TableBody>` to prevent responsive `div` wrappers or `display: block` overrides from breaking native table semantics for assistive technology. Long tables overflow horizontally using `overflow-x-hidden lg:overflow-visible` combined with internal scroll containers.
 2. **Captions:** Always provide an explicit, descriptive `caption` prop to the `Table` to describe its purpose.
 3. **Mobile Labels:** Supply a `mobileLabel` prop to `<TableCell>` components. This programmatic label acts as a substitute for standard column headers when the layout switches to a stacked card presentation on narrow screens.
 4. **Accessible Sort States:** Apply `ariaSort` explicitly only on the active sort column.
@@ -61,7 +61,8 @@ The Stats page combines fixed header-adjacent navigation, chart controls, tabbed
 4. **Browser Rails:** Browser Preview session rails, launch cards, address controls, script editor actions, log panels, and file-browser tree/change lists own their overflow inside the rail or panel. The iframe/workbench should remain viewport-bounded rather than forcing body-level horizontal or vertical overflow.
 5. **Task Cards:** Task board lanes and cards stack cleanly, preserve lane headings and count summaries, and keep task id/title/status/priority/dependency/session/PR/duration/QA context readable without hover. Drag treatment remains pointer-only unless a real keyboard reordering contract is implemented.
 6. **Color Discipline:** Use Signal Jade for focus, active selection, primary route accents, and running/healthy signals. Use Ember/status tones for warning, error, danger, intervention, and destructive states. Do not solve mobile emphasis by adding unrelated one-off accent colors.
-7. **Motion:** Mobile layouts follow the same motion tokens as desktop. Reduced motion snaps rail movement, chart transitions, task-card tilt, status waves, and background animation while retaining static state cues.
+7. **Touch Targets & Breakpoints:** Interactive controls on narrow viewports must maintain an accessible touch area. Ensure action buttons, dropdown items, and navigation links pad their hit areas (e.g., using the `.touch-target` utility class which creates a 44x44px minimum hit area) without sacrificing visual density. Follow Tailwind's standard `sm`, `md`, `lg` breakpoints explicitly.
+8. **Motion:** Mobile layouts follow the same motion tokens as desktop. Reduced motion snaps rail movement, chart transitions, task-card tilt, status waves, and background animation while retaining static state cues.
 
 ## Horizontal Dashboard Rails
 

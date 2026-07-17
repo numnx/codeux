@@ -18,7 +18,7 @@ The goal is to ensure all primitives align with the signal-and-ember operational
 ### Borders & Rings
 
 *   **`--border-hairline`**: A very subtle border used for structure (Cards, Table cells, Inputs).
-*   **`--accent-focus-ring`**: The primary focus ring color for interactive elements, tied to the theme-specific signal accent. Light mode resolves signal to blue; dark mode keeps the jade signal.
+*   **`--focus-ring-signal`**: The primary focus ring color for interactive elements, tied to the theme-specific signal accent via `--accent-focus-ring`. Light mode resolves signal to blue; dark mode keeps the jade signal.
 
 ### Typography
 
