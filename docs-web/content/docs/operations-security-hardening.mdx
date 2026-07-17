@@ -8,9 +8,17 @@ Encrypted credential data has no plaintext fallback. Missing mounted/KMS/Vault k
 
 Shared subprocess execution validates command names, arguments, stdin files, and working directories immediately before spawning. Working directories must resolve to existing real directories inside the user home, application directory, OS temporary directory, or an explicit `CODE_UX_DIRECTORY_BROWSER_ROOTS` entry before either the inline or helper-process boundary. Git helper repository discovery accepts only `.git` directories and worktree targets with a valid `HEAD`, so stale ancestor markers cannot widen host bind mounts. The selected project and active project workflows share one runtime-owned warm helper per repository: repo-local worktrees share it, separate repositories remain isolated, stdin files stream through `docker exec -i`, and Git/auth environment applies only to each exec. Repository-owned transient artifacts stay inside the existing mount. Commands needing a truly external bind use a one-shot helper. Ephemeral networked Git container names use a truncated SHA-256 digest so provider session identifiers never flow through a weak naming hash. `shell: false` prevents argument values from being reinterpreted as shell syntax.
 
+Terminal WebSocket connections use explicit origin checks (`isHostileBrowserOrigin`) to block cross-site execution. File browser requests undergo strict path normalization (`normalizeAndValidatePath`) to reject absolute paths, encoded traversals, and `.git` access.
+
 Docker provider launches stage selected environment values, provider argv, and generated provider configuration in restrictive temporary files. Oversized prompts for stdin-capable CLIs are streamed from a separate restrictive file through `docker run -i`, keeping the prompt out of both the host Docker command line and the container's final `execve` arguments while avoiding operating-system argument-size failures.
 
 See [Authenticated Headless Server Mode](/docs/operations-server-mode) for deployment, recovery, rotation, SLOs, and limitations.
+
+## Trust Model & Limitations
+
+- **Supply-Chain & Docker Socket:** Base images and third-party actions are pinned and periodically reviewed, but dependency vulnerabilities remain a residual risk. Mounting the Docker socket for preview or provider containers grants host-level daemon access; it does not sandbox escaping workloads.
+- **Custom Node & Custom Dashboard Trust:** Custom nodes and dashboards run operator-authored code within the backend's privileges. They are not sandboxed against host filesystem access or unauthorized network calls.
+- **Chat Connector & External Provider Rollback:** Chat connectors and external provider configurations store metadata and credentials. Rollback of misconfigured connections requires the matching key-provider version and database state; it cannot be performed by manually downgrading to plaintext.
 
 ## External chat connectors
 
