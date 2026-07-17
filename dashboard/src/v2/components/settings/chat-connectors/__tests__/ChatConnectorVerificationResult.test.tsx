@@ -24,4 +24,11 @@ describe("ChatConnectorVerificationResult", () => {
     expect(document.body.textContent).not.toContain("private-value");
     expect(screen.getByText(/marked this failure retryable/)).not.toBeNull();
   });
+
+
+
+  it("shows verification in Spanish without exposing internal diagnostics", () => {
+    render(<ChatConnectorVerificationResult connectionName="Slack" status="failed" verifiedAt={null} outcome={outcome({ status: "failed", providerErrorCode: "verification_timeout", retryable: true, issues: ["token=private-value timed out"] })} stale={false} pending={false} />);
+    expect(document.body.textContent).not.toContain("private-value");
+  });
 });
