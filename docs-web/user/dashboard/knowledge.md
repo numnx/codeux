@@ -45,10 +45,10 @@ quick way to sanity-check what an agent would find for a given query.
 Knowledge uses the embedding models managed on the [Memory](./memory.md) page. If search returns
 nothing, confirm documents are **Ready** and embedded with the currently active model.
 
-## Knowledge vs. memory
+## Knowledge vs. memory and skills
 
-- **Knowledge** is curated reference material *you* add (docs, specs, code) for agents to retrieve.
-- [Memory](./memory.md) is what the runtime *learns* automatically — short-term sprint memory and
-  long-term project memory captured from completed work.
+- **Knowledge** is curated reference material *you* add (docs, specs, code) for agents to retrieve. Once ingested, documents are attached to individual agents through subscriptions on the agent's edit page.
+- [Memory](./memory.md) is what the runtime *learns* automatically — short-term sprint evidence and long-term project claims captured from completed work.
+- **Persistent Skills** are reusable instructions stored in project-owned skill storages, rather than passively retrieved context.
 
-Use Knowledge for durable, authored context; rely on Memory for accumulated, run-derived learnings.
+Use Knowledge for durable, authored context; rely on Memory for accumulated, run-derived learnings, and Skills for explicit agent instructions.

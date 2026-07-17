@@ -1,6 +1,11 @@
 # Memory Claims and Evidence
 
-Code UX treats short-term sprint memories as evidence, not as the durable knowledge base itself.
+Code UX differentiates context into three distinct contracts:
+1. **Memory (Evidence and Claims)**: What the runtime *learns* automatically from work.
+2. **Knowledge Base**: Curated reference documents added by users.
+3. **Persistent Skills**: Reusable agent instructions stored in project-owned skill storages.
+
+Code UX treats short-term sprint memories as **evidence**, not as the durable knowledge base itself.
 Post-sprint remediation promotes only durable knowledge into `memory_claims`.
 
 ## Data Model

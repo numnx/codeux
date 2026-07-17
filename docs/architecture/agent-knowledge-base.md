@@ -1,6 +1,29 @@
 # Agent Knowledge Base
 
-The agent knowledge base is a project-scoped document library used to ground agent presets. Documents are ingested once, embedded with the active local embedding model, and then attached to individual agents through subscriptions.
+Code UX differentiates context into three distinct contracts:
+1. **Memory (Evidence and Claims)**: What the runtime *learns* automatically from work.
+2. **Knowledge Base**: Curated reference documents added by users.
+3. **Persistent Skills**: Reusable agent instructions stored in project-owned skill storages.
+
+The agent knowledge base is a project-scoped document library used to ground agent presets. Knowledge consists of manually curated reference material (documents, specs, notes, code) that is chunked and embedded with the active local embedding model. It provides bounded, evidence-backed claims separate from the runtime's auto-captured learnings.
+
+Once ingested, knowledge documents are attached to individual agents through subscriptions.
+
+## Knowledge Ingestion Boundaries
+
+Knowledge ingestion strictly enforces content boundaries to protect the database and embedding models:
+- Maximum file upload size limit: 10 MB.
+- Maximum extracted characters limit: 4,000,000 characters (~1M tokens).
+- Chunk size boundary: 1,400 characters (~350 tokens) to fit comfortably within the 512-token embedding model limit.
+- Overlap size: 200 characters.
+
+## Restart-Safe Ingestion
+
+Raw text is written to the database first with a status of `pending` or `embedding`. Chunking and embedding are computed incrementally in memory, and written atomically to the database upon successful completion when the status is set to `ready`. If interrupted, the document remains in `pending` or `error` state, preventing orphaned chunks and allowing safe re-processing.
+
+## Search Filters
+
+Agents retrieving knowledge will only search chunks from documents that are actively subscribed to that specific agent. The search uses a default minimum similarity threshold of 0.2 and a limit of 5 chunks.
 
 ## Runtime Flow
 
