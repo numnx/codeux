@@ -6,7 +6,7 @@ This document outlines the design system for the Sprints page and related planni
 
 *   **Coherent Information Architecture:** Planning, gallery browsing, sprint ledger management, imports, and quicksprint actions must share a unified visual structure.
 *   **Premium Visual Rhythm:** Elements should have consistent density, shared spacing scales, and deliberate typographical hierarchy to feel like a single workspace.
-*   **Clear Primary Actions:** Primary planning actions (creating sprints, browsing templates) should be obvious and prominent, without crowding out secondary actions (import, export, settings).
+*   **Clear Primary Actions:** Primary planning actions (creating sprints, browsing templates) should be obvious and prominent, without crowding out secondary actions (import, export, settings). Sprint titles can be customized via `PATCH /api/sprints/:sprintId`, and the UI must preserve these custom titles during async planning (`POST /api/projects/:projectId/sprints/:sprintId/plan`), prompt improvement (`POST /api/projects/:projectId/planning/improve-sprint-prompt`), and replans. Planning cancellation relies on the `clientRequestId` (`POST /api/planning-requests/:clientRequestId/cancel`).
 
 ## Component Guidelines
 
