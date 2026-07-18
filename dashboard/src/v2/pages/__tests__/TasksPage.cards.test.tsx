@@ -1013,4 +1013,48 @@ describe("TasksPage.cards Integration", () => {
     expect(screen.getByText("Keep stored task title")).toBeInTheDocument();
     fireEvent.pointerUp(confirmDelete);
   });
+
+  it("supports Spanish filtering and renders action menu in Spanish", async () => {
+    const user = userEvent.setup();
+    const task = createMockTask({
+      recordId: "task_rec_es",
+      id: "TASK_KEY_ES",
+      title: "Keep stored task title in es",
+      status: "pending",
+      priority: "high",
+      time: "Active",
+    });
+    (useProjectData as unknown as any).mockReturnValue({
+      projects: [{ id: "proj_1", name: "Keep Project Name" }],
+      selectedProject: { id: "proj_1", name: "Keep Project Name" },
+    });
+    (useSprints as unknown as any).mockReturnValue({
+      data: [{ id: "sprint_1", number: 1, name: "Keep Sprint Name", status: "running", startDate: "2026-07-14", endDate: "2026-07-20", date: "Wrong preformatted date", tasksCount: 1, completion: 0, active: true }],
+      loading: false,
+      selectedSprintId: "sprint_1",
+      selectSprint: vi.fn(),
+      refetch: vi.fn(),
+    });
+    (useProjectTasks as any).mockReturnValue({ tasks: [task], loading: false, error: null, refresh: vi.fn() });
+    (deleteTask as unknown as any).mockRejectedValue(new Error("Backend delete detail 42"));
+
+    render(
+      <DashboardI18nProvider initialLocale="es" storage={null}>
+        <ProjectDataContext.Provider value={{ selectedProject: { id: "proj_1", name: "Keep Project Name" } as any } as any}>
+          <TasksPage />
+        </ProjectDataContext.Provider>
+      </DashboardI18nProvider>,
+    );
+
+    expect(screen.getByText("Keep stored task title in es")).toBeInTheDocument();
+
+    // There are 2 instances in normal UI, just test length > 0
+    expect(screen.getAllByRole("region", { name: /tablero de tareas/i }).length).toBeGreaterThan(0);
+
+    const actionTrigger = screen.getByRole("button", { name: /Abrir acciones de tarea para la tarea TASK_KEY_ES/i });
+    await user.click(actionTrigger);
+
+    const actionMenu = await screen.findByRole("menu", { name: /Acciones para la tarea TASK_KEY_ES/i });
+    expect(within(actionMenu).getByRole("menuitem", { name: /Eliminar tarea TASK_KEY_ES/i })).toBeInTheDocument();
+  });
 });

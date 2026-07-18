@@ -77,6 +77,11 @@ export function formatTaskDuration(totalSeconds: number, locale: DashboardLocale
     if (minutes > 0) return `${number.format(minutes)}m ${number.format(remainingSeconds)}s`;
     return `${number.format(remainingSeconds)}s`;
   }
+  if (locale === "es") {
+    if (hours > 0) return `${number.format(hours)} h ${number.format(minutes)} min ${number.format(remainingSeconds)} s`;
+    if (minutes > 0) return `${number.format(minutes)} min ${number.format(remainingSeconds)} s`;
+    return `${number.format(remainingSeconds)} s`;
+  }
   if (hours > 0) return `${number.format(hours)} Std. ${number.format(minutes)} Min. ${number.format(remainingSeconds)} Sek.`;
   if (minutes > 0) return `${number.format(minutes)} Min. ${number.format(remainingSeconds)} Sek.`;
   return `${number.format(remainingSeconds)} Sek.`;

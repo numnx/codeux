@@ -14,7 +14,7 @@ import {
   getProviderTypeLabel,
   sortProviderConfigEntries,
 } from "./settings-view-models.js";
-import type { DashboardLocale } from "../i18n/locales.js";
+import { DEFAULT_DASHBOARD_LOCALE, type DashboardLocale } from "../i18n/locales.js";
 import { translateOnboardingMessage } from "../i18n/messages/onboarding.js";
 
 export const providerMountFields: Partial<Record<ProviderId, keyof SystemSettings["defaults"]["cliWorkflow"]>> = {
@@ -41,7 +41,7 @@ export const PROVIDER_TYPES: ProviderId[] = ["jules", "gemini", "antigravity", "
 
 const EASY_PROVIDER_PRIORITY: ProviderId[] = ["codex", "gemini", "claude-code", "qwen-code", "opencode", "antigravity"];
 
-export const getProviderDescriptions = (locale: DashboardLocale = "en"): Record<ProviderId, string> => ({
+export const getProviderDescriptions = (locale: DashboardLocale = DEFAULT_DASHBOARD_LOCALE): Record<ProviderId, string> => ({
   jules: translateOnboardingMessage(locale, "providerDescriptionJules"),
   gemini: translateOnboardingMessage(locale, "providerDescriptionGemini"),
   codex: translateOnboardingMessage(locale, "providerDescriptionCodex"),
@@ -68,7 +68,7 @@ export const buildProviderConfigId = (providerId: ProviderId): ProviderConfigId 
   `${providerId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 );
 
-export const getDefaultReadiness = (locale: DashboardLocale = "en"): OnboardingRuntimeReadiness => ({
+export const getDefaultReadiness = (locale: DashboardLocale = DEFAULT_DASHBOARD_LOCALE): OnboardingRuntimeReadiness => ({
   checkedAt: "",
   cluster: {
     status: "not_ready",

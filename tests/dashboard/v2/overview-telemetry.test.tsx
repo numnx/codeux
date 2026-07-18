@@ -98,6 +98,26 @@ const makeAttentionItem = (overrides: Partial<ExecutionAttentionItemSummary> = {
 });
 
 describe("OverviewTelemetry Component", () => {
+  it("translates telemetry in Spanish", () => {
+    vi.mocked(useOverviewTelemetry).mockReturnValue({
+      telemetry: {
+        activeProjects: [{ sprintRunId: "r1", projectId: "p1", projectName: "Project A", sprintName: "Sprint 1", sprintNumber: 1, activeDispatchCount: 1, runningDispatchCount: 0 }],
+        attentionProjects: [],
+        recentEvents: [],
+      } as any,
+      loading: false,
+      error: null,
+    });
+
+    render(
+      <DashboardI18nProvider initialLocale="es" storage={null}>
+        <OverviewTelemetry execution={undefined} />
+      </DashboardI18nProvider>,
+    );
+
+    expect(screen.getByText("Sprints activos")).toBeInTheDocument();
+  });
+
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
