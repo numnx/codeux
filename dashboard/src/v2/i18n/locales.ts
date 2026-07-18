@@ -25,7 +25,7 @@ export type DashboardMessageBundle<
 > = Readonly<{
   en: English;
   de: LocalizedMessageCatalog<English>;
-  es?: LocalizedMessageCatalog<English>;
+  es?: LocalizedMessageCatalog<English>; // Added for T15
 }>;
 
 export type DashboardTextMessageKey<Bundle extends DashboardMessageBundle> = {
