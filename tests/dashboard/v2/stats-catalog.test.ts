@@ -39,7 +39,6 @@ describe('Stats Catalog (dashboard/src/v2/i18n/messages/stats.ts)', () => {
     const deStr = deFormatters.formatNumber(value, { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
     const esStr = esFormatters.formatNumber(value, { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
 
-    // In node 18+, currency symbols and placement respect locales
     expect(enStr.includes('1,234.56')).toBe(true);
     expect(deStr.includes('1.234,56')).toBe(true);
     expect(esStr.includes('1.234,56') || esStr.includes('1234,56') || esStr.includes('1,234.56')).toBe(true);

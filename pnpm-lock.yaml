@@ -41,7 +41,7 @@ overrides:
   ws: ^8.21.1
   '@electron/get>undici': '>=7.28.0'
 
-pnpmfileChecksum: sha256-WABKDdid1MHHHQxN4S+abDjAqoLwNJwbh6DblGQSk+Q=
+pnpmfileChecksum: sha256-sbEkXqV+HEy/SkFWOMQAqLw87kRmJUuCrfMMzanb/xI=
 
 importers:
 

@@ -166,5 +166,16 @@
     "typescript": "^5.9.3",
     "vite": "^8.1.5",
     "vitest": "^4.1.10"
+  },
+  "pnpm": {
+    "overrides": {
+      "adm-zip": ">=0.6.0"
+    },
+    "onlyBuiltDependencies": [
+      "onnxruntime-node",
+      "@resvg/resvg-js",
+      "esbuild",
+      "sqlite3"
+    ]
   }
 }
