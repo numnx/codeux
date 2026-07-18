@@ -365,7 +365,7 @@ export const agentsMessages = defineDashboardMessages({
     previewTruncated: "Preview truncated",
     inspectStorage: "Inspect attached skill storage {name}",
     new: "New",
-    empty: "Empty",
+    empty: "Vacío",
     none: "None",
     instructionRequired: "Instruction file content is required before saving.",
     instructionRequiredRetry: "Instruction file content is required. Add guidance or use the starter template, then retry Save.",
@@ -432,6 +432,7 @@ export const agentsMessages = defineDashboardMessages({
     inheritsSetting: "Inherits setting",
     updatedAt: "Updated {date}",
     feelingEmotion: "Feeling {emotion}.",
+
   },
   de: {
     expression: "Ausdruck",

@@ -411,10 +411,238 @@ export const AGENT_HUMOR_MESSAGES_DE: Record<AgentHumorCategory, readonly string
   mood: buildGermanMessages("Bleibt", ["konzentriert mit einem leicht theatralischen Klemmbrett", "ruhig zuversichtlich in einer vernünftigen Schriftart", "mit Besprechungsraum-Begeisterung bereit", "bei geordnetem Optimismus", "fröhlich genug zum Beschriften von Ordnern"]),
 };
 
+export const AGENT_HUMOR_MESSAGES_ES: Record<AgentHumorCategory, readonly string[]> = {
+  starting: buildMessages(
+    [
+      "Abriendo el espacio de trabajo",
+      "Preparando la planificación",
+      "Calentando el portapapeles",
+      "Iniciando el pequeño escritorio de estado",
+      "Desplegando planos",
+      "Ordenando el escritorio virtual",
+      "Afiliando los lápices digitales",
+      "Encendiendo el planificador principal",
+      "Cargando ideas brillantes",
+      "Despertando al especialista",
+    ],
+    [
+      "y abriendo la terminal",
+      "e inspeccionando el código",
+      "y leyendo los objetivos",
+      "para empezar a trabajar",
+      "para arrancar las tareas",
+      "antes del primer paso",
+      "y revisando las notas",
+      "para entrar en calor",
+    ]
+  ),
+  working: buildMessages(
+    [
+      "Escribiendo código cuidadosamente",
+      "Revisando dependencias",
+      "Cazando bugs",
+      "Analizando estructura",
+      "Ajustando la lógica",
+      "Reorganizando componentes",
+      "Calculando variables",
+      "Conectando los cables",
+    ],
+    [
+      "en segundo plano",
+      "para mayor eficiencia",
+      "mientras tomas un café",
+      "con alta precisión",
+      "línea por línea",
+      "sin distracciones",
+    ]
+  ),
+  delegating: buildMessages(
+    [
+      "Asignando subtareas",
+      "Despachando trabajo",
+      "Pasando la batuta",
+      "Repartiendo el esfuerzo",
+      "Llamando a los expertos",
+    ],
+    [
+      "a los especialistas",
+      "a otros agentes",
+      "al equipo de programación",
+      "para avanzar más rápido",
+    ]
+  ),
+  planning: buildMessages(
+    [
+      "Trazando el mapa",
+      "Construyendo el esquema",
+      "Dibujando el plan maestro",
+      "Afinando los pasos",
+      "Priorizando tareas",
+    ],
+    [
+      "con sumo cuidado",
+      "para la ejecución",
+      "antes de codificar",
+    ]
+  ),
+  qa_handoff: buildMessages(
+    [
+      "Enviando a revisión",
+      "Solicitando auditoría",
+      "Preparando el informe QA",
+      "Iniciando inspección de calidad",
+    ],
+    [
+      "para validación final",
+      "con pruebas estrictas",
+      "para encontrar errores",
+    ]
+  ),
+  completion: buildMessages(
+    [
+      "Finalizando los toques",
+      "Completando el trabajo",
+      "Empaquetando los cambios",
+      "Cerrando el ciclo",
+      "Guardando todo el progreso",
+    ],
+    [
+      "con éxito",
+      "y listo para entregar",
+      "como se solicitó",
+    ]
+  ),
+  error: buildMessages(
+    [
+      "Analizando el problema",
+      "Revisando el fallo",
+      "Intentando solucionar un error",
+      "Recalculando la ruta",
+      "Leyendo los registros de error",
+    ],
+    [
+      "para intentar de nuevo",
+      "y buscando soluciones",
+      "con mucho cuidado",
+    ]
+  ),
+  thinking: buildMessages(
+    [
+      "Reflexionando",
+      "Pensando en el siguiente paso",
+      "Considerando opciones",
+      "Contemplando la arquitectura",
+      "Procesando",
+    ],
+    [
+      "en silencio",
+      "muy seriamente",
+      "con la IA encendida",
+    ]
+  ),
+  tool_exec: buildMessages(
+    [
+      "Ejecutando comando",
+      "Corriendo script",
+      "Iniciando proceso en terminal",
+      "Lanzando herramienta de línea de comandos",
+    ],
+    [
+      "en el entorno seguro",
+      "para compilar",
+      "para ver los resultados",
+    ]
+  ),
+  tool_edit: buildMessages(
+    [
+      "Aplicando parche",
+      "Escribiendo archivo",
+      "Modificando el código fuente",
+      "Actualizando documento",
+    ],
+    [
+      "con cuidado",
+      "rápidamente",
+      "en el disco",
+    ]
+  ),
+  tool_read: buildMessages(
+    [
+      "Leyendo archivo",
+      "Inspeccionando contenido",
+      "Abriendo documento",
+      "Revisando el código fuente",
+    ],
+    [
+      "para entender el contexto",
+      "línea por línea",
+      "con rapidez",
+    ]
+  ),
+  tool_search: buildMessages(
+    [
+      "Buscando en los archivos",
+      "Explorando el proyecto",
+      "Filtrando texto",
+      "Rastreando referencias",
+    ],
+    [
+      "para encontrar la aguja",
+      "en el código base",
+      "por todas partes",
+    ]
+  ),
+  tool_web: buildMessages(
+    [
+      "Consultando la web",
+      "Buscando en internet",
+      "Extrayendo datos de la red",
+      "Navegando",
+    ],
+    [
+      "para obtener respuestas",
+      "en tiempo real",
+      "para aprender más",
+    ]
+  ),
+  tool_generic: buildMessages(
+    [
+      "Utilizando herramienta",
+      "Llamando función MCP",
+      "Activando utilidad",
+      "Interactuando con el sistema",
+    ],
+    [
+      "como se planeó",
+      "para avanzar",
+      "en este momento",
+    ]
+  ),
+  mood: buildMessages(
+    [
+      "Sintiéndose motivado",
+      "Inspirado por el código",
+      "En la zona de flujo",
+      "Altamente concentrado",
+    ],
+    [
+      "hoy",
+      "ahora mismo",
+      "en esta tarea",
+    ]
+  ),
+};
+
+const LOCALIZED_HUMOR_DECKS: Record<DashboardLocale, Record<AgentHumorCategory, readonly string[]>> = {
+  en: AGENT_HUMOR_MESSAGES,
+  de: AGENT_HUMOR_MESSAGES_DE,
+  es: AGENT_HUMOR_MESSAGES_ES,
+};
+
 export const getAgentHumorMessages = (
   category: AgentHumorCategory,
   locale: DashboardLocale = "en",
-): readonly string[] => locale === "de" ? AGENT_HUMOR_MESSAGES_DE[category] : AGENT_HUMOR_MESSAGES[category];
+): readonly string[] => LOCALIZED_HUMOR_DECKS[locale]?.[category] ?? AGENT_HUMOR_MESSAGES[category];
 
 export const isAgentHumorCategory = (category: string): category is AgentHumorCategory => (
   CATEGORY_SET.has(category)
