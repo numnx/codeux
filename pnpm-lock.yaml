@@ -52,9 +52,6 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
-      adm-zip:
-        specifier: '>=0.6.0'
-        version: 0.6.0
       ajv:
         specifier: ^8.20.0
         version: 8.20.0

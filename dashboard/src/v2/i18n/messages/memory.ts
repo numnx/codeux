@@ -575,7 +575,7 @@ export const memoryMessages = defineDashboardMessages({
     deleteMemory: "Borrar memoria",
     deleteMemories: "Borrar memorias",
     allVisibleSelected: "Seleccionados los {count} visibles",
-    selectAllVisible: "Seleccionar todas las visibles",
+    selectAllVisible: "Seleccionar todas las {count} visibles",
     selectAllAlready: "Todas las memorias visibles actualmente ya están seleccionadas.",
     selectionDeleteLocked: "La selección está bloqueada mientras se borran las memorias seleccionadas.",
     selectionCannotClear: "La selección no se puede borrar durante el borrado.",

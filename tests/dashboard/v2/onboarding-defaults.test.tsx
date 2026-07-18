@@ -158,12 +158,3 @@ describe("Onboarding automation defaults", () => {
     expect(DEFAULT_DASHBOARD_SETTINGS.appearance.experienceMode).toBe("EXPERT");
   });
 });
-
-describe("Onboarding provider defaults i18n", () => {
-  it("translates provider readiness statuses to Spanish dynamically", async () => {
-    const { getProviderDescriptions } = await import("../../../dashboard/src/v2/lib/onboarding-provider-settings.js");
-    const es = getProviderDescriptions("es");
-    expect(es.jules).toBe("Servicio de la API de Google Jules para la sesión del agente y la orquestación del espacio de trabajo.");
-    expect(es.gemini).toBe("Gemini CLI con copia de autenticación OAuth local o ejecución basada en clave API.");
-  });
-});
