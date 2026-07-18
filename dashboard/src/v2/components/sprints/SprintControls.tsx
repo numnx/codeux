@@ -43,8 +43,8 @@ export const SprintControls: FunctionComponent<SprintControlsProps> = ({
   sprintName,
   labels,
 }) => {
-  const { translate } = useDashboardI18n();
-  const resolvedSprintName = sprintName ?? translate(sprintsMessages, "sprint").toLocaleLowerCase();
+  const { translate, locale } = useDashboardI18n();
+  const resolvedSprintName = sprintName ?? translate(sprintsMessages, "sprint").toLocaleLowerCase(locale);
   const getActionLabel = (action: string, pending: boolean): string => labels
     ? pending
       ? labels.pendingLabel(action, resolvedSprintName)

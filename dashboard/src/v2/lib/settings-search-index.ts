@@ -339,6 +339,21 @@ const GERMAN_CATEGORY_TERMS: Record<CategoryId, string[]> = {
   danger: ["gefahrenbereich", "zurücksetzen", "löschen", "datenbank", "bereinigen", "destruktiv", "projektüberschreibungen"],
 };
 
+const SPANISH_CATEGORY_TERMS: Record<CategoryId, string[]> = {
+  general: ["general", "alcance", "tiempo de ejecución", "automatización", "pausa", "reanudar", "reinicio", "registro", "retención"],
+  appearance: ["apariencia", "visualización", "idioma", "español", "inglés", "tema", "claro", "oscuro", "movimiento", "acento", "barra lateral", "fondo", "zoom"],
+  models: ["modelos de IA", "proveedor", "enrutamiento", "modelo", "peso", "costo", "precio", "entrada de voz", "salida de voz", "voz", "descarga"],
+  agents: ["agentes", "instrucción", "plantilla", "habilidades", "almacenamiento de habilidades", "reflexión", "planificación", "calidad"],
+  memory: ["memoria", "recuerdos", "incrustación", "captura", "promoción", "largo plazo", "corto plazo", "remediación", "evidencia"],
+  techstacks: ["pila tecnológica", "pilas tecnológicas", "catálogo", "tipo de aplicación", "aplicación web", "aplicación de escritorio", "escaneo de paquetes"],
+  guidance: ["guía", "guía de estilo", "guías de estilo", "instrucciones personalizadas"],
+  sprint: ["sprint", "implementación", "rama", "fusión", "aseguramiento de calidad", "ejecución", "docker"],
+  browser: ["vista previa del navegador", "vista previa", "contenedor", "puerto", "visibilidad", "reconstruir", "iniciar"],
+  integrations: ["integraciones", "proveedores", "credenciales", "autenticación", "clave API", "conexión", "repositorio", "pull request", "canal"],
+  mcp: ["mcp", "servidor", "herramienta", "herramientas", "protocolo de contexto de modelo", "integrado", "inyectado"],
+  danger: ["zona de peligro", "restablecer", "eliminar", "base de datos", "borrar", "destructivo", "anulaciones del proyecto"],
+};
+
 const INTEGRATION_FIELD_TERMS: Record<string, string[]> = {
   "google-drive": [
     "google drive",
@@ -436,7 +451,7 @@ const buildEmptyIndex = (categories: Category[], locale: DashboardLocale): Setti
           { value: category.label, role: "label" },
           { value: category.description, role: "description" },
           ...toSearchTerms(BASE_CATEGORY_TERMS[category.id] || [], "term"),
-          ...toSearchTerms(locale === "de" ? GERMAN_CATEGORY_TERMS[category.id] || [] : [], "term"),
+          ...toSearchTerms(locale === "de" ? GERMAN_CATEGORY_TERMS[category.id] || [] : locale === "es" ? SPANISH_CATEGORY_TERMS[category.id] || [] : [], "term"),
         ],
       },
     ]),

@@ -34,10 +34,7 @@ import { sprintsMessages } from "../../i18n/messages/sprints.js";
 import { SprintAmbientWaves } from "./SprintAmbientWaves.js";
 import { useReducedMotion } from "../../hooks/use-reduced-motion.js";
 
-const CARD_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-});
+
 const ACTIVE_WAVE_ACCENT_HEX = "#071521";
 
 const statusMap: Record<SprintStatus, {
