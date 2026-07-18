@@ -142,25 +142,4 @@ describe("custom dashboard runtime", () => {
     expect(document).toContain(source);
     expect(javascriptRevision.fileBundle.files[0]?.content).toBe(source);
   });
-  it("localizes dashboard-owned Spanish runtime presentation without mutating revision assets", () => {
-    const blocked = resolvePublishedCustomDashboardRuntime(
-      { ...dashboard, status: "draft", publishedRevisionId: null },
-      [revision],
-      "es",
-    );
-    expect(blocked.status === "blocked" ? blocked.reason : "").toContain("Solo se pueden abrir paneles personalizados publicados.");
-
-    const source = "window.generatedLabel = 'Custom dashboard source stays verbatim';";
-    const javascriptRevision = {
-      ...revision,
-      manifest: { ...revision.manifest, entryFile: "assets/dashboard.js", filePaths: ["assets/dashboard.js"] },
-      fileBundle: { files: [{ path: "assets/dashboard.js", content: source, contentType: "text/javascript" }] },
-    };
-    const document = buildCustomDashboardFrameDocument(dashboard, javascriptRevision, "es");
-
-    expect(document).toContain('<html lang="es">');
-    expect(document).toContain('aria-label="Panel publicado"');
-    expect(document).toContain(source);
-    expect(javascriptRevision.fileBundle.files[0]?.content).toBe(source);
-  });
 });

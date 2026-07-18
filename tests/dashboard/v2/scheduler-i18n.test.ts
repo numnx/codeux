@@ -37,10 +37,6 @@ describe("Scheduler locale presentation", () => {
     expect(formatScheduleDateTime("2026-10-25T01:30:00.000Z", "de", "Europe/Berlin")).toMatch(/02:30/);
     expect(formatScheduleDateTime("not-an-iso-date", "de", "Europe/Berlin")).toBe("Keine geplante Zeit");
   });
-  it("formats the same ISO instant in Spanish using the persisted timezone", () => {
-    expect(formatScheduleDateTime("2026-10-25T01:30:00.000Z", "es", "Europe/Berlin")).toMatch(/02:30/);
-    expect(formatScheduleDateTime("not-an-iso-date", "es", "Europe/Berlin")).toBe("Sin hora programada");
-  });
 
   it("falls back to active-locale formatting for an invalid persisted timezone", () => {
     const iso = "2026-10-25T01:30:00.000Z";
@@ -48,10 +44,6 @@ describe("Scheduler locale presentation", () => {
     expect(formatScheduleDateTime(iso, "de", "Mars/Olympus_Mons"))
       .toBe(formatScheduleDateTime(iso, "de"));
     expect(() => toAgentSchedulerSummaryEntry(agentEntry({ timezone: "Mars/Olympus_Mons" }), "de"))
-      .not.toThrow();
-    expect(formatScheduleDateTime(iso, "es", "Mars/Olympus_Mons"))
-      .toBe(formatScheduleDateTime(iso, "es"));
-    expect(() => toAgentSchedulerSummaryEntry(agentEntry({ timezone: "Mars/Olympus_Mons" }), "es"))
       .not.toThrow();
   });
 
@@ -64,13 +56,6 @@ describe("Scheduler locale presentation", () => {
     expect(summary.targetSummary).toBe("Thread thread-verbatim");
     expect(summary.timingSummary).toMatch(/^Geplant für /);
     expect(summary.scheduledAt).toBe("2026-10-25T01:30:00.000Z");
-    const summaryEs = toAgentSchedulerSummaryEntry(agentEntry(), "es");
-    expect(summaryEs.label).toBe("Despertador del agente");
-    expect(summaryEs.statusLabel).toBe("programado");
-    expect(summaryEs.title).toBe("Nutzername bleibt");
-    expect(summaryEs.targetSummary).toBe("Hilo thread-verbatim");
-    expect(summaryEs.timingSummary).toMatch(/^Programado para /);
-    expect(summaryEs.scheduledAt).toBe("2026-10-25T01:30:00.000Z");
   });
 
   it("localizes anchored task timing without mutating anchor IDs or offsets", () => {

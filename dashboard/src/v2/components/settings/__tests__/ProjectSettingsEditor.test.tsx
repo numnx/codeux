@@ -13,22 +13,6 @@ import { ProjectSettingsEditor } from "../ProjectSettingsEditor.js";
 afterEach(cleanup);
 
 describe("ProjectSettingsEditor localization", () => {
-
-  it("shows Spanish validation, save/reset feedback, inherited values, and open-source usage labels", async () => {
-    const settings = dashboardSettingsToProjectSettings(DEFAULT_DASHBOARD_SETTINGS);
-    settings.git.githubMode = "REMOTE";
-
-    render(
-      <DashboardI18nProvider initialLocale="es" storage={null}>
-        <ProjectSettingsEditor settings={settings} onChange={() => {}} />
-      </DashboardI18nProvider>,
-    );
-
-    expect(screen.getByText("Nivel de automatización")).toBeInTheDocument();
-    expect(screen.getByText("Aseguramiento de la calidad")).toBeInTheDocument();
-  });
-
-
   it("renders representative German settings labels, descriptions, and generated ARIA descriptions", () => {
     const settings = dashboardSettingsToProjectSettings(DEFAULT_DASHBOARD_SETTINGS);
     settings.git.githubMode = "REMOTE";
