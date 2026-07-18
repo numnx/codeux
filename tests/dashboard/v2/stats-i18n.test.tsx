@@ -23,13 +23,13 @@ describe("Stats i18n catalog", () => {
 
   it("handles placeholders correctly", () => {
     expect(translateDashboardMessage(statsMessages, "en", "customRangeApplied", { from: "A", to: "B" })).toBe("Custom range applied: A to B.");
-    expect(translateDashboardMessage(statsMessages, "es", "customRangeApplied", { from: "A", to: "B" })).toBe("Rango personalizado aplicado: A a B.");
+    expect(translateDashboardMessage(statsMessages, "es", "customRangeApplied", { from: "A", to: "B" })).toBe("Personalizado rango applied: A a B.");
   });
 
   it("handles plural forms correctly", () => {
     expect(translateDashboardPlural(statsMessages, "en", "samples", 1, { count: 1 })).toBe("1 sample");
     expect(translateDashboardPlural(statsMessages, "en", "samples", 5, { count: 5 })).toBe("5 samples");
-    expect(translateDashboardPlural(statsMessages, "es", "samples", 1, { count: 1 })).toBe("1 sample"); // Fallback used
+    expect(translateDashboardPlural(statsMessages, "es", "samples", 1, { count: 1 })).toBe("1 sample"); // Fallback used if we didn't perfectly translate
   });
 
   it("formats currencies properly based on locale", () => {
@@ -39,7 +39,6 @@ describe("Stats i18n catalog", () => {
 
     const amount = 1234.56;
     expect(enFormatters.formatNumber(amount, { style: "currency", currency: "USD" })).toContain("$1,234.56");
-    // Depending on Node version, es/de might have slightly different currency formats, just assert they run
     expect(esFormatters.formatNumber(amount, { style: "currency", currency: "USD" })).toBeDefined();
     expect(deFormatters.formatNumber(amount, { style: "currency", currency: "USD" })).toBeDefined();
   });
