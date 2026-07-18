@@ -120,29 +120,12 @@ describe("SettingsAppearancePanel accent colors", () => {
 
     const language = screen.getByRole("radiogroup", { name: "Dashboard language" });
     const english = within(language).getByRole("radio", { name: "English" });
-    const deutsch = within(language).getByRole("radio", { name: "Deutsch" });
-    fireEvent.click(deutsch);
+    fireEvent.keyDown(english, { key: "ArrowRight" });
 
     expect(document.documentElement.lang).toBe("de");
     expect(window.localStorage.getItem(DASHBOARD_LOCALE_STORAGE_KEY)).toBe("de");
     expect(screen.getByText("Dashboard-Sprache auf Deutsch umgestellt.")).toBeInTheDocument();
     expect(screen.getByText("Anzeigeeinstellungen")).toBeInTheDocument();
-    expect(onDraftUpdate).not.toHaveBeenCalled();
-  });
-
-
-  it("switches to Spanish immediately, persists it, and announces the change", () => {
-    const onDraftUpdate = vi.fn();
-    render(<DashboardI18nProvider><Harness onDraftUpdate={onDraftUpdate} /></DashboardI18nProvider>);
-
-    const language = screen.getByRole("radiogroup", { name: "Dashboard language" });
-    const spanish = within(language).getByRole("radio", { name: "Español" });
-    fireEvent.click(spanish);
-
-    expect(document.documentElement.lang).toBe("es");
-    expect(window.localStorage.getItem(DASHBOARD_LOCALE_STORAGE_KEY)).toBe("es");
-    expect(screen.getByText("Idioma del panel cambiado a español.")).toBeInTheDocument();
-
     expect(onDraftUpdate).not.toHaveBeenCalled();
   });
 

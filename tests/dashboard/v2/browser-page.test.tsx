@@ -19,9 +19,6 @@ const render = (ui: Parameters<typeof testingRender>[0], options?: Parameters<ty
 const renderGerman = (ui: Parameters<typeof testingRender>[0]) => testingRender(ui, {
   wrapper: ({ children }) => <DashboardI18nProvider initialLocale="de" storage={null}>{children}</DashboardI18nProvider>,
 });
-const renderSpanish = (ui: Parameters<typeof testingRender>[0]) => testingRender(ui, {
-  wrapper: ({ children }) => <DashboardI18nProvider initialLocale="es" storage={null}>{children}</DashboardI18nProvider>,
-});
 
 expect.extend(matchers);
 
@@ -1231,79 +1228,6 @@ describe("BrowserPage", () => {
       [{ key: "INVALID-NAME", value: "literal-secret-value", enabled: true }],
     );
     expect(screen.getByText("Vorschau-Umgebung konnte nicht gespeichert werden: INVALID-NAME is reserved by runtime")).toBeInTheDocument();
-  });
-
-  it("runs Spanish start-reuse, rebuild, and stop flows while preserving sprint names", async () => {
-    const user = userEvent.setup();
-    mockStartPreviewSession.mockResolvedValueOnce({
-      ...buildDefaultPreviewSessionsResult().selectedSession,
-      id: "sess-1",
-      status: "running",
-    });
-
-    renderSpanish(<BrowserPage />);
-
-    await user.click(screen.getByRole("button", { name: "Launch Container" }));
-    expect(mockStartPreviewSession).toHaveBeenCalledWith("p1", "s1");
-    expect(screen.getByText("Contenedor lanzado correctamente")).toBeInTheDocument();
-
-    expandPanel(/Sprint seleccionado/);
-    await user.click(screen.getByRole("button", { name: "Reconstruir contenedor de vista previa" }));
-    expect(rebuildPreviewSession).toHaveBeenCalledWith("p1", "s1", "sess-1");
-    expect(screen.getByText("Contenedor reconstruido correctamente")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Detener contenedor de vista previa" }));
-    expect(stopPreviewSession).toHaveBeenCalledWith("p1", "s1", "sess-1");
-    expect(screen.getByText("Contenedor detenido correctamente")).toBeInTheDocument();
-    expect(screen.getAllByText("Sprint 1").length).toBeGreaterThan(0);
-  });
-
-  it("keeps unavailable-script diagnostics verbatim in Spanish", async () => {
-    const user = userEvent.setup();
-    vi.mocked(fetchPreviewScript).mockRejectedValueOnce(new Error("ENOENT /workspace/.code-ux/preview.sh"));
-
-    renderSpanish(<BrowserPage />);
-    expandPanel(/Sprint seleccionado/);
-    await user.click(screen.getByRole("button", { name: "Mostrar editor de script de inicio" }));
-
-    expect(await screen.findByText("No se pudo cargar el script: ENOENT /workspace/.code-ux/preview.sh")).toBeInTheDocument();
-    expect(screen.getByText("ENOENT /workspace/.code-ux/preview.sh", { exact: false })).toBeInTheDocument();
-  });
-
-  it("routes Spanish script-save failures to the existing retry action", async () => {
-    const user = userEvent.setup();
-    vi.mocked(savePreviewScript).mockRejectedValueOnce(new Error("disk full"));
-
-    renderSpanish(<BrowserPage />);
-    expandPanel(/Sprint seleccionado/);
-    await user.click(screen.getByRole("button", { name: "Mostrar editor de script de inicio" }));
-    await screen.findByLabelText("Contenido del script de inicio");
-    await user.click(screen.getByRole("button", { name: "Guardar script de inicio" }));
-
-    expect(await screen.findByText("No se pudo guardar el script: disk full")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Retry" }));
-    expect(savePreviewScript).toHaveBeenCalledTimes(2);
-    expect(await screen.findByText("Script guardado correctamente")).toBeInTheDocument();
-  });
-
-  it("keeps invalid environment diagnostics and entered values verbatim in Spanish", async () => {
-    const user = userEvent.setup();
-    vi.mocked(savePreviewEnvironmentOverrides).mockRejectedValueOnce(new Error("INVALID-NAME is reserved by runtime"));
-
-    renderSpanish(<BrowserPage />);
-    await user.click(screen.getByRole("button", { name: "Env Sprint 1" }));
-    await user.click(screen.getByRole("button", { name: "Añadir anulación" }));
-    await user.type(screen.getAllByLabelText("Nombre de la variable de entorno").at(-1) as HTMLElement, "INVALID-NAME");
-    await user.type(screen.getAllByLabelText("Valor de anulación de entorno de vista previa").at(-1) as HTMLElement, "literal-secret-value");
-    await user.click(screen.getByRole("button", { name: "Guardar anulaciones" }));
-
-    expect(savePreviewEnvironmentOverrides).toHaveBeenCalledWith(
-      "p1",
-      "s1",
-      "sess-1",
-      [{ key: "INVALID-NAME", value: "literal-secret-value", enabled: true }],
-    );
-    expect(screen.getByText("No se pudo guardar el entorno de vista previa: INVALID-NAME is reserved by runtime")).toBeInTheDocument();
   });
 
   it("removes a preview session from the session card", async () => {

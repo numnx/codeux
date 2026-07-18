@@ -136,23 +136,4 @@ describe("custom dashboard view models", () => {
       issues: [{ field: "runtime", code: "validation_failed", message: rawDiagnostic }],
     }, "de")).toBe(rawDiagnostic);
   });
-  it("translates Spanish presentation through stable identifiers and preserves detached diagnostics", () => {
-    expect(getDashboardStatusView("published", "es").label).toBe("Publicado");
-    expect(getRevisionValidationLabel("building", "es")).toBe("Construyendo");
-    expect(getValidationStages("running", "es").map((stage) => stage.label)).toEqual(["Fase de construcción", "Fase de ejecución", "Estado"]);
-    expect(getValidationStageStateLabel("pending", "es")).toBe("Pendiente");
-
-    const parseFailure = parseJsonDraft("{", "Manifest", "es");
-    expect(parseFailure.ok).toBe(false);
-    expect(parseFailure.ok ? "" : parseFailure.message).toContain("Manifest contiene JSON inválido:");
-
-    const rawDiagnostic = "vite build failed at src/dashboard.tsx:17";
-    expect(getValidationIssueExplanation({ field: "runtime", code: "validation_failed", message: rawDiagnostic }, "es")).toBe(rawDiagnostic);
-    expect(getValidationIssueExplanation({ field: "runtime", code: "container_missing", message: "Validation container is no longer present." }, "es")).toBe("El contenedor de validación ya no está presente.");
-    expect(getValidationReportSummary({
-      valid: false,
-      summary: rawDiagnostic,
-      issues: [{ field: "runtime", code: "validation_failed", message: rawDiagnostic }],
-    }, "es")).toBe(rawDiagnostic);
-  });
 });

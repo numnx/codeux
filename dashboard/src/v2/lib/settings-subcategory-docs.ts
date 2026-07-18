@@ -839,54 +839,18 @@ const GERMAN_SUBCATEGORY_HELP = {
   },
 } as const satisfies Record<SettingsSubcategoryId, SettingsSubcategoryHelpCopy>;
 
-const SPANISH_SUBCATEGORY_TITLES: Partial<Record<SettingsSubcategoryId, string>> = {
-  "project-context": "Contexto del Proyecto",
-  "danger-zone": "Zona de Peligro",
-};
-
-const SPANISH_SUBCATEGORY_HELP: Partial<Record<SettingsSubcategoryId, SettingsSubcategoryHelpCopy>> = {
-  "project-context": {
-    summary: "Nombra y etiqueta el proyecto activo, sin alterar el identificador guardado del proyecto o el historial de ejecución.",
-    controls: "El nombre del proyecto es editable; el identificador, la fuente de la creación y el directorio raíz muestran cómo Code UX dirige y abre el espacio de trabajo.",
-    recommended: "Usa un nombre de proyecto reconocible y alinea el directorio raíz a la carpeta raíz del repositorio que quieres que los trabajadores usen.",
-    risks: "Cambiar el nombre es puramente cosmético; un directorio raíz inesperado usualmente indica que el proyecto fue creado desde la ruta equivocada.",
-  },
-  "danger-zone": {
-    summary: "Agrupa la eliminación irreversible de proyectos y el restablecimiento de anulaciones de los proyectos.",
-    controls: "Eliminar o limpiar los datos almacenados y restablecerlos.",
-    recommended: "Solo borra o limpia después de exportar datos importantes. Restablecer anulaciones es preferible si solo quieres volver al modo predeterminado.",
-    risks: "Estas acciones no se pueden deshacer una vez confirmadas.",
-  }
-};
-
-const LOCALIZED_TITLES: Record<string, Partial<Record<SettingsSubcategoryId, string>>> = {
-  de: GERMAN_SUBCATEGORY_TITLES,
-  es: SPANISH_SUBCATEGORY_TITLES,
-};
-
-const LOCALIZED_HELP: Record<string, Partial<Record<SettingsSubcategoryId, SettingsSubcategoryHelpCopy>>> = {
-  de: GERMAN_SUBCATEGORY_HELP,
-  es: SPANISH_SUBCATEGORY_HELP,
-};
-
 const localizeSettingsSubcategoryDoc = (
   doc: SettingsSubcategoryDoc,
   locale: DashboardLocale,
 ): SettingsSubcategoryDoc => {
-  if (locale === "en") {
+  if (locale !== "de") {
     return doc;
   }
-  const titles = LOCALIZED_TITLES[locale];
-  const helps = LOCALIZED_HELP[locale];
-  if (!titles || !helps) {
-    return doc;
-  }
-  const localizedTitle = titles[doc.id as SettingsSubcategoryId] ?? doc.title;
-  const help = helps[doc.id as SettingsSubcategoryId];
+  const localizedTitle = GERMAN_SUBCATEGORY_TITLES[doc.id as SettingsSubcategoryId] ?? doc.title;
   return {
     ...doc,
     title: localizedTitle,
-    ...(help || {}),
+    ...GERMAN_SUBCATEGORY_HELP[doc.id as SettingsSubcategoryId],
   };
 };
 

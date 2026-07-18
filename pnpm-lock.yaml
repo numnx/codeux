@@ -5,7 +5,6 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  adm-zip: '>=0.6.0'
   '@babel/core@<=7.29.0': '>=7.29.6'
   '@rollup/pluginutils@4.2.1>picomatch': 2.3.2
   '@rollup/pluginutils@5.3.0>picomatch': 4.0.4
@@ -41,6 +40,7 @@ overrides:
   vite@>=8.0.0 <=8.0.15: '>=8.0.16'
   ws: ^8.21.1
   '@electron/get>undici': '>=7.28.0'
+  adm-zip: ^0.6.0
 
 importers:
 
@@ -52,9 +52,6 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
-      adm-zip:
-        specifier: '>=0.6.0'
-        version: 0.6.0
       ajv:
         specifier: ^8.20.0
         version: 8.20.0
