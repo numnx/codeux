@@ -45,6 +45,23 @@ vi.mock("../../../dashboard/src/v2/components/OverviewTelemetry.js", () => ({
 import { DashboardV2 } from "../../../dashboard/src/v2/DashboardV2.js";
 
 describe("Overview route localization", () => {
+  it("renders Spanish page copy, named landmarks, a polite route announcement", async () => {
+    const { container } = render(
+      <DashboardI18nProvider initialLocale="es" storage={null}>
+        <DashboardV2 />
+      </DashboardI18nProvider>,
+    );
+
+    expect(screen.getByRole("region", { name: "Resumen del panel" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Resumen" })).toBeInTheDocument();
+    expect(screen.getByText("Métricas en tiempo real e inteligencia operativa en todo el clúster.")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Estado: Clúster óptimo" })).toBeInTheDocument();
+    expect(screen.getByText("Ruta de resumen cargada").closest('[role="status"]')).toHaveAttribute("aria-live", "polite");
+    expect(screen.getByRole("region", { name: "Métricas" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Fuentes" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tareas" })).toBeInTheDocument();
+  });
+
   afterEach(() => cleanup());
 
   it("renders German page copy, named landmarks, a polite route announcement, and responsive rail ordering", async () => {
