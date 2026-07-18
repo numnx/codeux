@@ -167,10 +167,13 @@ describe("WorkflowStatusBadge", () => {
     },
   );
 
+
   it.each([
     ["en", "QA running", "Review in progress"],
     ["de", "QA läuft", "Prüfung läuft"],
+    ["es", "QA en ejecución", "Revisión en curso"],
   ] as const)("shows active sprint-level QA in %s", (locale, badgeLabel, reviewLabel) => {
+
     renderWithI18n(
       <WorkflowStatusBadge scope="sprint" status="running" completion={100} review={activeSprintReview} compact />,
       {},
@@ -178,12 +181,12 @@ describe("WorkflowStatusBadge", () => {
     );
 
     const trigger = screen.getByRole("button", {
-      name: new RegExp(`${locale === "de" ? "Workflow-Status" : "Workflow status"}: ${badgeLabel}`),
+      name: new RegExp(`${locale === "de" ? "Workflow-Status" : locale === "es" ? "Estado del flujo de trabajo" : "Workflow status"}: ${badgeLabel}`),
     });
     expect(trigger).toHaveTextContent(badgeLabel);
     expect(trigger.closest("[data-workflow-state]")).toHaveAttribute("data-qa-state", "running");
     fireEvent.click(trigger);
-    expect(screen.getByRole("region", { name: /workflow details|Workflow-Details/i })).toHaveTextContent(reviewLabel);
+    expect(screen.getByRole("region", { name: /workflow details|Workflow-Details|detalles del flujo de trabajo/i })).toHaveTextContent(reviewLabel);
     expect(screen.getByText("Provider-authored QA summary stays verbatim.")).toBeInTheDocument();
   });
 
