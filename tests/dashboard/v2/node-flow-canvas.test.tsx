@@ -45,4 +45,5 @@ describe("NodeFlowCanvas", () => {
     expect(onMoveNode).toHaveBeenCalledTimes(1);
     expect(onMoveNode).toHaveBeenCalledWith("input-1", { x: 220, y: 200 });
   });
-});
+
+  });

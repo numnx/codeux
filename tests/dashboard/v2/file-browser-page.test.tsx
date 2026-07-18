@@ -237,4 +237,39 @@ describe("FileBrowserPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Dateibrowser konnte nicht gestartet werden: BACKEND_CODE unchanged");
     expect(screen.getAllByText("Sprint unverändert").length).toBeGreaterThan(0);
   });
+
+  it("renders Spanish session controls while preserving sprint and Git reference data", () => {
+    state.selectedProject = { id: "p1", name: "Project 1" };
+    state.sprints = [{ id: "s1", name: "Sprint Conservado" }];
+    state.selectedSprint = { id: "s1", name: "Sprint Conservado" };
+    state.selectedSprintId = "s1";
+    const runningSession = makeSession({ sprintName: "Sprint Conservado", featureBranch: "feature/untranslated-ref" });
+    state.sessionsResult = { sessions: [runningSession], selectedSession: runningSession, loading: false, error: null, refresh: vi.fn().mockResolvedValue(undefined) };
+
+    renderPage("es");
+
+    expect(screen.getByRole("heading", { name: "Explorar y Comparar la Rama del Sprint" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Archivos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reconstruir contenedor del explorador de archivos" })).toBeInTheDocument();
+    expect(screen.getByText("Sprint Conservado")).toBeInTheDocument();
+    expect(screen.getByText("feature/untranslated-ref")).toBeInTheDocument();
+    expect(apiMocks.startFileBrowserSession).not.toHaveBeenCalled();
+  });
+
+  it("starts a Spanish-selected sprint and keeps backend errors verbatim", async () => {
+    state.selectedProject = { id: "p1", name: "Project 1" };
+    state.sprints = [{ id: "s1", name: "Sprint Intacto" }];
+    state.selectedSprint = { id: "s1", name: "Sprint Intacto" };
+    state.selectedSprintId = null;
+    apiMocks.startFileBrowserSession.mockRejectedValueOnce(new Error("BACKEND_CODE unchanged"));
+
+    renderPage("es");
+    const openButton = screen.getByRole("button", { name: "Abrir explorador de archivos" });
+    await waitFor(() => expect(openButton).toBeEnabled());
+    fireEvent.click(openButton);
+
+    await waitFor(() => expect(apiMocks.startFileBrowserSession).toHaveBeenCalledWith("p1", "s1"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Error al iniciar el explorador de archivos: BACKEND_CODE unchanged");
+    expect(screen.getAllByText("Sprint Intacto").length).toBeGreaterThan(0);
+  });
 });
