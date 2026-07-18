@@ -364,7 +364,15 @@ export function writeExecutionInvocationMessage(
 }
 
 function serializeMessageJson(value: Record<string, unknown> | null | undefined): string | null {
-  return value ? JSON.stringify(value) : null;
+  if (!value) return null;
+  try {
+     return JSON.stringify(value);
+  } catch(e) {
+     if (e instanceof TypeError && e.message.includes('circular')) {
+        throw new Error("circular structure cannot be stringified");
+     }
+     throw e;
+  }
 }
 
 interface InvocationMessageSyncRow {

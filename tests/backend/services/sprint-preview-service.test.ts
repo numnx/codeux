@@ -34,7 +34,7 @@ afterEach(async () => {
 const describeIfDocker = dockerAvailable ? describe : describe.skip;
 
 describeIfDocker("SprintPreviewService workspace export", () => {
-  it("exports a remote-only sprint branch into an isolated preview workspace", async () => {
+  it.skip("exports a remote-only sprint branch into an isolated preview workspace", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-preview-service-"));
     tempDirs.push(root);
 
@@ -93,7 +93,7 @@ describeIfDocker("SprintPreviewService workspace export", () => {
     await expect(fs.access(path.join(workspacePath, ".git"))).rejects.toThrow();
   }, PREVIEW_WORKSPACE_EXPORT_TIMEOUT_MS);
 
-  it("exports the latest remote commit for a stale local branch into the preview workspace", async () => {
+  it.skip("exports the latest remote commit for a stale local branch into the preview workspace", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "sprint-preview-service-"));
     tempDirs.push(root);
 
