@@ -312,7 +312,7 @@ export const statsMessages = defineDashboardMessages({
     activeTimeStr: "Aktive Zeit", allStr: "Alle", auditNotes: "Prüfhinweise", available: "Verfügbar", availableInvocationRecords: "Verfügbare Aufrufdatensätze: {count}",
     avgActive: "Ø aktiv", avgDuration: "Durchschn. Dauer", avgTokens: "Ø Tokens", bestCacheEfficiency: "Beste Cache-Effizienz", blendedTokenRate: "Gemischter Token-Satz",
     bucketsEntityLeaders: "Zeitbereiche und führende Entitäten", busiestBuckets: "Aktivste Zeitbereiche", cacheHits: "Cache-Treffer", cacheEfficiency: "Cache-Effizienz", cachedInput: "Cache-Eingabe",
-    cancelled: "Abgebrochen", chartMinimapZoomRegion: "Zoomregion der Diagramm-Minimap, gesamter Zeitraum mit {count} Intervallen", chartMinimapZoomRegionStr: "Zoomregion der Diagramm-Minimap, Intervalle {count} bis {count1} von {count2}",
+    cancelled: "Abgebrochen", chartMinimapZoomRegion: "Zoomregion der Diagramm-Minimap, gesamter Zeitraum mit {count} Intervallen{count1}", chartMinimapZoomRegionStr: "Zoomregion der Diagramm-Minimap, Intervalle {count} bis {count1} von {count2}",
     churnMix: "Änderungsmix", churnPullRequestsMerge: "Codeänderungen, Pull Requests und Merge-Druck",
     clearAll: "Alle leeren", close: "Schließen", codeChurn: "Codeänderungen", codeChurnMixInsertions: "Codeänderungsmix: {count} Einfügungen, {count1} Löschungen, {count2} geänderte Zeilen insgesamt.", collapseInvocation: "Aufruf {value} reduzieren",
     combinedFilteredThroughputAcross: "Kombinierter gefilterter Durchsatz der aktuellen Ansicht.", completed: "Abgeschlossen", compositionBreakdown: "Aufschlüsselung der Zusammensetzung", confidenceBoard: "Vertrauensübersicht",
