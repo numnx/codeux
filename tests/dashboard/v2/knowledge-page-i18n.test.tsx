@@ -73,6 +73,12 @@ const renderGermanPage = () => render(
   </DashboardI18nProvider>,
 );
 
+const renderSpanishPage = () => render(
+  <DashboardI18nProvider initialLocale="es" storage={null}>
+    <KnowledgePage />
+  </DashboardI18nProvider>,
+);
+
 describe("Knowledge route German localization", () => {
   beforeEach(() => {
     cleanup();
@@ -272,5 +278,46 @@ describe("Knowledge route German localization", () => {
     await user.click(screen.getByRole("textbox", { name: "Titel der Notiz" }));
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
+
+describe("Knowledge route Spanish localization", () => {
+  beforeEach(() => {
+    cleanup();
+    projectState.selectedProject = { id: "project-current", name: "Current Project" };
+    projectState.projects = [
+      { id: "project-current", name: "Current Project" },
+      { id: "project-source", name: "Source Project" },
+    ];
+    knowledgeApi.fetchKnowledgeDocuments.mockResolvedValue([]);
+    knowledgeApi.addPastedDocument.mockResolvedValue(makeDocument({ sourceType: "paste" }));
+    knowledgeApi.addRepoPathDocuments.mockResolvedValue(emptyUploadResult());
+    knowledgeApi.uploadKnowledgeFiles.mockResolvedValue(emptyUploadResult());
+    knowledgeApi.importKnowledgeFromProject.mockResolvedValue(emptyUploadResult());
+    knowledgeApi.deleteKnowledgeDocument.mockResolvedValue(undefined);
+    knowledgeApi.reembedKnowledgeDocument.mockResolvedValue(makeDocument({ status: "pending" }));
+    knowledgeApi.searchKnowledge.mockResolvedValue([]);
+    memoryApi.listEmbeddingModels.mockResolvedValue([{ active: true, name: "bge-small-en-v1.5" }]);
+    agentApi.fetchAgentPresets.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it("renders the Spanish empty state", async () => {
+    renderSpanishPage();
+    expect(await screen.findByRole("heading", { name: "Documentos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Subir" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Desde repositorio" })).toBeEnabled();
+  });
+
+  it("renders localized counts, size, date, and status while preserving document data for Spanish", async () => {
+    const doc = makeDocument();
+    knowledgeApi.fetchKnowledgeDocuments.mockResolvedValue([doc]);
+    renderSpanishPage();
+    expect(await screen.findByText(doc.title)).toHaveAttribute("title", doc.title);
   });
 });

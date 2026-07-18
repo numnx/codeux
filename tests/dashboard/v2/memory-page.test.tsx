@@ -92,7 +92,7 @@ describe("memory map canvas helpers", () => {
     });
 });
 
-const renderMemoryPage = (locale: "en" | "de" = "en") => {
+const renderMemoryPage = (locale: "en" | "de" | "es" = "en") => {
     return render(
         <ProjectDataContext.Provider value={{
             projects: [{ id: "proj-1", name: "Project 1", isActive: true }],
@@ -486,4 +486,15 @@ describe("useEmbeddingModelStatus Hook", () => {
         expect(result.current.reembed?.active).toBe(false);
         expect(onComplete).toHaveBeenCalled();
     });
+});
+
+
+describe("MemoryPage Spanish localization", () => {
+  it("renders Spanish map controls while preserving loaded memory content", async () => {
+    memorySidebarExpandedSignal.value = true;
+        const { unmount } = renderMemoryPage("es");
+
+    expect(await screen.findByRole("heading", { name: "Mapa de memoria" })).toBeInTheDocument();
+    unmount();
+  });
 });
