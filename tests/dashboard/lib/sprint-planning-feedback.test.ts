@@ -132,9 +132,5 @@ describe("getPlanningFeedback", () => {
     expect(getPlanningFeedback("plan_only", 0, "de").text).toBe("Sprintdefinition wird registriert...");
     expect(getPlanningPendingMessage("plan_and_start", "de")).toContain("startet erst nach erfolgreicher Planung");
     expect(getPlanningCancelledMessage("replan", "de")).toContain("Bestehende Aufgaben blieben unverändert");
-
-    expect(getPlanningFeedback("plan_only", 0, "es").text).toBe("Registrando definición de sprint...");
-    expect(getPlanningPendingMessage("plan_and_start", "es")).toContain("después de que la planificación se complete exitosamente");
-    expect(getPlanningCancelledMessage("replan", "es")).toContain("Las tareas existentes no se modificaron");
   });
 });

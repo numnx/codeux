@@ -41,35 +41,4 @@ describe("SettingsMemoryPanel internationalization", () => {
     await userEvent.click(screen.getByRole("button", { name: "Speichersystem Konfigurieren" }));
     expect(screen.getAllByText("KI-Bereinigung").length).toBeGreaterThan(0);
   });
-
-  it("renders Spanish remediation controls and locale-aware memory measurements", async () => {
-    const editableSettings = {
-      ...DEFAULT_DASHBOARD_SETTINGS,
-      memory: {
-        ...DEFAULT_DASHBOARD_SETTINGS.memory,
-        maxSprintMemories: 1_234,
-        remediationMode: "ai" as const,
-      },
-    };
-
-    render(
-      <DashboardI18nProvider initialLocale="es" storage={null}>
-        <SettingsDetailWorkspaceProvider>
-          <SettingsMemoryPanel state={{
-            activeScope: "system",
-            selectedProject: null,
-            editableSettings,
-            projectSources: {},
-            updateEditableSettings: () => undefined,
-          } as any} />
-        </SettingsDetailWorkspaceProvider>
-      </DashboardI18nProvider>,
-    );
-
-    expect(screen.getByText("Sistema de memoria")).toBeInTheDocument();
-    expect(screen.getByText(/1(?:\.|,)?234\s*m(á|a)x/i)).toBeInTheDocument();
-    expect(screen.getByText("Programación de remediación a largo plazo")).toBeInTheDocument();
-    await userEvent.click(screen.getAllByRole("button", { name: /Configurar/i })[0]);
-    expect(screen.getAllByText("Remediación por IA").length).toBeGreaterThan(0);
-  });
 });

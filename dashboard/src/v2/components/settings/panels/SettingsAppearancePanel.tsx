@@ -135,17 +135,16 @@ export const SettingsAppearancePanel: FunctionComponent<{
             <PillChoiceGroup
               value={locale}
               onChange={(value) => {
-                const nextLocale = value as "en" | "de" | "es";
+                const nextLocale = value === "de" ? "de" : "en";
                 setLocale(nextLocale);
                 setLocaleAnnouncement(translate(
                   settingsShellMessages,
-                  nextLocale === "de" ? "languageChangedGerman" : nextLocale === "es" ? "languageChangedSpanish" : "languageChangedEnglish",
+                  nextLocale === "de" ? "languageChangedGerman" : "languageChangedEnglish",
                 ));
               }}
               aria-label={translate(settingsShellMessages, "languageChoices")}
               options={[
                 { value: "en", label: translate(settingsShellMessages, "english") },
-                { value: "es", label: translate(settingsShellMessages, "spanish") },
                 { value: "de", label: translate(settingsShellMessages, "german") },
               ]}
             />

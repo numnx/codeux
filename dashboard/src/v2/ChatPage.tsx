@@ -216,7 +216,7 @@ const buildComposerStatus = (input: {
 
   if (input.trimmedInput) {
     const target = input.activeConnectionName
-      ? translateChatMessage(locale, "toTarget", { target: input.activeConnectionName })
+      ? locale === "de" ? ` an ${input.activeConnectionName}` : ` to ${input.activeConnectionName}`
       : "";
     return {
       tone: "ready",

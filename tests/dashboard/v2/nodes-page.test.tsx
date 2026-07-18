@@ -426,9 +426,4 @@ describe("NodesPage governed workspace", () => {
     expect(screen.queryByText("Request binding")).not.toBeInTheDocument();
     expect(screen.queryByText("Credential binding saved and draft review refreshed.")).not.toBeInTheDocument();
   });
-
-  it("renders the dashboard in Spanish", async () => {
-    renderPage(context, "es");
-    expect(await screen.findByRole("heading", { name: "Espacio de trabajo de automatización" })).toBeInTheDocument();
-  });
 });

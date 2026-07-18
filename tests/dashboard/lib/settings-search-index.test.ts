@@ -71,26 +71,6 @@ describe("settings search index", () => {
     expect(searchSettingsCategories(germanIndex, "Claude Code").models).toBeDefined();
   });
 
-
-  it("indexes localized category metadata and Spanish operational synonyms without changing category ids", () => {
-    const spanishCategories = getLocalizedSettingsCategories("es");
-    const spanishIndex = buildSettingsSearchIndex({
-      categories: spanishCategories,
-      locale: "es",
-      providerLabels,
-      integrations,
-      invocationRouteDefinitions: [],
-      agentInstructionTemplateOptions: [],
-      thinkingModeOptions: [],
-    });
-
-    expect(spanishCategories.map((category) => category.id)).toEqual(CATEGORIES.map((category) => category.id));
-    expect(searchSettingsCategories(spanishIndex, "apariencia").appearance).toBeDefined();
-    expect(searchSettingsCategories(spanishIndex, "restablecer").danger).toBeDefined();
-    expect(searchSettingsCategories(spanishIndex, "repositorio").integrations).toBeDefined();
-    expect(searchSettingsCategories(spanishIndex, "Claude Code").models).toBeDefined();
-  });
-
   it("finds the Claude Code provider in model and integration settings", () => {
     const matches = searchSettingsCategories(index, "claude");
 

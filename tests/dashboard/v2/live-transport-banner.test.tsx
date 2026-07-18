@@ -186,4 +186,39 @@ describe("LiveTransportBanner", () => {
     expect(screen.getByText("Verbindungsfehler")).toBeInTheDocument();
     expect(screen.getByText("Runtime API unavailable: trace-42")).toBeInTheDocument();
   });
+
+  it("localizes Spanish reconnecting, recovering, stale, and error presentation while preserving API errors", () => {
+    const renderSpanish = (props: Parameters<typeof LiveTransportBanner>[0]) => (
+      <DashboardI18nProvider initialLocale="es" storage={null}>
+        <LiveTransportBanner {...props} />
+      </DashboardI18nProvider>
+    );
+    const baseProps = {
+      transportState: "reconnecting" as const,
+      isRecovering: false,
+      snapshotUpdatedAt: null,
+      error: null,
+    };
+    const view = render(renderSpanish(baseProps));
+
+    expect(screen.getByText("Reconectando")).toBeInTheDocument();
+
+    view.rerender(renderSpanish({ ...baseProps, transportState: "connected", isRecovering: true }));
+    expect(screen.getByText("Recuperar datos en vivo")).toBeInTheDocument();
+
+    view.rerender(renderSpanish({
+      ...baseProps,
+      transportState: "connected",
+      snapshotUpdatedAt: new Date(Date.now() - 61_000).toISOString(),
+    }));
+    expect(screen.getByText("Datos obsoletos")).toBeInTheDocument();
+
+    view.rerender(renderSpanish({
+      ...baseProps,
+      transportState: "connected",
+      error: "Runtime API unavailable: trace-42",
+    }));
+    expect(screen.getByText("Error de conexión")).toBeInTheDocument();
+    expect(screen.getByText("Runtime API unavailable: trace-42")).toBeInTheDocument();
+  });
 });

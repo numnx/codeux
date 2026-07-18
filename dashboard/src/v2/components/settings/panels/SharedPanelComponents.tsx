@@ -144,13 +144,13 @@ export const SectionCard: FunctionComponent<{
   const configureButtonRef = useRef<HTMLButtonElement>(null);
   const helpDoc = getSettingsSubcategoryDoc(helpId || title);
   const locale = getDocumentDashboardLocale();
-  const resolvedTitle = locale !== "en" ? helpDoc?.title ?? title : title;
+  const resolvedTitle = locale === "de" ? helpDoc?.title ?? title : title;
   const resolvedConfigureLabel = configureLabel || settingsShellText("configure");
   const detailWorkspace = useContext(SettingsDetailWorkspaceContext);
   const resolvedSectionId = sectionId || String(helpId || title);
   const usesDrilldown = drilldown ?? detailWorkspace.enabled;
   const isFocusedDetail = usesDrilldown && detailWorkspace.activeSection === resolvedSectionId;
-  const description = (locale !== "en" ? helpDoc?.summary : summary || helpDoc?.summary)
+  const description = (locale === "de" ? helpDoc?.summary : summary || helpDoc?.summary)
     || settingsShellText("configureDefaults", { title: resolvedTitle.toLocaleLowerCase(locale) });
 
   if (detailWorkspace.enabled && detailWorkspace.activeSection && !isFocusedDetail) {
