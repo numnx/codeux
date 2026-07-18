@@ -25,6 +25,8 @@ describe("AgentAvatarCustomizer", () => {
     vi.clearAllMocks();
   });
 
+
+
   test("labels selected avatar options without relying on color or animation", () => {
     render(<AgentAvatarCustomizer config={config} onChange={vi.fn()} />);
 

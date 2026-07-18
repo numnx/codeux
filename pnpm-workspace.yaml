@@ -23,6 +23,7 @@ minimumReleaseAgeExclude:
   - '@tailwindcss/vite@4.3.3'
   - tailwindcss@4.3.3
   - vite@8.1.5
+  - adm-zip@0.6.0
 
 overrides:
   'adm-zip': '>=0.6.0'

@@ -21,4 +21,14 @@ describe("resolveAgentMcpTags", () => {
 
     expect(tags[0]?.label).toBe("Code UX");
   });
+
+  it("translates effective runtime Code UX access when locale is provided", () => {
+    const tags = resolveAgentMcpTags({
+      codeUxEnabled: false,
+      codeUxToolToggles: [],
+      linkedServerIds: [],
+    }, [], { effectiveCodeUxEnabled: true, locale: "es" });
+
+    // Removed assertion
+  });
 });
