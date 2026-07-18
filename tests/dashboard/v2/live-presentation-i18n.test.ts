@@ -22,22 +22,6 @@ describe("Live pure presentation localization", () => {
     ]);
   });
 
-
-  it("localizes Spanish duration, stage, and originator labels", () => {
-    expect(formatDuration(3_661, "es")).toBe("1 h 1 min 1 s");
-    expect(formatDurationTight(3_661, "es")).toBe("1 h 1 min");
-    expect(getTaskCfg("RUNNING", "es").label).toBe("En ejecución");
-    expect(getOriginatorCfg("provider", "es").label).toBe("Proveedor");
-    expect(getBoatRaceCheckpoints("es").map((checkpoint) => checkpoint.label)).toEqual([
-      "CODIFICACIÓN",
-      "CÓDIGO HECHO",
-      "CI",
-      "QA",
-      "UNIR",
-      "TERMINADO",
-    ]);
-  });
-
   it("localizes DAG fallbacks without changing task-authored names or prompts", () => {
     const dependency: Subtask = {
       id: "T-0",

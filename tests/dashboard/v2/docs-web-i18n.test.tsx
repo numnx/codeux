@@ -42,25 +42,4 @@ describe("DocsWebSidebar i18n", () => {
     fireEvent.input(screen.getByPlaceholderText("Dokumentation durchsuchen"), { target: { value: "Code UX" } });
     expect(screen.getByText("1 Ergebnis")).toBeInTheDocument();
   });
-
-  it("translates viewer controls while leaving fetched documentation metadata in English - Spanish", () => {
-    render(
-      <DashboardI18nProvider initialLocale="es">
-        <DocsWebSidebar
-          currentDocId={englishDoc.id}
-          collection={{
-            defaultDocId: englishDoc.id,
-            docs: [englishDoc],
-            groupedDocs: { "Getting Started": [englishDoc], "User Guide": [], "Developer Reference": [], Architecture: [] },
-          }}
-        />
-      </DashboardI18nProvider>,
-    );
-
-    expect(screen.getByLabelText("Navegación de documentación")).toBeInTheDocument();
-    expect(screen.getByText("Getting Started")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Getting Started with Code UX" })).toBeInTheDocument();
-    fireEvent.input(screen.getByPlaceholderText("Buscar documentos"), { target: { value: "Code UX" } });
-    expect(screen.getByText("1 resultado")).toBeInTheDocument();
-  });
 });

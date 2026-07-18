@@ -1,4 +1,3 @@
-import type { DashboardLocale } from "../../../i18n/locales.js";
 /** @vitest-environment happy-dom */
 import { h } from "preact";
 import { cleanup, screen, waitFor, within } from "@testing-library/preact";
@@ -54,7 +53,7 @@ const model = (overrides: Partial<EmbeddingModelWithStatus> = {}): EmbeddingMode
   ...overrides,
 });
 
-const renderBrowser = (overrides: Partial<Parameters<typeof ModelBrowser>[0]> = {}, locale: DashboardLocale = "en") => {
+const renderBrowser = (overrides: Partial<Parameters<typeof ModelBrowser>[0]> = {}, locale: "en" | "de" = "en") => {
   const props = {
     models: [
       model({ downloaded: false }),

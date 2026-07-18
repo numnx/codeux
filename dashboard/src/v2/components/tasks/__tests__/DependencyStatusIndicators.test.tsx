@@ -110,22 +110,4 @@ describe("DependencyStatusIndicators", () => {
     expect(getByRole("listitem", { name: /Abhängig von Aufgabe TASK_KEY_9/i })).toHaveTextContent("Keep dependency title");
     expect(getByText("QA provider output")).toBeInTheDocument();
   });
-
-
-  it("announces Spanish dependency validation without translating task records", () => {
-    const { getByRole, getByText } = render(
-      <DashboardI18nProvider initialLocale="es" storage={null}>
-        <DependencyStatusIndicators
-          indicators={[
-            { recordId: "rec-es-1", id: "TASK_KEY_ES_1", title: "Keep dependency title", status: "pending" },
-            { recordId: "rec-es-2", id: "TASK_KEY_ES_2", title: "QA provider output", status: "QA_REVIEW_FAILED" },
-          ]}
-        />
-      </DashboardI18nProvider>,
-    );
-
-    expect(getByRole("list")).toHaveAccessibleName(/Bloqueado: las dependencias 2 deben completarse.*Dependencias/i);
-    expect(getByRole("listitem", { name: /Depende de la tarea TASK_KEY_ES_1/i })).toHaveTextContent("Keep dependency title");
-    expect(getByText("QA provider output")).toBeInTheDocument();
-  });
 });

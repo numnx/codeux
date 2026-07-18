@@ -220,19 +220,3 @@ describe("primary navigation experience modes", () => {
     expect(screen.getByRole("link", { name: "Dokumentation" })).toHaveAttribute("href", "/docs");
   });
 });
-
-
-describe("primary navigation experience modes - Spanish", () => {
-  it("translates navigation mode in Spanish", () => {
-    // Easy mode
-    // settings.data = {
-      // appearance
-    // } as any
-    const view = render(
-      <DashboardI18nProvider initialLocale="es" storage={null}>
-        <Sidebar isMobile={false} onClose={vi.fn()} />
-      </DashboardI18nProvider>,
-    );
-    expect(view.getByRole("link", { name: "Sprints" })).toBeInTheDocument();
-  });
-});

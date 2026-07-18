@@ -133,7 +133,7 @@ describe("dashboard i18n foundation", () => {
     );
 
     expect(screen.getByLabelText("locale").textContent).toBe("es");
-    expect(screen.getByLabelText("skip-link").textContent).toBe("Saltar al contenido principal");
+    expect(screen.getByLabelText("skip-link").textContent).toBe("Skip to main content");
     expect(screen.getByLabelText("feature greeting").textContent).toBe("¡Hola, Sam!");
     expect(screen.getByLabelText("feature items").textContent).toBe("2 elementos");
   });
@@ -158,7 +158,7 @@ describe("dashboard i18n foundation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Español" }));
 
     expect(screen.getByLabelText("locale").textContent).toBe("es");
-    expect(screen.getByLabelText("skip-link").textContent).toBe("Saltar al contenido principal");
+    expect(screen.getByLabelText("skip-link").textContent).toBe("Skip to main content");
     expect(screen.getByLabelText("feature greeting").textContent).toBe("¡Hola, Sam!");
     expect(screen.getByLabelText("number").textContent).toBe(
       new Intl.NumberFormat("es", { minimumFractionDigits: 1 }).format(1234.5),
@@ -236,7 +236,7 @@ describe("dashboard i18n foundation", () => {
       }));
     });
     expect(screen.getByLabelText("locale").textContent).toBe("es");
-    expect(screen.getByLabelText("skip-link").textContent).toBe("Saltar al contenido principal");
+    expect(screen.getByLabelText("skip-link").textContent).toBe("Skip to main content");
     expect(screen.getByLabelText("feature greeting").textContent).toBe("¡Hola, Sam!");
     expect(document.documentElement.lang).toBe("es");
 

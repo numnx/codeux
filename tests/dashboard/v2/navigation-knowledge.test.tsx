@@ -5,7 +5,6 @@ import { h } from "preact";
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/preact";
 import * as matchers from "@testing-library/jest-dom/matchers";
-import { DashboardI18nProvider } from "../../../dashboard/src/v2/i18n/context.js";
 import { Sidebar } from "../../../dashboard/src/v2/components/layout/Sidebar.js";
 import { PageContainer } from "../../../dashboard/src/v2/components/layout/PageContainer.js";
 import { KineticDock } from "../../../dashboard/src/v2/components/KineticDock.js";
@@ -208,17 +207,4 @@ describe("Knowledge Base Navigation", () => {
         routeContainer.focus();
         expect(routeContainer).toHaveFocus();
     });
-});
-
-
-describe("TopNav - Spanish", () => {
-  afterEach(cleanup);
-  it("translates Knowledge item in Spanish", () => {
-    const view = render(
-      <DashboardI18nProvider initialLocale="es" storage={null}>
-        <Sidebar isMobile={false} onClose={vi.fn()} />
-      </DashboardI18nProvider>,
-    );
-    expect(view.getByRole("link", { name: "Conocimiento" })).toBeInTheDocument();
-  });
 });

@@ -19,7 +19,7 @@ import {
   useOnboardingMessages,
   type OnboardingMessageKey,
 } from "../../i18n/messages/onboarding.js";
-import { DEFAULT_DASHBOARD_LOCALE, type DashboardLocale } from "../../i18n/locales.js";
+import type { DashboardLocale } from "../../i18n/locales.js";
 
 export type StepId = "mode" | "installation" | "introduction" | "providers" | "provider-setup" | "git" | "jira" | "defaults" | "automation" | "appearance";
 
@@ -57,12 +57,12 @@ export const easyOnboardingSteps = localizeSteps(easyOnboardingStepDefinitions, 
 
 export const getOnboardingStepsForMode = (
   mode: DashboardExperienceMode,
-  locale: DashboardLocale = DEFAULT_DASHBOARD_LOCALE,
+  locale: DashboardLocale = "en",
 ): Array<{ id: StepId; label: string; icon: typeof Settings }> => (
   localizeSteps(mode === "EASY" ? easyOnboardingStepDefinitions : onboardingStepDefinitions, locale)
 );
 
-export const getDefaultOnboardingReadiness = (locale: DashboardLocale = DEFAULT_DASHBOARD_LOCALE): OnboardingRuntimeReadiness => ({
+export const getDefaultOnboardingReadiness = (locale: DashboardLocale = "en"): OnboardingRuntimeReadiness => ({
   checkedAt: "",
   cluster: {
     status: "not_ready",
@@ -115,7 +115,7 @@ const clampStep = (step: number, mode: DashboardExperienceMode): number => (
   Math.min(getOnboardingStepsForMode(mode).length - 1, Math.max(0, step))
 );
 
-export const createInitialOnboardingFlowState = (locale: DashboardLocale = DEFAULT_DASHBOARD_LOCALE): OnboardingFlowState => ({
+export const createInitialOnboardingFlowState = (locale: DashboardLocale = "en"): OnboardingFlowState => ({
   open: false,
   activeStep: 0,
   lastStep: 0,

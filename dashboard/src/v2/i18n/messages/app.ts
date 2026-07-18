@@ -13,10 +13,4 @@ export const appMessages = defineDashboardMessages({
     loadingDashboard: "Dashboard wird geladen.",
     dashboardFooter: "Dashboard-Fußzeile",
   },
-  es: {
-    skipToMainContent: "Saltar al contenido principal",
-    mainContent: "Contenido principal",
-    loadingDashboard: "Cargando panel.",
-    dashboardFooter: "Pie de página del panel",
-  },
 });

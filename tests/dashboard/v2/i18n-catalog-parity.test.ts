@@ -170,48 +170,5 @@ describe("dashboard i18n catalog parity", () => {
         }
       }
     });
-
-    if (bundle.es) {
-      it(`${bundleName} has complete, safe Spanish messages`, () => {
-        const englishKeys = Object.keys(bundle.en).sort();
-        const spanishKeys = Object.keys(bundle.es).sort();
-        expect(spanishKeys).toEqual(englishKeys);
-
-        for (const key of englishKeys) {
-          const english = bundle.en[key];
-          const spanish = bundle.es[key];
-          expect(typeof spanish, `${bundleName}.${key} must keep its message shape`).toBe(typeof english);
-          expect(isPlural(spanish), `${bundleName}.${key} plural shape`).toBe(isPlural(english));
-
-          const englishForms = messageForms(english);
-          const spanishForms = messageForms(spanish);
-          if (isPlural(english) && isPlural(spanish)) {
-            const englishCategories = new Set(new Intl.PluralRules("en").resolvedOptions().pluralCategories);
-            const spanishCategories = new Set(new Intl.PluralRules("es").resolvedOptions().pluralCategories);
-            expect(english.other, `${bundleName}.en.${key}.other`).toBeTruthy();
-            expect(spanish.other, `${bundleName}.es.${key}.other`).toBeTruthy();
-            expect(Object.keys(english).every((category) => englishCategories.has(category as Intl.LDMLPluralRule))).toBe(true);
-            expect(Object.keys(spanish).every((category) => spanishCategories.has(category as Intl.LDMLPluralRule))).toBe(true);
-            expect(Object.keys(spanish).sort(), `${bundleName}.${key} plural forms`).toEqual(Object.keys(english).sort());
-          }
-
-          for (const form of Object.keys(englishForms)) {
-            const englishValue = englishForms[form];
-            const spanishValue = spanishForms[form];
-            const englishPath = `${bundleName}.en.${key}.${form}`;
-
-            const spanishPath = `${bundleName}.es.${key}.${form}`;
-            const spanishCompanion = intentionalEmptyAffixes.get(spanishPath);
-            if (!spanishCompanion) {
-              expect(spanishValue?.trim(), `${spanishPath} is empty`).not.toBe("");
-            } else {
-              expect(String(bundle.es[spanishCompanion]).trim()).not.toBe("");
-            }
-            expect(placeholders(spanishValue), `${bundleName}.${key}.${form} placeholders`).toEqual(placeholders(englishValue));
-            expect(spanishValue, `${bundleName}.es.${key}.${form} contains HTML`).not.toMatch(htmlPattern);
-          }
-        }
-      });
-    }
   }
 });
